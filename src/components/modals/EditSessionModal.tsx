@@ -1,0 +1,99 @@
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { ModalShell } from "../ui/ModalShell";
+import { Input } from "../ui/Input";
+import { ICONS } from "../../constants/icons";
+import { TOKENS, FONT } from "../../constants/theme";
+import type { SessionRecord } from "../../core/contracts";
+import { t } from "../../i18n";
+import { atTimeOfDay, toHHmm } from "../../utils/dateUtils";
+
+/**
+ * EditSessionModal — portado de GEOTrack (que traía horas de ejemplo en duro
+ * "04:56 PM" y un chequeo "??" de datos corruptos simulados).
+ *  - Precarga las horas reales de la sesión.
+ *  - Nota OBLIGATORIA si cambian horas (regla requiresAuditNote de W Tracker;
+ *    la valida también sessionMachine).
+ *  - Banner de solape REAL vía PersistenceService.checkOverlap (inyectado como
+ *    `checkOverlap`), no la regla demo "00:00" de W Tracker.
+ */
+interface EditSessionModalProps {
+  visible: boolean;
+  session: SessionRecord | null;
+  busy?: boolean;
+  onCancel: () => void;
+  onSave: (patch: { declaredStartAtMs: number; endAtMs: number | null; note: string }) => void;
+  checkOverlap: (startMs: number, endMs: number | null, excludeId: number | null) => Promise<boolean>;
+}
+
+export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap }: EditSessionModalProps) {
+  const base = session ? session.actualStartAtMs ?? session.declaredStartAtMs : 0;
+  const [inTime, setInTime] = useState("");
+  const [outTime, setOutTime] = useState("");
+  const [note, setNote] = useState("");
+  const [overlap, setOverlap] = useState(false);
+
+  useEffect(() => {
+    if (visible && session) {
+      setInTime(toHHmm(base));
+      setOutTime(toHHmm(session.endAtMs));
+      setNote("");
+      setOverlap(false);
+    }
+  }, [visible, session, base]);
+
+  const start = session ? atTimeOfDay(base, inTime) : null;
+  const end = session && outTime.trim() ? atTimeOfDay(base, outTime) : null;
+  const invalidStart = inTime.trim() !== "" && start === null;
+  const invalidEnd = outTime.trim() !== "" && end === null;
+  const changed = !!session && start !== null && (start !== base || end !== session.endAtMs);
+
+  useEffect(() => {
+    let alive = true;
+    if (!session || start === null || invalidEnd) return;
+    checkOverlap(start, end, session.id)
+      .then((r) => alive && setOverlap(r))
+      .catch(() => alive && setOverlap(false));
+    return () => {
+      alive = false;
+    };
+  }, [session, start, end, invalidEnd, checkOverlap]);
+
+  const canSave = !!session && start !== null && !invalidEnd && changed && note.trim().length > 0 && !overlap;
+
+  return (
+    <ModalShell
+      visible={visible}
+      title={t("modals.editTitle")}
+      onClose={onCancel}
+      icon={ICONS.actions.edit}
+      scrollable
+      primaryAction={{
+        label: t("common.save"),
+        onPress: () => start !== null && onSave({ declaredStartAtMs: start, endAtMs: end, note: note.trim() }),
+        disabled: !canSave,
+        loading: busy,
+      }}
+      secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
+    >
+      {overlap ? (
+        <View style={[styles.banner, { borderColor: TOKENS.colors.status.warning }]}>
+          <Text style={[styles.bannerText, { color: TOKENS.colors.status.warning }]}>{t("modals.overlapBanner")}</Text>
+        </View>
+      ) : null}
+      <View style={styles.row}>
+        <Input label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" error={invalidStart ? "HH:mm" : undefined} containerStyle={styles.flexInput} />
+        <Input label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" error={invalidEnd ? "HH:mm" : undefined} containerStyle={styles.flexInput} />
+      </View>
+      <Input label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} />
+    </ModalShell>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { flexDirection: "row", gap: TOKENS.spacing.md },
+  flexInput: { flex: 1 },
+  textArea: { height: 90, textAlignVertical: "top" },
+  banner: { borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
+  bannerText: { ...FONT.caption },
+});

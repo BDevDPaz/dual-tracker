@@ -1,0 +1,97 @@
+import type { IntegrityClass } from "./session";
+
+/**
+ * ============================================================================
+ * CONTRATO: PayrollStatement (Propuesta Técnica §9)
+ * ============================================================================
+ * periodStart, periodEnd, lines[], regularHours, overtimeHours, transitHours,
+ * lunchMinutes, grossEstimate, integrityRollup, policyId, packHash.
+ */
+
+export type PayrollLineKind =
+  | "REGULAR"
+  | "OVERTIME_DAILY"
+  | "OVERTIME_WEEKLY"
+  | "TRANSIT"
+  | "LUNCH_DEDUCTION"
+  | "PAUSE_DEDUCTION";
+
+export interface PayrollLine {
+  sessionId: number;
+  dateString: string;
+  siteId: number | null;
+  kind: PayrollLineKind;
+  /** Minutos enteros (se evita el redondeo de horas decimales, como GEOTrack). */
+  minutes: number;
+  /** Tarifa efectiva aplicada a la línea (0 en deducciones). */
+  rate: number;
+  amount: number;
+  /** Advertencias de la línea (p. ej. LUNCH_DURATION_UNKNOWN). */
+  warnings: string[];
+}
+
+export interface IntegrityRollup {
+  total: number;
+  byClass: Record<IntegrityClass, number>;
+  /** true si alguna sesión del periodo está en CONFLICT → pago "no certificado" (§8). */
+  hasConflict: boolean;
+  certified: boolean;
+}
+
+export interface PayrollStatement {
+  periodStart: number;
+  periodEnd: number;
+  lines: PayrollLine[];
+  regularHours: number;
+  overtimeHours: number;
+  transitHours: number;
+  lunchMinutes: number;
+  grossEstimate: number;
+  integrityRollup: IntegrityRollup;
+  policyId: string;
+  /** Hash del EvidencePack que selló este statement. null mientras sea preview. */
+  packHash: string | null;
+  // Soporte
+  overtimeDailyHours: number;
+  overtimeWeeklyHours: number;
+  deductionMinutes: number;
+  sessionIds: number[];
+  warnings: string[];
+}
+
+/** Efecto de nómina tentativo que devuelve SessionEngine tras cada intención (§4.1). */
+export interface SessionPayrollPreview {
+  sessionId: number;
+  netMinutes: number;
+  regularMinutes: number;
+  overtimeDailyMinutes: number;
+  transitMinutes: number;
+  lunchMinutes: number;
+  grossEstimate: number;
+  certified: boolean;
+  policyId: string;
+}
+
+/**
+ * Política de nómina declarada y versionada (§5.2). Un cambio de regla no
+ * reescribe historial cerrado: genera un recálculo con otro policyId.
+ */
+export interface PayrollPolicy {
+  id: string;
+  label: string;
+  /** Minutos diarios antes de overtime diario. null = sin OT diario. */
+  dailyOvertimeAfterMinutes: number | null;
+  /** Minutos semanales (regulares) antes de overtime semanal. null = sin OT semanal. */
+  weeklyOvertimeAfterMinutes: number | null;
+  /**
+   * Ámbito del umbral diario: "DAY" suma todas las sesiones del día;
+   * "SESSION" replica calculatePay() de GEOTrack (umbral por sesión).
+   */
+  dailyScope: "DAY" | "SESSION";
+}
+
+/** Entradas monetarias de la política de empresa usadas por el motor. */
+export interface PayrollRates {
+  hourlyRate: number;
+  overtimeMultiplier: number;
+}

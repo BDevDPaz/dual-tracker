@@ -1,0 +1,113 @@
+/**
+ * system/conflict.tsx — Resolución de CONFLICT (Producto §5.16). NUEVO.
+ * Por cada sesión por revisar: hecho A (GPS), hecho B (manual/auto),
+ * diferencia en minutos e impacto estimado en nómina (selector, no cálculo
+ * en vista). Decisiones: Conservar GPS; Aceptar ajuste manual (exige nota);
+ * Dividir en dos sesiones si hay solape. Cada decisión es una intención al
+ * SessionEngine + asiento nuevo en el ledger. No existe "descartar" sin autor;
+ * mientras haya conflictos, el back queda bloqueado.
+ * Nota: RESOLVE_SPLIT aún responde NOT_IMPLEMENTED en el motor (TODO).
+ */
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import { useNavigation, useRouter } from "expo-router";
+import { Button, Card, EmptyState, Input, IntegrityBadge, ScreenContainer } from "../../src/components/ui";
+import { KeyValueRow } from "../../src/components/blocks";
+import { TOKENS, FONT } from "../../src/constants/theme";
+import { useClock, useWorkTracker } from "../../src/core/hooks";
+import { selectConflictViews, type ConflictView } from "../../src/core/selectors";
+import { t } from "../../src/i18n";
+import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
+
+export default function ConflictScreen() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const { state } = useWorkTracker();
+  const nowMs = useClock(60_000);
+  const views = selectConflictViews(state, nowMs);
+  const hasConflicts = views.length > 0;
+
+  useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", (e) => {
+      if (!hasConflicts) return;
+      e.preventDefault();
+      Alert.alert(t("conflict.title"), t("conflict.blockedBack"));
+    });
+    return unsub;
+  }, [navigation, hasConflicts]);
+
+  if (!hasConflicts) {
+    return (
+      <ScreenContainer>
+        <EmptyState title={t("conflict.none")} icon="checkmark-circle-outline" />
+        <Button label={t("common.close")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))} />
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {views.map((v) => (
+        <ConflictCard key={v.session.id} view={v} onOpenSession={() => router.push(`/session/${v.session.id}`)} />
+      ))}
+    </ScrollView>
+  );
+}
+
+function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSession: () => void }) {
+  const { emit } = useWorkTracker();
+  const [note, setNote] = useState(view.session.bookkeeping.manualNote ?? "");
+  const [busy, setBusy] = useState(false);
+  const range = (r: { startAtMs: number; endAtMs: number | null } | null) =>
+    r ? `${formatTime(r.startAtMs)} – ${r.endAtMs ? formatTime(r.endAtMs) : "…"}` : "—";
+
+  const run = async (intent: Parameters<typeof emit>[0]) => {
+    setBusy(true);
+    await emit(intent);
+    setBusy(false);
+  };
+
+  return (
+    <Card style={styles.card}>
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>
+          {view.site?.alias ?? t("today.noDestination")} · {formatDate(view.factB.startAtMs)}
+        </Text>
+        <IntegrityBadge integrity={view.session.integrityClass} />
+      </View>
+      <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{view.reason}</Text>
+      <KeyValueRow label={t("conflict.factA")} value={range(view.factA)} />
+      <KeyValueRow label={t("conflict.factB")} value={range(view.factB)} />
+      <KeyValueRow label={t("conflict.diff")} value={view.diffMinutes !== null ? `${view.diffMinutes > 0 ? "+" : ""}${view.diffMinutes} ${t("common.minutes")}` : "—"} />
+      <KeyValueRow label={t("conflict.payrollImpact")} value={view.payrollImpact !== null ? formatCurrency(view.payrollImpact) : "—"} emphasis />
+      <Button label={t("cta.reviewSession")} size="sm" variant="ghost" onPress={onOpenSession} />
+
+      <Input placeholder={t("conflict.notePlaceholder")} value={note} onChangeText={setNote} multiline />
+      <Button label={t("conflict.keepGps")} disabled={busy || !view.factA} onPress={() => void run({ type: "RESOLVE_KEEP_GPS", sessionId: view.session.id, note: note.trim() || null })} />
+      <Button
+        label={t("conflict.acceptManual")}
+        variant="secondary"
+        disabled={busy || note.trim().length === 0}
+        onPress={() => void run({ type: "RESOLVE_MANUAL", sessionId: view.session.id, note: note.trim() })}
+      />
+      {view.canSplit ? (
+        <Button
+          label={t("conflict.split")}
+          variant="ghost"
+          disabled={busy || note.trim().length === 0}
+          onPress={() =>
+            void run({ type: "RESOLVE_SPLIT", sessionId: view.session.id, splitAtMs: view.factA?.endAtMs ?? view.factB.startAtMs, note: note.trim() })
+          }
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
+  card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm },
+  title: { ...FONT.bodyStrong, flex: 1 },
+  caption: { ...FONT.caption },
+});

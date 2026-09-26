@@ -1,0 +1,39 @@
+/**
+ * Catálogo de políticas de nómina versionadas (Propuesta Técnica §5.2).
+ * "Política declarada y versionada (por ejemplo California daily OT + weekly 40).
+ *  Un cambio de regla no reescribe historial cerrado; genera un recálculo con policyId."
+ *
+ * Reglas NO implementadas por no estar especificadas en la propuesta
+ * (TODO validar con asesoría laboral): doble tiempo > 12 h, séptimo día
+ * consecutivo, periodos de comida obligatorios, redondeos de minutos.
+ */
+import type { PayrollPolicy } from "../../core/contracts";
+
+/** Réplica exacta de calculatePay() de GEOTrack: > 8 h por sesión = OT. */
+export const LEGACY_DAILY8_V1: PayrollPolicy = {
+  id: "LEGACY_DAILY8_v1",
+  label: "Heredada GEOTrack: > 8 h por sesión",
+  dailyOvertimeAfterMinutes: 8 * 60,
+  weeklyOvertimeAfterMinutes: null,
+  dailyScope: "SESSION",
+};
+
+/** Ejemplo citado en la propuesta: California daily OT (> 8 h/día) + weekly 40. */
+export const CA_DAILY8_WEEKLY40_V1: PayrollPolicy = {
+  id: "CA_DAILY8_WEEKLY40_v1",
+  label: "California: > 8 h/día y > 40 h/semana",
+  dailyOvertimeAfterMinutes: 8 * 60,
+  weeklyOvertimeAfterMinutes: 40 * 60,
+  dailyScope: "DAY",
+};
+
+export const PAYROLL_POLICIES: Record<string, PayrollPolicy> = {
+  [LEGACY_DAILY8_V1.id]: LEGACY_DAILY8_V1,
+  [CA_DAILY8_WEEKLY40_V1.id]: CA_DAILY8_WEEKLY40_V1,
+};
+
+export const DEFAULT_PAYROLL_POLICY_ID = CA_DAILY8_WEEKLY40_V1.id;
+
+export function getPayrollPolicy(id: string): PayrollPolicy {
+  return PAYROLL_POLICIES[id] ?? PAYROLL_POLICIES[DEFAULT_PAYROLL_POLICY_ID];
+}

@@ -1,0 +1,83 @@
+/**
+ * ForegroundWorkService — Runtime (Propuesta Técnica §5.8, nuevo, Android)
+ * ============================================================================
+ * Servicio en primer plano de ubicación, obligatorio para rastreo confiable
+ * en Android 10+. Notificación persistente NO alarmista:
+ * "Jornada en curso · monitoreo de zona activa".
+ *  - Se inicia al pasar a ESPERANDO o ACTIVA y se detiene al CERRADA.
+ *  - En PAUSADA se detiene el muestreo (almuerzo no rastrea destino personal);
+ *    la geocerca nativa sigue activa.
+ *  - El perfil de muestreo (intervalos) lo decide TraceRecorderService.
+ *
+ * Base: startActiveTracking de LEDTracker (startLocationUpdatesAsync con
+ * foregroundService), con perfiles adaptativos y copy de la propuesta.
+ * En iOS no hay FGS: se usa significant-change + geofence (TaskOrchestrator).
+ */
+import * as Location from "expo-location";
+import { Platform } from "react-native";
+import type { SessionRecordStatus, TraceMode } from "../../core/contracts";
+import { BREADCRUMB_TASK_NAME } from "../../constants/geolocation";
+import { t } from "../../i18n";
+import { serializeError } from "../../utils/serializeError";
+import { TraceRecorderService } from "../evidence/TraceRecorderService";
+import { LoggingService } from "../persistence/LoggingService";
+
+let currentProfileKey: string | null = null;
+
+export const ForegroundWorkService = {
+  /** ¿Debe estar corriendo en este estado? */
+  shouldRun(status: SessionRecordStatus | "NO_INICIADA"): boolean {
+    return status === "ESPERANDO" || status === "ACTIVA" || status === "TRASLADO" || status === "SALIDA";
+  },
+
+  async isRunning(): Promise<boolean> {
+    return Location.hasStartedLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => false);
+  },
+
+  /** Sincroniza el servicio con el estado de la jornada. Idempotente. */
+  async sync(status: SessionRecordStatus | "NO_INICIADA", mode: TraceMode): Promise<"running" | "stopped"> {
+    const profile = ForegroundWorkService.shouldRun(status) ? TraceRecorderService.profileFor(status, mode) : null;
+    if (!profile) {
+      await ForegroundWorkService.stop();
+      return "stopped";
+    }
+    const key = `${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
+    const running = await ForegroundWorkService.isRunning();
+    if (running && key === currentProfileKey) return "running";
+    try {
+      const bg = await Location.getBackgroundPermissionsAsync();
+      if (bg.status !== "granted") {
+        LoggingService.log("NARANJA", "UBICACION", "WARN", "FGS no iniciado: sin ubicación en segundo plano");
+        return "stopped";
+      }
+      if (running) await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
+      await Location.startLocationUpdatesAsync(BREADCRUMB_TASK_NAME, {
+        accuracy: status === "TRASLADO" ? Location.Accuracy.High : Location.Accuracy.Balanced,
+        timeInterval: profile.timeIntervalMs,
+        distanceInterval: profile.distanceIntervalM,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        activityType: Location.ActivityType.Other,
+        foregroundService: {
+          notificationTitle: t("notifications.fgsTitle"),
+          notificationBody: t("notifications.fgsBody"),
+          killServiceOnDestroy: false,
+        },
+      });
+      currentProfileKey = key;
+      LoggingService.log("VERDE", "SERVICIOS_ACTIVOS", "INFO", "Servicio en primer plano activo", { status, platform: Platform.OS });
+      return "running";
+    } catch (error) {
+      LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo iniciar el servicio en primer plano", serializeError(error));
+      return "stopped";
+    }
+  },
+
+  async stop(): Promise<void> {
+    currentProfileKey = null;
+    if (await ForegroundWorkService.isRunning()) {
+      await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
+      LoggingService.log("NARANJA", "MONITOREO_DETENIDO", "INFO", "Servicio en primer plano detenido");
+    }
+  },
+};

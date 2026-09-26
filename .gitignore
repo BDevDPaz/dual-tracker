@@ -1,0 +1,33 @@
+# dependencias
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# nativo (prebuild)
+/ios
+/android
+
+# metro / builds
+.metro-health-check*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# entorno local
+.env*.local
+.DS_Store
+*.pem
+
+# typescript
+*.tsbuildinfo

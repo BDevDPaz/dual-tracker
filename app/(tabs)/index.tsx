@@ -1,0 +1,240 @@
+/**
+ * (tabs)/index.tsx — Hoy: mando de jornada (Producto §5.7). REDISEÑO.
+ * Compone PageHeader, SystemHealthBlock, OperationalHeroCard,
+ * DailySummaryBlock y la zona de CTAs según getSessionStateUI. Monta
+ * DailySetupModal, LunchModal y ExitDetectionModal. No calcula horas: todo
+ * sale de selectores; toda mutación es una ViewIntent.
+ */
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import {
+  Button,
+  DailySummaryBlock,
+  OperationalHeroCard,
+  PageHeader,
+  ScreenContainer,
+  SystemHealthBlock,
+  EmptyState,
+} from "../../src/components/ui";
+import { DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
+import { ScreenStatusBanner } from "../../src/components/blocks";
+import { TOKENS, FONT } from "../../src/constants/theme";
+import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
+import { useClock, useWorkTracker } from "../../src/core/hooks";
+import {
+  getSessionStateUI,
+  selectActiveElapsedMs,
+  selectActiveSession,
+  selectCurrentTargetSite,
+  selectHasConflict,
+  selectLastSessionToday,
+  selectLunchElapsedMs,
+  selectSessionState,
+  selectSiteById,
+  selectSites,
+  selectSystemHealth,
+  selectTodaySummary,
+  selectUiRequests,
+  type HeroAction,
+} from "../../src/core/selectors";
+import { t } from "../../src/i18n";
+import { formatCurrency, formatDate, formatDuration, formatTime } from "../../src/utils/dateUtils";
+
+type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT";
+
+export default function TodayScreen() {
+  const router = useRouter();
+  const { state, emit } = useWorkTracker();
+  const nowMs = useClock(1000);
+  const [modal, setModal] = useState<OpenModal>(null);
+  const [busy, setBusy] = useState(false);
+
+  const sessionState = selectSessionState(state, nowMs);
+  const ui = getSessionStateUI(sessionState);
+  const active = selectActiveSession(state);
+  const lastToday = selectLastSessionToday(state, nowMs);
+  const target = selectCurrentTargetSite(state);
+  const sites = selectSites(state);
+  const health = selectSystemHealth(state);
+  const summary = selectTodaySummary(state, nowMs);
+  const hasConflict = selectHasConflict(state);
+  const uiRequests = selectUiRequests(state);
+
+  // Peticiones de UI originadas fuera de la vista (notificación de salida, boot en SALIDA).
+  useEffect(() => {
+    if (uiRequests.openExitModal) setModal("EXIT");
+    else if (uiRequests.openDailySetup) setModal(uiRequests.openDailySetup === "transit" ? "SETUP_TRANSIT" : "SETUP_START");
+    else return;
+    void emit({ type: "CONSUME_UI_REQUEST" });
+  }, [uiRequests.openExitModal, uiRequests.openDailySetup, emit]);
+
+  // Si el estado deja de ser SALIDA (p. ej. decidido desde la notificación), cerrar el hub.
+  useEffect(() => {
+    if (modal === "EXIT" && sessionState !== "SALIDA") setModal(null);
+  }, [modal, sessionState]);
+
+  const run = async (intent: ViewIntent, after?: () => void) => {
+    setBusy(true);
+    const res = await emit(intent);
+    setBusy(false);
+    if (res.ok) after?.();
+    return res;
+  };
+
+  const onHeroAction = (action: HeroAction) => {
+    switch (action) {
+      case "OPEN_DAILY_SETUP_START":
+      case "NEW_DAY":
+        return setModal("SETUP_START");
+      case "CANCEL_DAY":
+        return void run({ type: "CANCEL_DAY" });
+      case "VIEW_DESTINATION":
+        return target ? router.push(`/sites/${target.id}`) : router.push("/sites");
+      case "OPEN_LUNCH_CLOSE":
+        return setModal("LUNCH_CLOSE_DAY");
+      case "START_LUNCH":
+        return void run({ type: "START_LUNCH" });
+      case "RESUME":
+        return void run({ type: "RESUME" });
+      case "OPEN_LUNCH_FINISH":
+        return setModal("LUNCH_SUPERVISOR");
+      case "VIEW_STATUS":
+        return active ? router.push(`/session/${active.id}`) : undefined;
+      case "CANCEL_TRANSFER":
+        return void run({ type: "CANCEL_TRANSFER" });
+      case "OPEN_EXIT_MODAL":
+        return setModal("EXIT");
+      case "STAY_WORKING":
+        return void run({ type: "STAY_WORKING" });
+      case "REVIEW_SESSION":
+        return lastToday ? router.push(`/session/${lastToday.id}`) : router.push("/(tabs)/history");
+      case "CONFIRM_ARRIVAL":
+        return void run({ type: "CONFIRM_ARRIVAL" });
+    }
+  };
+
+  const onQuickCreate = async (draft: SiteDraft) => {
+    const res = await emit({ type: "UPSERT_SITE", site: draft });
+    return res.ok ? ((res.data as import("../../src/core/contracts").Site) ?? null) : null;
+  };
+
+  const noSitesNoSession = sites.length === 0 && !active;
+  const visited = summary.visitedSiteIds.map((id) => selectSiteById(state, id)).filter((x) => !!x);
+  const uncertified = health.degraded || (!!active && active.integrityClass !== "VALID") || !summary.certified;
+
+  return (
+    <ScreenContainer noPadding>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PageHeader
+          title={t("app.name")}
+          subtitle={formatDate(nowMs)}
+          rightAction={{ icon: "pulse-outline", onPress: () => router.push("/system/health"), accessibilityLabel: t("health.title") }}
+        />
+
+        {hasConflict ? (
+          <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
+        ) : null}
+
+        <SystemHealthBlock
+          health={health}
+          tracking={sessionState !== "NO_INICIADA" && sessionState !== "CERRADA"}
+          onPress={() => router.push("/system/health")}
+        />
+
+        <OperationalHeroCard
+          ui={ui}
+          destination={target?.alias ?? (lastToday && sessionState === "CERRADA" ? selectSiteById(state, lastToday.siteId)?.alias ?? null : null)}
+          timeString={formatDuration(selectActiveElapsedMs(state, nowMs))}
+          earnings={formatCurrency(summary.grossEstimate)}
+          uncertified={uncertified}
+          busy={busy}
+          onPrimaryAction={() => onHeroAction(ui.primary.action)}
+          onSecondaryAction={ui.secondary ? () => onHeroAction(ui.secondary!.action) : undefined}
+        />
+
+        {noSitesNoSession ? (
+          <View style={styles.empty}>
+            <EmptyState title={t("today.emptyHint")} icon="location-outline" />
+            <Button label={t("cta.createFirstSite")} variant="secondary" onPress={() => router.push("/sites/new")} />
+          </View>
+        ) : null}
+
+        <DailySummaryBlock hours={`${(summary.netMinutes / 60).toFixed(2)} ${t("common.hours")}`} earnings={formatCurrency(summary.grossEstimate)} />
+
+        {visited.length > 1 ? (
+          <View style={styles.visited}>
+            <Text style={[styles.sectionLabel, { color: TOKENS.colors.text.secondary }]}>{t("today.visitedToday")}</Text>
+            <View style={styles.chips}>
+              {visited.map((s) => (
+                <View key={s!.id} style={[styles.chip, { borderColor: TOKENS.colors.border }]}>
+                  <Text style={{ color: TOKENS.colors.text.primary }}>{s!.alias}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <Pressable onPress={() => router.push("/sites")} accessibilityRole="link" style={styles.footerLink}>
+          <Text style={[styles.link, { color: TOKENS.colors.primary }]}>{t("cta.manageSites")}</Text>
+        </Pressable>
+      </ScrollView>
+
+      <DailySetupModal
+        visible={modal === "SETUP_START" || modal === "SETUP_TRANSIT"}
+        mode={modal === "SETUP_TRANSIT" ? "transit" : "start"}
+        sites={sites}
+        excludeSiteId={modal === "SETUP_TRANSIT" ? target?.id ?? null : null}
+        busy={busy}
+        onCancel={() => setModal(null)}
+        onConfirm={(siteId) =>
+          void run(modal === "SETUP_TRANSIT" ? { type: "START_TRANSFER", toSiteId: siteId } : { type: "START_DAY", siteId }, () => setModal(null))
+        }
+        onQuickCreate={onQuickCreate}
+      />
+
+      <LunchModal
+        visible={modal === "LUNCH_CLOSE_DAY" || modal === "LUNCH_CLOSE_EXIT"}
+        mode="close"
+        onCancel={() => setModal(null)}
+        onConfirm={(minutes) =>
+          void run(
+            modal === "LUNCH_CLOSE_EXIT" ? { type: "CONFIRM_EXIT", lunchDeductedMinutes: minutes } : { type: "CLOSE_DAY", lunchDeductedMinutes: minutes },
+            () => setModal(null),
+          )
+        }
+      />
+
+      <LunchModal
+        visible={modal === "LUNCH_SUPERVISOR"}
+        mode="supervisor"
+        elapsed={formatDuration(selectLunchElapsedMs(state, nowMs))}
+        onCancel={() => setModal(null)}
+        onResume={() => void run({ type: "RESUME" }, () => setModal(null))}
+        onFinish={() => void run({ type: "CLOSE_DAY" }, () => setModal(null))}
+      />
+
+      <ExitDetectionModal
+        visible={modal === "EXIT"}
+        firstExitTime={formatTime(active?.bookkeeping.firstExitAtMs ?? null)}
+        busy={busy}
+        onStay={() => void run({ type: "STAY_WORKING" }, () => setModal(null))}
+        onLunch={() => void run({ type: "START_LUNCH" }, () => setModal(null))}
+        onTransfer={() => setModal("SETUP_TRANSIT")}
+        onCloseDay={() => setModal("LUNCH_CLOSE_EXIT")}
+        onDismiss={() => setModal(null)}
+      />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
+  empty: { gap: TOKENS.spacing.md },
+  visited: { gap: TOKENS.spacing.sm },
+  sectionLabel: { ...FONT.label },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm },
+  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 4, paddingHorizontal: TOKENS.spacing.md },
+  footerLink: { alignSelf: "center", padding: TOKENS.spacing.md },
+  link: { ...FONT.bodyStrong },
+});
