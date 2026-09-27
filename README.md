@@ -26,6 +26,30 @@ npx expo-doctor
 
 No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por defecto e incluye el plugin de reanimated/worklets.
 
+## Pruebas (Jest)
+
+Según la *Propuesta de integración de Jest*: se prueban las autoridades (dominio, evidencia, persistencia, runtime por contrato de handler), no el JSX de `app/`.
+
+```bash
+npm test               # jest --runInBand --watchman=false (suite completa)
+npm run test:domain    # domain + application + evidence
+npm run test:coverage  # cobertura (umbral suave: 60 % statements en domain y evidence)
+npm run test:watch     # modo watch
+npm run gm             # typecheck && lint && test:domain && expo-doctor  (puerta de merge)
+```
+
+**Termux / Android:** usar siempre `--runInBand` (un solo proceso; los workers de Jest se quedan sin memoria o sin `fork` fiable) y `--watchman=false` (watchman no existe en Termux; Jest usa el rastreador de Node). Los scripts ya los llevan; si lanzas `npx jest` a mano, añádelos: `npx jest --runInBand --watchman=false <ruta>`.
+
+- `jest.config.ts`: preset `jest-expo`, `testMatch **/__tests__/**/*.test.ts?(x)`, `TZ=UTC`, `clearMocks`/`restoreMocks`, cobertura de `src/services`, `src/core`, `src/utils` (sin `reportTemplates.ts`).
+- `test/setup.ts`: reloj fijo `2026-09-26T15:00:00.000Z` (`test/time.ts`: `time.set`, `time.travel`, `time.jumpWall` para simular deriva), reset de candados del ConcurrencyGuard y del anti-rebote de geocerca, SQLite en memoria recreada por caso, dobles de Expo cableados aquí.
+- `test/mocks/`: un doble por módulo. `expo-sqlite` es SQLite real en memoria (sql.js), así los triggers append-only del ledger y `checkOverlap` se prueban de verdad.
+- `test/fixtures/`: `SessionRecord`, `SpatialFact`, `PayrollStatement`, `LedgerEntry` tipados con los contratos (sin `any`).
+- `__tests__/` colocados por capa. Componentes: solo `IntegrityBadge`, `StatusPill`, `SessionTimeline`.
+- Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_v1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
+- `test.failing` marca reglas de la propuesta que el código aún no cumple por decisión pendiente (no por bug): `packHash` estable entre dos sellos y cifrado real de campos (ver TODO).
+- `scripts/check-dates.ts` se mantiene para el camino **sin Intl** en Hermes real; su equivalente Node vive en `src/utils/__tests__/dateUtils.test.ts`.
+- Jest no sustituye la matriz de dispositivo: permisos reales, Foreground Service y geocerca en hardware siguen siendo prueba manual / Maestro.
+
 ---
 
 ## Estructura
@@ -196,6 +220,11 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 - Quedaban marcadores de conflicto de merge sin resolver.
 - El failsafe usaba un radio fijo de 200 m y coordenadas `|| 0`.
 
+### Bugs encontrados por la suite Jest
+
+- Con el reloj manipulado (deriva > 3 min) o sin ubicación en segundo plano, solo `START_DAY` aplicaba la degradación: una jornada ya abierta podía cerrarse VALID. Ahora cualquier transición de una jornada abierta con entorno degradado la escala a CONFLICT (`sessionMachine`, helper `ok()`).
+- `START_DAY` sin aviso dual aceptado llegaba al motor (que lo rechazaba). La propuesta pide que no se despache: el caso de uso `startDay` corta antes con `DISCLOSURE_NOT_ACCEPTED`; la máquina conserva su rechazo como defensa en profundidad.
+
 ---
 
 ## TODO (no especificado en las propuestas ni en el código previo)
@@ -213,6 +242,7 @@ Se marcan en el código como `TODO(propuesta)`:
 - **Evidencia y retención**
   - Firma del manifiesto JSON del pack (hoy va sin firmar, solo con hashes).
   - Retención "hasta fin de periodo exportado": solo se aplica la retención por días.
+  - `packHash` estable: la Propuesta de calidad pide que dos sellos del mismo statement den el mismo `packHash`, pero hoy es el hash del manifiesto (incluye `packId`, `sealedAtMs` y la cabeza del ledger, que el propio sello cambia). Pendiente decidir si `packHash` pasa a ser hash de contenido (test `test.failing` en `EvidencePackService.test.ts`).
   - Destino remoto de `OfflineQueueService` (portal del empleador): la cola existe, el envío no.
 - **Plataforma**
   - Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico.

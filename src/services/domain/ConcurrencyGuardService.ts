@@ -85,6 +85,11 @@ export const ConcurrencyGuardService = {
     }
   },
 
+  /** Solo pruebas (test/setup.ts): libera los candados en memoria entre casos. */
+  __resetForTests(): void {
+    held.clear();
+  },
+
   isHeld(key: string): boolean {
     const l = held.get(key);
     return !!l && l.expiresAtMs > TimeAuthorityService.now();

@@ -251,6 +251,13 @@ export const GeofenceRuntimeService = {
     GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
   },
 
+  /** Solo pruebas (test/setup.ts): limpia anti-rebote y temporizador en memoria entre casos. */
+  __resetForTests(): void {
+    lastProcessed = null;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = null;
+  },
+
   /** Temporizador en primer plano; en segundo plano lo cubre el worker de TaskOrchestrator. */
   armDebounceTimer(ms: number): void {
     if (debounceTimer) clearTimeout(debounceTimer);

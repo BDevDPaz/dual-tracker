@@ -139,6 +139,15 @@ function ok(
   effects: EngineEffect[],
   feedback: FeedbackCode | null,
 ): TransitionOutcome {
+  // Entorno degradado (deriva de reloj / sin background) durante una jornada
+  // abierta: ninguna transición del ciclo de vida puede dejarla VALID (§7.3,
+  // Propuesta de calidad §9 "deriva 4 min marca CLOCK_DRIFT y bloquea VALID").
+  // Antes solo START_DAY aplicaba ctx.degradedReason y un CLOSE_DAY con el
+  // reloj manipulado cerraba VALID. Las acciones sobre jornadas ya CERRADAS
+  // (patch, resolve, delete) no se ven afectadas.
+  if (ctx.degradedReason && prev && OPEN.includes(prev.domainStatus)) {
+    next = withIntegrity(next, "CONFLICT", ctx.degradedReason);
+  }
   return {
     ok: true,
     next: touch(next, ctx.nowMs),

@@ -12,7 +12,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "doctor": "npx expo-doctor",
-    "check:dates": "npx -y tsx scripts/check-dates.ts"
+    "check:dates": "npx -y tsx scripts/check-dates.ts",
+    "test": "jest --runInBand --watchman=false",
+    "test:watch": "jest --watch --watchman=false",
+    "test:domain": "jest --runInBand --watchman=false src/services/domain src/services/application src/services/evidence",
+    "test:coverage": "jest --coverage --runInBand --watchman=false",
+    "gm": "npm run typecheck && npm run lint && npm run test:domain && npx expo-doctor"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
@@ -53,10 +58,19 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
     "@types/escape-html": "^1.0.4",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
+    "@types/sql.js": "^1.4.11",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "globals": "^16.5.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~54.0.18",
+    "react-test-renderer": "19.1.0",
+    "sql.js": "^1.14.2",
+    "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
   }
 }
