@@ -38,6 +38,7 @@ export default function PackScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       {!m.certified ? <ScreenStatusBanner status="conflict" message={t("report.uncertified")} /> : null}
+      {m.sealWarnings?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.sealWarning")} /> : null}
       <Card style={styles.card}>
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("report.hash")}</Text>
         <Text selectable style={[styles.hash, { color: TOKENS.colors.primary }]}>

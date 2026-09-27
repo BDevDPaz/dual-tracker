@@ -25,7 +25,7 @@ import { formatCurrency, formatDate, formatRange, formatTime } from "../../utils
 export interface ReportInput {
   statement: PayrollStatement;
   evidence: EvidenceSummary;
-  manifest: Pick<PackManifest, "packId" | "packHash" | "sealedAtMs" | "certified" | "policyId">;
+  manifest: Pick<PackManifest, "packId" | "packHash" | "sealedAtMs" | "certified" | "policyId" | "sealWarnings">;
   sessions: SessionRecord[];
   sites: Site[];
   profile: PersonProfile;
@@ -72,6 +72,7 @@ const BASE_CSS = `
   .b-AUTO { background: #eaf2fb; color: #2471a3; }
   .b-CONFLICT { background: #fdecea; color: #c0392b; }
   .notes { font-style: italic; color: #666; font-size: 10px; display: block; margin-top: 4px; }
+  .seal-warning { margin: 12px 0; padding: 10px; border: 1px solid #b9770e; color: #7e5109; background: #fef5e7; font-size: 11px; }
   .stamp { margin: 16px 0; padding: 10px; border: 2px dashed #c0392b; color: #c0392b; font-weight: bold; text-align: center; text-transform: uppercase; }
   .hash { font-family: Menlo, monospace; font-size: 10px; word-break: break-all; background: #f4f4f4; padding: 8px; border-radius: 4px; }
   .section-title { font-size: 12px; font-weight: bold; color: #000; text-transform: uppercase; margin: 20px 0 10px; }
@@ -162,11 +163,23 @@ function uncertifiedStamp(input: ReportInput): string {
   return input.manifest.certified ? "" : `<div class="stamp">No certificado · hay sesiones por revisar</div>`;
 }
 
+/** FieldCrypto §14/§15: advertencia del sello (microcopy exacta). No es contenido: sale del manifiesto. */
+export const SEAL_WARNING_TEXT =
+  "Advertencia: en el dispositivo que emitió este expediente, las notas y ubicaciones de algunas jornadas no eran legibles. Las horas y la integridad no se ven afectadas.";
+
+function sealWarningBlock(input: ReportInput): string {
+  const w = input.manifest.sealWarnings ?? [];
+  if (!w.length) return "";
+  const ids = w.flatMap((x) => x.sessionIds).map((id) => `#${id}`).join(", ");
+  return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
+}
+
 /** Comprobante del empleado: resumen legible, sin rastro. */
 export function renderEmployeeReceipt(input: ReportInput): string {
   return `<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${BASE_CSS}</style></head><body>
     ${header("Dual Tracker", "Comprobante del empleado", input)}
     ${uncertifiedStamp(input)}
+    ${sealWarningBlock(input)}
     ${stats(input.statement)}
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input)}</tbody></table>
     ${hashBlock(input)}
@@ -189,6 +202,7 @@ export function renderEmployerDossier(input: ReportInput): string {
   return `<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${BASE_CSS}</style></head><body>
     ${header("Dual Tracker", "Expediente del empleador", input)}
     ${uncertifiedStamp(input)}
+    ${sealWarningBlock(input)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input)}</tbody></table>

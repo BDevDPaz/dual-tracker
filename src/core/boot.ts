@@ -18,6 +18,7 @@ import { Store, StoreActions } from "./store";
 import { setLanguage, t } from "../i18n";
 import { serializeError } from "../utils/serializeError";
 import { FeedbackService } from "../services/application/FeedbackService";
+import { refreshFieldCryptoHealth } from "../services/application/useCases/fieldCryptoHealth";
 import { checkLedgerIntegrity } from "../services/application/useCases/ledgerIntegrity";
 import { migratePayrollPolicyToV2 } from "../services/application/useCases/policyMigration";
 import { SessionEngineService } from "../services/domain/SessionEngineService";
@@ -26,7 +27,7 @@ import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService"
 import { TraceRecorderService } from "../services/evidence/TraceRecorderService";
 import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
 import { IntegrityLedgerService } from "../services/domain/IntegrityLedgerService";
-import { bootFieldCrypto, cryptoHealthSnapshot } from "../services/persistence/cryptoMigrations";
+import { bootFieldCrypto } from "../services/persistence/cryptoMigrations";
 import { LoggingService } from "../services/persistence/LoggingService";
 import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
@@ -99,7 +100,11 @@ export function ensureRuntimeReady(): Promise<void> {
       );
       wirePorts();
       // §11 paso 7: reflejo del estado del cifrado antes de hidratar.
-      StoreActions.cryptoHealth(await cryptoHealthSnapshot().catch(() => ({ ...Store.getState().health.fieldCrypto, status: FieldCryptoService.status() })));
+      //   Si la jornada abierta tiene datos de un kid perdido → INTEGRITY_DEGRADE (§14).
+      await refreshFieldCryptoHealth().catch((e) => {
+        LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Salud del cifrado no disponible", serializeError(e));
+        StoreActions.cryptoHealth({ ...Store.getState().health.fieldCrypto, status: FieldCryptoService.status() });
+      });
     })().catch((e) => {
       runtimeReady = null;
       throw e;

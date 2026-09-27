@@ -5,6 +5,7 @@
  *  - Reintenta la cola offline (sin transporte configurado no envía nada).
  * Idempotente: se ejecuta como mucho una vez por día (KV LAST_SWEEP_DAY).
  */
+import { refreshFieldCryptoHealth } from "../../application/useCases/fieldCryptoHealth";
 import { checkLedgerIntegrity } from "../../application/useCases/ledgerIntegrity";
 import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../../evidence/TraceRecorderService";
@@ -27,6 +28,7 @@ export async function runIntegritySweep(force = false): Promise<{ chainValid: bo
   // FieldCrypto v1.3 §11/§14: continúa el barrido plain → enc y detecta kids perdidos.
   await sweepPlaintext(500).catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Barrido de cifrado falló", { error: String(e) }));
   await detectKeyLoss().catch(() => undefined);
+  await refreshFieldCryptoHealth().catch(() => undefined);
   const settings = await SettingsService.load();
   const purged = await TraceRecorderService.purgeExpired(settings.company.traceRetentionDays);
   await OfflineQueueService.flush();

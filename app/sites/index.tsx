@@ -39,7 +39,7 @@ export default function SitesIndexScreen() {
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(`/sites/${item.id}`)} accessibilityRole="button" style={[styles.row, { borderColor: TOKENS.colors.border }]}>
             <View style={styles.flex}>
-              <Text style={[styles.alias, { color: TOKENS.colors.text.primary }]}>{item.alias}</Text>
+              <Text style={[styles.alias, { color: TOKENS.colors.text.primary }]}>{item.unreadableFields?.includes("alias") && !item.alias ? t("fieldCrypto.unreadableSite") : item.alias}</Text>
               <Text style={[styles.meta, { color: TOKENS.colors.text.secondary }]} numberOfLines={1}>
                 {item.clientName ? `${item.clientName} · ` : ""}
                 {item.radiusM ?? radiusDefault} m

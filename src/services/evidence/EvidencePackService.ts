@@ -13,8 +13,9 @@
  *    el policyId vigente del periodo.
  */
 import * as Crypto from "expo-crypto";
-import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, SessionRecord } from "../../core/contracts";
+import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, SealWarning, SessionRecord } from "../../core/contracts";
 import { PACK_MANIFEST_VERSION } from "../../core/contracts";
+import { cryptoHealthSnapshot } from "../persistence/cryptoMigrations";
 import { StoreActions } from "../../core/store";
 import { canonicalJson } from "../../utils/canonicalJson";
 import { companyCalendar } from "../../utils/companyPolicy";
@@ -110,8 +111,21 @@ async function computePackHash(m: Omit<PackManifest, "packHash" | "files">): Pro
     evidenceHash: m.evidenceHash,
     certified: m.certified,
   };
-  const body = m.manifestVersion === undefined ? base : { ...base, manifestVersion: m.manifestVersion, contentHash: m.contentHash ?? null };
+  // v1 (legado): sin versión ni contentHash. v2: + manifestVersion y contentHash.
+  // v3 (FieldCrypto §15): + sealWarnings (contexto del sello; fuera de contentHash).
+  const v2 = m.manifestVersion === undefined ? base : { ...base, manifestVersion: m.manifestVersion, contentHash: m.contentHash ?? null };
+  const body = (m.manifestVersion ?? 0) >= 3 ? { ...v2, sealWarnings: m.sealWarnings ?? [] } : v2;
   return sha256Hex(canonicalJson(body));
+}
+
+/**
+ * FieldCrypto §14/§15: jornadas del periodo con notas o rastro de un kid perdido.
+ * Se calcula al sellar (contexto del dispositivo); no cambia el contenido.
+ */
+async function sealWarningsFor(sessionIds: number[]): Promise<SealWarning[]> {
+  const health = await cryptoHealthSnapshot();
+  const affected = health.affectedSessionIds.filter((id) => sessionIds.includes(id));
+  return affected.length ? [{ code: "FIELD_CRYPTO_KEY_LOST", sessionIds: affected }] : [];
 }
 
 async function latestPackForPeriod(periodStart: number, periodEnd: number): Promise<EvidencePack | null> {
@@ -187,6 +201,7 @@ export const EvidencePackService = {
       const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));
       const evidenceHash = await sha256Hex(canonicalJson(evidence));
       const certified = statement.integrityRollup.certified;
+      const sealWarnings = await sealWarningsFor(statement.sessionIds);
       const unsigned = {
         manifestVersion: PACK_MANIFEST_VERSION,
         packId,
@@ -199,6 +214,7 @@ export const EvidencePackService = {
         evidenceHash,
         contentHash,
         certified,
+        sealWarnings,
       };
       const packHash = await computePackHash(unsigned);
 
@@ -215,6 +231,7 @@ export const EvidencePackService = {
         evidenceHash,
         packHash,
         certified,
+        sealWarnings,
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
@@ -278,6 +295,7 @@ export const EvidencePackService = {
 
   /**
    * Verifica un pack recomputando todos sus hashes desde el contenido guardado.
+   * v3: como v2 y packHash incluye además sealWarnings (FieldCrypto §15).
    * v2: statementHash, evidenceHash, contentHash y packHash (que incluye contentHash).
    * v1 (legado, sin contentHash): mismas comprobaciones salvo contentHash,
    * con el formato de packHash antiguo; se informa `legacy: true`.

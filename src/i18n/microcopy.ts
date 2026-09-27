@@ -52,6 +52,7 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   DISCLOSURE_ACCEPTED: { kind: "toast", tone: "success", es: { title: "Aviso aceptado", message: "" }, en: { title: "Notice accepted", message: "" } },
   LEDGER_BROKEN: { kind: "dialog", tone: "error", es: { title: "Registro de integridad dañado", message: "Se detectó una alteración en el historial de integridad. Tus horas se siguen registrando, pero no se pueden sellar expedientes hasta que el administrador revise el incidente." } },
   LEDGER_BREAK_ACKNOWLEDGED: { kind: "toast", tone: "info", es: { title: "Incidente reconocido", message: "Incidente de integridad reconocido. Los periodos afectados solo se pueden emitir como no certificados." } },
+  FIELD_CRYPTO_KEY_LOST: { kind: "dialog", tone: "warning", es: { title: "Datos cifrados ilegibles en este dispositivo", message: "Se restauró el historial sin su clave de cifrado. Las horas y la certificación de las jornadas se conservan, pero las notas y ubicaciones anteriores no se pueden leer aquí. La jornada en curso queda para revisión." } },
   INTENT_REJECTED: { kind: "toast", tone: "warning", es: { title: "No se pudo completar", message: "{reason}" }, en: { title: "Could not complete", message: "{reason}" } },
   GENERIC_ERROR: { kind: "toast", tone: "error", es: { title: "Ocurrió un error", message: "Inténtalo de nuevo." }, en: { title: "Something went wrong", message: "Please try again." } },
 };

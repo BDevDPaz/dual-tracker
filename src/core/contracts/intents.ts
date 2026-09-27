@@ -61,7 +61,7 @@ export type SessionIntent =
   | { type: "RESOLVE_SPLIT"; sessionId: number; splitAtMs: number; note: string }
   | {
       type: "INTEGRITY_DEGRADE";
-      cause: "BACKGROUND_PERMISSION_MISSING" | "CLOCK_DRIFT" | "MUTEX_FAILED" | "PROVIDER_LOSS" | "LEDGER_CHAIN_BROKEN";
+      cause: "BACKGROUND_PERMISSION_MISSING" | "CLOCK_DRIFT" | "MUTEX_FAILED" | "PROVIDER_LOSS" | "LEDGER_CHAIN_BROKEN" | "FIELD_CRYPTO_KEY_LOST";
       detail?: string;
     };
 

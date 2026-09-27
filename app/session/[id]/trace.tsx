@@ -38,10 +38,14 @@ export default function TraceScreen() {
   const crumbs = all.filter((f) => f.type === "BREADCRUMB");
   const isUnreliable = (f: SpatialFact) => !f.reliable || (f.accuracyM !== null && f.accuracyM > radius);
 
+  // FieldCrypto §14: coordenadas de una clave perdida → texto de ilegible (nunca ciphertext).
+  const unreadable = all.some((f) => f.unreadable);
+
   if (facts.loading && !facts.data) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
 
   return (
     <ScreenContainer>
+      {unreadable ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableTrace")} /> : null}
       <View style={styles.layers}>
         {(["PERIMETER", "BREADCRUMB"] as const).map((l) => (
           <Pressable

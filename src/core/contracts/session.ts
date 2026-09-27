@@ -70,6 +70,8 @@ export type IntegrityReason =
   | "CONFLICT_RESOLVED"
   /** Cadena de hashes del ledger rota con la jornada abierta (spec FieldCrypto v1.3 §5.5). */
   | "LEDGER_CHAIN_BROKEN"
+  /** Jornada abierta con notas/rastro de una clave perdida tras restaurar (FieldCrypto §14). */
+  | "FIELD_CRYPTO_KEY_LOST"
   /** Mitad de una sesión dividida con RESOLVE_SPLIT (spec v1.3 §5.4). */
   | "SESSION_SPLIT";
 

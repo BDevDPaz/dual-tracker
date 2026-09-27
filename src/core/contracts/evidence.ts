@@ -20,7 +20,13 @@ export interface EvidenceSummary {
  *  - 2: añade `contentHash` (hash de contenido estable entre sellos) y lo
  *    incluye en packHash, de modo que alterar el contenido rompe ambos.
  */
-export const PACK_MANIFEST_VERSION = 2;
+export const PACK_MANIFEST_VERSION = 3;
+
+/** FieldCrypto §15: contexto del dispositivo al sellar (entra en packHash, NO en contentHash). */
+export interface SealWarning {
+  code: "FIELD_CRYPTO_KEY_LOST";
+  sessionIds: number[];
+}
 
 export interface PackManifest {
   /** Ausente en packs legados (v1). */
@@ -43,6 +49,8 @@ export interface PackManifest {
   /** SHA-256 del manifiesto canónico (incluye contentHash en v2): identifica ESTE sello. */
   packHash: string;
   certified: boolean;
+  /** v3: advertencias del sello (vacío si no hay). Ausente en v1/v2. */
+  sealWarnings?: SealWarning[];
   files: { role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER" | "MANIFEST_JSON"; name: string }[];
 }
 

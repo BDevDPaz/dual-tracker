@@ -61,9 +61,10 @@ export default function SiteDetailScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Stack.Screen options={{ title: site.alias }} />
+      <Stack.Screen options={{ title: site.alias || t("sites.title") }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!site.active ? <ScreenStatusBanner status="degraded" message={t("sites.archived")} /> : null}
+        {site.unreadableFields?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableSite")} /> : null}
         <Card style={styles.card}>
           <KeyValueRow label={t("sites.address")} value={site.address} />
           <KeyValueRow label={t("sites.client")} value={site.clientName ?? t("common.notSet")} />

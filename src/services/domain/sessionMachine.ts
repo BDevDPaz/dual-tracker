@@ -763,7 +763,13 @@ export function transition(
       const reason: IntegrityReason = intent.cause;
       const next = withIntegrity(open, "CONFLICT", reason);
       const feedback: FeedbackCode =
-        intent.cause === "CLOCK_DRIFT" ? "CLOCK_DRIFT" : intent.cause === "LEDGER_CHAIN_BROKEN" ? "LEDGER_BROKEN" : "PERMISSION_REVOKED";
+        intent.cause === "CLOCK_DRIFT"
+          ? "CLOCK_DRIFT"
+          : intent.cause === "LEDGER_CHAIN_BROKEN"
+            ? "LEDGER_BROKEN"
+            : intent.cause === "FIELD_CRYPTO_KEY_LOST"
+              ? "FIELD_CRYPTO_KEY_LOST"
+              : "PERMISSION_REVOKED";
       return ok(open, next, ctx, `INTEGRITY_DEGRADED_${intent.cause}`, [], feedback);
     }
   }
