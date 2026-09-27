@@ -11,7 +11,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "doctor": "npx expo-doctor"
+    "doctor": "npx expo-doctor",
+    "check:dates": "npx -y tsx scripts/check-dates.ts"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",

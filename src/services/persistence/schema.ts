@@ -13,7 +13,7 @@
  *    `ledtracker_v2.db` queda como TODO (ver mappers.mapLegacyStatus).
  */
 export const DB_NAME = "dual_tracker_v1.db";
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2; // v2: reparación de date_string (ver PersistenceService.runMigrations)
 
 export const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (

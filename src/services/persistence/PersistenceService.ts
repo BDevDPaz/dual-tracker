@@ -25,6 +25,7 @@ import type {
 } from "../../core/contracts";
 import { OPEN_SESSION_STATES } from "../../core/contracts";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
+import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { LoggingService } from "./LoggingService";
 import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION } from "./schema";
 import {
@@ -80,9 +81,43 @@ async function addColumnIfMissing(
   await database.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
 }
 
+/**
+ * v2 (reparación de datos, idempotente): builds anteriores en Hermes
+ * persistieron `date_string = "Invalid Date"` (dayjs tz no funciona en Hermes).
+ * Se recalcula desde el inicio de la sesión en la zona corporativa. Los
+ * timestamps *_ms siempre fueron epoch ms válidos, así que no se pierde nada.
+ */
+async function repairInvalidDateStrings(database: SQLite.SQLiteDatabase): Promise<number> {
+  const rows = await database.getAllAsync<{ id: number; declared_start_ms: unknown; actual_start_ms: unknown; date_string: unknown }>(
+    `SELECT id, declared_start_ms, actual_start_ms, date_string FROM sessions
+     WHERE date_string IS NULL OR date_string NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+  );
+  let fixed = 0;
+  for (const r of rows) {
+    if (isDateString(r.date_string)) continue;
+    const start = parseTimestamp(r.actual_start_ms) ?? parseTimestamp(r.declared_start_ms);
+    const ds = start !== null ? toDateString(start) : "";
+    if (!ds) continue;
+    await database.runAsync(`UPDATE sessions SET date_string = ? WHERE id = ?`, [ds, r.id]);
+    fixed++;
+  }
+  if (fixed > 0) {
+    LoggingService.system({
+      color: "AMARILLO",
+      category: "SERVICIOS_ACTIVOS",
+      severity: "WARN",
+      message: "date_string reparado en sesiones (Invalid Date de builds previos)",
+      metadata: { fixed },
+    });
+  }
+  return fixed;
+}
+
 async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   // v1: esquema inicial. Las siguientes versiones añaden columnas aquí.
   void addColumnIfMissing;
+  // v2: reparación de date_string (ver arriba).
+  await repairInvalidDateStrings(database);
   await database.runAsync(
     `INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`,
     [KV_KEYS.SCHEMA_VERSION, JSON.stringify(SCHEMA_VERSION), TimeAuthorityService.now()],
@@ -215,12 +250,15 @@ export const PersistenceService = {
     const where: string[] = [];
     const params: SqlParam[] = [];
     if (!opts.includeDeleted) where.push("is_deleted = 0");
-    if (opts.from !== undefined) {
-      where.push("declared_start_ms >= ?");
+    // Mismo criterio de inicio que selectSessionsInRange y buildStatement
+    // (actual ?? declared). Un límite no finito (NaN) se ignora en vez de
+    // enlazarse en SQL y devolver silenciosamente 0 filas.
+    if (opts.from !== undefined && Number.isFinite(opts.from)) {
+      where.push("COALESCE(actual_start_ms, declared_start_ms) >= ?");
       params.push(opts.from);
     }
-    if (opts.to !== undefined) {
-      where.push("declared_start_ms <= ?");
+    if (opts.to !== undefined && Number.isFinite(opts.to)) {
+      where.push("COALESCE(actual_start_ms, declared_start_ms) <= ?");
       params.push(opts.to);
     }
     const rows = await d.getAllAsync<DbSessionRow>(
@@ -311,7 +349,7 @@ export const PersistenceService = {
     );
     return rows.map((r) => ({
       ...rowToSite(r),
-      lastVisitAtMs: (r as DbSiteRow & { last_visit: number | null }).last_visit ?? null,
+      lastVisitAtMs: parseTimestamp((r as DbSiteRow & { last_visit: unknown }).last_visit),
     }));
   },
 
@@ -425,8 +463,8 @@ export const PersistenceService = {
 
   async lastSpatialFactAt(): Promise<number | null> {
     const d = await ensureReady();
-    const r = await d.getFirstAsync<{ t: number | null }>(`SELECT MAX(timestamp_ms) AS t FROM spatial_facts`);
-    return r?.t ?? null;
+    const r = await d.getFirstAsync<{ t: unknown }>(`SELECT MAX(timestamp_ms) AS t FROM spatial_facts`);
+    return parseTimestamp(r?.t);
   },
 
   /** Expurgo por retención (§5.4). Solo miga de pan; ENTER/EXIT se conservan como evidencia. */

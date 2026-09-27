@@ -27,7 +27,7 @@ export default function PeriodStatementScreen() {
   if (!range) {
     return (
       <ScreenContainer>
-        <EmptyState title={t("notFound.title")} icon="document-outline" />
+        <EmptyState title={t("report.invalidPeriod")} icon="document-outline" />
         <Button label={t("common.back")} onPress={() => router.back()} />
       </ScreenContainer>
     );
@@ -42,6 +42,14 @@ export default function PeriodStatementScreen() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("report.statement")}</Text>
       <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>{formatRange(range.start, range.end)}</Text>
+      {st.sessionIds.length === 0 ? (
+        <ScreenStatusBanner
+          status="degraded"
+          message={st.warnings.includes("OPEN_SESSION_EXCLUDED") ? t("reports.openOnly") : t("reports.noClosed")}
+        />
+      ) : st.warnings.includes("OPEN_SESSION_EXCLUDED") ? (
+        <ScreenStatusBanner status="degraded" message={t("reports.openExcluded")} />
+      ) : null}
       {st.integrityRollup.hasConflict ? (
         <ScreenStatusBanner status="conflict" message={t("reports.conflictGate")} onPress={() => router.push("/system/conflict")} />
       ) : null}

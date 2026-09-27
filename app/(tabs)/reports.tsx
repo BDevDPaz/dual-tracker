@@ -49,7 +49,12 @@ export default function ReportsScreen() {
     if (pack) router.push(`/report/pack/${pack.id}`);
   };
 
+  // Solo las jornadas CERRADAS entran al statement/expediente (PayrollEngine).
+  const closedCount = st?.sessionIds.length ?? 0;
+  const openCount = items.filter((c) => c.session.domainStatus !== "CERRADA" && !c.session.bookkeeping.cancelled).length;
+  const periodId = weekPeriodId(periodStart);
   const status = statement.loading && !st ? "loading" : items.length === 0 ? "empty" : "ready";
+  const canSeal = !!periodId && closedCount > 0 && !sealing;
 
   return (
     <ScreenContainer noPadding>
@@ -75,6 +80,13 @@ export default function ReportsScreen() {
           <ScreenStatusBanner status={status} message={status === "empty" ? t("reports.empty") : t("common.loading")} emptyIcon="document-outline" />
         ) : null}
 
+        {status === "ready" && st && closedCount === 0 ? (
+          <ScreenStatusBanner status="degraded" message={openCount > 0 ? t("reports.openOnly") : t("reports.noClosed")} />
+        ) : null}
+        {status === "ready" && st && closedCount > 0 && openCount > 0 ? (
+          <ScreenStatusBanner status="degraded" message={t("reports.openExcluded")} />
+        ) : null}
+
         {st ? (
           <Card style={styles.card}>
             <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("reports.rollup")}</Text>
@@ -87,9 +99,11 @@ export default function ReportsScreen() {
               label={t("reports.integrity")}
               value={`V ${st.integrityRollup.byClass.VALID} · M ${st.integrityRollup.byClass.MANUAL} · A ${st.integrityRollup.byClass.AUTO} · C ${st.integrityRollup.byClass.CONFLICT}`}
             />
-            <Pressable onPress={() => router.push(`/report/${weekPeriodId(periodStart)}`)} accessibilityRole="link">
-              <Text style={[styles.link, { color: TOKENS.colors.primary }]}>{t("reports.viewStatement")}</Text>
-            </Pressable>
+            {periodId ? (
+              <Pressable onPress={() => router.push(`/report/${periodId}`)} accessibilityRole="link">
+                <Text style={[styles.link, { color: TOKENS.colors.primary }]}>{t("reports.viewStatement")}</Text>
+              </Pressable>
+            ) : null}
           </Card>
         ) : null}
 
@@ -101,7 +115,7 @@ export default function ReportsScreen() {
           </Section>
         ) : null}
 
-        {st && items.length > 0 ? (
+        {st && closedCount > 0 ? (
           <DocumentPreviewWidget
             employeeName={settings.profile.employeeName}
             dateRange={formatRange(periodStart, periodEnd)}
@@ -116,10 +130,10 @@ export default function ReportsScreen() {
           <View style={styles.gate}>
             <ScreenStatusBanner status="conflict" message={t("reports.conflictGate")} />
             <Button label={t("reports.goToConflict")} variant="secondary" onPress={() => router.push("/system/conflict")} />
-            <Button label={t("reports.exportUncertified")} variant="ghost" disabled={sealing} onPress={() => void seal(true)} />
+            <Button label={t("reports.exportUncertified")} variant="ghost" disabled={!canSeal} onPress={() => void seal(true)} />
           </View>
         ) : (
-          <Button label={t("reports.generate")} iconName="shield-checkmark-outline" disabled={items.length === 0 || sealing} onPress={() => void seal(false)} />
+          <Button label={t("reports.generate")} iconName="shield-checkmark-outline" disabled={!canSeal} onPress={() => void seal(false)} />
         )}
 
         {packs.length > 0 ? (

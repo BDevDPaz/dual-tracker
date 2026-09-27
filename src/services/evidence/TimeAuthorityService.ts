@@ -11,7 +11,7 @@
  *
  * Origen: sustituye a src/utils/timeProvider.ts de GEOTrack.
  */
-import dayjs, { CORPORATE_TIMEZONE } from "../../utils/dayjsSetup";
+import { parseTimestamp, toDateString } from "../../utils/dateUtils";
 
 /** Umbral de deriva (propuesta: "por ejemplo 3 minutos"). */
 export const CLOCK_DRIFT_THRESHOLD_MS = 3 * 60 * 1000;
@@ -44,12 +44,12 @@ export const TimeAuthorityService = {
 
   /** YYYY-MM-DD del día actual en la zona corporativa (bookkeeping). */
   todayDateString(): string {
-    return dayjs.tz(TimeAuthorityService.now(), CORPORATE_TIMEZONE).format("YYYY-MM-DD");
+    return toDateString(TimeAuthorityService.now());
   },
 
   /** YYYY-MM-DD de un timestamp en la zona corporativa. */
   toDateString(ts: number): string {
-    return dayjs.tz(ts, CORPORATE_TIMEZONE).format("YYYY-MM-DD");
+    return toDateString(ts);
   },
 
   /**
@@ -100,8 +100,9 @@ export const TimeAuthorityService = {
       const after = Date.now();
       const header = res.headers.get("date");
       if (!header) return null;
-      const refMs = Date.parse(header);
-      if (!Number.isFinite(refMs)) return null;
+      // Hermes no garantiza Date.parse de RFC 1123: parser central.
+      const refMs = parseTimestamp(header);
+      if (refMs === null) return null;
       const deviceMid = before + (after - before) / 2;
       lastReferenceOffsetMs = deviceMid - refMs;
       return lastReferenceOffsetMs;

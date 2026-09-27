@@ -19,7 +19,23 @@ import type {
   SpatialFactType,
   TransitSegment,
 } from "../../core/contracts";
+import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { FieldCryptoService } from "./FieldCryptoService";
+
+/**
+ * Columnas *_ms: SQLite puede devolver INTEGER, REAL o TEXT (datos legados o
+ * importados). Todo pasa por el parser central; nunca NaN en el store.
+ */
+const ms = (v: unknown): number | null => parseTimestamp(v);
+
+/**
+ * date_string saneado. Versiones previas persistieron "Invalid Date" (dayjs tz
+ * en Hermes); se recalcula desde el inicio de la sesión.
+ */
+export function repairDateString(raw: unknown, startMs: number | null): string {
+  if (isDateString(raw)) return raw;
+  return startMs !== null ? toDateString(startMs) : "";
+}
 
 export interface DbSessionRow {
   id: number;
@@ -132,18 +148,21 @@ function parseJson<T>(raw: string | null, fallback: T): T {
 }
 
 export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
+  const updatedAtMs = ms(row.updated_at_ms) ?? 0;
+  const declaredStartAtMs = ms(row.declared_start_ms) ?? updatedAtMs;
+  const actualStartAtMs = ms(row.actual_start_ms);
   return {
     id: row.id,
-    declaredStartAtMs: row.declared_start_ms,
-    actualStartAtMs: row.actual_start_ms ?? null,
-    endAtMs: row.end_ms ?? null,
+    declaredStartAtMs,
+    actualStartAtMs,
+    endAtMs: ms(row.end_ms),
     domainStatus: normalizeStatus(row.domain_status),
     siteId: row.site_id ?? null,
     clientId: row.client_id ?? null,
     lunch: {
       taken: Boolean(row.lunch_taken),
-      startAtMs: row.lunch_start_ms ?? null,
-      endAtMs: row.lunch_end_ms ?? null,
+      startAtMs: ms(row.lunch_start_ms),
+      endAtMs: ms(row.lunch_end_ms),
       deductedMinutes: row.lunch_deducted_min ?? null,
     },
     totalPausedMs: row.total_paused_ms ?? 0,
@@ -151,16 +170,16 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
     integrityClass: normalizeIntegrity(row.integrity_class),
     policyId: row.policy_id,
     bookkeeping: {
-      dateString: row.date_string,
+      dateString: repairDateString(row.date_string, actualStartAtMs ?? declaredStartAtMs),
       isDeleted: Boolean(row.is_deleted),
       cancelled: Boolean(row.cancelled),
-      lastPauseStartMs: row.last_pause_start_ms ?? null,
-      firstExitAtMs: row.first_exit_ms ?? null,
+      lastPauseStartMs: ms(row.last_pause_start_ms),
+      firstExitAtMs: ms(row.first_exit_ms),
       firstExitReliable: row.first_exit_reliable === null ? null : Boolean(row.first_exit_reliable),
       integrityReason: (row.integrity_reason as IntegrityReason) ?? "CLEAN",
       original: parseJson<OriginalTimes | null>(row.original_json, null),
       manualNote: await FieldCryptoService.open(row.manual_note_sealed),
-      updatedAtMs: row.updated_at_ms,
+      updatedAtMs,
     },
   };
 }
@@ -234,8 +253,8 @@ export function rowToSite(row: DbSiteRow): Site {
     targetLon: row.target_lon,
     radiusM: row.radius_m,
     active: Boolean(row.active),
-    createdAtMs: row.created_at_ms,
-    archivedAtMs: row.archived_at_ms,
+    createdAtMs: ms(row.created_at_ms) ?? 0,
+    archivedAtMs: ms(row.archived_at_ms),
   };
 }
 
@@ -257,7 +276,7 @@ export async function rowToSpatialFact(row: DbSpatialRow): Promise<SpatialFact &
     source: row.source as SpatialSource,
     reliable: Boolean(row.reliable),
     reason: row.reason,
-    timestampMs: row.timestamp_ms,
+    timestampMs: ms(row.timestamp_ms) ?? 0,
   };
 }
 

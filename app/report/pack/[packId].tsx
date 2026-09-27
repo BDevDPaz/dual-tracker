@@ -12,7 +12,7 @@ import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectPackById } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
-import { formatCurrency, formatDate, formatRange, formatTime } from "../../../src/utils/dateUtils";
+import { formatCurrency, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
 
 export default function PackScreen() {
   const router = useRouter();
@@ -46,7 +46,7 @@ export default function PackScreen() {
         <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.hashHint")}</Text>
       </Card>
       <Card style={styles.card}>
-        <KeyValueRow label={t("report.sealedAt")} value={`${formatDate(m.sealedAtMs)} ${formatTime(m.sealedAtMs)}`} />
+        <KeyValueRow label={t("report.sealedAt")} value={formatDateTime(m.sealedAtMs)} />
         <KeyValueRow label={t("reports.title")} value={formatRange(m.periodStart, m.periodEnd)} />
         <KeyValueRow label={t("session.policy")} value={m.policyId} />
         <KeyValueRow label={t("reports.total")} value={formatCurrency(pack.statement.grossEstimate)} emphasis />

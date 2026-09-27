@@ -16,7 +16,7 @@ import * as Crypto from "expo-crypto";
 import type { EvidencePack, IntentResult, PackManifest, SessionRecord } from "../../core/contracts";
 import { StoreActions } from "../../core/store";
 import { canonicalJson } from "../../utils/canonicalJson";
-import { weekPeriodId, getWeekStart } from "../../utils/dateUtils";
+import { isValidRange, weekPeriodId } from "../../utils/dateUtils";
 import { serializeError } from "../../utils/serializeError";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { PayrollEngineService } from "../domain/PayrollEngineService";
@@ -29,7 +29,7 @@ import { ReportService } from "./ReportService";
 import { TimeAuthorityService } from "./TimeAuthorityService";
 import { TraceRecorderService } from "./TraceRecorderService";
 
-export type SealRejection = "EMPTY_PERIOD" | "PERIOD_HAS_CONFLICT" | "PERSISTENCE_ERROR";
+export type SealRejection = "INVALID_PERIOD" | "EMPTY_PERIOD" | "PERIOD_ONLY_OPEN" | "PERIOD_HAS_CONFLICT" | "PERSISTENCE_ERROR";
 
 export const EvidencePackService = {
   /**
@@ -38,6 +38,10 @@ export const EvidencePackService = {
    * "no certificado" visible).
    */
   async seal(input: { periodStart: number; periodEnd: number; allowUncertified?: boolean }): Promise<IntentResult<EvidencePack>> {
+    // Periodo no finito (antes: NaN por dayjs tz en Hermes) → mensaje claro, no "No encontrado".
+    if (!isValidRange(input.periodStart, input.periodEnd) || !weekPeriodId(input.periodStart)) {
+      return { ok: false, code: "INVALID_PERIOD" };
+    }
     try {
       const settings = await SettingsService.load();
       const nowMs = TimeAuthorityService.now();
@@ -51,14 +55,17 @@ export const EvidencePackService = {
         policyId: settings.company.overtimePolicyId,
         nowMs,
       });
-      if (statement.sessionIds.length === 0) return { ok: false, code: "EMPTY_PERIOD" };
+      if (statement.sessionIds.length === 0) {
+        // Solo cuentan jornadas CERRADAS: distinguir "hay una abierta" de "no hay nada".
+        return { ok: false, code: statement.warnings.includes("OPEN_SESSION_EXCLUDED") ? "PERIOD_ONLY_OPEN" : "EMPTY_PERIOD" };
+      }
       if (statement.integrityRollup.hasConflict && !input.allowUncertified) return { ok: false, code: "PERIOD_HAS_CONFLICT" };
 
       const included = sessions.filter((s) => statement.sessionIds.includes(s.id));
       const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
       const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
 
-      const packId = `${weekPeriodId(getWeekStart(input.periodStart))}-${Crypto.randomUUID().slice(0, 8)}`;
+      const packId = `${weekPeriodId(input.periodStart)}-${Crypto.randomUUID().slice(0, 8)}`;
       const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));
       const evidenceHash = await sha256Hex(canonicalJson(evidence));
       const certified = statement.integrityRollup.certified;

@@ -13,7 +13,7 @@ import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from ".
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectHealth, selectSystemHealth } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
-import { formatDate, formatTime } from "../../src/utils/dateUtils";
+import { formatDateTime } from "../../src/utils/dateUtils";
 
 interface Row {
   sensor: HealthSensor;
@@ -41,7 +41,7 @@ export default function HealthScreen() {
     { sensor: "batteryOptimization", value: h.batteryOptimization, ok: h.batteryOptimization !== "restricted", blocksValid: false, repair: { type: "OPEN_OS_SETTINGS", target: "BATTERY" } },
     { sensor: "clockDriftMs", value: `${Math.round(h.clockDriftMs / 1000)} s`, ok: !h.clockDriftExceeded, blocksValid: true },
     { sensor: "isMonitoring", value: h.isMonitoring ? t("health.ok") : "—", ok: h.isMonitoring || !hasOpenSession, blocksValid: true },
-    { sensor: "lastSpatialFactAt", value: h.lastSpatialFactAt ? `${formatDate(h.lastSpatialFactAt)} ${formatTime(h.lastSpatialFactAt)}` : "—", ok: true, blocksValid: false },
+    { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: true, blocksValid: false },
   ];
 
   return (
@@ -62,7 +62,7 @@ export default function HealthScreen() {
       ))}
       {h.checkedAtMs ? (
         <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
-          {formatDate(h.checkedAtMs)} {formatTime(h.checkedAtMs)}
+          {formatDateTime(h.checkedAtMs)}
         </Text>
       ) : null}
     </ScrollView>
