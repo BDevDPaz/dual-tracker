@@ -138,6 +138,7 @@ interface Allocation {
   regular: number;
   otDaily: number;
   otWeekly: number;
+  otDouble: number;
 }
 
 /** Unidad de reparto: una sesión (v1) o un segmento de jornada de una sesión (v2). */
@@ -152,6 +153,39 @@ interface AllocateCtx {
   history?: CalendarHistory;
   /** Umbral semanal de un periodo de transición < 7 días [CONFIRMAR CON ASESORÍA LEGAL]. */
   transitionWeeklyThreshold?: "FULL" | "PRORATED";
+  /** P6 [CONFIRMAR CON ASESORÍA LEGAL]: aplicar doble tiempo diario. */
+  caDoubleTime?: boolean;
+  /** P6 [CONFIRMAR CON ASESORÍA LEGAL]: aplicar la regla del séptimo día consecutivo. */
+  caSeventhDay?: boolean;
+}
+
+/** Reglas P6 efectivas para una política y unas banderas. */
+function p6Rules(policy: PayrollPolicy, ctx: AllocateCtx): { doubleAfter: number | null; seventh: PayrollPolicy["seventhDayRule"] } {
+  const doubleAfter = ctx.caDoubleTime && policy.dailyScope === "DAY" ? (policy.doubleTimeDailyAfterMinutes ?? null) : null;
+  const seventh = ctx.caSeventhDay && policy.dailyScope === "DAY" ? (policy.seventhDayRule ?? null) : null;
+  return { doubleAfter, seventh };
+}
+
+/**
+ * Días (dayKey) que son el séptimo día consecutivo trabajado de su semana
+ * laboral: la semana tiene trabajo en 7 jornadas distintas y el día es la
+ * última de ellas (los periodos de transición < 7 días nunca lo alcanzan).
+ */
+function seventhDays(items: AllocItem[]): Set<string> {
+  const byWeek = new Map<number, Map<string, number>>();
+  for (const it of items) {
+    if (it.workMinutes + it.transitOtMinutes <= 0) continue;
+    const days = byWeek.get(it.weekKey) ?? new Map<string, number>();
+    days.set(it.dayKey, Math.min(days.get(it.dayKey) ?? Infinity, it.startMs));
+    byWeek.set(it.weekKey, days);
+  }
+  const out = new Set<string>();
+  for (const days of byWeek.values()) {
+    if (days.size < 7) continue;
+    const last = [...days.entries()].sort((a, b) => a[1] - b[1])[6];
+    out.add(last[0]);
+  }
+  return out;
 }
 
 /** Umbral semanal del periodo que empieza en `week` (proporcional solo con PRORATED). */
@@ -170,19 +204,42 @@ function weeklyThreshold(policy: PayrollPolicy, week: number, ctx: AllocateCtx):
  */
 function allocate(items: AllocItem[], policy: PayrollPolicy, ctx: AllocateCtx = {}): Allocation[] {
   const dailyUsed = new Map<string, number>(); // capacidad regular consumida por día
+  const dailyTotal = new Map<string, number>(); // minutos totales (regular + OT + tránsito OT) por día (P6)
   const weeklyRegular = new Map<number, number>(); // minutos regulares por semana
+  const { doubleAfter, seventh } = p6Rules(policy, ctx);
+  const seventhSet = seventh ? seventhDays(items) : new Set<string>();
 
   return items.map((it) => {
     let regular = it.workMinutes;
     let otDaily = 0;
+    let otDouble = 0;
+
+    const key = it.dayKey;
+    const totalBefore = (dailyTotal.get(key) ?? 0) + it.transitOtMinutes;
+    dailyTotal.set(key, totalBefore + it.workMinutes);
+    /** Minutos de este item por encima de `threshold` minutos acumulados en el día. */
+    const above = (threshold: number) => Math.max(0, Math.min(it.workMinutes, totalBefore + it.workMinutes - threshold));
+
+    if (seventh && seventhSet.has(key)) {
+      // P6 séptimo día [CONFIRMAR CON ASESORÍA LEGAL]: nada es regular; los
+      // primeros minutos son OT (overtimeFirstMinutes) y lo que excede
+      // doubleAfterMinutes es doble tiempo (un hueco entre ambos sigue siendo OT).
+      otDouble = above(seventh.doubleAfterMinutes);
+      otDaily = it.workMinutes - otDouble;
+      return { regular: 0, otDaily, otWeekly: 0, otDouble };
+    }
 
     if (policy.dailyOvertimeAfterMinutes !== null) {
-      const key = it.dayKey;
       const used = (dailyUsed.get(key) ?? 0) + it.transitOtMinutes;
       const capacity = Math.max(0, policy.dailyOvertimeAfterMinutes - used);
       regular = Math.min(it.workMinutes, capacity);
       otDaily = it.workMinutes - regular;
       dailyUsed.set(key, used + regular);
+      if (doubleAfter !== null) {
+        // P6 doble tiempo diario [CONFIRMAR CON ASESORÍA LEGAL].
+        otDouble = Math.min(otDaily, above(doubleAfter));
+        otDaily -= otDouble;
+      }
     }
 
     let otWeekly = 0;
@@ -196,7 +253,7 @@ function allocate(items: AllocItem[], policy: PayrollPolicy, ctx: AllocateCtx = 
       weeklyRegular.set(week, soFar + regular + it.transitOtMinutes);
     }
 
-    return { regular, otDaily, otWeekly };
+    return { regular, otDaily, otWeekly, otDouble };
   });
 }
 
@@ -240,6 +297,7 @@ function buildLines(
 ): PayrollLine[] {
   const base = { sessionId: it.sessionId, dateString: it.dateString, siteId: it.siteId };
   const otRate = rates.hourlyRate * rates.overtimeMultiplier;
+  const doubleRate = rates.hourlyRate * (rates.doubleTimeMultiplier ?? 2);
   const transitRate = rates.hourlyRate * it.transitRateMultiplier;
   const lines: PayrollLine[] = [
     { ...base, kind: "REGULAR", minutes: a.regular, rate: rates.hourlyRate, amount: money(a.regular, rates.hourlyRate), warnings: it.warnings },
@@ -248,6 +306,8 @@ function buildLines(
     lines.push({ ...base, kind: "OVERTIME_DAILY", minutes: a.otDaily, rate: otRate, amount: money(a.otDaily, otRate), warnings: [] });
   if (a.otWeekly > 0)
     lines.push({ ...base, kind: "OVERTIME_WEEKLY", minutes: a.otWeekly, rate: otRate, amount: money(a.otWeekly, otRate), warnings: [] });
+  if (a.otDouble > 0)
+    lines.push({ ...base, kind: "OVERTIME_DOUBLE", minutes: a.otDouble, rate: doubleRate, amount: money(a.otDouble, doubleRate), warnings: [] });
   if (it.transitPaidMinutes > 0)
     lines.push({ ...base, kind: "TRANSIT", minutes: it.transitPaidMinutes, rate: transitRate, amount: money(it.transitPaidMinutes, transitRate), warnings: [] });
   if (it.lunchMinutes > 0 || it.warnings.includes("LUNCH_DURATION_UNKNOWN"))
@@ -345,10 +405,16 @@ export const PayrollEngineService = {
       items = v1Items(minutes, policy, history, byId);
     }
 
-    const alloc = allocate(items, policy, {
+    const flags = legalFlags(input.company);
+    const actx: AllocateCtx = {
       history,
-      transitionWeeklyThreshold: legalFlags(input.company).transitionWeeklyThreshold,
-    });
+      transitionWeeklyThreshold: flags.transitionWeeklyThreshold,
+      caDoubleTime: flags.caDoubleTime,
+      caSeventhDay: flags.caSeventhDay,
+    };
+    const alloc = allocate(items, policy, actx);
+    const rules = p6Rules(policy, actx);
+    const appliedRules = [...(rules.doubleAfter !== null ? ["CA_DOUBLE_TIME_12H"] : []), ...(rules.seventh ? ["CA_SEVENTH_DAY"] : [])];
     const lines = items.flatMap((it, i) => buildLines(it, alloc[i], input.rates));
 
     const sumMin = (kinds: PayrollLine["kind"][]) =>
@@ -357,6 +423,7 @@ export const PayrollEngineService = {
     const regularMin = sumMin(["REGULAR"]);
     const otDailyMin = sumMin(["OVERTIME_DAILY"]);
     const otWeeklyMin = sumMin(["OVERTIME_WEEKLY"]);
+    const otDoubleMin = sumMin(["OVERTIME_DOUBLE"]);
     const transitMin = sumMin(["TRANSIT"]);
     const lunchMin = sumMin(["LUNCH_DEDUCTION"]);
     const pauseMin = sumMin(["PAUSE_DEDUCTION"]);
@@ -373,7 +440,7 @@ export const PayrollEngineService = {
       periodEnd: input.periodEnd,
       lines,
       regularHours: regularMin / 60,
-      overtimeHours: (otDailyMin + otWeeklyMin) / 60,
+      overtimeHours: (otDailyMin + otWeeklyMin + otDoubleMin) / 60,
       transitHours: transitMin / 60,
       lunchMinutes: lunchMin,
       grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),
@@ -385,6 +452,8 @@ export const PayrollEngineService = {
       deductionMinutes: lunchMin + pauseMin,
       sessionIds: closed.map((s) => s.id),
       warnings,
+      ...(otDoubleMin > 0 ? { overtimeDoubleHours: otDoubleMin / 60 } : {}),
+      ...(appliedRules.length ? { appliedRules } : {}),
     };
   },
 
@@ -411,14 +480,15 @@ export const PayrollEngineService = {
       if (!it) return null;
       items = v1Items([it], policy, history, new Map([[session.id, session]]));
     }
-    const a = allocate(items, { ...policy, weeklyOvertimeAfterMinutes: null });
+    const flags = legalFlags(company);
+    const a = allocate(items, { ...policy, weeklyOvertimeAfterMinutes: null, seventhDayRule: null }, { history, caDoubleTime: flags.caDoubleTime });
     const lines = items.flatMap((it, i) => buildLines(it, a[i], rates));
     const sum = (f: (x: AllocItem) => number) => items.reduce((acc, x) => acc + f(x), 0);
     return {
       sessionId: session.id,
       netMinutes: sum((x) => x.workMinutes + x.transitPaidMinutes),
       regularMinutes: a.reduce((acc, x) => acc + x.regular, 0),
-      overtimeDailyMinutes: a.reduce((acc, x) => acc + x.otDaily, 0),
+      overtimeDailyMinutes: a.reduce((acc, x) => acc + x.otDaily + x.otDouble, 0),
       transitMinutes: sum((x) => x.transitPaidMinutes),
       lunchMinutes: sum((x) => x.lunchMinutes),
       grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),

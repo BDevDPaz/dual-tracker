@@ -7,6 +7,8 @@ import { DEFAULT_CALENDAR_HISTORY, type CalendarHistory } from "./dateUtils";
 
 export const DEFAULT_LEGAL_FLAGS: PayrollLegalFlags = Object.freeze({
   transitionWeeklyThreshold: "FULL",
+  caDoubleTime: false,
+  caSeventhDay: false,
 });
 
 /** Historial de calendario de la empresa (por defecto 00:00 / lunes). */

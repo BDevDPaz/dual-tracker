@@ -220,6 +220,25 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
   - Se eliminó el `delay()` bloqueante de "dwell" de la tarea de geocerca de GEOTrack. Lo sustituyen el debounce persistido y los strikes.
   - El recordatorio diario ya no cancela todas las notificaciones: cancela por id.
 
+### Especificación FieldCryptoService v1.3 — prerrequisitos de nómina (§5, P1–P6)
+
+- **P1 Calendario laboral**: hora de inicio de jornada y día de inicio de semana configurables (por defecto 00:00 y lunes). El cambio entra en vigor al final de la semana en curso, deja el asiento `CALENDAR_CHANGED` y se rechaza si un expediente sellado termina después de esa fecha. Entre la semana antigua y la nueva puede quedar un periodo de transición corto (`T…`). La ventana de `payrollExport.task` sale del calendario.
+- **P2 Política v2** (`CA_DAILY8_WEEKLY40_v2`): parte cada sesión en el límite de jornada. La migración deja el asiento `PAYROLL_POLICY_CHANGED`. Los periodos ya sellados conservan su política (`policyForPeriod`).
+- **P3 Pausas**: se guardan en `pauses_json` y se reparten por segmento. Hay un backfill único desde el ledger y, si no cuadra, se prorratea con la advertencia `PAUSE_PRORATED`. Solo se pregunta la hora de inicio del almuerzo cuando la sesión cruza el límite de jornada.
+- **P4 `RESOLVE_SPLIT`**: divide una jornada cerrada en dos (A conserva el id y B es nueva). Pausas, almuerzo, tránsito y hechos espaciales pasan a la mitad que les corresponde, y se escriben 2 asientos.
+- **P5 Ruptura del ledger**: el incidente se guarda de forma persistente. El administrador lo reconoce con PIN (`LEDGER_BREAK_ACKNOWLEDGED`), la verificación pasa a hacerse por segmentos y los periodos tocados solo se pueden sellar como no certificados. El informe es exportable.
+- **P6 Reglas CA opcionales**:
+  - Qué cubren: doble tiempo por encima de 12 h por jornada y la regla del séptimo día consecutivo (las primeras 8 h como OT y el exceso como doble tiempo).
+  - Dónde se definen: los umbrales están declarados en la política v2.
+  - Cuándo se aplican: **NO se aplican por defecto**. Solo entran si la empresa activa `payrollLegalFlags.caDoubleTime` o `caSeventhDay` (Ajustes → Calendario laboral). Cuando lo hace, el statement incluye `appliedRules`.
+- **Banderas legales** (`payrollLegalFlags`, todas marcadas **CONFIRMAR CON ASESORÍA LEGAL** en la spec):
+
+  | Bandera | Valor por defecto | Alternativa |
+  | --- | --- | --- |
+  | `transitionWeeklyThreshold` | `FULL` (40 h) | `PRORATED` |
+  | `caDoubleTime` | `false` | — |
+  | `caSeventhDay` | `false` | — |
+
 ### Bugs de los dumps corregidos al portar (GEOTrack)
 
 - El borrado marcaba la sesión como CLOSED en lugar de borrado lógico.
@@ -240,10 +259,7 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 Se marcan en el código como `TODO(propuesta)`:
 
 - **Sesión y ledger**
-  - `RESOLVE_SPLIT` (dividir sesión) responde `NOT_IMPLEMENTED`.
-  - Edición de jornadas que cruzan medianoche.
   - Criterio de sesión huérfana o abandonada del watchdog.
-  - Acción a tomar si `IntegrityLedger.verify()` detecta la cadena rota.
 - **Seguridad y cifrado**
   - `FieldCryptoService` funciona en modo pass-through (`FIELD_CRYPTO_AVAILABLE = false`). Falta decidir el algoritmo y la gestión de claves.
   - Aprovisionamiento del PIN admin por el empleador (hoy lo fija el primer usuario del dispositivo).

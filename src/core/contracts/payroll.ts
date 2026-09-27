@@ -12,6 +12,8 @@ export type PayrollLineKind =
   | "REGULAR"
   | "OVERTIME_DAILY"
   | "OVERTIME_WEEKLY"
+  /** spec v1.3 §5.6 (P6): doble tiempo. Solo con la bandera legal activa. */
+  | "OVERTIME_DOUBLE"
   | "TRANSIT"
   | "LUNCH_DEDUCTION"
   | "PAUSE_DEDUCTION";
@@ -57,6 +59,10 @@ export interface PayrollStatement {
   deductionMinutes: number;
   sessionIds: number[];
   warnings: string[];
+  /** P6: horas de doble tiempo. Solo presente si > 0 (no altera el contentHash histórico). */
+  overtimeDoubleHours?: number;
+  /** P6: reglas legales opcionales aplicadas (p. ej. CA_DOUBLE_TIME_12H). Solo presente si no está vacío. */
+  appliedRules?: string[];
 }
 
 /** Efecto de nómina tentativo que devuelve SessionEngine tras cada intención (§4.1). */
@@ -94,10 +100,23 @@ export interface PayrollPolicy {
    * Ausente = atribución de toda la sesión a su inicio (v1).
    */
   segmentation?: "WORKDAY";
+  /**
+   * spec v1.3 §5.6 (P6): doble tiempo a partir de N minutos por día/jornada.
+   * Solo se aplica con payrollLegalFlags.caDoubleTime [CONFIRMAR CON ASESORÍA LEGAL].
+   */
+  doubleTimeDailyAfterMinutes?: number | null;
+  /**
+   * spec v1.3 §5.6 (P6): séptimo día consecutivo de la semana laboral: los
+   * primeros `overtimeFirstMinutes` son OT y lo que exceda `doubleAfterMinutes`
+   * es doble tiempo. Solo con payrollLegalFlags.caSeventhDay [CONFIRMAR CON ASESORÍA LEGAL].
+   */
+  seventhDayRule?: { overtimeFirstMinutes: number; doubleAfterMinutes: number } | null;
 }
 
 /** Entradas monetarias de la política de empresa usadas por el motor. */
 export interface PayrollRates {
   hourlyRate: number;
   overtimeMultiplier: number;
+  /** P6: multiplicador del doble tiempo (por defecto 2). */
+  doubleTimeMultiplier?: number;
 }

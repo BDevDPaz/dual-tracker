@@ -6,7 +6,7 @@
  * Footer "Guardar" solo con cambios pendientes. Intenciones: SAVE_SETTINGS,
  * UNLOCK_ADMIN, LOCK_ADMIN, SETUP_ADMIN_PIN, OPEN_OS_SETTINGS.
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -290,6 +290,21 @@ function WorkCalendarBlock() {
           />
         ))}
       </View>
+      {(["caDoubleTime", "caSeventhDay"] as const).map((flag) => (
+        <Fragment key={flag}>
+          <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t(`settings.calendar.${flag}`)}</Text>
+          <View style={styles.row}>
+            {([false, true] as const).map((v) => (
+              <Chip
+                key={String(v)}
+                label={t(v ? "settings.calendar.flagOn" : "settings.calendar.flagOff")}
+                selected={flags[flag] === v}
+                onPress={() => void run({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, [flag]: v } } } })}
+              />
+            ))}
+          </View>
+        </Fragment>
+      ))}
       <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.legalReview")}</Text>
     </View>
   );

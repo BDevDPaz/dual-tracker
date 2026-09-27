@@ -24,6 +24,7 @@ const LINE_LABEL: Record<PayrollLineKind, string> = {
   REGULAR: "reports.regular",
   OVERTIME_DAILY: "reports.overtime",
   OVERTIME_WEEKLY: "reports.overtime",
+  OVERTIME_DOUBLE: "reports.doubleTime",
   TRANSIT: "reports.transit",
   LUNCH_DEDUCTION: "reports.lunch",
   PAUSE_DEDUCTION: "reports.lunch",

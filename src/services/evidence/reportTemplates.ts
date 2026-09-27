@@ -43,6 +43,7 @@ const LINE_LABEL: Record<PayrollLine["kind"], string> = {
   REGULAR: "Regular",
   OVERTIME_DAILY: "OT diario",
   OVERTIME_WEEKLY: "OT semanal",
+  OVERTIME_DOUBLE: "Doble tiempo",
   TRANSIT: "Tránsito",
   LUNCH_DEDUCTION: "Almuerzo (deducción)",
   PAUSE_DEDUCTION: "Pausa (deducción)",
@@ -197,6 +198,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     <div class="log-item">Asientos del ledger: ${ev.ledgerEntryCount} · cadena ${ev.ledgerChainValid ? "íntegra" : "ROTA"}</div>
     <div class="log-item">Cabeza del ledger: <span class="hash">${escapeHtml(ev.ledgerHeadHash)}</span></div>
     ${conflicts || '<div class="log-item">Sin conflictos abiertos.</div>'}
+    ${input.statement.appliedRules?.length ? `<div class="section-title">Reglas legales opcionales aplicadas</div>${input.statement.appliedRules.map((r) => `<div class="log-item">${escapeHtml(r)}</div>`).join("")}` : ""}
     ${input.statement.warnings.length ? `<div class="section-title">Advertencias</div>${input.statement.warnings.map((w) => `<div class="log-item">${escapeHtml(w)}</div>`).join("")}` : ""}
     <div class="section-title">Resumen de traza</div>
     ${traces || '<div class="log-item">Periodo registrado solo por geocerca.</div>'}
