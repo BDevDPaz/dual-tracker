@@ -52,7 +52,7 @@ export { PersistenceService } from "./persistence/PersistenceService";
 export { SettingsService } from "./persistence/SettingsService";
 export { LoggingService } from "./persistence/LoggingService";
 export { OfflineQueueService } from "./persistence/OfflineQueueService";
-export { FieldCryptoService } from "./persistence/FieldCryptoService";
+// FieldCryptoService NO se reexporta: solo persistence/** y core/boot.ts lo importan (spec v1.3 §17).
 
 // Aplicación
 export { FeedbackService } from "./application/FeedbackService";

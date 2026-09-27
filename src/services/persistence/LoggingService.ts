@@ -66,6 +66,42 @@ const ICONS: Record<LogColor, string> = {
   ROJO: "🔴",
 };
 
+/**
+ * FieldCrypto v1.3 §17 ("LoggingService sin campos sensibles"): claves que
+ * nunca se registran. Defensa en profundidad: los llamadores ya no las pasan
+ * (test estático), y si llegaran, se redactan antes de consola y SQLite.
+ */
+export const SENSITIVE_LOG_KEYS = [
+  "note",
+  "manualNote",
+  "alias",
+  "clientName",
+  "address",
+  "notes",
+  "lat",
+  "lon",
+  "latitude",
+  "longitude",
+  "coords",
+  "targetLat",
+  "targetLon",
+  "companyEmail",
+  "plaintext",
+  "masterKey",
+] as const;
+const SENSITIVE = new Set<string>(SENSITIVE_LOG_KEYS);
+
+export function redactSensitive(value: unknown, depth = 0): unknown {
+  if (value === null || typeof value !== "object" || depth > 5) return value;
+  if (value instanceof Error) return value;
+  if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = SENSITIVE.has(k) ? "[redactado]" : redactSensitive(v, depth + 1);
+  }
+  return out;
+}
+
 function safeMetadata(metadata: unknown): string | null {
   if (metadata === undefined) return null;
   return serializeError(metadata);
@@ -134,6 +170,7 @@ export const LoggingService = {
   /** Stream SYSTEM. */
   system(entry: SystemLogEntry): void {
     const timestamp = TimeAuthorityService.now();
+    if (entry.metadata !== undefined) entry = { ...entry, metadata: redactSensitive(entry.metadata) };
     const full: QueuedSystem = { ...entry, timestamp, timestampStr: TimeAuthorityService.nowIso() };
 
     if (__DEV__) {
