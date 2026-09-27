@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, Input, ScreenContainer } from "../../src/components/ui";
+import { Button, EmptyState, Input, ScreenContainer } from "../../src/components/ui";
 import { ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
@@ -28,6 +28,19 @@ export default function SitesIndexScreen() {
   }, [q, sites]);
 
   if (!selectIsHydrated(state)) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
+
+  if (sites.length === 0) {
+    return (
+      <ScreenContainer>
+        <EmptyState
+          title={t("sites.empty")}
+          description={t("today.emptyHint")}
+          icon="location-outline"
+          action={{ label: t("cta.createFirstSite"), onPress: () => router.push("/sites/new") }}
+        />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer>

@@ -9,7 +9,6 @@ import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import {
-  Button,
   DailySummaryBlock,
   OperationalHeroCard,
   PageHeader,
@@ -31,6 +30,7 @@ import {
   selectActiveCrossesWorkday,
   selectLastSessionToday,
   selectLedgerHealth,
+  selectHealth,
   selectCryptoHealth,
   selectLunchElapsedMs,
   selectSessionState,
@@ -60,6 +60,7 @@ export default function TodayScreen() {
   const target = selectCurrentTargetSite(state);
   const sites = selectSites(state);
   const health = selectSystemHealth(state);
+  const healthRaw = selectHealth(state);
   const summary = selectTodaySummary(state, nowMs);
   const hasConflict = selectHasConflict(state);
   const uiRequests = selectUiRequests(state);
@@ -163,19 +164,29 @@ export default function TodayScreen() {
           timeString={formatDuration(selectActiveElapsedMs(state, nowMs))}
           earnings={formatCurrency(summary.grossEstimate)}
           uncertified={uncertified}
+          nextAction={
+            sessionState === "ESPERANDO"
+              ? `${t("today.nextAction", { site: target?.alias ?? t("today.noDestination") })} · ${t(healthRaw.isMonitoring ? "today.geofenceOn" : "today.geofenceOff")}`
+              : null
+          }
           busy={busy}
           onPrimaryAction={() => onHeroAction(ui.primary.action)}
           onSecondaryAction={ui.secondary ? () => onHeroAction(ui.secondary!.action) : undefined}
         />
 
         {noSitesNoSession ? (
-          <View style={styles.empty}>
-            <EmptyState title={t("today.emptyHint")} icon="location-outline" />
-            <Button label={t("cta.createFirstSite")} variant="secondary" onPress={() => router.push("/sites/new")} />
-          </View>
+          <EmptyState
+            compact
+            title={t("today.emptyHint")}
+            icon="location-outline"
+            action={{ label: t("cta.createFirstSite"), onPress: () => router.push("/sites/new") }}
+          />
         ) : null}
 
-        <DailySummaryBlock hours={`${(summary.netMinutes / 60).toFixed(2)} ${t("common.hours")}`} earnings={formatCurrency(summary.grossEstimate)} />
+        {/* Resumen del día solo con la jornada cerrada: nunca junto al temporizador del hero. */}
+        {sessionState === "CERRADA" ? (
+          <DailySummaryBlock hours={`${(summary.netMinutes / 60).toFixed(2)} ${t("common.hours")}`} earnings={formatCurrency(summary.grossEstimate)} />
+        ) : null}
 
         {visited.length > 1 ? (
           <View style={styles.visited}>
@@ -252,7 +263,6 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
-  empty: { gap: TOKENS.spacing.md },
   visited: { gap: TOKENS.spacing.sm },
   sectionLabel: { ...FONT.label },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm },

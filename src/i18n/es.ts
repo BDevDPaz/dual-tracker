@@ -109,6 +109,9 @@ export const es = {
     conflictBanner: "Hay una sesión por revisar",
     uncertified: "No certificado",
     emptyHint: "Aún no tienes destinos. Crea uno para iniciar la jornada.",
+    nextAction: "Siguiente: llegar a {site}",
+    geofenceOn: "geocerca vigilando",
+    geofenceOff: "geocerca sin vigilar",
   },
   health: {
     title: "Salud operativa",
@@ -249,6 +252,8 @@ export const es = {
     name: "Nombre",
     period: "Periodo",
     totalHours: "Total horas: {hours}",
+    copyHashA11y: "Copiar código de verificación que termina en {hash}",
+    hashCopied: "Código copiado · …{hash}",
   },
   settings: {
     title: "Ajustes",

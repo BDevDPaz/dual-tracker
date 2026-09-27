@@ -1,10 +1,16 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 
 import { TOKENS, FONT, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
+
+export interface PreviewLine {
+  label: string;
+  value: string;
+}
 
 interface DocumentPreviewWidgetProps {
   employeeName: string;
@@ -15,12 +21,24 @@ interface DocumentPreviewWidgetProps {
   companyName?: string;
   /** Sello visible cuando el periodo tiene CONFLICT. */
   certified?: boolean;
+  /** Líneas reales del rollup: se pintan las dos primeras en lugar de las barras de esqueleto. */
+  lines?: PreviewLine[];
+  /**
+   * SHA-256 del expediente sellado del periodo (manifest.packHash). SOLO el
+   * hash del paquete: nunca notas, alias ni ubicaciones. Si llega, se muestra
+   * una fila pulsable con los 12 últimos caracteres que copia el hash completo.
+   */
+  packHash?: string | null;
+  /** Tras copiar (la pantalla muestra el aviso); recibe los 12 últimos caracteres. */
+  onHashCopied?: (hashTail: string) => void;
   /**
    * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
    * del ScrollView). true solo si se usa fuera de un contenedor con padding.
    */
   inset?: boolean;
 }
+
+const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
 
 export function DocumentPreviewWidget({
   employeeName,
@@ -29,63 +47,92 @@ export function DocumentPreviewWidget({
   totalEarnings,
   companyName = "",
   certified = true,
+  lines,
+  packHash,
+  onHashCopied,
   inset = false,
 }: DocumentPreviewWidgetProps) {
   const { colors } = useTheme();
+  const paper = colors.paper;
+  const real = (lines ?? []).slice(0, 2);
+  const tail = packHash ? packHash.slice(-12) : null;
+
+  const copy = async () => {
+    if (!packHash || !tail) return;
+    await Clipboard.setStringAsync(packHash);
+    onHashCopied?.(tail);
+  };
+
   return (
     <View style={[styles.container, inset && styles.inset]}>
       <View style={styles.docHeader}>
-        <Ionicons
-          name="document-text-outline"
-          size={14}
-          color={colors.primary}
-        />
-        <Text
-          style={[
-            styles.docHeaderText,
-            { color: colors.text.secondary },
-          ]}
-        >
-          {t("report.previewTitle")}
-        </Text>
+        <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+        <Text style={[styles.docHeaderText, { color: colors.text.secondary }]}>{t("report.previewTitle")}</Text>
       </View>
 
-      <View style={[styles.paper, TOKENS.shadows.md]}>
+      <View style={[styles.paper, { backgroundColor: paper.background }, TOKENS.shadows.md]}>
         <View style={styles.paperHeaderRow}>
-          <Text style={styles.companyName}>{companyName || "—"}</Text>
-          <Text style={styles.docType}>{certified ? t("report.statement") : `${t("report.statement")} · ${t("report.uncertified").toUpperCase()}`}</Text>
+          <Text style={[styles.companyName, { color: paper.ink }]}>{companyName || "—"}</Text>
+          <Text style={[styles.docType, { color: paper.muted }]}>
+            {certified ? t("report.statement") : `${t("report.statement")} · ${t("report.uncertified").toUpperCase()}`}
+          </Text>
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: paper.line }]} />
 
         <View style={styles.detailsRow}>
           <View>
-            <Text style={styles.label}>{t("report.name")}</Text>
-            <Text style={styles.value}>{employeeName}</Text>
+            <Text style={[styles.label, { color: paper.label }]}>{t("report.name")}</Text>
+            <Text style={[styles.value, { color: paper.text }]}>{employeeName}</Text>
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.label}>{t("report.period")}</Text>
-            <Text style={styles.value}>{dateRange}</Text>
+            <Text style={[styles.label, { color: paper.label }]}>{t("report.period")}</Text>
+            <Text style={[styles.value, { color: paper.text }]}>{dateRange}</Text>
           </View>
         </View>
 
-        <View style={styles.skeletonContainer}>
-          {[1, 2, 3, 4].map((i) => (
-            <View key={i} style={styles.skeletonRow}>
-              <View style={styles.skeletonBarLong} />
-              <View style={styles.skeletonBarShort} />
-            </View>
-          ))}
+        <View style={styles.linesContainer}>
+          {real.length > 0
+            ? real.map((l) => (
+                <View key={l.label} style={styles.lineRow} testID="preview-line">
+                  <Text style={[styles.lineLabel, { color: paper.text }]}>{l.label}</Text>
+                  <Text style={[styles.lineValue, { color: paper.text }]}>{l.value}</Text>
+                </View>
+              ))
+            : [1, 2, 3, 4].map((i) => (
+                <View key={i} style={styles.lineRow} testID="preview-skeleton">
+                  <View style={[styles.skeletonBarLong, { backgroundColor: paper.skeleton }]} />
+                  <View style={[styles.skeletonBarShort, { backgroundColor: paper.skeleton }]} />
+                </View>
+              ))}
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: paper.line }]} />
 
         <View style={styles.totalsRow}>
-          <Text style={styles.totalLabel}>{t("report.totalHours", { hours: totalHours })}</Text>
-          <Text style={styles.totalValue}>{totalEarnings}</Text>
+          <Text style={[styles.totalLabel, { color: paper.muted }]}>{t("report.totalHours", { hours: totalHours })}</Text>
+          <Text style={[styles.totalValue, { color: paper.ink }]}>{totalEarnings}</Text>
         </View>
       </View>
+
+      {tail ? (
+        <Pressable
+          onPress={() => void copy()}
+          style={({ pressed }) => [styles.hashRow, { borderColor: colors.border, backgroundColor: pressed ? colors.surfaceElevated : colors.surface }]}
+          accessibilityRole="button"
+          accessibilityLabel={t("report.copyHashA11y", { hash: tail })}
+          accessibilityHint={t("report.hashHint")}
+          testID="preview-hash"
+        >
+          <Ionicons name="finger-print-outline" size={16} color={colors.primary} />
+          <View style={styles.hashText}>
+            <Text style={[styles.hashLabel, { color: colors.text.secondary }]}>{t("report.hash")}</Text>
+            <Text style={[styles.hashValue, { color: colors.text.primary }]}>…{tail}</Text>
+          </View>
+          <Ionicons name="copy-outline" size={18} color={colors.text.secondary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -107,7 +154,6 @@ const styles = StyleSheet.create({
   },
   paper: {
     width: "100%",
-    backgroundColor: TOKENS.colors.paper.background,
     borderRadius: TOKENS.radius.md,
     padding: TOKENS.spacing.lg,
   },
@@ -120,18 +166,15 @@ const styles = StyleSheet.create({
   companyName: {
     fontSize: 11,
     ...font("800"),
-    color: TOKENS.colors.paper.ink,
     width: "60%",
   },
   docType: {
     fontSize: 9,
     ...font("800"),
-    color: TOKENS.colors.paper.muted,
     letterSpacing: 1,
   },
   divider: {
     height: 1,
-    backgroundColor: TOKENS.colors.paper.line,
     marginVertical: TOKENS.spacing.md,
   },
   detailsRow: {
@@ -142,34 +185,38 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 9,
     ...font("700"),
-    color: TOKENS.colors.paper.label,
     textTransform: "uppercase",
     marginBottom: 2,
   },
   value: {
     fontSize: 12,
     ...font("700"),
-    color: TOKENS.colors.paper.text,
   },
-  skeletonContainer: {
+  linesContainer: {
     gap: 10,
     marginBottom: TOKENS.spacing.sm,
     marginTop: TOKENS.spacing.sm,
   },
-  skeletonRow: {
+  lineRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  lineLabel: {
+    fontSize: 11,
+    ...font("600"),
+  },
+  lineValue: {
+    fontSize: 11,
+    ...FONT.tabular,
+  },
   skeletonBarLong: {
     height: 5,
-    backgroundColor: TOKENS.colors.paper.skeleton,
     borderRadius: 3,
     width: "65%",
   },
   skeletonBarShort: {
     height: 5,
-    backgroundColor: TOKENS.colors.paper.skeleton,
     borderRadius: 3,
     width: "20%",
   },
@@ -181,12 +228,26 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 11,
     ...font("800"),
-    color: TOKENS.colors.paper.muted,
   },
   totalValue: {
     fontSize: 18,
     ...font("800"),
-    color: TOKENS.colors.paper.ink,
+    fontVariant: ["tabular-nums"],
     letterSpacing: -0.5,
   },
+  hashRow: {
+    marginTop: TOKENS.spacing.sm,
+    width: "100%",
+    minHeight: TOKENS.layout.minTouchTarget,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: TOKENS.spacing.sm,
+    borderWidth: 1,
+    borderRadius: TOKENS.radius.md,
+    paddingHorizontal: TOKENS.spacing.md,
+    paddingVertical: TOKENS.spacing.sm,
+  },
+  hashText: { flex: 1 },
+  hashLabel: { ...FONT.caption },
+  hashValue: { fontFamily: MONO, fontSize: 14, letterSpacing: 0.5 },
 });

@@ -69,7 +69,7 @@ export function LunchModal(props: LunchModalProps) {
       }}
       secondaryAction={{ label: t("common.cancel"), onPress: props.onCancel }}
     >
-      <View style={styles.optionsRow}>
+      <View style={styles.optionsGrid} testID="lunch-options">
         {OPTIONS.map((min) => (
           <Pressable
             key={min}
@@ -100,9 +100,18 @@ export function LunchModal(props: LunchModalProps) {
 }
 
 const styles = StyleSheet.create({
-  optionsRow: { flexDirection: "row", justifyContent: "space-between", gap: TOKENS.spacing.sm },
-  optionPill: { flex: 1, paddingVertical: TOKENS.spacing.md, alignItems: "center", borderRadius: TOKENS.radius.md, borderWidth: 1 },
-  optionText: { ...FONT.bodyStrong, fontSize: 14 },
+  // Rejilla 2×2: en teléfonos estrechos cuatro píldoras en fila no caben con texto de 16.
+  optionsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: TOKENS.spacing.sm },
+  optionPill: {
+    width: "48.5%",
+    minHeight: TOKENS.layout.minTouchTarget + 4,
+    paddingVertical: TOKENS.spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: TOKENS.radius.md,
+    borderWidth: 1,
+  },
+  optionText: { ...FONT.bodyStrong },
   startRow: { marginTop: TOKENS.spacing.md, gap: TOKENS.spacing.xs },
   hint: { ...FONT.caption },
 });

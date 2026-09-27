@@ -42,7 +42,10 @@ export const ICONS = {
     security: "shield-checkmark-outline",
     notification: "notifications-outline",
     report: "document-attach-outline",
-    transit: "airplane-outline",
+    transit: "navigate-outline",
+    gps: "locate-outline",
+    background: "phone-portrait-outline",
+    trace: "trail-sign-outline",
     lunch: "restaurant-outline",
   },
 

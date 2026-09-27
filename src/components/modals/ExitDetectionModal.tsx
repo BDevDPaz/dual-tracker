@@ -42,8 +42,8 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
     >
       <View style={styles.grid}>
         <Button label={t("modals.exitStay")} variant="primary" onPress={onStay} isLoading={busy} style={styles.btn} />
-        <Button label={t("modals.exitLunch")} variant="secondary" onPress={onLunch} disabled={busy} style={styles.btn} iconName="restaurant-outline" />
-        <Button label={t("modals.exitTransfer")} variant="secondary" onPress={onTransfer} disabled={busy} style={styles.btn} iconName="navigate-outline" />
+        <Button label={t("modals.exitLunch")} variant="secondary" onPress={onLunch} disabled={busy} style={styles.btn} iconName={ICONS.domain.lunch} />
+        <Button label={t("modals.exitTransfer")} variant="secondary" onPress={onTransfer} disabled={busy} style={styles.btn} iconName={ICONS.domain.transit} />
         <Button label={t("modals.exitClose")} variant="danger" onPress={onCloseDay} disabled={busy} style={styles.btn} iconName="stop-circle-outline" />
       </View>
     </ModalShell>

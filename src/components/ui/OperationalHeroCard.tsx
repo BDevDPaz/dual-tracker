@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, { LinearTransition } from "react-native-reanimated";
 
 import { TOKENS, FONT } from "../../constants/theme";
@@ -25,6 +26,11 @@ interface OperationalHeroCardProps {
   onPrimaryAction: () => void;
   onSecondaryAction?: () => void;
   /**
+   * Línea compacta de "siguiente acción" cuando no hay temporizador (ESPERANDO:
+   * destino + estado de la geocerca). Sustituye al hueco vacío.
+   */
+  nextAction?: string | null;
+  /**
    * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
    * del ScrollView). true solo si se usa fuera de un contenedor con padding.
    */
@@ -40,9 +46,13 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   busy = false,
   onPrimaryAction,
   onSecondaryAction,
+  nextAction = null,
   inset = false,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
+  // Teléfonos estrechos (< 360 dp): CTAs apilados a ancho completo; el texto nunca baja de 16.
+  const { width } = useWindowDimensions();
+  const narrow = width < NARROW_WIDTH;
   const primaryVariant = ui.state === "ACTIVA" || ui.state === "SALIDA" ? "danger" : "primary";
   return (
     <Animated.View
@@ -63,26 +73,37 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
         <View style={styles.metricsRow}>
           <View style={styles.metricBlock}>
             <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
-            <Text style={[styles.metricBigValue, { color: colors.text.primary }]}>{timeString}</Text>
+            <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]} testID="hero-timer">
+              {timeString}
+            </Text>
           </View>
           <View style={styles.metricBlockRight}>
             <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
-            <Text style={[styles.metricBigValue, { color: colors.primary }]}>{earnings}</Text>
+            <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}>{earnings}</Text>
           </View>
+        </View>
+      ) : nextAction ? (
+        <View style={styles.nextRow} testID="hero-next-action">
+          <Ionicons name="navigate-outline" size={16} color={colors.status.info} />
+          <Text style={[styles.nextText, { color: colors.text.primary }]} numberOfLines={2}>
+            {nextAction}
+          </Text>
         </View>
       ) : (
         <View style={styles.spacer} />
       )}
 
-      <View style={styles.actionRow}>
-        <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={styles.flexButton} />
+      <View style={[styles.actionRow, narrow && styles.actionColumn]} testID="hero-actions">
+        <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={narrow ? styles.fullButton : styles.flexButton} />
         {ui.secondary && onSecondaryAction ? (
-          <Button label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={styles.flexButton} />
+          <Button label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={narrow ? styles.fullButton : styles.flexButton} />
         ) : null}
       </View>
     </Animated.View>
   );
 });
+
+export const NARROW_WIDTH = 360;
 
 const styles = StyleSheet.create({
   inset: { marginHorizontal: TOKENS.layout.screenPadding },
@@ -100,7 +121,12 @@ const styles = StyleSheet.create({
   metricBlockRight: { flex: 1, alignItems: "flex-end" },
   metricLabel: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
   metricBigValue: { ...FONT.h1, ...FONT.tabular, fontSize: 36, lineHeight: 42 },
+  metricBigValueNarrow: { fontSize: 28, lineHeight: 34 },
   spacer: { height: TOKENS.spacing.lg },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, marginVertical: TOKENS.spacing.md },
+  nextText: { ...FONT.body, flex: 1 },
   actionRow: { flexDirection: "row", gap: TOKENS.spacing.md },
+  actionColumn: { flexDirection: "column" },
   flexButton: { flex: 1 },
+  fullButton: { width: "100%" },
 });

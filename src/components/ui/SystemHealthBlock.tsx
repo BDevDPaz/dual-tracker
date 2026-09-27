@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { SystemHealthView } from "../../core/selectors";
+import { ICONS } from "../../constants/icons";
 import { t } from "../../i18n";
 import { Card } from "./Card";
 
@@ -40,9 +41,9 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   const warn = colors.status.warning;
   const muted = colors.text.muted;
   const rows = [
-    { icon: "locate-outline", label: t("health.gps"), color: !health.checked ? muted : health.gpsOk ? ok : warn, status: health.gpsOk ? t("health.ok") : t("health.warn"), pulse: tracking },
-    { icon: "moon-outline", label: t("health.background"), color: !health.checked ? muted : health.backgroundOk ? ok : warn, status: health.backgroundOk ? t("health.ok") : t("health.warn"), pulse: false },
-    { icon: "trail-sign-outline", label: t("health.trace"), color: health.traceMode === "SIN_UBICACION" ? muted : ok, status: t(`health.modes.${health.traceMode}`), pulse: false },
+    { icon: ICONS.domain.gps, label: t("health.gps"), color: !health.checked ? muted : health.gpsOk ? ok : warn, status: health.gpsOk ? t("health.ok") : t("health.warn"), pulse: tracking },
+    { icon: ICONS.domain.background, label: t("health.background"), color: !health.checked ? muted : health.backgroundOk ? ok : warn, status: health.backgroundOk ? t("health.ok") : t("health.warn"), pulse: false },
+    { icon: ICONS.domain.trace, label: t("health.trace"), color: health.traceMode === "SIN_UBICACION" ? muted : ok, status: t(`health.modes.${health.traceMode}`), pulse: false },
   ] as const;
 
   const content = (
@@ -59,6 +60,11 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
           <Text style={[styles.status, { color: r.color }]}>{r.status}</Text>
         </View>
       ))}
+      {health.degraded ? (
+        <Text style={[styles.impact, { color: warn }]} testID="health-impact">
+          {t("health.impactNoValid")}
+        </Text>
+      ) : null}
     </Card>
   );
 
@@ -85,4 +91,5 @@ const styles = StyleSheet.create({
   icon: { marginRight: TOKENS.spacing.sm },
   text: { ...FONT.body, fontSize: 14, flex: 1 },
   status: { ...FONT.caption },
+  impact: { ...FONT.caption, marginTop: TOKENS.spacing.xs },
 });

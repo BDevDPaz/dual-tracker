@@ -113,6 +113,9 @@ export const en: Dictionary = {
     conflictBanner: "A session needs review",
     uncertified: "Not certified",
     emptyHint: "You have no sites yet. Create one to start your shift.",
+    nextAction: "Next: arrive at {site}",
+    geofenceOn: "geofence watching",
+    geofenceOff: "geofence not watching",
   },
   health: {
     title: "Operational health",
@@ -253,6 +256,8 @@ export const en: Dictionary = {
     name: "Name",
     period: "Period",
     totalHours: "Total hours: {hours}",
+    copyHashA11y: "Copy verification code ending in {hash}",
+    hashCopied: "Code copied · …{hash}",
   },
   settings: {
     title: "Settings",

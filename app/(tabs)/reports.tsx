@@ -15,6 +15,7 @@ import { TOKENS, FONT } from "../../src/constants/theme";
 import type { EvidencePack } from "../../src/core/contracts";
 import { useClock, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { selectBackupAdvice, selectCalendarHistory, selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
+import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatRange, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
 
@@ -39,6 +40,8 @@ export default function ReportsScreen() {
     [state, nowMs, periodStart, periodEnd],
   );
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === periodStart);
+  const latestPack = packs.reduce<EvidencePack | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null);
+  const { showToast } = useToast();
   const st = statement.data;
   const hasConflict = !!st?.integrityRollup.hasConflict;
   // §16: recomendación de exportar expedientes (packs sin compartir o periodo cerrado sin pack).
@@ -133,6 +136,12 @@ export default function ReportsScreen() {
             totalEarnings={formatCurrency(st.grossEstimate)}
             companyName={settings.company.employerName}
             certified={!hasConflict}
+            lines={[
+              { label: t("reports.regular"), value: `${st.regularHours.toFixed(2)} ${t("common.hours")}` },
+              { label: t("reports.overtime"), value: `${st.overtimeHours.toFixed(2)} ${t("common.hours")}` },
+            ]}
+            packHash={latestPack?.manifest.packHash ?? null}
+            onHashCopied={(tail) => showToast(t("report.hashCopied", { hash: tail }), "success")}
           />
         ) : null}
 

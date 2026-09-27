@@ -21,6 +21,7 @@ jest.mock("expo-battery", () => require("./mocks/expo-battery"));
 jest.mock("expo-background-task", () => require("./mocks/expo-background-task"));
 jest.mock("expo-sharing", () => require("./mocks/expo-sharing"));
 jest.mock("expo-mail-composer", () => require("./mocks/expo-mail-composer"));
+jest.mock("expo-clipboard", () => require("./mocks/expo-clipboard"));
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
@@ -45,6 +46,7 @@ const RESETTABLE = [
   "expo-background-task",
   "expo-sharing",
   "expo-mail-composer",
+  "expo-clipboard",
 ];
 
 beforeEach(async () => {
