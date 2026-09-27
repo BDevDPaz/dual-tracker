@@ -6,7 +6,7 @@
  * Dividir en dos sesiones si hay solape. Cada decisión es una intención al
  * SessionEngine + asiento nuevo en el ledger. No existe "descartar" sin autor;
  * mientras haya conflictos, el back queda bloqueado.
- * Nota: RESOLVE_SPLIT aún responde NOT_IMPLEMENTED en el motor (TODO).
+ * RESOLVE_SPLIT divide la jornada en dos (spec v1.3 §5.4).
  */
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";

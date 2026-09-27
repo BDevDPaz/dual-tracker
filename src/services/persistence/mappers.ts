@@ -68,6 +68,7 @@ export interface DbSessionRow {
   pauses_json?: string | null;
   pauses_source?: string | null;
   breaks_clipped?: number | null;
+  split_from_session_id?: number | null;
 }
 
 export interface DbSiteRow {
@@ -150,6 +151,7 @@ function pauseFields(row: DbSessionRow): Partial<SessionRecord["bookkeeping"]> {
   const src = normalizePausesSource(row.pauses_source);
   if (src !== "RECORDED") out.pausesSource = src;
   if (row.breaks_clipped) out.breaksClipped = true;
+  if (row.split_from_session_id !== null && row.split_from_session_id !== undefined) out.splitFromSessionId = Number(row.split_from_session_id);
   return out;
 }
 
@@ -235,6 +237,7 @@ export const SESSION_COLUMNS = [
   "pauses_json",
   "pauses_source",
   "breaks_clipped",
+  "split_from_session_id",
 ] as const;
 
 export async function sessionToParams(s: SessionRecord): Promise<(string | number | null)[]> {
@@ -267,6 +270,7 @@ export async function sessionToParams(s: SessionRecord): Promise<(string | numbe
     JSON.stringify(b.pauses ?? []),
     b.pausesSource ?? "RECORDED",
     b.breaksClipped ? 1 : 0,
+    b.splitFromSessionId ?? null,
   ];
 }
 

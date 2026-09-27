@@ -215,8 +215,8 @@ describe("sessionMachine", () => {
       expect(okNext(null, { type: "RESOLVE_KEEP_GPS", sessionId: 1 }, makeCtx({ cleanGpsPair: false }), conflict).next.integrityClass).toBe("AUTO");
       expect(code(null, { type: "RESOLVE_KEEP_GPS", sessionId: 1 }, makeCtx(), makeClosedSession(MONDAY_8AM, 8))).toBe("NOT_IN_CONFLICT");
     });
-    test("RESOLVE_SPLIT no implementado (TODO de propuesta)", () => {
-      expect(code(null, { type: "RESOLVE_SPLIT", sessionId: 1, splitAtMs: MONDAY_8AM, note: "x" }, makeCtx(), conflict)).toBe("NOT_IMPLEMENTED");
+    test("RESOLVE_SPLIT implementado (P4): fuera de rango → INVALID_TIMES", () => {
+      expect(code(null, { type: "RESOLVE_SPLIT", sessionId: 1, splitAtMs: MONDAY_8AM, note: "x" }, makeCtx(), conflict)).toBe("INVALID_TIMES");
     });
   });
 

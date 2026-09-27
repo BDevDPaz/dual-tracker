@@ -20,6 +20,7 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["pauses_json", "TEXT NOT NULL DEFAULT '[]'"],
   ["pauses_source", "TEXT NOT NULL DEFAULT 'RECORDED'"],
   ["breaks_clipped", "INTEGER NOT NULL DEFAULT 0"],
+  ["split_from_session_id", "INTEGER"], // P4 RESOLVE_SPLIT (§5.4)
 ];
 
 export const CREATE_TABLES_SQL = `
@@ -51,7 +52,8 @@ export const CREATE_TABLES_SQL = `
     updated_at_ms INTEGER NOT NULL,
     pauses_json TEXT NOT NULL DEFAULT '[]',
     pauses_source TEXT NOT NULL DEFAULT 'RECORDED',
-    breaks_clipped INTEGER NOT NULL DEFAULT 0
+    breaks_clipped INTEGER NOT NULL DEFAULT 0,
+    split_from_session_id INTEGER
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_start ON sessions(declared_start_ms);
   CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(domain_status);

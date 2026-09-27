@@ -146,6 +146,13 @@ export const SessionEngineService = {
           // Solape REAL (sustituye la regla demo "00:00" de W Tracker).
           ctx.overlap = await PersistenceService.checkOverlap(intent.declaredStartAtMs, intent.endAtMs, target.id);
         }
+        if (intent.type === "RESOLVE_SPLIT" && target && target.endAtMs !== null) {
+          const start = target.actualStartAtMs ?? target.declaredStartAtMs;
+          ctx.splitOverlap = {
+            a: await PersistenceService.checkOverlap(start, intent.splitAtMs, target.id),
+            b: await PersistenceService.checkOverlap(intent.splitAtMs, target.endAtMs, target.id),
+          };
+        }
         if (intent.type === "RESOLVE_KEEP_GPS" && target) {
           ctx.cleanGpsPair = await hasCleanGpsPair(target.id);
         }
@@ -160,6 +167,7 @@ export const SessionEngineService = {
         }
 
         // 4) Persistencia atómica: registro + asiento.
+        let extraSaved: SessionRecord | null = null;
         const saved = await PersistenceService.transaction(async (db) => {
           let record = out.next;
           if (out.isNew) {
@@ -167,6 +175,42 @@ export const SessionEngineService = {
             record = { ...record, id };
           } else {
             await PersistenceService.updateSession(record, db);
+          }
+          if (intent.type === "RESOLVE_SPLIT" && out.extra) {
+            // spec v1.3 §5.4: B nueva + hechos re-vinculados + exactamente 2 asientos.
+            const bId = await PersistenceService.insertSession(out.extra, db);
+            const b = { ...out.extra, id: bId };
+            const movedFacts = await PersistenceService.moveSpatialFacts(record.id, bId, intent.splitAtMs, db);
+            await IntegrityLedgerService.append(
+              {
+                sessionId: record.id,
+                actor,
+                intent: "RESOLVE_SPLIT",
+                fromState: out.from,
+                toState: out.to,
+                reason: "SESSION_SPLIT",
+                timestampMs: nowMs,
+                integrityClass: record.integrityClass,
+                data: { sessionId: record.id, newSessionId: bId, splitAtMs: intent.splitAtMs, movedFacts, noteDigest: await IntegrityLedgerService.noteDigest(intent.note) },
+              },
+              db,
+            );
+            await IntegrityLedgerService.append(
+              {
+                sessionId: bId,
+                actor,
+                intent: "RESOLVE_SPLIT",
+                fromState: null,
+                toState: "CERRADA",
+                reason: "SESSION_SPLIT_CREATED",
+                timestampMs: nowMs,
+                integrityClass: b.integrityClass,
+                data: { sessionId: bId, splitFrom: record.id, startMs: b.actualStartAtMs, endMs: b.endAtMs },
+              },
+              db,
+            );
+            extraSaved = b;
+            return record;
           }
           await IntegrityLedgerService.append(
             {
@@ -187,6 +231,7 @@ export const SessionEngineService = {
 
         // 5) Reflejo.
         StoreActions.sessionUpserted(saved);
+        if (extraSaved) StoreActions.sessionUpserted(extraSaved);
         if (out.to === "SALIDA") StoreActions.uiRequest({ openExitModal: true });
         if (out.from === "SALIDA" && out.to !== "SALIDA") StoreActions.uiRequest({ openExitModal: false });
 

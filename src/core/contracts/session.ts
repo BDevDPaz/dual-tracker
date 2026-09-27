@@ -69,7 +69,9 @@ export type IntegrityReason =
   | "OVERLAP"
   | "CONFLICT_RESOLVED"
   /** Cadena de hashes del ledger rota con la jornada abierta (spec FieldCrypto v1.3 §5.5). */
-  | "LEDGER_CHAIN_BROKEN";
+  | "LEDGER_CHAIN_BROKEN"
+  /** Mitad de una sesión dividida con RESOLVE_SPLIT (spec v1.3 §5.4). */
+  | "SESSION_SPLIT";
 
 /** Almuerzo (línea explícita de nómina, Propuesta §5.2). */
 export interface LunchRecord {

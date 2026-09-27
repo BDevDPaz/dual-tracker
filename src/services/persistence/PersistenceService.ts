@@ -621,6 +621,16 @@ export const PersistenceService = {
     );
   },
 
+  /**
+   * RESOLVE_SPLIT (spec v1.3 §5.4): re-vincula a `toSessionId` los hechos
+   * espaciales con timestamp_ms ≥ fromMs. Devuelve cuántos se movieron.
+   */
+  async moveSpatialFacts(fromSessionId: number, toSessionId: number, fromMs: number, database?: SQLite.SQLiteDatabase): Promise<number> {
+    const d = database ?? (await ensureReady());
+    const r = await d.runAsync(`UPDATE spatial_facts SET session_id = ? WHERE session_id = ? AND timestamp_ms >= ?`, [toSessionId, fromSessionId, fromMs]);
+    return r.changes ?? 0;
+  },
+
   /** policy_id del pack más reciente del periodo exacto (policyForPeriod, spec v1.3 §5.2 N3). */
   async packPolicyForPeriod(periodStart: number, periodEnd: number): Promise<string | null> {
     const d = await ensureReady();

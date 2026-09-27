@@ -43,6 +43,8 @@ export interface TransitionContext {
   degradedReason: IntegrityReason | null;
   /** Resultado de PersistenceService.checkOverlap (solo MANUAL_PATCH). */
   overlap?: boolean;
+  /** RESOLVE_SPLIT: ¿cada mitad solapa con otra sesión? (spec v1.3 §5.4). */
+  splitOverlap?: { a: boolean; b: boolean };
   /** El sitio destino existe y está activo. */
   siteExists?: (siteId: number) => boolean;
   /** Hay par ENTER/EXIT fiable para la sesión (RESOLVE_KEEP_GPS). */
@@ -68,6 +70,8 @@ export type TransitionOutcome =
       feedback: FeedbackCode | null;
       /** Datos adicionales para el asiento del ledger (p. ej. recortes de pausas). */
       ledgerExtra?: Record<string, unknown>;
+      /** Registro adicional a insertar en la misma transacción (RESOLVE_SPLIT: la mitad B). */
+      extra?: SessionRecord;
     }
   | { ok: false; code: IntentRejection; detail?: string };
 
@@ -228,6 +232,131 @@ function clipBreaks(s: SessionRecord, start: number, end: number): { next: Sessi
     next: { ...s, lunch, totalPausedMs, bookkeeping: { ...s.bookkeeping, pauses, breaksClipped: true } },
     clipped,
   };
+}
+
+/**
+ * RESOLVE_SPLIT (spec v1.3 §5.4). A conserva su id con end = splitAtMs; B es
+ * nueva desde splitAtMs hasta el fin original. Almuerzo, pausas y tránsito van
+ * a la mitad donde ocurrieron (el tránsito se corta en el punto); un almuerzo
+ * declarado sin horas y las pausas PRORATED se reparten por duración.
+ * Invariantes: A.end = B.start; neto y deducciones A + B = original.
+ */
+function splitSession(
+  s: SessionRecord,
+  at: number,
+  ctx: TransitionContext,
+  note: string,
+): { a: SessionRecord; b: SessionRecord } | { code: IntentRejection; detail?: string } {
+  const start = s.actualStartAtMs ?? s.declaredStartAtMs;
+  const end = s.endAtMs!;
+  const MINUTE = 60_000;
+  if (!Number.isFinite(at) || at < start + MINUTE || at > end - MINUTE) return { code: "INVALID_TIMES", detail: "SPLIT_OUT_OF_RANGE" };
+  const inside = (a: number | null, b: number | null) => a !== null && b !== null && a < at && at < b;
+  const pauses = s.bookkeeping.pauses ?? [];
+  if (inside(s.lunch.startAtMs, s.lunch.endAtMs) || pauses.some((p) => inside(p.startAtMs, p.endAtMs ?? end))) {
+    return { code: "SPLIT_INSIDE_BREAK" };
+  }
+  // Ambas mitades siguen solapando con otra sesión → la división no resuelve
+  // nada y crea un solape nuevo (B) → OVERLAP. Interpretación documentada.
+  if (ctx.splitOverlap?.a && ctx.splitOverlap?.b) return { code: "OVERLAP", detail: "SPLIT_KEEPS_BOTH_OVERLAPPING" };
+
+  const wA = at - start;
+  const wB = end - at;
+  const shareA = (total: number) => {
+    // Reparto por duración: floor para B y el resto a A (A + B = total).
+    const b = Math.floor((total * wB) / (wA + wB));
+    return total - b;
+  };
+
+  // Almuerzo
+  let lunchA = s.lunch;
+  let lunchB: SessionRecord["lunch"] = { taken: false, startAtMs: null, endAtMs: null, deductedMinutes: null };
+  if (s.lunch.startAtMs !== null && s.lunch.endAtMs !== null) {
+    if (s.lunch.startAtMs >= at) {
+      lunchB = s.lunch;
+      lunchA = { taken: false, startAtMs: null, endAtMs: null, deductedMinutes: null };
+    }
+  } else if (s.lunch.deductedMinutes !== null && s.lunch.deductedMinutes > 0) {
+    const a = shareA(s.lunch.deductedMinutes);
+    lunchA = { ...s.lunch, deductedMinutes: a, taken: a > 0 };
+    lunchB = { ...s.lunch, deductedMinutes: s.lunch.deductedMinutes - a, taken: s.lunch.deductedMinutes - a > 0 };
+  }
+
+  // Pausas
+  const pausesA = pauses.filter((p) => p.startAtMs < at);
+  const pausesB = pauses.filter((p) => p.startAtMs >= at);
+  const sum = (ps: PauseInterval[]) => ps.reduce((acc, p) => acc + ((p.endAtMs ?? end) - p.startAtMs), 0);
+  let totalA: number;
+  if (s.bookkeeping.pausesSource === "PRORATED" || !pauses.length) {
+    totalA = shareA(s.totalPausedMs);
+  } else {
+    const residual = Math.max(0, s.totalPausedMs - sum(pauses));
+    totalA = sum(pausesA) + shareA(residual);
+  }
+  const totalB = s.totalPausedMs - totalA;
+
+  // Tránsito (cortado en el punto)
+  const transitA: TransitSegment[] = [];
+  const transitB: TransitSegment[] = [];
+  for (const t of s.transitSegments) {
+    const tEnd = t.endAtMs ?? end;
+    if (tEnd <= at) transitA.push(t);
+    else if (t.startAtMs >= at) transitB.push(t);
+    else {
+      transitA.push({ ...t, endAtMs: at });
+      transitB.push({ ...t, id: `${t.id}-b`, startAtMs: at });
+    }
+  }
+
+  const fe = s.bookkeeping.firstExitAtMs;
+  const feInB = fe !== null && fe >= at;
+  const halfIntegrity = (overlaps: boolean) =>
+    overlaps ? { integrityClass: "CONFLICT" as const, reason: "OVERLAP" as const } : { integrityClass: "MANUAL" as const, reason: "SESSION_SPLIT" as const };
+  const ia = halfIntegrity(!!ctx.splitOverlap?.a);
+  const ib = halfIntegrity(!!ctx.splitOverlap?.b);
+  const original = s.bookkeeping.original ?? { declaredStartAtMs: s.declaredStartAtMs, actualStartAtMs: s.actualStartAtMs, endAtMs: s.endAtMs, capturedAtMs: ctx.nowMs };
+
+  const a: SessionRecord = {
+    ...s,
+    endAtMs: at,
+    lunch: lunchA,
+    totalPausedMs: totalA,
+    transitSegments: transitA,
+    integrityClass: ia.integrityClass,
+    bookkeeping: {
+      ...s.bookkeeping,
+      pauses: pausesA,
+      firstExitAtMs: feInB ? null : fe,
+      firstExitReliable: feInB ? null : s.bookkeeping.firstExitReliable,
+      integrityReason: ia.reason,
+      original,
+      manualNote: note,
+    },
+  };
+  const b: SessionRecord = {
+    ...s,
+    id: 0,
+    declaredStartAtMs: at,
+    actualStartAtMs: at,
+    endAtMs: end,
+    lunch: lunchB,
+    totalPausedMs: totalB,
+    transitSegments: transitB,
+    integrityClass: ib.integrityClass,
+    bookkeeping: {
+      ...s.bookkeeping,
+      dateString: workdayDateString(at, companyCalendar(ctx.company)),
+      pauses: pausesB,
+      firstExitAtMs: feInB ? fe : null,
+      firstExitReliable: feInB ? s.bookkeeping.firstExitReliable : null,
+      integrityReason: ib.reason,
+      original: null,
+      splitFromSessionId: s.id,
+      breaksClipped: s.bookkeeping.breaksClipped,
+      manualNote: note,
+    },
+  };
+  return { a, b };
 }
 
 // ---------------------------------------------------------------------------
@@ -614,10 +743,18 @@ export function transition(
       return ok(s, next, ctx, "RESOLVE_MANUAL", [], "CONFLICT_RESOLVED");
     }
 
-    case "RESOLVE_SPLIT":
-      // TODO(propuesta §5.16): "Dividir en dos sesiones si hay solape". La
-      // asignación de almuerzo, tránsito y ledger a cada mitad no está definida.
-      return reject("NOT_IMPLEMENTED", "RESOLVE_SPLIT");
+    case "RESOLVE_SPLIT": {
+      const s = target;
+      if (!s) return reject("SESSION_NOT_FOUND");
+      if (s.bookkeeping.isDeleted) return reject("SESSION_DELETED");
+      if (s.domainStatus !== "CERRADA" || s.bookkeeping.cancelled || s.endAtMs === null) return reject("ILLEGAL_TRANSITION");
+      if (!(intent.note ?? "").trim()) return reject("NOTE_REQUIRED");
+      const split = splitSession(s, intent.splitAtMs, ctx, intent.note.trim());
+      if ("code" in split) return reject(split.code, split.detail);
+      const out = ok(s, split.a, ctx, "SESSION_SPLIT", [], "SESSION_PATCHED");
+      if (out.ok) out.extra = touch(split.b, ctx.nowMs);
+      return out;
+    }
 
     // ------------------------------------------------------------ INTEGRITY_DEGRADE
     case "INTEGRITY_DEGRADE": {
