@@ -15,6 +15,12 @@ import { t } from "../../i18n";
  */
 interface IntegrityBadgeProps {
   integrity: IntegrityClass;
+  /**
+   * FieldCrypto v1.3 §12: la sesión tiene un bloqueo de certificación
+   * (FIELD_CRYPTO_UNAVAILABLE) → "No certificable" en lugar de la clase
+   * (salvo CONFLICT, que sigue pidiendo revisión).
+   */
+  blocked?: boolean;
 }
 
 const CONFIG: Record<IntegrityClass, { color: string; icon: string }> = {
@@ -24,9 +30,12 @@ const CONFIG: Record<IntegrityClass, { color: string; icon: string }> = {
   CONFLICT: { color: TOKENS.colors.status.warning, icon: ICONS.status.warning },
 };
 
-export function IntegrityBadge({ integrity }: IntegrityBadgeProps) {
-  const config = CONFIG[integrity];
-  const label = t(`integrity.${integrity}`);
+const BLOCKED_CONFIG = { color: TOKENS.colors.status.warning, icon: ICONS.status.warning };
+
+export function IntegrityBadge({ integrity, blocked = false }: IntegrityBadgeProps) {
+  const showBlocked = blocked && integrity !== "CONFLICT";
+  const config = showBlocked ? BLOCKED_CONFIG : CONFIG[integrity];
+  const label = showBlocked ? t("integrity.BLOCKED") : t(`integrity.${integrity}`);
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}

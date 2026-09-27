@@ -30,7 +30,7 @@ export function SessionListItem({ item, onPress }: { item: ComputedSession; onPr
       <View style={styles.side}>
         <Text style={[styles.hours, { color: TOKENS.colors.text.primary }]}>{hours}</Text>
         <Text style={[styles.amount, { color: TOKENS.colors.primary }]}>{item.preview ? formatCurrency(item.preview.grossEstimate) : "—"}</Text>
-        <IntegrityBadge integrity={s.integrityClass} />
+        <IntegrityBadge integrity={s.integrityClass} blocked={(s.bookkeeping.certificationBlockers ?? []).length > 0} />
       </View>
     </Pressable>
   );

@@ -22,6 +22,7 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["pauses_source", "TEXT NOT NULL DEFAULT 'RECORDED'"],
   ["breaks_clipped", "INTEGER NOT NULL DEFAULT 0"],
   ["split_from_session_id", "INTEGER"], // P4 RESOLVE_SPLIT (§5.4)
+  ["cert_blockers_json", "TEXT NOT NULL DEFAULT '[]'"], // FieldCrypto §12
 ];
 
 /** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. */
@@ -57,7 +58,8 @@ export const CREATE_TABLES_SQL = `
     pauses_json TEXT NOT NULL DEFAULT '[]',
     pauses_source TEXT NOT NULL DEFAULT 'RECORDED',
     breaks_clipped INTEGER NOT NULL DEFAULT 0,
-    split_from_session_id INTEGER
+    split_from_session_id INTEGER,
+    cert_blockers_json TEXT NOT NULL DEFAULT '[]'
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_start ON sessions(declared_start_ms);
   CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(domain_status);

@@ -31,6 +31,7 @@ import {
   selectActiveCrossesWorkday,
   selectLastSessionToday,
   selectLedgerHealth,
+  selectCryptoHealth,
   selectLunchElapsedMs,
   selectSessionState,
   selectSiteById,
@@ -63,6 +64,7 @@ export default function TodayScreen() {
   const hasConflict = selectHasConflict(state);
   const uiRequests = selectUiRequests(state);
   const ledger = selectLedgerHealth(state);
+  const crypto = selectCryptoHealth(state);
 
   // Peticiones de UI originadas fuera de la vista (notificación de salida, boot en SALIDA).
   useEffect(() => {
@@ -138,6 +140,8 @@ export default function TodayScreen() {
         {hasConflict ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
         ) : null}
+
+        {!crypto.platformSupported ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.web")} /> : null}
 
         {ledger.broken ? (
           <ScreenStatusBanner

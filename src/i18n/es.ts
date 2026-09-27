@@ -296,6 +296,23 @@ export const es = {
     MANUAL: "Ajuste",
     AUTO: "Auto",
     CONFLICT: "Revisar",
+    // FieldCrypto v1.3 §12 (microcopy exacta).
+    BLOCKED: "No certificable",
+    blockedDetail: "Se guardaron notas o ubicaciones sin cifrar en este dispositivo.",
+  },
+  fieldCrypto: {
+    // FieldCrypto v1.3 §12 y §14 (microcopy exacta).
+    unavailableTitle: "Cifrado de campos no disponible",
+    unavailableBody: "Las notas y ubicaciones que se registren se guardarán sin cifrar y esas jornadas no se podrán certificar.",
+    web: "La versión web no admite jornadas certificadas porque no puede proteger notas ni ubicaciones. Usa la app en Android o iOS.",
+    keyMissingTitle: "Datos cifrados ilegibles en este dispositivo",
+    keyMissingBody: "Se restauró el historial sin su clave de cifrado. Las horas y la certificación de las jornadas se conservan, pero las notas y ubicaciones anteriores no se pueden leer aquí.",
+    unreadableNote: "— (ilegible en este dispositivo)",
+    unreadableTrace: "Rastro ilegible en este dispositivo.",
+    unreadableSite: "Datos del destino ilegibles en este dispositivo. Vuelve a capturar el destino.",
+    sealWarning: "Advertencia: en el dispositivo que emitió este expediente, las notas y ubicaciones de algunas jornadas no eran legibles. Las horas y la integridad no se ven afectadas.",
+    sectionTitle: "Cifrado de campos",
+    status: { UNINITIALIZED: "Iniciando…", READY: "Activo", NEEDS_MIGRATE: "Activo (migración pendiente)", KEY_MISSING: "Clave anterior no disponible", UNAVAILABLE: "No disponible" },
   },
   modals: {
     dailySetupStartTitle: "Iniciar jornada",

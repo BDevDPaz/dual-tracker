@@ -73,7 +73,7 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
         <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>
           {view.site?.alias ?? t("today.noDestination")} · {formatDate(view.factB.startAtMs)}
         </Text>
-        <IntegrityBadge integrity={view.session.integrityClass} />
+        <IntegrityBadge integrity={view.session.integrityClass} blocked={(view.session.bookkeeping.certificationBlockers ?? []).length > 0} />
       </View>
       <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{view.reason}</Text>
       <KeyValueRow label={t("conflict.factA")} value={range(view.factA)} />

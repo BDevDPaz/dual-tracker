@@ -342,7 +342,20 @@ export function rollupIntegrity(sessions: SessionRecord[], opts: { ledgerSegment
   const byClass: Record<IntegrityClass, number> = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
   for (const s of sessions) byClass[s.integrityClass]++;
   const hasConflict = byClass.CONFLICT > 0;
-  return { total: sessions.length, byClass, hasConflict, certified: !hasConflict && !opts.ledgerSegmented };
+  // FieldCrypto v1.3 §12: certified = !hasConflict && blockedCount = 0.
+  const blockedCount = sessions.filter((s) => (s.bookkeeping.certificationBlockers ?? []).length > 0).length;
+  return {
+    total: sessions.length,
+    byClass,
+    hasConflict,
+    certified: !hasConflict && blockedCount === 0 && !opts.ledgerSegmented,
+    ...(blockedCount > 0 ? { blockedCount } : {}),
+  };
+}
+
+/** FieldCrypto v1.3 §12: certificable = no CONFLICT y sin bloqueos de certificación. */
+export function isCertifiable(s: SessionRecord): boolean {
+  return s.integrityClass !== "CONFLICT" && !(s.bookkeeping.certificationBlockers ?? []).length;
 }
 
 export const PayrollEngineService = {
@@ -492,7 +505,7 @@ export const PayrollEngineService = {
       transitMinutes: sum((x) => x.transitPaidMinutes),
       lunchMinutes: sum((x) => x.lunchMinutes),
       grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),
-      certified: session.integrityClass !== "CONFLICT",
+      certified: isCertifiable(session),
       policyId: policy.id,
     };
   },

@@ -39,7 +39,7 @@ import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
-import { PersistenceService } from "../persistence/PersistenceService";
+import { PersistenceService, type WriteReport } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
 import { ConcurrencyGuardService, MutexBusyError } from "./ConcurrencyGuardService";
 import { DualDisclosureService } from "./DualDisclosureService";
@@ -67,6 +67,61 @@ const NOOP_PORTS: SessionRuntimePorts = {
 };
 
 let ports: SessionRuntimePorts = NOOP_PORTS;
+
+/**
+ * FieldCrypto v1.3 §12: ¿se pueden cifrar notas ahora? Puerto inyectado en
+ * boot.wirePorts (SessionEngine no importa FieldCrypto). Por defecto true.
+ */
+let cryptoAvailable: () => Promise<boolean> = async () => true;
+
+/** Intenciones que escriben nota sobre una sesión cerrada (§12, rechazadas sin cifrado). */
+function writesNoteOnClosed(intent: SessionIntent, target: SessionRecord | null): boolean {
+  if (!target || target.domainStatus !== "CERRADA") return false;
+  switch (intent.type) {
+    case "ADD_NOTE":
+    case "MANUAL_PATCH":
+    case "RESOLVE_MANUAL":
+    case "RESOLVE_SPLIT":
+      return true;
+    case "RESOLVE_KEEP_GPS":
+      return !!(intent.note ?? "").trim();
+    default:
+      return false;
+  }
+}
+
+/**
+ * §12: si una escritura sensible de la sesión salió degradada, agrega el
+ * bloqueo FIELD_CRYPTO_UNAVAILABLE (una sola vez, permanente) y el asiento
+ * CERT_BLOCKER_ADDED { blocker, field } en la misma transacción.
+ */
+async function applyCertBlocker(
+  db: Parameters<Parameters<typeof PersistenceService.transaction>[0]>[0],
+  sessionId: number,
+  report: WriteReport,
+  actor: LedgerActor,
+  nowMs: number,
+  integrityClass: SessionRecord["integrityClass"] | null,
+): Promise<boolean> {
+  if (!report.degradedFields.length) return false;
+  const added = await PersistenceService.addCertBlocker(sessionId, "FIELD_CRYPTO_UNAVAILABLE", db);
+  if (!added) return false;
+  await IntegrityLedgerService.append(
+    {
+      sessionId,
+      actor,
+      intent: "CERT_BLOCKER_ADDED",
+      fromState: null,
+      toState: null,
+      reason: "FIELD_CRYPTO_UNAVAILABLE",
+      timestampMs: nowMs,
+      integrityClass,
+      data: { blocker: "FIELD_CRYPTO_UNAVAILABLE", field: report.degradedFields[0] },
+    },
+    db,
+  );
+  return true;
+}
 
 const SESSION_LOCK = "session";
 
@@ -129,6 +184,11 @@ export const SessionEngineService = {
     ports = p ?? NOOP_PORTS;
   },
 
+  /** FieldCrypto v1.3 §12: puerto de disponibilidad del cifrado (boot.wirePorts). */
+  setCryptoAvailability(fn: (() => Promise<boolean>) | null): void {
+    cryptoAvailable = fn ?? (async () => true);
+  },
+
   /** Punto de entrada único de intenciones de jornada. */
   async dispatch(intent: SessionIntent, origin: IntentOrigin): Promise<DispatchResult> {
     const actor: LedgerActor = ORIGIN_TO_ACTOR[origin];
@@ -168,6 +228,12 @@ export const SessionEngineService = {
           ctx.cleanGpsPair = await hasCleanGpsPair(target.id);
         }
 
+        // §12: sin cifrado no se escribe una nota sobre una sesión cerrada.
+        if (writesNoteOnClosed(intent, target) && !(await cryptoAvailable())) {
+          LoggingService.log("AMARILLO", "INTENCION_RECHAZADA", "WARN", `${intent.type} rechazada: FIELD_CRYPTO_UNAVAILABLE`, { origin });
+          return { ok: false as const, code: "FIELD_CRYPTO_UNAVAILABLE" as const };
+        }
+
         const out = transition(open, intent, ctx, target);
         if (!out.ok) {
           LoggingService.log("AMARILLO", "INTENCION_RECHAZADA", "WARN", `${intent.type} rechazada: ${out.code}`, {
@@ -179,16 +245,22 @@ export const SessionEngineService = {
 
         // 4) Persistencia atómica: registro + asiento.
         let extraSaved: SessionRecord | null = null;
+        const report: WriteReport = { degradedFields: [] };
         const saved = await PersistenceService.transaction(async (db) => {
           let record = out.next;
           if (out.isNew) {
-            const id = await PersistenceService.insertSession(record, db);
+            const id = await PersistenceService.insertSession(record, db, report);
             record = { ...record, id };
           } else {
-            await PersistenceService.updateSession(record, db);
+            await PersistenceService.updateSession(record, db, report);
+          }
+          if (await applyCertBlocker(db, record.id, report, actor, nowMs, record.integrityClass)) {
+            const blockers = record.bookkeeping.certificationBlockers ?? [];
+            record = { ...record, bookkeeping: { ...record.bookkeeping, certificationBlockers: [...blockers, "FIELD_CRYPTO_UNAVAILABLE"] } };
           }
           if (intent.type === "RESOLVE_SPLIT" && out.extra) {
             // spec v1.3 §5.4: B nueva + hechos re-vinculados + exactamente 2 asientos.
+            // Los bloqueos de certificación del original se copian a B (bookkeeping heredado).
             const bId = await PersistenceService.insertSession(out.extra, db);
             const b = { ...out.extra, id: bId };
             const movedFacts = await PersistenceService.moveSpatialFacts(record.id, bId, intent.splitAtMs, db);
@@ -295,7 +367,18 @@ export const SessionEngineService = {
    * generan asiento; los BREADCRUMB no (se resumen y sellan en EvidencePack).
    */
   async recordSpatialFact(fact: SpatialFact & { speedMps?: number | null; altitudeM?: number | null; battery?: number | null }): Promise<number> {
-    const id = await PersistenceService.insertSpatialFact(fact);
+    const report: WriteReport = { degradedFields: [] };
+    let blocked = false;
+    const id = await PersistenceService.transaction(async (db) => {
+      const factId = await PersistenceService.insertSpatialFact(fact, report, db);
+      // §12: coordenadas escritas sin cifrar → bloqueo de certificación de la sesión.
+      blocked = await applyCertBlocker(db, fact.sessionId, report, "GEOFENCE", fact.timestampMs, null);
+      return factId;
+    });
+    if (blocked) {
+      const s = await PersistenceService.getSession(fact.sessionId);
+      if (s) StoreActions.sessionUpserted(s);
+    }
     StoreActions.healthUpdated({ lastSpatialFactAt: fact.timestampMs });
     if (fact.type !== "BREADCRUMB") {
       await PersistenceService.transaction(async (db) => {

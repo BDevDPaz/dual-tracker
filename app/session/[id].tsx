@@ -16,7 +16,7 @@ import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { LedgerEntry, PayrollLineKind } from "../../src/core/contracts";
 import { useClock, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectComputedSessions, selectIsHydrated, selectSessionById } from "../../src/core/selectors";
+import { selectCertification, selectComputedSessions, selectIsHydrated, selectSessionById } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
 
@@ -62,6 +62,7 @@ export default function SessionDetailScreen() {
   }
 
   const computed = selectComputedSessions(state, nowMs, [session])[0];
+  const cert = selectCertification(state, session);
   const deleted = session.bookkeeping.isDeleted;
   const start = session.actualStartAtMs ?? session.declaredStartAtMs;
   const facts = trace.data ?? [];
@@ -88,8 +89,9 @@ export default function SessionDetailScreen() {
           <Text style={[styles.title, { color: TOKENS.colors.text.primary }]} numberOfLines={2}>
             {computed.site?.alias ?? t("today.noDestination")}
           </Text>
-          <IntegrityBadge integrity={session.integrityClass} />
+          <IntegrityBadge integrity={session.integrityClass} blocked={cert.blocked} />
         </View>
+        {cert.blocked ? <Text style={[styles.caption, { color: TOKENS.colors.status.warning }]}>{t("integrity.blockedDetail")}</Text> : null}
         <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>
           {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
         </Text>
@@ -127,7 +129,7 @@ export default function SessionDetailScreen() {
 
         <Section title={t("session.notes")}>
           <Text style={{ color: session.bookkeeping.manualNote ? TOKENS.colors.text.primary : TOKENS.colors.text.muted }}>
-            {session.bookkeeping.manualNote ?? t("session.noNotes")}
+            {cert.unreadable.includes("note") ? t("fieldCrypto.unreadableNote") : (session.bookkeeping.manualNote ?? t("session.noNotes"))}
           </Text>
           {!deleted ? <Button label={t("session.addNote")} size="sm" variant="ghost" onPress={() => setModal("NOTE")} /> : null}
         </Section>

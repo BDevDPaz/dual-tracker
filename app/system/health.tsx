@@ -14,7 +14,7 @@ import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
 import { useWorkTracker } from "../../src/core/hooks";
-import { selectActiveSession, selectAdmin, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
+import { selectActiveSession, selectAdmin, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDateTime } from "../../src/utils/dateUtils";
 
@@ -32,6 +32,7 @@ export default function HealthScreen() {
   const sys = selectSystemHealth(state);
   const hasOpenSession = !!selectActiveSession(state);
   const ledger = selectLedgerHealth(state);
+  const crypto = selectCryptoHealth(state);
   const admin = selectAdmin(state);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -98,6 +99,18 @@ export default function HealthScreen() {
               <Button label={t("health.ledger.export")} variant="secondary" size="sm" disabled={busy} onPress={() => void emit({ type: "EXPORT_LEDGER_INCIDENT" })} />
               <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.ledger.exportHint")}</Text>
             </>
+          ) : null}
+        </Card>
+      </Section>
+      <Section title={t("fieldCrypto.sectionTitle")}>
+        <Card style={styles.card}>
+          <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t(`fieldCrypto.status.${crypto.status}`)}</Text>
+          {!crypto.platformSupported ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.web")} /> : null}
+          {crypto.status === "UNAVAILABLE" ? (
+            <ScreenStatusBanner status="degraded" message={`${t("fieldCrypto.unavailableTitle")} — ${t("fieldCrypto.unavailableBody")}`} />
+          ) : null}
+          {crypto.status === "KEY_MISSING" ? (
+            <ScreenStatusBanner status="degraded" message={`${t("fieldCrypto.keyMissingTitle")} — ${t("fieldCrypto.keyMissingBody")}`} />
           ) : null}
         </Card>
       </Section>

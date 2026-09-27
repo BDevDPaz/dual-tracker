@@ -103,6 +103,9 @@ export interface OriginalTimes {
   capturedAtMs: number;
 }
 
+/** FieldCrypto v1.3 §10/§12: bloqueo de certificación (sessions.cert_blockers_json). */
+export type CertificationBlocker = "FIELD_CRYPTO_UNAVAILABLE";
+
 export interface SessionRecord {
   // ---- Contrato mínimo (§9) ----
   id: number;
@@ -158,6 +161,11 @@ export interface SessionRecord {
      * este dispositivo). Solo se hidrata; nunca se persiste ni se reescribe.
      */
     unreadableFields?: ("note" | "trace")[];
+    /**
+     * FieldCrypto v1.3 §12: bloqueos de certificación (permanentes). No son una
+     * clase ni un motivo de CONFLICT. Solo presente si no está vacío.
+     */
+    certificationBlockers?: CertificationBlocker[];
   };
 }
 

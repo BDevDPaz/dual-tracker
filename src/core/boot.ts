@@ -26,7 +26,7 @@ import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService"
 import { TraceRecorderService } from "../services/evidence/TraceRecorderService";
 import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
 import { IntegrityLedgerService } from "../services/domain/IntegrityLedgerService";
-import { bootFieldCrypto } from "../services/persistence/cryptoMigrations";
+import { bootFieldCrypto, cryptoHealthSnapshot } from "../services/persistence/cryptoMigrations";
 import { LoggingService } from "../services/persistence/LoggingService";
 import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
@@ -65,6 +65,11 @@ function wirePorts(): void {
   TraceRecorderService.setSink((fact) => SessionEngineService.recordSpatialFact(fact));
   // spec v1.3 §13: el ledger recibe el digester de notas (HMAC con clave HKDF de la MK).
   IntegrityLedgerService.setNoteDigester((note) => FieldCryptoService.noteDigest(note));
+  // §12: el motor rechaza notas sobre sesiones cerradas si el cifrado no está disponible.
+  SessionEngineService.setCryptoAvailability(async () => {
+    await FieldCryptoService.ensureMasterKey();
+    return FieldCryptoService.status() !== "UNAVAILABLE";
+  });
   SiteRegistryService.setGeocoder((address) => GeofenceRuntimeService.geocodeAddress(address));
   PermissionsHealthService.setOnBackgroundRevoked(async () => {
     const r = await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: "BACKGROUND_PERMISSION_MISSING" }, "SYSTEM");
@@ -93,6 +98,8 @@ export function ensureRuntimeReady(): Promise<void> {
         LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Verificación del ledger falló", serializeError(e)),
       );
       wirePorts();
+      // §11 paso 7: reflejo del estado del cifrado antes de hidratar.
+      StoreActions.cryptoHealth(await cryptoHealthSnapshot().catch(() => ({ ...Store.getState().health.fieldCrypto, status: FieldCryptoService.status() })));
     })().catch((e) => {
       runtimeReady = null;
       throw e;

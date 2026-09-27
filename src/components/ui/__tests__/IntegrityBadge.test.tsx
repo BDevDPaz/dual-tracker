@@ -18,4 +18,11 @@ describe("IntegrityBadge", () => {
     const labels = new Set((["VALID", "MANUAL", "AUTO", "CONFLICT"] as const).map((c) => t(`integrity.${c}`)));
     expect(labels.size).toBe(4);
   });
+
+  test("FieldCrypto §12: con bloqueo muestra «No certificable» en lugar de VALID; CONFLICT sigue en Revisar", () => {
+    render(<IntegrityBadge integrity="VALID" blocked />);
+    expect(screen.getByText("NO CERTIFICABLE")).toBeTruthy();
+    render(<IntegrityBadge integrity="CONFLICT" blocked />);
+    expect(screen.getByText(t("integrity.CONFLICT").toUpperCase())).toBeTruthy();
+  });
 });

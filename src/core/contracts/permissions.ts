@@ -31,6 +31,17 @@ export interface SystemHealthSnapshot {
     broken: import("./ledger").LedgerIncident | null;
     acknowledgedBreaks: number;
   };
+  /** FieldCrypto v1.3 §11: reflejo del estado del cifrado de campos. */
+  fieldCrypto: FieldCryptoHealth;
+}
+
+export interface FieldCryptoHealth {
+  status: "UNINITIALIZED" | "READY" | "NEEDS_MIGRATE" | "KEY_MISSING" | "UNAVAILABLE";
+  lostKids: string[];
+  /** Sesiones con nota o rastro cifrados con un kid perdido (§14). */
+  affectedSessionIds: number[];
+  /** false en web: no apta para jornadas certificadas (§12). */
+  platformSupported: boolean;
 }
 
 /** Impacto de cada sensor en la integridad (copy vía i18n, clave = sensor). */

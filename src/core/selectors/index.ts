@@ -19,7 +19,7 @@ import type {
 } from "../contracts";
 import { OPEN_SESSION_STATES } from "../contracts";
 import { DISCLOSURE_VERSION } from "../../i18n/legal";
-import { PayrollEngineService, policyForPeriod } from "../../services/domain/PayrollEngineService";
+import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
 import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
 // ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ export const selectTodaySummary = (s: DualTrackerState, nowMs: number): DaySumma
   return {
     netMinutes: items.reduce((a, c) => a + (c.preview?.netMinutes ?? 0), 0),
     grossEstimate: Math.round(items.reduce((a, c) => a + (c.preview?.grossEstimate ?? 0), 0) * 100) / 100,
-    certified: items.every((c) => c.session.integrityClass !== "CONFLICT"),
+    certified: items.every((c) => isCertifiable(c.session)),
     visitedSiteIds: [...visited],
   };
 };
@@ -309,6 +309,27 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
 // Integridad del ledger (spec v1.3 §5.5)
 // ---------------------------------------------------------------------------
 export const selectLedgerHealth = (s: DualTrackerState) => s.health.ledger;
+
+// ---------------------------------------------------------------------------
+// Cifrado de campos (spec FieldCrypto v1.3 §11, §12, §14)
+// ---------------------------------------------------------------------------
+export const selectCryptoHealth = (s: DualTrackerState) => s.health.fieldCrypto;
+
+export interface CertificationView {
+  certifiable: boolean;
+  /** true si la sesión lleva un bloqueo de certificación (badge "No certificable"). */
+  blocked: boolean;
+  blockers: string[];
+  /** Nota/rastro ilegibles en este dispositivo (kid perdido, §14). */
+  unreadable: ("note" | "trace")[];
+}
+
+/** Etiqueta de certificación de una sesión (§12): IntegrityBadge muestra "No certificable" si hay bloqueo. */
+export function selectCertification(s: DualTrackerState, session: SessionRecord): CertificationView {
+  const blockers = session.bookkeeping.certificationBlockers ?? [];
+  void s;
+  return { certifiable: isCertifiable(session), blocked: blockers.length > 0, blockers, unreadable: [...(session.bookkeeping.unreadableFields ?? [])] };
+}
 
 // ---------------------------------------------------------------------------
 // Calendario laboral (spec v1.3 §5.1)

@@ -10,6 +10,7 @@
  *    sigue integritySweep). KV crypto.sweep.v1 = "done" cuando no queda nada.
  * Los sobres enc:v1: (incluidos los de kids perdidos) nunca se tocan.
  */
+import type { FieldCryptoHealth } from "../../core/contracts";
 import { FieldCryptoService, type FieldId } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
 import { PersistenceService } from "./PersistenceService";
@@ -173,4 +174,32 @@ export async function bootFieldCrypto(): Promise<{ status: string; migration: Cr
     }
   }
   return { status: FieldCryptoService.status(), migration, sweep };
+}
+
+/**
+ * Sesiones afectadas por una pérdida de clave (§14): session_id con nota o
+ * hechos espaciales cifrados con un kid perdido.
+ */
+export async function affectedSessionIds(lostKids: string[]): Promise<number[]> {
+  if (!lostKids.length) return [];
+  const db = await PersistenceService.init();
+  const ids = new Set<number>();
+  for (const kid of lostKids) {
+    const prefix = `enc:v1:${kid}:%`;
+    const a = await db.getAllAsync<{ id: number }>(`SELECT id FROM sessions WHERE manual_note_sealed LIKE ?`, [prefix]);
+    const b = await db.getAllAsync<{ id: number }>(`SELECT DISTINCT session_id AS id FROM spatial_facts WHERE coords_sealed LIKE ?`, [prefix]);
+    for (const r of [...a, ...b]) ids.add(Number(r.id));
+  }
+  return [...ids].sort((x, y) => x - y);
+}
+
+/** Reflejo para Store.health.fieldCrypto (§11 paso 7). */
+export async function cryptoHealthSnapshot(): Promise<FieldCryptoHealth> {
+  const lostKids = FieldCryptoService.lostKids();
+  return {
+    status: FieldCryptoService.status(),
+    lostKids,
+    affectedSessionIds: await affectedSessionIds(lostKids),
+    platformSupported: FieldCryptoService.platformSupported(),
+  };
 }

@@ -38,6 +38,11 @@ export interface IntegrityRollup {
   /** true si alguna sesión del periodo está en CONFLICT → pago "no certificado" (§8). */
   hasConflict: boolean;
   certified: boolean;
+  /**
+   * FieldCrypto v1.3 §12: sesiones con bloqueo de certificación. Solo presente
+   * si > 0 (así el contentHash de periodos sin bloqueos no cambia).
+   */
+  blockedCount?: number;
 }
 
 export interface PayrollStatement {

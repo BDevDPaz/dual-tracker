@@ -15,6 +15,7 @@
  */
 import * as SQLite from "expo-sqlite";
 import type {
+  CertificationBlocker,
   EvidencePack,
   LedgerEntry,
   OfflineQueueItem,
@@ -355,6 +356,25 @@ export const PersistenceService = {
     const params = sessionToParams(record, enc.stored);
     const cols = SESSION_COLUMNS.map((c, i) => [c, params[i]] as const).filter(([c]) => !(keepNote && c === "manual_note_sealed"));
     await d.runAsync(`UPDATE sessions SET ${cols.map(([c]) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map(([, v]) => v), record.id]);
+  },
+
+  /**
+   * FieldCrypto v1.3 §12: agrega un bloqueo de certificación (permanente, una
+   * sola vez). Devuelve true si se agregó ahora.
+   */
+  async addCertBlocker(sessionId: number, blocker: CertificationBlocker, database?: SQLite.SQLiteDatabase): Promise<boolean> {
+    const d = database ?? (await ensureReady());
+    const row = await d.getFirstAsync<{ b: string | null }>(`SELECT cert_blockers_json AS b FROM sessions WHERE id = ?`, [sessionId]);
+    if (!row) return false;
+    let list: string[] = [];
+    try {
+      list = JSON.parse(row.b ?? "[]");
+    } catch {
+      list = [];
+    }
+    if (list.includes(blocker)) return false;
+    await d.runAsync(`UPDATE sessions SET cert_blockers_json = ? WHERE id = ?`, [JSON.stringify([...list, blocker]), sessionId]);
+    return true;
   },
 
   async getSession(id: number): Promise<SessionRecord | null> {

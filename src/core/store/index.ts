@@ -122,6 +122,11 @@ export const StoreActions = {
     commit({ ...state, settings });
   },
 
+  /** FieldCrypto v1.3 §11 paso 7: estado del cifrado para la UI (sin importar servicios). */
+  cryptoHealth(fieldCrypto: SystemHealthSnapshot["fieldCrypto"]): void {
+    commit({ ...state, health: { ...state.health, fieldCrypto } });
+  },
+
   healthUpdated(patch: Partial<SystemHealthSnapshot>): void {
     commit({ ...state, health: { ...state.health, ...patch } });
   },

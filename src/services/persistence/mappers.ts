@@ -8,6 +8,7 @@
  * reales), que es la única coherente con la migración total_paused_ms.
  */
 import type {
+  CertificationBlocker,
   IntegrityClass,
   IntegrityReason,
   OriginalTimes,
@@ -78,6 +79,7 @@ export interface DbSessionRow {
   pauses_source?: string | null;
   breaks_clipped?: number | null;
   split_from_session_id?: number | null;
+  cert_blockers_json?: string | null;
 }
 
 export interface DbSiteRow {
@@ -162,6 +164,8 @@ function pauseFields(row: DbSessionRow): Partial<SessionRecord["bookkeeping"]> {
   if (src !== "RECORDED") out.pausesSource = src;
   if (row.breaks_clipped) out.breaksClipped = true;
   if (row.split_from_session_id !== null && row.split_from_session_id !== undefined) out.splitFromSessionId = Number(row.split_from_session_id);
+  const blockers = parseJson<CertificationBlocker[]>(row.cert_blockers_json ?? null, []);
+  if (Array.isArray(blockers) && blockers.length) out.certificationBlockers = blockers;
   return out;
 }
 
@@ -250,6 +254,7 @@ export const SESSION_COLUMNS = [
   "pauses_source",
   "breaks_clipped",
   "split_from_session_id",
+  "cert_blockers_json",
 ] as const;
 
 /**
@@ -287,6 +292,7 @@ export function sessionToParams(s: SessionRecord, noteStored: string | null): (s
     b.pausesSource ?? "RECORDED",
     b.breaksClipped ? 1 : 0,
     b.splitFromSessionId ?? null,
+    JSON.stringify(b.certificationBlockers ?? []),
   ];
 }
 

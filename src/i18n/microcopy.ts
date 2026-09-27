@@ -103,6 +103,8 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     NO_PENDING_CALENDAR_CHANGE: "No hay ningún cambio de calendario pendiente.",
     LUNCH_START_REQUIRED: "La jornada cruza el inicio de otra jornada: indica a qué hora empezó el almuerzo.",
     SPLIT_INSIDE_BREAK: "El corte no puede caer dentro del almuerzo ni de una pausa.",
+    // FieldCrypto v1.3 §12 (microcopy exacta).
+    FIELD_CRYPTO_UNAVAILABLE: "No se puede guardar la nota: el cifrado no está disponible en este dispositivo. Inténtalo cuando el aviso de cifrado desaparezca.",
   },
   en: {
     NO_OPEN_SESSION: "There is no open shift.",
