@@ -6,12 +6,15 @@
  * hay VALIDADA") y CTA Reparar hacia el ajuste nativo cuando existe.
  * Intenciones: REQUEST_PERMISSION, OPEN_OS_SETTINGS.
  */
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text } from "react-native";
-import { HealthRow } from "../../src/components/blocks";
+import { HealthRow, ScreenStatusBanner } from "../../src/components/blocks";
+import { Button, Card, Input, Section } from "../../src/components/ui";
+import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
 import { useWorkTracker } from "../../src/core/hooks";
-import { selectActiveSession, selectHealth, selectSystemHealth } from "../../src/core/selectors";
+import { selectActiveSession, selectAdmin, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDateTime } from "../../src/utils/dateUtils";
 
@@ -28,6 +31,17 @@ export default function HealthScreen() {
   const h = selectHealth(state);
   const sys = selectSystemHealth(state);
   const hasOpenSession = !!selectActiveSession(state);
+  const ledger = selectLedgerHealth(state);
+  const admin = selectAdmin(state);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const acknowledge = async () => {
+    if (!ledger.broken) return;
+    setBusy(true);
+    await emit({ type: "ACKNOWLEDGE_LEDGER_BREAK", pin, incident: ledger.broken });
+    setPin("");
+    setBusy(false);
+  };
 
   const permRepair = (key: PermissionKey, s: PermissionState, target: "LOCATION" | "NOTIFICATIONS"): ViewIntent =>
     s === "blocked" || s === "denied" ? { type: "OPEN_OS_SETTINGS", target } : { type: "REQUEST_PERMISSION", permission: key };
@@ -60,6 +74,33 @@ export default function HealthScreen() {
           onRepair={r.repair ? () => void emit(r.repair!) : undefined}
         />
       ))}
+      <Section title={t("health.ledger.title")}>
+        <Card style={styles.card}>
+          {ledger.broken ? (
+            <>
+              <ScreenStatusBanner status="conflict" message={`${t("health.ledger.brokenTitle")} — ${t("health.ledger.brokenBody")}`} />
+              {admin.hasPin ? (
+                <>
+                  <Input label={t("health.ledger.pin")} value={pin} onChangeText={setPin} secureTextEntry keyboardType="number-pad" />
+                  <Button label={t("health.ledger.acknowledge")} disabled={busy || pin.length < PIN_MIN_LENGTH} isLoading={busy} onPress={() => void acknowledge()} />
+                </>
+              ) : (
+                <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("settings.adminSetup", { min: PIN_MIN_LENGTH })}</Text>
+              )}
+            </>
+          ) : ledger.acknowledgedBreaks > 0 ? (
+            <Text style={[styles.hint, { color: TOKENS.colors.status.warning }]}>{t("health.ledger.acknowledged")}</Text>
+          ) : (
+            <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("health.ledger.ok")}</Text>
+          )}
+          {ledger.broken || ledger.acknowledgedBreaks > 0 ? (
+            <>
+              <Button label={t("health.ledger.export")} variant="secondary" size="sm" disabled={busy} onPress={() => void emit({ type: "EXPORT_LEDGER_INCIDENT" })} />
+              <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.ledger.exportHint")}</Text>
+            </>
+          ) : null}
+        </Card>
+      </Section>
       {h.checkedAtMs ? (
         <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
           {formatDateTime(h.checkedAtMs)}
@@ -73,4 +114,6 @@ const styles = StyleSheet.create({
   content: { padding: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
   mode: { ...FONT.bodyStrong, marginBottom: TOKENS.spacing.md },
   caption: { ...FONT.caption, marginTop: TOKENS.spacing.md, textAlign: "right" },
+  card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
+  hint: { ...FONT.caption },
 });

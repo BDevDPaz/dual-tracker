@@ -27,7 +27,7 @@ import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
 import { SecurityService } from "../runtime/SecurityService";
 import { FeedbackService } from "./FeedbackService";
-import { confirmExit, generateWeeklyPayroll, startDay } from "./useCases";
+import { acknowledgeLedgerBreak, confirmExit, exportLedgerIncident, generateWeeklyPayroll, startDay } from "./useCases";
 
 function toSessionIntent(i: ViewIntent): SessionIntent | null {
   switch (i.type) {
@@ -175,6 +175,15 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       case "OPEN_OS_SETTINGS":
         await PermissionsHealthService.openOsSettings(intent.target);
         return { ok: true };
+
+      // ---- Integridad del ledger (spec v1.3 §5.5) ----
+      case "ACKNOWLEDGE_LEDGER_BREAK": {
+        const r = await acknowledgeLedgerBreak(intent.pin, intent.incident);
+        if (r.ok) FeedbackService.emit("LEDGER_BREAK_ACKNOWLEDGED");
+        return report(r);
+      }
+      case "EXPORT_LEDGER_INCIDENT":
+        return report(await exportLedgerIncident());
 
       // ---- Feedback / UI ----
       case "DISMISS_FEEDBACK":

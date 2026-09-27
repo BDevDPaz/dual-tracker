@@ -26,7 +26,7 @@ describe("IntegrityLedgerService", () => {
     const b = await IntegrityLedgerService.append(draft("B"));
     expect(a.prevHash).toBe(GENESIS_HASH);
     expect(b.prevHash).toBe(a.hash);
-    expect(await IntegrityLedgerService.verify()).toEqual({ valid: true, brokenAtId: null, head: b.hash });
+    expect(await IntegrityLedgerService.verify()).toMatchObject({ valid: true, brokenAtId: null, head: b.hash });
   });
 
   test("append-only: UPDATE y DELETE sobre integrity_ledger fallan", async () => {

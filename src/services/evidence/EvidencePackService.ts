@@ -30,7 +30,16 @@ import { ReportService } from "./ReportService";
 import { TimeAuthorityService } from "./TimeAuthorityService";
 import { TraceRecorderService } from "./TraceRecorderService";
 
-export type SealRejection = "INVALID_PERIOD" | "EMPTY_PERIOD" | "PERIOD_ONLY_OPEN" | "PERIOD_HAS_CONFLICT" | "PERSISTENCE_ERROR";
+export type SealRejection =
+  | "INVALID_PERIOD"
+  | "EMPTY_PERIOD"
+  | "PERIOD_ONLY_OPEN"
+  | "PERIOD_HAS_CONFLICT"
+  /** Sin CONFLICT pero no certificable (bloqueos de certificación o periodo tocado por una ruptura, spec v1.3 §5.5/§12). */
+  | "PERIOD_NOT_CERTIFIABLE"
+  /** Cadena del ledger rota sin reconocer (spec v1.3 §5.5); también con allowUncertified. */
+  | "LEDGER_BROKEN"
+  | "PERSISTENCE_ERROR";
 
 /** Resultado de seal: `reused` = se devolvió el pack existente con el mismo contentHash. */
 export type SealResult = { ok: true; data: EvidencePack; reused: boolean } | { ok: false; code: SealRejection | string; detail?: string };
@@ -134,8 +143,14 @@ export const EvidencePackService = {
     try {
       const settings = await SettingsService.load();
       const nowMs = TimeAuthorityService.now();
+      // Verificación completa antes de cada sello (spec v1.3 §5.5).
+      const chain = await IntegrityLedgerService.verify();
+      if (!chain.valid) await IntegrityLedgerService.recordIncident(chain, nowMs);
+      const ledgerIncident = await IntegrityLedgerService.getIncident();
+      const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
       const sessions = await PersistenceService.listSessions({ from: input.periodStart, to: input.periodEnd });
       const statement = PayrollEngineService.buildStatement({
+        segmentedLedgerTimestamps,
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
         sessions,
@@ -149,6 +164,7 @@ export const EvidencePackService = {
         return { ok: false, code: statement.warnings.includes("OPEN_SESSION_EXCLUDED") ? "PERIOD_ONLY_OPEN" : "EMPTY_PERIOD" };
       }
       if (statement.integrityRollup.hasConflict && !input.allowUncertified) return { ok: false, code: "PERIOD_HAS_CONFLICT" };
+      if (!statement.integrityRollup.certified && !input.allowUncertified) return { ok: false, code: "PERIOD_NOT_CERTIFIABLE" };
 
       const included = sessions.filter((s) => statement.sessionIds.includes(s.id));
       const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
@@ -160,6 +176,8 @@ export const EvidencePackService = {
         LoggingService.log("AZUL", "PAYROLL", "INFO", "Expediente reutilizado: mismo contenido", { packId: previous.id, contentHash });
         return { ok: true, data: previous, reused: true };
       }
+      // Ruptura sin reconocer: ningún sello nuevo, ni siquiera no certificado.
+      if (ledgerIncident) return { ok: false, code: "LEDGER_BROKEN", detail: `breakAtId=${ledgerIncident.breakAtId}` };
 
       const packId = `${weekPeriodId(input.periodStart)}-${Crypto.randomUUID().slice(0, 8)}`;
       const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));

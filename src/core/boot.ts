@@ -18,6 +18,7 @@ import { Store, StoreActions } from "./store";
 import { setLanguage, t } from "../i18n";
 import { serializeError } from "../utils/serializeError";
 import { FeedbackService } from "../services/application/FeedbackService";
+import { checkLedgerIntegrity } from "../services/application/useCases/ledgerIntegrity";
 import { SessionEngineService } from "../services/domain/SessionEngineService";
 import { SiteRegistryService } from "../services/domain/SiteRegistryService";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
@@ -74,6 +75,10 @@ export function ensureRuntimeReady(): Promise<void> {
     runtimeReady = (async () => {
       await PersistenceService.init();
       await FieldCryptoService.init();
+      // Verificación incremental del ledger (spec v1.3 §5.5 / §11 paso 6).
+      await checkLedgerIntegrity("INCREMENTAL").catch((e) =>
+        LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Verificación del ledger falló", serializeError(e)),
+      );
       wirePorts();
     })().catch((e) => {
       runtimeReady = null;

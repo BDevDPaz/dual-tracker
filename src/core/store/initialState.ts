@@ -17,6 +17,7 @@ export const INITIAL_HEALTH: SystemHealthSnapshot = {
   lastSpatialFactAt: null,
   locationServicesEnabled: null,
   checkedAtMs: null,
+  ledger: { broken: null, acknowledgedBreaks: 0 },
 };
 
 export function createInitialState(): DualTrackerState {

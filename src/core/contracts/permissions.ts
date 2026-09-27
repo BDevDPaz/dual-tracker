@@ -25,6 +25,12 @@ export interface SystemHealthSnapshot {
   lastSpatialFactAt: number | null;
   locationServicesEnabled: boolean | null;
   checkedAtMs: number | null;
+  /** Estado de la cadena del ledger (spec v1.3 §5.5). */
+  ledger: {
+    /** Incidente abierto (sin reconocer). */
+    broken: import("./ledger").LedgerIncident | null;
+    acknowledgedBreaks: number;
+  };
 }
 
 /** Impacto de cada sensor en la integridad (copy vía i18n, clave = sensor). */

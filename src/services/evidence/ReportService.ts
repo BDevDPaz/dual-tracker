@@ -70,6 +70,18 @@ export const ReportService = {
     }
   },
 
+  /** Comparte un JSON (informe de incidente del ledger, spec v1.3 §5.5). */
+  async shareJson(uri: string): Promise<boolean> {
+    try {
+      if (!(await Sharing.isAvailableAsync())) return false;
+      await Sharing.shareAsync(uri, { UTI: "public.json", mimeType: "application/json" });
+      return true;
+    } catch (error) {
+      LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Fallo al compartir JSON", serializeError(error));
+      return false;
+    }
+  },
+
   /** Correo al email de empresa (portado de sendReportByEmail). Cae a compartir si no hay cliente. */
   async email(uris: string[], to: string, employeeName: string, subjectSuffix: string): Promise<boolean> {
     if (!(await MailComposer.isAvailableAsync())) {

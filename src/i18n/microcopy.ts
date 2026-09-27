@@ -50,6 +50,8 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   ADMIN_LOCKOUT: { kind: "dialog", tone: "error", es: { title: "Demasiados intentos", message: "Espera {minutes} min para reintentar." }, en: { title: "Too many attempts", message: "Wait {minutes} min to retry." } },
   ADMIN_PIN_SET: { kind: "toast", tone: "success", es: { title: "PIN configurado", message: "" }, en: { title: "PIN set", message: "" } },
   DISCLOSURE_ACCEPTED: { kind: "toast", tone: "success", es: { title: "Aviso aceptado", message: "" }, en: { title: "Notice accepted", message: "" } },
+  LEDGER_BROKEN: { kind: "dialog", tone: "error", es: { title: "Registro de integridad dañado", message: "Se detectó una alteración en el historial de integridad. Tus horas se siguen registrando, pero no se pueden sellar expedientes hasta que el administrador revise el incidente." } },
+  LEDGER_BREAK_ACKNOWLEDGED: { kind: "toast", tone: "info", es: { title: "Incidente reconocido", message: "Incidente de integridad reconocido. Los periodos afectados solo se pueden emitir como no certificados." } },
   INTENT_REJECTED: { kind: "toast", tone: "warning", es: { title: "No se pudo completar", message: "{reason}" }, en: { title: "Could not complete", message: "{reason}" } },
   GENERIC_ERROR: { kind: "toast", tone: "error", es: { title: "Ocurrió un error", message: "Inténtalo de nuevo." }, en: { title: "Something went wrong", message: "Please try again." } },
 };
@@ -89,6 +91,12 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     INVALID_VALUE: "Algún valor no es válido.",
     SHARE_UNAVAILABLE: "No hay forma de compartir en este dispositivo.",
     ERROR: "Ocurrió un error. Inténtalo de nuevo.",
+    LEDGER_BROKEN: "Registro de integridad dañado: no se pueden sellar expedientes hasta que el administrador revise el incidente.",
+    PERIOD_NOT_CERTIFIABLE: "Este periodo incluye jornadas no certificables; el expediente solo puede emitirse como no certificado.",
+    NO_LEDGER_INCIDENT: "No hay ningún incidente de integridad abierto.",
+    LEDGER_INCIDENT_MISMATCH: "El incidente cambió. Vuelve a abrir la pantalla de salud e inténtalo de nuevo.",
+    ADMIN_DENIED: "PIN incorrecto.",
+    ADMIN_LOCKOUT: "Demasiados intentos. Espera antes de reintentar.",
   },
   en: {
     NO_OPEN_SESSION: "There is no open shift.",

@@ -22,7 +22,10 @@ export type LedgerIntent =
   | "SPATIAL_FACT"
   | "OS_KILL"
   | "INTEGRITY_RECLASSIFIED"
-  | "PAYROLL_SEALED";
+  | "PAYROLL_SEALED"
+  // Spec FieldCrypto v1.3 §5.5: reconocimiento y exportación de una ruptura de cadena.
+  | "LEDGER_BREAK_ACKNOWLEDGED"
+  | "LEDGER_BREAK_EXPORTED";
 
 export interface LedgerEntry {
   id: number;
@@ -44,3 +47,47 @@ export interface LedgerEntry {
 export type LedgerDraft = Omit<LedgerEntry, "id" | "prevHash" | "hash">;
 
 export const GENESIS_HASH = "0".repeat(64);
+
+/**
+ * Incidente de cadena rota (spec v1.3 §5.5). Persistente en KV `ledger.broken`
+ * hasta que el administrador lo reconoce con PIN.
+ */
+export interface LedgerIncident {
+  /** Primer asiento que no verifica. */
+  breakAtId: number;
+  /** Último asiento válido (null si la ruptura está en el primer asiento). */
+  lastGoodId: number | null;
+  /** hash del último válido (GENESIS_HASH si lastGoodId es null). */
+  lastGoodHash: string;
+  /** prev_hash guardado en breakAtId. */
+  observedPrevHash: string;
+  /** hash guardado en breakAtId. */
+  observedHash: string;
+  /** sha256(prev esperado + payload guardado). */
+  recomputedHash: string;
+  detectedAtMs: number;
+  headAtDetection: { id: number; hash: string };
+}
+
+/** Segmento de cadena verificado (spec v1.3 §5.5). */
+export interface LedgerSegment {
+  fromId: number | null;
+  toId: number | null;
+  /** Hash de anclaje: GENESIS_HASH en el segmento 1; observedHash de la ruptura en los siguientes. */
+  anchor: string;
+  valid: boolean;
+}
+
+export interface LedgerVerification {
+  valid: boolean;
+  /** Primer asiento roto NO reconocido (null si la cadena es íntegra o solo tiene rupturas reconocidas). */
+  brokenAtId: number | null;
+  head: string;
+  segments: LedgerSegment[];
+  /** Número de rupturas reconocidas (LEDGER_BREAK_ACKNOWLEDGED) aplicadas. */
+  acknowledgedBreaks: number;
+  /** Asientos en cuarentena (breakAtId de cada ruptura reconocida). */
+  quarantinedIds: number[];
+  /** Detalle de la ruptura no reconocida (base del incidente). */
+  incident: Omit<LedgerIncident, "detectedAtMs"> | null;
+}

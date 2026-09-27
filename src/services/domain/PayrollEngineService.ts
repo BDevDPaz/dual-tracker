@@ -200,11 +200,15 @@ function buildLines(
   return lines;
 }
 
-export function rollupIntegrity(sessions: SessionRecord[]): IntegrityRollup {
+/**
+ * Rollup de integridad. `certified` exige: sin CONFLICT y periodo no tocado
+ * por una ruptura de cadena reconocida (spec v1.3 §5.5).
+ */
+export function rollupIntegrity(sessions: SessionRecord[], opts: { ledgerSegmented?: boolean } = {}): IntegrityRollup {
   const byClass: Record<IntegrityClass, number> = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
   for (const s of sessions) byClass[s.integrityClass]++;
   const hasConflict = byClass.CONFLICT > 0;
-  return { total: sessions.length, byClass, hasConflict, certified: !hasConflict };
+  return { total: sessions.length, byClass, hasConflict, certified: !hasConflict && !opts.ledgerSegmented };
 }
 
 export const PayrollEngineService = {
@@ -222,9 +226,15 @@ export const PayrollEngineService = {
     company: CompanyPolicy;
     policyId: string;
     nowMs: number;
+    /**
+     * Instantes de asientos tocados por una ruptura de cadena reconocida
+     * (dato de dominio que aporta IntegrityLedger, spec v1.3 §5.5).
+     */
+    segmentedLedgerTimestamps?: number[];
   }): PayrollStatement {
     const policy = getPayrollPolicy(input.policyId);
     const warnings: string[] = [];
+    const ledgerSegmented = (input.segmentedLedgerTimestamps ?? []).some((ts) => ts >= input.periodStart && ts <= input.periodEnd);
 
     const inPeriod = input.sessions.filter((s) => {
       const start = s.actualStartAtMs ?? s.declaredStartAtMs;
@@ -251,6 +261,7 @@ export const PayrollEngineService = {
     const lunchMin = sumMin(["LUNCH_DEDUCTION"]);
     const pauseMin = sumMin(["PAUSE_DEDUCTION"]);
     items.forEach((it) => it.warnings.forEach((w) => warnings.push(`${w}#${it.sessionId}`)));
+    if (ledgerSegmented) warnings.push("LEDGER_CHAIN_SEGMENTED");
 
     return {
       periodStart: input.periodStart,
@@ -261,7 +272,7 @@ export const PayrollEngineService = {
       transitHours: transitMin / 60,
       lunchMinutes: lunchMin,
       grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),
-      integrityRollup: rollupIntegrity(closed),
+      integrityRollup: rollupIntegrity(closed, { ledgerSegmented }),
       policyId: policy.id,
       packHash: null,
       overtimeDailyHours: otDailyMin / 60,

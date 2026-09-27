@@ -67,7 +67,9 @@ export type IntegrityReason =
   | "PROVIDER_LOSS"
   | "MUTEX_FAILED"
   | "OVERLAP"
-  | "CONFLICT_RESOLVED";
+  | "CONFLICT_RESOLVED"
+  /** Cadena de hashes del ledger rota con la jornada abierta (spec FieldCrypto v1.3 §5.5). */
+  | "LEDGER_CHAIN_BROKEN";
 
 /** Almuerzo (línea explícita de nómina, Propuesta §5.2). */
 export interface LunchRecord {

@@ -59,7 +59,7 @@ export type SessionIntent =
   | { type: "RESOLVE_SPLIT"; sessionId: number; splitAtMs: number; note: string }
   | {
       type: "INTEGRITY_DEGRADE";
-      cause: "BACKGROUND_PERMISSION_MISSING" | "CLOCK_DRIFT" | "MUTEX_FAILED" | "PROVIDER_LOSS";
+      cause: "BACKGROUND_PERMISSION_MISSING" | "CLOCK_DRIFT" | "MUTEX_FAILED" | "PROVIDER_LOSS" | "LEDGER_CHAIN_BROKEN";
       detail?: string;
     };
 
@@ -161,6 +161,9 @@ export type ViewIntent =
   | { type: "RESOLVE_KEEP_GPS"; sessionId: number; note?: string | null }
   | { type: "RESOLVE_MANUAL"; sessionId: number; note: string }
   | { type: "RESOLVE_SPLIT"; sessionId: number; splitAtMs: number; note: string }
+  // Integridad del ledger (spec v1.3 §5.5)
+  | { type: "ACKNOWLEDGE_LEDGER_BREAK"; pin: string; incident: import("./ledger").LedgerIncident }
+  | { type: "EXPORT_LEDGER_INCIDENT" }
   // Feedback
   | { type: "DISMISS_FEEDBACK"; feedbackId: string }
   | { type: "CONSUME_UI_REQUEST" };

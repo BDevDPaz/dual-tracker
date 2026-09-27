@@ -14,21 +14,158 @@
  * y la escritura en PersistenceService; el ledger solo orquesta.
  */
 import type * as SQLite from "expo-sqlite";
-import type { EvidenceSummary, LedgerDraft, LedgerEntry, SessionRecord } from "../../core/contracts";
+import type {
+  EvidenceSummary,
+  LedgerDraft,
+  LedgerEntry,
+  LedgerIncident,
+  LedgerSegment,
+  LedgerVerification,
+  SessionRecord,
+} from "../../core/contracts";
 import { GENESIS_HASH } from "../../core/contracts";
 import { canonicalJson } from "../../utils/canonicalJson";
-import { chainHash, verifyChain } from "../evidence/HashChain";
+import { chainHash, sha256Hex } from "../evidence/HashChain";
 import { PersistenceService } from "../persistence/PersistenceService";
+
+/** Claves KV del estado de integridad (spec v1.3 §5.5). */
+export const LEDGER_KV = {
+  VERIFIED_THROUGH: "ledger.verified_through",
+  BROKEN: "ledger.broken",
+} as const;
+
+/** Campos del asiento LEDGER_BREAK_ACKNOWLEDGED (spec v1.3 §5.5). */
+export interface LedgerBreakAck {
+  breakAtId: number;
+  lastGoodId: number | null;
+  lastGoodHash: string;
+  observedPrevHash: string;
+  observedHash: string;
+  recomputedHash: string;
+  headAtAckId: number;
+  headAtAckHash: string;
+  incidentHash: string;
+  acknowledgedAtMs: number;
+}
+
+const INCIDENT_FIELDS: (keyof LedgerIncident)[] = [
+  "breakAtId",
+  "lastGoodId",
+  "lastGoodHash",
+  "observedPrevHash",
+  "observedHash",
+  "recomputedHash",
+  "detectedAtMs",
+  "headAtDetection",
+];
+
+function parseData<T>(e: LedgerEntry): T | null {
+  try {
+    const p = JSON.parse(e.payloadJson) as { data?: T };
+    return p.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Asientos de reconocimiento de ruptura presentes en la cadena. */
+function acksOf(entries: LedgerEntry[]): (LedgerBreakAck & { ackId: number })[] {
+  return entries
+    .filter((e) => e.intent === "LEDGER_BREAK_ACKNOWLEDGED")
+    .map((e) => ({ ...(parseData<LedgerBreakAck>(e) as LedgerBreakAck), ackId: e.id }))
+    .filter((a) => typeof a.breakAtId === "number");
+}
+
+/**
+ * Verificación por segmentos (spec v1.3 §5.5). Un asiento que no verifica es
+ * una ruptura. Si existe un LEDGER_BREAK_ACKNOWLEDGED posterior cuyos campos
+ * coinciden (breakAtId, lastGoodId, observedHash), el asiento queda en
+ * cuarentena y se abre un segmento nuevo anclado en su hash guardado. Nunca se
+ * recalculan ni reescriben hashes.
+ */
+async function verifySegments(entries: LedgerEntry[], anchor = GENESIS_HASH, lastGoodInit: { id: number; hash: string } | null = null): Promise<LedgerVerification> {
+  const acks = new Map(acksOf(entries).map((a) => [a.breakAtId, a]));
+  const segments: LedgerSegment[] = [];
+  const quarantinedIds: number[] = [];
+  let acknowledgedBreaks = 0;
+  let expectedPrev = anchor;
+  let lastGood = lastGoodInit;
+  let seg: LedgerSegment = { fromId: entries[0]?.id ?? null, toId: null, anchor, valid: true };
+
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const recomputed = await chainHash(expectedPrev, e.payloadJson);
+    if (e.prevHash === expectedPrev && recomputed === e.hash) {
+      expectedPrev = e.hash;
+      lastGood = { id: e.id, hash: e.hash };
+      seg.toId = e.id;
+      continue;
+    }
+    const ack = acks.get(e.id);
+    if (ack && ack.ackId > e.id && ack.observedHash === e.hash && ack.lastGoodId === (lastGood?.id ?? null)) {
+      segments.push({ ...seg, toId: lastGood?.id ?? null });
+      quarantinedIds.push(e.id);
+      acknowledgedBreaks++;
+      expectedPrev = e.hash;
+      seg = { fromId: entries[i + 1]?.id ?? null, toId: null, anchor: e.hash, valid: true };
+      continue;
+    }
+    segments.push({ ...seg, toId: lastGood?.id ?? null, valid: false });
+    return {
+      valid: false,
+      brokenAtId: e.id,
+      head: entries[entries.length - 1].hash,
+      segments,
+      acknowledgedBreaks,
+      quarantinedIds,
+      incident: {
+        breakAtId: e.id,
+        lastGoodId: lastGood?.id ?? null,
+        lastGoodHash: lastGood?.hash ?? GENESIS_HASH,
+        observedPrevHash: e.prevHash,
+        observedHash: e.hash,
+        recomputedHash: recomputed,
+        headAtDetection: { id: entries[entries.length - 1].id, hash: entries[entries.length - 1].hash },
+      },
+    };
+  }
+  if (entries.length) segments.push(seg);
+  return {
+    valid: true,
+    brokenAtId: null,
+    head: entries.length ? entries[entries.length - 1].hash : anchor,
+    segments,
+    acknowledgedBreaks,
+    quarantinedIds,
+    incident: null,
+  };
+}
+
+/** Informe de incidente exportable (spec v1.3 §5.5 "Evidencia"). */
+export interface LedgerIncidentReport {
+  kind: "DT_LEDGER_INCIDENT_REPORT";
+  version: 1;
+  incident: LedgerIncident | null;
+  acknowledgements: LedgerBreakAck[];
+  rows: { lastGood: LedgerEntry | null; breakAt: LedgerEntry | null };
+  head: { id: number; hash: string } | null;
+  entryCount: number;
+  appVersion: string;
+  /** Advertencia fija: los asientos v1 pueden contener notas en claro (§13). */
+  notice: string;
+}
+
+type AppendDraft = Omit<LedgerDraft, "payloadJson"> & { data?: unknown };
+
+/** Puerto de redacción de notas (spec v1.3 §13). Por defecto no hay digest. */
+let noteDigester: (note: string) => Promise<string | null> = async () => null;
 
 export const IntegrityLedgerService = {
   /**
    * Añade un asiento. Debe llamarse DENTRO de la transacción de la intención
    * (pasar `database`) para que registro y asiento sean atómicos.
    */
-  async append(
-    draft: Omit<LedgerDraft, "payloadJson"> & { data?: unknown },
-    database?: SQLite.SQLiteDatabase,
-  ): Promise<LedgerEntry> {
+  async append(draft: AppendDraft, database?: SQLite.SQLiteDatabase): Promise<LedgerEntry> {
     const last = await PersistenceService.getLastLedgerEntry(database);
     const prevHash = last?.hash ?? GENESIS_HASH;
     const { data, ...rest } = draft;
@@ -39,6 +176,20 @@ export const IntegrityLedgerService = {
     return { ...entry, id };
   },
 
+  /** Inyección del digester de notas (boot.wirePorts → FieldCryptoService.noteDigest). */
+  setNoteDigester(fn: ((note: string) => Promise<string | null>) | null): void {
+    noteDigester = fn ?? (async () => null);
+  },
+
+  async noteDigest(note: string | null | undefined): Promise<string | null> {
+    if (note === null || note === undefined || !String(note).trim()) return null;
+    try {
+      return await noteDigester(String(note));
+    } catch {
+      return null;
+    }
+  },
+
   async listForSession(sessionId: number): Promise<LedgerEntry[]> {
     return PersistenceService.listLedger({ sessionId });
   },
@@ -47,15 +198,146 @@ export const IntegrityLedgerService = {
     return PersistenceService.listLedger({ from, to });
   },
 
-  /** Verifica la cadena completa. -1 = íntegra; si no, id del primer asiento roto. */
-  async verify(): Promise<{ valid: boolean; brokenAtId: number | null; head: string }> {
+  /**
+   * Verifica la cadena completa por segmentos (spec v1.3 §5.5).
+   * `valid` = íntegra, o íntegra con todas sus rupturas reconocidas.
+   */
+  async verify(): Promise<LedgerVerification> {
+    return verifySegments(await PersistenceService.listLedger());
+  },
+
+  /**
+   * Verificación incremental desde KV ledger.verified_through (arranque).
+   * Sin marca previa hace una verificación completa.
+   */
+  async verifyIncremental(): Promise<LedgerVerification> {
+    const through = await PersistenceService.getKv<{ id: number; hash: string }>(LEDGER_KV.VERIFIED_THROUGH);
+    if (!through) return IntegrityLedgerService.verify();
+    const tail = await PersistenceService.listLedger({ afterId: through.id });
+    // Las rupturas reconocidas anteriores quedan fuera del tramo; solo importan asientos nuevos.
+    const acked = acksOf(await PersistenceService.listLedger({ intent: "LEDGER_BREAK_ACKNOWLEDGED" })).length;
+    const r = await verifySegments(tail, through.hash, through);
+    return { ...r, head: tail.length ? r.head : through.hash, acknowledgedBreaks: acked };
+  },
+
+  /** Marca el punto verificado (solo con cadena válida). */
+  async markVerified(): Promise<void> {
+    const last = await PersistenceService.getLastLedgerEntry();
+    if (last) await PersistenceService.setKv(LEDGER_KV.VERIFIED_THROUGH, { id: last.id, hash: last.hash });
+  },
+
+  async getIncident(): Promise<LedgerIncident | null> {
+    return PersistenceService.getKv<LedgerIncident>(LEDGER_KV.BROKEN);
+  },
+
+  /**
+   * Registra el incidente si la verificación encontró una ruptura no
+   * reconocida. Si ya existe un incidente para el mismo asiento, lo conserva
+   * (detectedAtMs original). Devuelve el incidente vigente o null.
+   */
+  async recordIncident(v: LedgerVerification, nowMs: number): Promise<LedgerIncident | null> {
+    const current = await IntegrityLedgerService.getIncident();
+    if (!v.incident) return current;
+    if (current && current.breakAtId === v.incident.breakAtId && current.observedHash === v.incident.observedHash) return current;
+    const incident: LedgerIncident = { ...v.incident, detectedAtMs: nowMs };
+    await PersistenceService.setKv(LEDGER_KV.BROKEN, incident);
+    return incident;
+  },
+
+  /** SHA-256 canónico del incidente (va en el asiento de reconocimiento). */
+  async incidentHash(incident: LedgerIncident): Promise<string> {
+    return sha256Hex(canonicalJson(incident));
+  },
+
+  /**
+   * Reconocimiento (spec v1.3 §5.5): solo si `claimed` coincide EXACTAMENTE
+   * con ledger.broken. Asiento con sessionId null, append normal (prev_hash =
+   * head actual). La autorización (PIN) la valida la capa de Aplicación.
+   */
+  async acknowledgeBreak(
+    claimed: LedgerIncident,
+    nowMs: number,
+  ): Promise<{ ok: true; entry: LedgerEntry } | { ok: false; code: "NO_LEDGER_INCIDENT" | "LEDGER_INCIDENT_MISMATCH" }> {
+    const current = await IntegrityLedgerService.getIncident();
+    if (!current) return { ok: false, code: "NO_LEDGER_INCIDENT" };
+    const same = INCIDENT_FIELDS.every((k) => canonicalJson(current[k] ?? null) === canonicalJson(claimed?.[k] ?? null));
+    if (!same) return { ok: false, code: "LEDGER_INCIDENT_MISMATCH" };
+    const incidentHash = await IntegrityLedgerService.incidentHash(current);
+    const entry = await PersistenceService.transaction(async (db) => {
+      const head = await PersistenceService.getLastLedgerEntry(db);
+      const data: LedgerBreakAck = {
+        breakAtId: current.breakAtId,
+        lastGoodId: current.lastGoodId,
+        lastGoodHash: current.lastGoodHash,
+        observedPrevHash: current.observedPrevHash,
+        observedHash: current.observedHash,
+        recomputedHash: current.recomputedHash,
+        headAtAckId: head!.id,
+        headAtAckHash: head!.hash,
+        incidentHash,
+        acknowledgedAtMs: nowMs,
+      };
+      const e = await IntegrityLedgerService.append(
+        {
+          sessionId: null,
+          actor: "USER",
+          intent: "LEDGER_BREAK_ACKNOWLEDGED",
+          fromState: null,
+          toState: null,
+          reason: "ADMIN_ACKNOWLEDGED_BREAK",
+          timestampMs: nowMs,
+          integrityClass: null,
+          data,
+        },
+        db,
+      );
+      await db.runAsync(`DELETE FROM app_kv WHERE key = ?`, [LEDGER_KV.BROKEN]);
+      return e;
+    });
+    await IntegrityLedgerService.markVerified();
+    return { ok: true, entry };
+  },
+
+  /**
+   * Instantes (timestamp_ms) de los asientos con id en [breakAtId, headAtAckId]
+   * de cada ruptura reconocida: los periodos que los contienen son "tocados"
+   * y solo se sellan como no certificados (spec v1.3 §5.5).
+   */
+  async segmentedTimestamps(): Promise<number[]> {
+    const acks = acksOf(await PersistenceService.listLedger({ intent: "LEDGER_BREAK_ACKNOWLEDGED" }));
+    if (!acks.length) return [];
+    const out: number[] = [];
+    for (const a of acks) {
+      const rows = await PersistenceService.listLedger({ fromId: a.breakAtId, toId: a.headAtAckId });
+      rows.forEach((r) => out.push(r.timestampMs));
+    }
+    return out;
+  },
+
+  /**
+   * Informe de incidente (JSON canónico + SHA-256). Determinista para un mismo
+   * estado del ledger: dos llamadas sin asientos nuevos dan el mismo hash.
+   */
+  async buildIncidentReport(appVersion: string): Promise<{ report: LedgerIncidentReport; json: string; sha256: string }> {
+    const incident = await IntegrityLedgerService.getIncident();
     const all = await PersistenceService.listLedger();
-    const idx = await verifyChain(all);
-    return {
-      valid: idx === -1,
-      brokenAtId: idx === -1 ? null : all[idx].id,
-      head: all.length ? all[all.length - 1].hash : GENESIS_HASH,
+    const acks = acksOf(all).map(({ ackId: _a, ...rest }) => rest);
+    const ref = incident ?? acks[acks.length - 1] ?? null;
+    const byId = (id: number | null | undefined) => (id === null || id === undefined ? null : all.find((e) => e.id === id) ?? null);
+    const last = all[all.length - 1];
+    const report: LedgerIncidentReport = {
+      kind: "DT_LEDGER_INCIDENT_REPORT",
+      version: 1,
+      incident,
+      acknowledgements: acks,
+      rows: { lastGood: byId(ref?.lastGoodId), breakAt: byId(ref?.breakAtId) },
+      head: last ? { id: last.id, hash: last.hash } : null,
+      entryCount: all.length,
+      appVersion,
+      notice: "Los asientos con ledgerPayloadVersion ausente (v1) pueden contener notas en claro.",
     };
+    const json = canonicalJson(report);
+    return { report, json, sha256: await sha256Hex(json) };
   },
 
   /**

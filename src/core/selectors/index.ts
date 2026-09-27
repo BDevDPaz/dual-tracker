@@ -300,3 +300,8 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
     };
   });
 };
+
+// ---------------------------------------------------------------------------
+// Integridad del ledger (spec v1.3 §5.5)
+// ---------------------------------------------------------------------------
+export const selectLedgerHealth = (s: DualTrackerState) => s.health.ledger;

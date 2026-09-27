@@ -29,6 +29,7 @@ import {
   selectCurrentTargetSite,
   selectHasConflict,
   selectLastSessionToday,
+  selectLedgerHealth,
   selectLunchElapsedMs,
   selectSessionState,
   selectSiteById,
@@ -60,6 +61,7 @@ export default function TodayScreen() {
   const summary = selectTodaySummary(state, nowMs);
   const hasConflict = selectHasConflict(state);
   const uiRequests = selectUiRequests(state);
+  const ledger = selectLedgerHealth(state);
 
   // Peticiones de UI originadas fuera de la vista (notificación de salida, boot en SALIDA).
   useEffect(() => {
@@ -134,6 +136,14 @@ export default function TodayScreen() {
 
         {hasConflict ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
+        ) : null}
+
+        {ledger.broken ? (
+          <ScreenStatusBanner
+            status="conflict"
+            message={`${t("health.ledger.brokenTitle")} — ${t("health.ledger.brokenBody")}`}
+            onPress={() => router.push("/system/health")}
+          />
         ) : null}
 
         <SystemHealthBlock

@@ -116,6 +116,18 @@ export const es = {
       isMonitoring: "Geocerca activa",
       lastSpatialFactAt: "Último hecho espacial",
     },
+    ledger: {
+      title: "Integridad del registro",
+      ok: "Cadena de integridad verificada.",
+      brokenTitle: "Registro de integridad dañado",
+      brokenBody:
+        "Se detectó una alteración en el historial de integridad. Tus horas se siguen registrando, pero no se pueden sellar expedientes hasta que el administrador revise el incidente.",
+      acknowledged: "Incidente de integridad reconocido. Los periodos afectados solo se pueden emitir como no certificados.",
+      pin: "PIN de administración",
+      acknowledge: "Reconocer incidente",
+      export: "Exportar informe de incidente",
+      exportHint: "Advertencia: los asientos anteriores a esta versión pueden contener notas en claro.",
+    },
     modes: {
       RASTRO_ACTIVO: "Rastro activo",
       SOLO_GEOCERCA: "Solo geocerca",
@@ -336,6 +348,8 @@ export const es = {
     OS_KILL: "App cerrada por el sistema",
     INTEGRITY_RECLASSIFIED: "Integridad reclasificada",
     PAYROLL_SEALED: "Nómina sellada",
+    LEDGER_BREAK_ACKNOWLEDGED: "Ruptura de integridad reconocida",
+    LEDGER_BREAK_EXPORTED: "Informe de incidente exportado",
   },
   notFound: {
     title: "No encontrado",

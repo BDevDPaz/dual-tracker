@@ -540,16 +540,10 @@ export function transition(
     case "INTEGRITY_DEGRADE": {
       if (!open) return reject("NO_OPEN_SESSION");
       if (open.integrityClass === "CONFLICT") return reject("ILLEGAL_TRANSITION", "ALREADY_CONFLICT");
-      const reason: IntegrityReason =
-        intent.cause === "BACKGROUND_PERMISSION_MISSING"
-          ? "BACKGROUND_PERMISSION_MISSING"
-          : intent.cause === "CLOCK_DRIFT"
-            ? "CLOCK_DRIFT"
-            : intent.cause === "MUTEX_FAILED"
-              ? "MUTEX_FAILED"
-              : "PROVIDER_LOSS";
+      const reason: IntegrityReason = intent.cause;
       const next = withIntegrity(open, "CONFLICT", reason);
-      const feedback: FeedbackCode = intent.cause === "CLOCK_DRIFT" ? "CLOCK_DRIFT" : "PERMISSION_REVOKED";
+      const feedback: FeedbackCode =
+        intent.cause === "CLOCK_DRIFT" ? "CLOCK_DRIFT" : intent.cause === "LEDGER_CHAIN_BROKEN" ? "LEDGER_BROKEN" : "PERMISSION_REVOKED";
       return ok(open, next, ctx, `INTEGRITY_DEGRADED_${intent.cause}`, [], feedback);
     }
   }

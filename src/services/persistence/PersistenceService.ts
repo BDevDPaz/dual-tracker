@@ -392,10 +392,28 @@ export const PersistenceService = {
     return row ? mapLedgerRow(row) : null;
   },
 
-  async listLedger(opts: { sessionId?: number; from?: number; to?: number } = {}): Promise<LedgerEntry[]> {
+  async listLedger(
+    opts: { sessionId?: number; from?: number; to?: number; afterId?: number; fromId?: number; toId?: number; intent?: string } = {},
+  ): Promise<LedgerEntry[]> {
     const d = await ensureReady();
     const where: string[] = [];
     const params: SqlParam[] = [];
+    if (opts.afterId !== undefined) {
+      where.push("id > ?");
+      params.push(opts.afterId);
+    }
+    if (opts.fromId !== undefined) {
+      where.push("id >= ?");
+      params.push(opts.fromId);
+    }
+    if (opts.toId !== undefined) {
+      where.push("id <= ?");
+      params.push(opts.toId);
+    }
+    if (opts.intent !== undefined) {
+      where.push("intent = ?");
+      params.push(opts.intent);
+    }
     if (opts.sessionId !== undefined) {
       where.push("session_id = ?");
       params.push(opts.sessionId);
