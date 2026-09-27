@@ -194,6 +194,20 @@ export const IntegrityLedgerService = {
     return { ...entry, id };
   },
 
+  /** FieldCrypto v1.3 §16: ids de packs con al menos un asiento PACK_SHARED. */
+  async sharedPackIds(): Promise<string[]> {
+    const ids = new Set<string>();
+    for (const e of await PersistenceService.listLedger({ intent: "PACK_SHARED" })) {
+      try {
+        const packId = (JSON.parse(e.payloadJson) as { data?: { packId?: unknown } }).data?.packId;
+        if (typeof packId === "string") ids.add(packId);
+      } catch {
+        // asiento ilegible: no cuenta como compartido
+      }
+    }
+    return [...ids];
+  },
+
   /** Inyección del digester de notas (boot.wirePorts → FieldCryptoService.noteDigest). */
   setNoteDigester(fn: ((note: string) => Promise<string | null>) | null): void {
     noteDigester = fn ?? (async () => null);

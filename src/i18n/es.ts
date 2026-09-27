@@ -314,6 +314,14 @@ export const es = {
     sectionTitle: "Cifrado de campos",
     status: { UNINITIALIZED: "Iniciando…", READY: "Activo", NEEDS_MIGRATE: "Activo (migración pendiente)", KEY_MISSING: "Clave anterior no disponible", UNAVAILABLE: "No disponible" },
   },
+  backup: {
+    // FieldCrypto v1.3 §16 (microcopy exacta).
+    title: "Copia de expedientes",
+    advice: "Guarda una copia del expediente de cada periodo fuera del teléfono (correo o Archivos). Si cambias de teléfono, el respaldo del sistema recupera tus horas, pero no las notas ni las ubicaciones.",
+    healthRow: "Copia de expedientes: {n} periodo(s) sin exportar.",
+    healthOk: "Todos los expedientes están exportados.",
+    export: "Exportar expediente",
+  },
   modals: {
     dailySetupStartTitle: "Iniciar jornada",
     dailySetupStartSub: "Elige el destino del día",

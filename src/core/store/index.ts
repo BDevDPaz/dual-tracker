@@ -76,6 +76,8 @@ export const StoreActions = {
     sessions: SessionRecord[];
     sites: Site[];
     packs: EvidencePack[];
+    /** §16: ids de packs ya compartidos (asientos PACK_SHARED). */
+    sharedPackIds?: string[];
     settings: SettingsSnapshot;
     osKillDetected: boolean;
     hasPin: boolean;
@@ -92,7 +94,7 @@ export const StoreActions = {
       boot: { isRehydrating: false, lastHydratedAtMs: input.nowMs, osKillDetected: input.osKillDetected, bootError: null },
       sessions: { byId, order: sortIdsByStartDesc(byId), activeSessionId: findActive(byId) },
       sites: { byId: sitesById, order: input.sites.map((s) => s.id) },
-      packs: { byId: packsById, order: input.packs.map((p) => p.id) },
+      packs: { byId: packsById, order: input.packs.map((p) => p.id), sharedIds: input.sharedPackIds ?? state.packs.sharedIds },
       settings: input.settings,
       admin: { ...state.admin, hasPin: input.hasPin },
     });
@@ -139,8 +141,18 @@ export const StoreActions = {
     const exists = !!state.packs.byId[pack.id];
     commit({
       ...state,
-      packs: { byId: { ...state.packs.byId, [pack.id]: pack }, order: exists ? state.packs.order : [pack.id, ...state.packs.order] },
+      packs: {
+        ...state.packs,
+        byId: { ...state.packs.byId, [pack.id]: pack },
+        order: exists ? state.packs.order : [pack.id, ...state.packs.order],
+      },
     });
+  },
+
+  /** FieldCrypto v1.3 §16: el pack se compartió (asiento PACK_SHARED ya escrito). */
+  packShared(packId: string): void {
+    if (state.packs.sharedIds.includes(packId)) return;
+    commit({ ...state, packs: { ...state.packs, sharedIds: [...state.packs.sharedIds, packId] } });
   },
 
   feedbackPushed(payload: FeedbackPayload): void {

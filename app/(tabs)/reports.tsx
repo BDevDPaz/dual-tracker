@@ -10,11 +10,11 @@ import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Card, DocumentPreviewWidget, LoadingOverlay, PageHeader, ScreenContainer, Section } from "../../src/components/ui";
-import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
+import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { EvidencePack } from "../../src/core/contracts";
 import { useClock, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectCalendarHistory, selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
+import { selectBackupAdvice, selectCalendarHistory, selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatRange, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
 
@@ -41,6 +41,15 @@ export default function ReportsScreen() {
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === periodStart);
   const st = statement.data;
   const hasConflict = !!st?.integrityRollup.hasConflict;
+  // §16: recomendación de exportar expedientes (packs sin compartir o periodo cerrado sin pack).
+  const backup = selectBackupAdvice(state, nowMs);
+  const [exporting, setExporting] = useState(false);
+  const exportNext = async () => {
+    if (!backup.next) return;
+    setExporting(true);
+    await emit({ type: "EXPORT_PACK", periodStart: backup.next.periodStart, periodEnd: backup.next.periodEnd });
+    setExporting(false);
+  };
 
   const seal = async (allowUncertified: boolean) => {
     setSealing(true);
@@ -153,6 +162,8 @@ export default function ReportsScreen() {
             ))}
           </Section>
         ) : null}
+
+        {backup.next ? <BackupAdviceCard busy={exporting} onExport={() => void exportNext()} /> : null}
       </ScrollView>
       <LoadingOverlay visible={sealing} message={t("reports.generating")} />
     </ScreenContainer>

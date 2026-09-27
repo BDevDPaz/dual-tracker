@@ -13,8 +13,8 @@ import { Button, Card, Input, Section } from "../../src/components/ui";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
-import { useWorkTracker } from "../../src/core/hooks";
-import { selectActiveSession, selectAdmin, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
+import { useClock, useWorkTracker } from "../../src/core/hooks";
+import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDateTime } from "../../src/utils/dateUtils";
 
@@ -33,6 +33,8 @@ export default function HealthScreen() {
   const hasOpenSession = !!selectActiveSession(state);
   const ledger = selectLedgerHealth(state);
   const crypto = selectCryptoHealth(state);
+  const nowMs = useClock(60_000);
+  const backup = selectBackupAdvice(state, nowMs);
   const admin = selectAdmin(state);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -112,6 +114,12 @@ export default function HealthScreen() {
           {crypto.status === "KEY_MISSING" ? (
             <ScreenStatusBanner status="degraded" message={`${t("fieldCrypto.keyMissingTitle")} — ${t("fieldCrypto.keyMissingBody")}`} />
           ) : null}
+          <HealthRow
+            label={t("backup.title")}
+            value={backup.pendingPeriods > 0 ? t("backup.healthRow", { n: backup.pendingPeriods }) : t("backup.healthOk")}
+            ok={backup.pendingPeriods === 0}
+            blocksValid={false}
+          />
         </Card>
       </Section>
       {h.checkedAtMs ? (

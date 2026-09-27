@@ -147,6 +147,7 @@ export function boot(): Promise<void> {
         sessions: snapshot.sessions,
         sites: snapshot.sites,
         packs: snapshot.packs,
+        sharedPackIds: await IntegrityLedgerService.sharedPackIds().catch(() => []),
         settings,
         osKillDetected: osKill,
         hasPin: await SecurityService.hasPin(),

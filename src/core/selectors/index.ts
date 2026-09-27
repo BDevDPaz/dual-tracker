@@ -360,3 +360,47 @@ export function selectPolicyForSession(s: DualTrackerState, session: SessionReco
   const packs = selectPacks(s).map((p) => ({ periodStart: p.manifest.periodStart, periodEnd: p.manifest.periodEnd, policyId: p.statement.policyId, createdAtMs: p.createdAtMs }));
   return policyForPeriod(packs, workweekStartAt(start, history), workweekEndAt(start, history), s.settings.company.overtimePolicyId);
 }
+
+// ---------------------------------------------------------------------------
+// Respaldos y exportación del expediente (spec FieldCrypto v1.3 §16)
+// ---------------------------------------------------------------------------
+export interface BackupAdvice {
+  /** Packs sellados sin ningún asiento PACK_SHARED (más reciente primero). */
+  unsharedPacks: EvidencePack[];
+  /** Periodo cerrado más reciente con jornadas cerradas y sin pack. */
+  unpackedPeriod: { periodStart: number; periodEnd: number } | null;
+  /** Periodos pendientes de exportar (fila de system/health). */
+  pendingPeriods: number;
+  /** Siguiente periodo a exportar con el botón "Exportar expediente". */
+  next: { periodStart: number; periodEnd: number } | null;
+}
+
+/**
+ * §16: packs sin compartir + periodo cerrado más reciente sin pack. Las
+ * pantallas lo leen; no importan servicios. "Cerrado" = el periodo terminó
+ * antes de `nowMs` (según el calendario laboral vigente en cada fecha).
+ */
+export function selectBackupAdvice(s: DualTrackerState, nowMs: number): BackupAdvice {
+  const shared = new Set(s.packs.sharedIds);
+  const packs = selectPacks(s);
+  const unsharedPacks = packs.filter((p) => !shared.has(p.id)).sort((a, b) => b.manifest.periodStart - a.manifest.periodStart || b.createdAtMs - a.createdAtMs);
+  const history = companyCalendar(s.settings.company);
+  const packed = new Set(packs.map((p) => `${p.manifest.periodStart}:${p.manifest.periodEnd}`));
+  let unpackedPeriod: BackupAdvice["unpackedPeriod"] = null;
+  for (const session of Object.values(s.sessions.byId)) {
+    if (session.bookkeeping.isDeleted || session.bookkeeping.cancelled || session.domainStatus !== "CERRADA") continue;
+    const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+    const periodStart = workweekStartAt(start, history);
+    const periodEnd = workweekEndAt(start, history);
+    if (periodEnd >= nowMs || packed.has(`${periodStart}:${periodEnd}`)) continue;
+    if (!unpackedPeriod || periodStart > unpackedPeriod.periodStart) unpackedPeriod = { periodStart, periodEnd };
+  }
+  const periods = new Set(unsharedPacks.map((p) => `${p.manifest.periodStart}:${p.manifest.periodEnd}`));
+  const pendingPeriods = periods.size + (unpackedPeriod ? 1 : 0);
+  const firstUnshared = unsharedPacks[0];
+  const next = unpackedPeriod ?? (firstUnshared ? { periodStart: firstUnshared.manifest.periodStart, periodEnd: firstUnshared.manifest.periodEnd } : null);
+  return { unsharedPacks, unpackedPeriod, pendingPeriods, next };
+}
+
+/** §16: ¿este pack ya se compartió al menos una vez? */
+export const selectPackShared = (s: DualTrackerState, packId: string): boolean => s.packs.sharedIds.includes(packId);

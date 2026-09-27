@@ -44,6 +44,8 @@ export interface DualTrackerState {
   packs: {
     byId: Record<string, EvidencePack>;
     order: string[];
+    /** FieldCrypto v1.3 §16: packs con al menos un asiento PACK_SHARED. */
+    sharedIds: string[];
   };
   feedback: {
     pending: FeedbackPayload[];

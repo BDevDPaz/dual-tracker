@@ -7,10 +7,10 @@
 import { Text, StyleSheet, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, ScreenContainer, Section } from "../../../src/components/ui";
-import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
+import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectPackById } from "../../../src/core/selectors";
+import { selectPackById, selectPackShared } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
 import { formatCurrency, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
 
@@ -34,6 +34,7 @@ export default function PackScreen() {
     );
   }
   const m = pack.manifest;
+  const shared = selectPackShared(state, pack.id);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -70,6 +71,7 @@ export default function PackScreen() {
         ))}
       </Section>
 
+      {!shared ? <BackupAdviceCard /> : null}
       <Button label={t("reports.shareEmployee")} iconName="share-outline" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: pack.id })} />
       <Button label={t("reports.shareEmployer")} variant="secondary" iconName="briefcase-outline" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: pack.id })} />
     </ScrollView>

@@ -155,6 +155,8 @@ export type ViewIntent =
     }
   | { type: "SHARE_EMPLOYEE"; packId: string }
   | { type: "SHARE_EMPLOYER"; packId: string }
+  /** FieldCrypto v1.3 §16: "Exportar expediente" → SEAL_PACK si falta y luego compartir (empleado). */
+  | { type: "EXPORT_PACK"; periodStart: number; periodEnd: number }
   // Ajustes
   | { type: "SAVE_SETTINGS"; patch: import("./settings").SettingsPatch }
   | { type: "UNLOCK_ADMIN"; pin: string }

@@ -19,7 +19,7 @@ import { serializeError } from "../../utils/serializeError";
 import { DualDisclosureService } from "../domain/DualDisclosureService";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
-import { EvidencePackService } from "../evidence/EvidencePackService";
+import { EvidencePackService, latestPackFor } from "../evidence/EvidencePackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { SettingsService } from "../persistence/SettingsService";
@@ -124,6 +124,19 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         return report(await EvidencePackService.shareEmployee(intent.packId));
       case "SHARE_EMPLOYER":
         return report(await EvidencePackService.shareEmployer(intent.packId));
+      case "EXPORT_PACK": {
+        // §16: reutiliza el pack más reciente del periodo; si no hay, sella
+        // (certificado; un periodo no certificable se remite al flujo de Reportes).
+        let pack = await latestPackFor(intent.periodStart, intent.periodEnd);
+        if (!pack) {
+          const sealed = await generateWeeklyPayroll(intent.periodStart, intent.periodEnd, false, false);
+          if (!sealed.ok) return report(sealed);
+          FeedbackService.emit(sealed.reused ? "PACK_REUSED" : "PACK_SEALED", { hash: sealed.data.manifest.packHash.slice(0, 12) });
+          pack = sealed.data;
+        }
+        const shared = await EvidencePackService.shareEmployee(pack.id);
+        return shared.ok ? { ok: true, data: pack } : report(shared);
+      }
 
       // ---- Ajustes ----
       case "SAVE_SETTINGS": {

@@ -128,6 +128,31 @@ async function sealWarningsFor(sessionIds: number[]): Promise<SealWarning[]> {
   return affected.length ? [{ code: "FIELD_CRYPTO_KEY_LOST", sessionIds: affected }] : [];
 }
 
+/**
+ * FieldCrypto v1.3 §16: shareEmployee/shareEmployer dejan rastro (PACK_SHARED)
+ * y actualizan Store.packs.sharedIds. Un fallo del asiento no deshace el
+ * envío ya hecho: se registra en el log.
+ */
+async function recordShared(packId: string, target: "EMPLOYEE" | "EMPLOYER"): Promise<void> {
+  try {
+    const nowMs = TimeAuthorityService.now();
+    await PersistenceService.transaction(async (db) => {
+      await IntegrityLedgerService.append(
+        { sessionId: null, actor: "USER", intent: "PACK_SHARED", fromState: null, toState: null, reason: `PACK_SHARED_${target}`, timestampMs: nowMs, integrityClass: null, data: { packId, target } },
+        db,
+      );
+    });
+    StoreActions.packShared(packId);
+  } catch (error) {
+    LoggingService.log("NARANJA", "PAYROLL", "WARN", "No se pudo registrar PACK_SHARED", { packId, error: serializeError(error) });
+  }
+}
+
+/** Pack más reciente del periodo (o null). */
+export async function latestPackFor(periodStart: number, periodEnd: number): Promise<EvidencePack | null> {
+  return latestPackForPeriod(periodStart, periodEnd);
+}
+
 async function latestPackForPeriod(periodStart: number, periodEnd: number): Promise<EvidencePack | null> {
   // TODO(propuesta): no existe revocación de packs en el modelo actual; todos
   // cuentan como "no revocados". Si se añade, filtrar aquí.
@@ -324,7 +349,9 @@ export const EvidencePackService = {
   async shareEmployee(packId: string): Promise<IntentResult> {
     const pack = await PersistenceService.getPack(packId);
     if (!pack?.employeePdfUri) return { ok: false, code: "PACK_NOT_FOUND" };
-    return (await ReportService.share(pack.employeePdfUri)) ? { ok: true } : { ok: false, code: "SHARE_UNAVAILABLE" };
+    if (!(await ReportService.share(pack.employeePdfUri))) return { ok: false, code: "SHARE_UNAVAILABLE" };
+    await recordShared(packId, "EMPLOYEE");
+    return { ok: true };
   },
 
   async shareEmployer(packId: string): Promise<IntentResult> {
@@ -333,7 +360,9 @@ export const EvidencePackService = {
     const settings = await SettingsService.load();
     const uris = [pack.employerPdfUri, pack.manifestUri].filter((u): u is string => !!u);
     const sent = await ReportService.email(uris, settings.company.companyEmail, settings.profile.employeeName, packId);
-    return sent ? { ok: true } : { ok: false, code: "SHARE_UNAVAILABLE" };
+    if (!sent) return { ok: false, code: "SHARE_UNAVAILABLE" };
+    await recordShared(packId, "EMPLOYER");
+    return { ok: true };
   },
 
   /** ¿Algún pack ya cubre exactamente este periodo? (idempotencia de PAYROLL_EXPORT). */
