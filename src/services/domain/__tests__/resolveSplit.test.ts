@@ -191,7 +191,7 @@ describe("P4 — RESOLVE_SPLIT (motor + SQLite)", () => {
     expect(db.reason).toBe("SESSION_SPLIT_CREATED");
     expect(db.fromState).toBeNull();
     expect(db.toState).toBe("CERRADA");
-    expect(db.data).toEqual({ sessionId: b.id, splitFrom: s.id, startMs: at, endMs: s.endAtMs });
+    expect(db.data).toEqual({ sessionId: b.id, splitFrom: s.id, startMs: at, endMs: s.endAtMs, ledgerPayloadVersion: 2 });
 
     const fa = await PersistenceService.listSpatialFacts(a.id);
     const fb = await PersistenceService.listSpatialFacts(b.id);

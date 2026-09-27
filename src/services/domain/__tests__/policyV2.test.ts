@@ -153,7 +153,7 @@ describe("P2 — CA_DAILY8_WEEKLY40_v2", () => {
       expect((await SettingsService.load()).company.overtimePolicyId).toBe(V2);
       const entry = (await PersistenceService.listLedger()).find((e) => e.intent === "PAYROLL_POLICY_CHANGED")!;
       expect(entry.sessionId).toBeNull();
-      expect(JSON.parse(entry.payloadJson).data).toEqual({ from: V1, to: V2, changedAtMs: time.now(), sealedPeriodsKeptOnFrom: ["W2026-09-21"] });
+      expect(JSON.parse(entry.payloadJson).data).toEqual({ from: V1, to: V2, changedAtMs: time.now(), sealedPeriodsKeptOnFrom: ["W2026-09-21"], ledgerPayloadVersion: 2 });
       expect(await migratePayrollPolicyToV2()).toEqual({ migrated: false, sealedPeriodsKeptOnFrom: [] });
 
       // Resello del periodo v1: sigue en v1 y reutiliza el pack (mismo contentHash).

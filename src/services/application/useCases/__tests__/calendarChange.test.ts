@@ -63,6 +63,7 @@ describe("P1 — calendario laboral", () => {
     const [entry] = await calendarLedger();
     expect(entry).toMatchObject({ intent: "CALENDAR_CHANGED", sessionId: null });
     expect(JSON.parse(entry.payloadJson).data).toEqual({
+      ledgerPayloadVersion: 2,
       from: { workdayStartMinutes: 0, workweekStartDay: 1 },
       to: { workdayStartMinutes: 360, workweekStartDay: 1 },
       requestedAtMs: WED,

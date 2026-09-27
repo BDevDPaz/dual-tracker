@@ -160,6 +160,24 @@ type AppendDraft = Omit<LedgerDraft, "payloadJson"> & { data?: unknown };
 /** Puerto de redacción de notas (spec v1.3 §13). Por defecto no hay digest. */
 let noteDigester: (note: string) => Promise<string | null> = async () => null;
 
+/** Versión del payload de los asientos nuevos (spec v1.3 §13). */
+export const LEDGER_PAYLOAD_VERSION = 2;
+
+/**
+ * Payload v2 (§13): todo asiento nuevo lleva data.ledgerPayloadVersion = 2 y
+ * el campo `note` nunca se escribe; se sustituye por noteDigest (HMAC con
+ * clave derivada; null sin digester o sin kid activo). Defensa en
+ * profundidad: aunque un llamador pase la nota, aquí se redacta.
+ */
+async function redactPayloadV2(data: unknown): Promise<Record<string, unknown>> {
+  if (data === null || data === undefined) return { ledgerPayloadVersion: LEDGER_PAYLOAD_VERSION };
+  if (typeof data !== "object" || Array.isArray(data)) return { value: data, ledgerPayloadVersion: LEDGER_PAYLOAD_VERSION };
+  const { note, ...rest } = data as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...rest, ledgerPayloadVersion: LEDGER_PAYLOAD_VERSION };
+  if (note !== undefined && !("noteDigest" in rest)) out.noteDigest = await IntegrityLedgerService.noteDigest(typeof note === "string" ? note : null);
+  return out;
+}
+
 export const IntegrityLedgerService = {
   /**
    * Añade un asiento. Debe llamarse DENTRO de la transacción de la intención
@@ -169,7 +187,7 @@ export const IntegrityLedgerService = {
     const last = await PersistenceService.getLastLedgerEntry(database);
     const prevHash = last?.hash ?? GENESIS_HASH;
     const { data, ...rest } = draft;
-    const payloadJson = canonicalJson({ ...rest, data: data ?? null });
+    const payloadJson = canonicalJson({ ...rest, data: await redactPayloadV2(data) });
     const hash = await chainHash(prevHash, payloadJson);
     const entry: Omit<LedgerEntry, "id"> = { ...rest, prevHash, hash, payloadJson };
     const id = await PersistenceService.insertLedgerEntry(entry, database);

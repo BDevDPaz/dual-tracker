@@ -184,6 +184,6 @@ describe("P5 — LEDGER_BREAK_ACKNOWLEDGED", () => {
     const r = await exportLedgerIncident();
     expect(r.ok).toBe(true);
     const exp = (await PersistenceService.listLedger({ intent: "LEDGER_BREAK_EXPORTED" }))[0];
-    expect(JSON.parse(exp.payloadJson).data).toEqual({ reportSha256: a.sha256 });
+    expect(JSON.parse(exp.payloadJson).data).toEqual({ reportSha256: a.sha256, ledgerPayloadVersion: 2 });
   });
 });

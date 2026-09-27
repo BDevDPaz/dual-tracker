@@ -86,12 +86,23 @@ function targetIdOf(intent: SessionIntent): number | null {
 }
 
 /** Payload del ledger sin coordenadas en claro (van selladas en spatial_facts). */
-function ledgerData(intent: SessionIntent): unknown {
+/**
+ * Datos del asiento (spec v1.3 §13): sin coordenadas y, desde el payload v2,
+ * sin la nota en claro (START_DAY, MANUAL_PATCH, ADD_NOTE, RESOLVE_KEEP_GPS,
+ * RESOLVE_MANUAL, RESOLVE_SPLIT): se sustituye por noteDigest vía el digester
+ * inyectado. SessionEngine no importa FieldCrypto.
+ */
+async function ledgerData(intent: SessionIntent): Promise<Record<string, unknown>> {
+  let data: Record<string, unknown> = { ...intent };
   if ((intent.type === "EXIT_DETECTED" || intent.type === "ARRIVAL_CONFIRMED") && intent.fact) {
     const { lat: _lat, lon: _lon, ...rest } = intent.fact;
-    return { ...intent, fact: rest };
+    data = { ...data, fact: rest };
   }
-  return intent;
+  if ("note" in data) {
+    const { note, ...rest } = data;
+    data = { ...rest, noteDigest: await IntegrityLedgerService.noteDigest(typeof note === "string" ? note : null) };
+  }
+  return data;
 }
 
 function degradedReason(): TransitionContext["degradedReason"] {
@@ -222,7 +233,7 @@ export const SessionEngineService = {
               reason: out.reason,
               timestampMs: nowMs,
               integrityClass: record.integrityClass,
-              data: out.ledgerExtra ? { ...(ledgerData(intent) as object), ...out.ledgerExtra } : ledgerData(intent),
+              data: { ...(await ledgerData(intent)), ...(out.ledgerExtra ?? {}) },
             },
             db,
           );

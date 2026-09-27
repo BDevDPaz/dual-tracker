@@ -25,6 +25,7 @@ import { SiteRegistryService } from "../services/domain/SiteRegistryService";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../services/evidence/TraceRecorderService";
 import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
+import { IntegrityLedgerService } from "../services/domain/IntegrityLedgerService";
 import { LoggingService } from "../services/persistence/LoggingService";
 import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
@@ -61,6 +62,8 @@ function wirePorts(): void {
     cancelExitDecision: (id) => TaskOrchestratorService.cancelExitDecision(id),
   });
   TraceRecorderService.setSink((fact) => SessionEngineService.recordSpatialFact(fact));
+  // spec v1.3 §13: el ledger recibe el digester de notas (HMAC con clave HKDF de la MK).
+  IntegrityLedgerService.setNoteDigester((note) => FieldCryptoService.noteDigest(note));
   SiteRegistryService.setGeocoder((address) => GeofenceRuntimeService.geocodeAddress(address));
   PermissionsHealthService.setOnBackgroundRevoked(async () => {
     const r = await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: "BACKGROUND_PERMISSION_MISSING" }, "SYSTEM");
