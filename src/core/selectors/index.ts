@@ -19,8 +19,8 @@ import type {
 } from "../contracts";
 import { OPEN_SESSION_STATES } from "../contracts";
 import { DISCLOSURE_VERSION } from "../../i18n/legal";
-import { PayrollEngineService } from "../../services/domain/PayrollEngineService";
-import { nextWorkdayBoundary, toDateString } from "../../utils/dateUtils";
+import { PayrollEngineService, policyForPeriod } from "../../services/domain/PayrollEngineService";
+import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Gate (Producto §5.1)
@@ -129,7 +129,9 @@ export const selectComputedSessions = (s: DualTrackerState, nowMs: number, list?
   const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
   return (list ?? selectVisibleSessions(s)).map((session) => ({
     session,
-    preview: session.bookkeeping.cancelled ? null : PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs),
+    preview: session.bookkeeping.cancelled
+      ? null
+      : PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, selectPolicyForSession(s, session)),
     site: session.siteId !== null ? s.sites.byId[String(session.siteId)] ?? null : null,
   }));
 };
@@ -281,9 +283,10 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
     let diffMinutes: number | null = null;
     let payrollImpact: number | null = null;
     if (factA) {
-      const b = PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs);
+      const pol = selectPolicyForSession(s, session);
+      const b = PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, pol);
       const asA: SessionRecord = { ...session, declaredStartAtMs: o!.declaredStartAtMs, actualStartAtMs: o!.actualStartAtMs, endAtMs: o!.endAtMs };
-      const a = PayrollEngineService.previewSession(asA, rates, s.settings.company, nowMs);
+      const a = PayrollEngineService.previewSession(asA, rates, s.settings.company, nowMs, pol);
       if (a && b) {
         diffMinutes = b.netMinutes - a.netMinutes;
         payrollImpact = Math.round((b.grossEstimate - a.grossEstimate) * 100) / 100;
@@ -323,4 +326,16 @@ export function selectActiveCrossesWorkday(s: DualTrackerState, nowMs: number): 
   const start = open.actualStartAtMs ?? open.declaredStartAtMs;
   const end = open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : nowMs;
   return nextWorkdayBoundary(start, companyCalendar(s.settings.company)) < end;
+}
+
+/**
+ * Política del periodo que contiene la sesión (spec v1.3 §5.2 N3): la del pack
+ * más reciente de ese periodo o la vigente de la empresa. session.policyId es
+ * solo informativa (política al iniciar).
+ */
+export function selectPolicyForSession(s: DualTrackerState, session: SessionRecord): string {
+  const history = companyCalendar(s.settings.company);
+  const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+  const packs = selectPacks(s).map((p) => ({ periodStart: p.manifest.periodStart, periodEnd: p.manifest.periodEnd, policyId: p.statement.policyId, createdAtMs: p.createdAtMs }));
+  return policyForPeriod(packs, workweekStartAt(start, history), workweekEndAt(start, history), s.settings.company.overtimePolicyId);
 }

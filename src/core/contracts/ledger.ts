@@ -28,7 +28,9 @@ export type LedgerIntent =
   | "LEDGER_BREAK_EXPORTED"
   // §5.1: calendario laboral.
   | "CALENDAR_CHANGED"
-  | "CALENDAR_CHANGE_CANCELLED";
+  | "CALENDAR_CHANGE_CANCELLED"
+  // §5.2: cambio de política de nómina.
+  | "PAYROLL_POLICY_CHANGED";
 
 export interface LedgerEntry {
   id: number;

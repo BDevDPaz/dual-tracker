@@ -312,6 +312,7 @@ export const es = {
     lunch30: "Sí (30 min)",
     lunch60: "Sí (60 min)",
     lunchNo: "No tomé",
+    endsNextDay: "Termina al día siguiente",
     lunchStartQuestion: "¿A qué hora empezó el almuerzo?",
     lunchStartHint: "Tu jornada cruza el inicio de otra jornada; la hora sirve para descontarlo en el día correcto.",
     lunchSupervisorTitle: "Almuerzo en curso",
@@ -366,6 +367,9 @@ export const es = {
     PAYROLL_SEALED: "Nómina sellada",
     LEDGER_BREAK_ACKNOWLEDGED: "Ruptura de integridad reconocida",
     LEDGER_BREAK_EXPORTED: "Informe de incidente exportado",
+    CALENDAR_CHANGED: "Calendario laboral modificado",
+    CALENDAR_CHANGE_CANCELLED: "Cambio de calendario anulado",
+    PAYROLL_POLICY_CHANGED: "Política de nómina actualizada",
   },
   notFound: {
     title: "No encontrado",

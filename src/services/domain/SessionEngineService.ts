@@ -34,6 +34,8 @@ import type {
 import { ORIGIN_TO_ACTOR } from "../../core/contracts";
 import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
+import { companyCalendar } from "../../utils/companyPolicy";
+import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
@@ -206,12 +208,18 @@ export const SessionEngineService = {
           FeedbackService.emit(out.feedback, { site });
         }
 
-        // 7) Efecto de nómina tentativo.
+        // 7) Efecto de nómina tentativo con la política del periodo (spec v1.3 §5.2 N3).
+        const history = companyCalendar(settings.company);
+        const sStart = saved.actualStartAtMs ?? saved.declaredStartAtMs;
+        const pStart = workweekStartAt(sStart, history);
+        const pEnd = workweekEndAt(sStart, history);
+        const periodPolicy = (await PersistenceService.packPolicyForPeriod(pStart, pEnd)) ?? settings.company.overtimePolicyId;
         const preview = PayrollEngineService.previewSession(
           saved,
           { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
           settings.company,
           nowMs,
+          periodPolicy,
         );
         return { ok: true as const, data: { session: saved, preview } };
       });

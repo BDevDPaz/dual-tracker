@@ -27,9 +27,25 @@ export const CA_DAILY8_WEEKLY40_V1: PayrollPolicy = {
   dailyScope: "DAY",
 };
 
+/**
+ * spec v1.3 §5.2: como v1 pero cada sesión se parte en los límites de jornada
+ * del calendario vigente (§5.1); cada segmento suma a la cubeta diaria de su
+ * jornada (8 h) y a la semanal de su semana (40 h). Pausas, almuerzo y
+ * tránsito se descuentan en el segmento donde ocurrieron (§5.3).
+ */
+export const CA_DAILY8_WEEKLY40_V2: PayrollPolicy = {
+  id: "CA_DAILY8_WEEKLY40_v2",
+  label: "California v2: > 8 h por jornada y > 40 h/semana (por jornada del calendario)",
+  dailyOvertimeAfterMinutes: 8 * 60,
+  weeklyOvertimeAfterMinutes: 40 * 60,
+  dailyScope: "DAY",
+  segmentation: "WORKDAY",
+};
+
 export const PAYROLL_POLICIES: Record<string, PayrollPolicy> = {
   [LEGACY_DAILY8_V1.id]: LEGACY_DAILY8_V1,
   [CA_DAILY8_WEEKLY40_V1.id]: CA_DAILY8_WEEKLY40_V1,
+  [CA_DAILY8_WEEKLY40_V2.id]: CA_DAILY8_WEEKLY40_V2,
 };
 
 export const DEFAULT_PAYROLL_POLICY_ID = CA_DAILY8_WEEKLY40_V1.id;

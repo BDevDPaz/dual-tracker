@@ -33,6 +33,7 @@ import type {
 } from "../../core/contracts";
 import { companyCalendar, legalFlags } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
+import { computeSegmentMinutes, sessionEndMs } from "./segmentation";
 import { getPayrollPolicy } from "./payrollPolicies";
 import { TransitPolicyService } from "./TransitPolicyService";
 
@@ -139,10 +140,14 @@ interface Allocation {
   otWeekly: number;
 }
 
-/**
- * Reparte minutos de trabajo en regular / OT diario / OT semanal según la
- * política. Las sesiones deben venir ordenadas cronológicamente.
- */
+/** Unidad de reparto: una sesión (v1) o un segmento de jornada de una sesión (v2). */
+export interface AllocItem extends SessionMinutes {
+  /** Clave de la cubeta diaria (dateString, "S<id>" o inicio de jornada). */
+  dayKey: string;
+  /** Clave de la cubeta semanal (inicio del periodo semanal). */
+  weekKey: number;
+}
+
 interface AllocateCtx {
   history?: CalendarHistory;
   /** Umbral semanal de un periodo de transición < 7 días [CONFIRMAR CON ASESORÍA LEGAL]. */
@@ -158,17 +163,21 @@ function weeklyThreshold(policy: PayrollPolicy, week: number, ctx: AllocateCtx):
   return len > 0 && len < WEEK - 2 * 3_600_000 ? Math.round((full * len) / WEEK) : full;
 }
 
-function allocate(items: SessionMinutes[], policy: PayrollPolicy, ctx: AllocateCtx = {}): Map<number, Allocation> {
-  const result = new Map<number, Allocation>();
+/**
+ * Reparte minutos de trabajo en regular / OT diario / OT semanal según la
+ * política. Los items deben venir ordenados cronológicamente. Devuelve una
+ * asignación por item (mismo índice).
+ */
+function allocate(items: AllocItem[], policy: PayrollPolicy, ctx: AllocateCtx = {}): Allocation[] {
   const dailyUsed = new Map<string, number>(); // capacidad regular consumida por día
   const weeklyRegular = new Map<number, number>(); // minutos regulares por semana
 
-  for (const it of items) {
+  return items.map((it) => {
     let regular = it.workMinutes;
     let otDaily = 0;
 
     if (policy.dailyOvertimeAfterMinutes !== null) {
-      const key = policy.dailyScope === "DAY" ? it.dateString : `S${it.sessionId}`;
+      const key = it.dayKey;
       const used = (dailyUsed.get(key) ?? 0) + it.transitOtMinutes;
       const capacity = Math.max(0, policy.dailyOvertimeAfterMinutes - used);
       regular = Math.min(it.workMinutes, capacity);
@@ -178,7 +187,7 @@ function allocate(items: SessionMinutes[], policy: PayrollPolicy, ctx: AllocateC
 
     let otWeekly = 0;
     if (policy.weeklyOvertimeAfterMinutes !== null) {
-      const week = workweekStartAt(it.startMs, ctx.history);
+      const week = it.weekKey;
       const soFar = weeklyRegular.get(week) ?? 0;
       const capacity = Math.max(0, weeklyThreshold(policy, week, ctx) - soFar - it.transitOtMinutes);
       const weeklyRegularPart = Math.min(regular, capacity);
@@ -187,9 +196,41 @@ function allocate(items: SessionMinutes[], policy: PayrollPolicy, ctx: AllocateC
       weeklyRegular.set(week, soFar + regular + it.transitOtMinutes);
     }
 
-    result.set(it.sessionId, { regular, otDaily, otWeekly });
-  }
-  return result;
+    return { regular, otDaily, otWeekly };
+  });
+}
+
+/** Items v1: una unidad por sesión (atribución al inicio). */
+function v1Items(minutes: SessionMinutes[], policy: PayrollPolicy, history: CalendarHistory, sessions: Map<number, SessionRecord>): AllocItem[] {
+  return minutes.map((it) => ({
+    ...it,
+    dayKey: policy.dailyScope === "DAY" ? it.dateString : `S${sessions.get(it.sessionId)?.bookkeeping.splitFromSessionId ?? it.sessionId}`,
+    weekKey: workweekStartAt(it.startMs, history),
+  }));
+}
+
+/** Items v2 (spec v1.3 §5.2 N1): una unidad por sesión × segmento de jornada. */
+function segmentItems(session: SessionRecord, company: CompanyPolicy, nowMs: number, history: CalendarHistory): AllocItem[] {
+  const segs = computeSegmentMinutes(session, company, nowMs, history);
+  if (!segs) return [];
+  const totalSpan = segs.reduce((a, x) => a + x.spanMinutes, 0);
+  const totalWork = segs.reduce((a, x) => a + x.workMinutes, 0);
+  return segs.map((x, i) => ({
+    sessionId: session.id,
+    dateString: x.segment.dateString,
+    siteId: session.siteId,
+    startMs: x.segment.startMs,
+    spanMinutes: x.spanMinutes,
+    lunchMinutes: x.lunchMinutes,
+    pauseMinutes: x.pauseMinutes,
+    transitPaidMinutes: x.transitPaidMinutes,
+    transitOtMinutes: x.transitOtMinutes,
+    transitRateMultiplier: x.transitRateMultiplier,
+    workMinutes: x.workMinutes,
+    warnings: i === 0 && segs.length > 1 && totalSpan > 0 && totalWork === 0 ? [...x.warnings, "NO_WORK_MINUTES"] : x.warnings,
+    dayKey: String(x.segment.workdayStartMs),
+    weekKey: x.segment.weekStartMs,
+  }));
 }
 
 function buildLines(
@@ -214,6 +255,23 @@ function buildLines(
   if (it.pauseMinutes > 0)
     lines.push({ ...base, kind: "PAUSE_DEDUCTION", minutes: it.pauseMinutes, rate: 0, amount: 0, warnings: [] });
   return lines;
+}
+
+/**
+ * Política aplicable a un periodo (spec v1.3 §5.2 N3): la del pack más
+ * reciente del periodo si existe (los sellados conservan su política, p. ej.
+ * v1); si no, la vigente de la empresa.
+ */
+export function policyForPeriod(
+  packs: readonly { periodStart: number; periodEnd: number; policyId: string; createdAtMs: number }[],
+  periodStart: number,
+  periodEnd: number,
+  companyPolicyId: string,
+): string {
+  const latest = packs
+    .filter((p) => p.periodStart === periodStart && p.periodEnd === periodEnd)
+    .sort((a, b) => b.createdAtMs - a.createdAtMs)[0];
+  return latest?.policyId ?? companyPolicyId;
 }
 
 /**
@@ -252,23 +310,46 @@ export const PayrollEngineService = {
     const warnings: string[] = [];
     const ledgerSegmented = (input.segmentedLedgerTimestamps ?? []).some((ts) => ts >= input.periodStart && ts <= input.periodEnd);
 
-    const inPeriod = input.sessions.filter((s) => {
-      const start = s.actualStartAtMs ?? s.declaredStartAtMs;
-      return start >= input.periodStart && start <= input.periodEnd && !s.bookkeeping.isDeleted;
-    });
-    const closed = inPeriod.filter((s) => s.domainStatus === "CERRADA");
-    if (closed.length !== inPeriod.length) warnings.push("OPEN_SESSION_EXCLUDED");
-
-    const items = closed
-      .map((s) => computeSessionMinutes(s, input.company, input.nowMs))
-      .filter((x): x is SessionMinutes => x !== null)
-      .sort((a, b) => a.startMs - b.startMs);
+    const history = companyCalendar(input.company);
+    const byId = new Map(input.sessions.map((s) => [s.id, s]));
+    let closed: SessionRecord[];
+    let items: AllocItem[];
+    if (policy.segmentation === "WORKDAY") {
+      // v2 (spec v1.3 §5.2 N5): pertenencia por solape; cada statement suma
+      // solo los minutos de sus segmentos.
+      const overlapping = input.sessions.filter((s) => {
+        if (s.bookkeeping.isDeleted) return false;
+        const start = s.actualStartAtMs ?? s.declaredStartAtMs;
+        const end = sessionEndMs(s, input.nowMs);
+        return start <= input.periodEnd && (end > input.periodStart || (end === start && start >= input.periodStart));
+      });
+      const closedAll = overlapping.filter((s) => s.domainStatus === "CERRADA");
+      if (closedAll.length !== overlapping.length) warnings.push("OPEN_SESSION_EXCLUDED");
+      items = closedAll
+        .flatMap((s) => segmentItems(s, input.company, input.nowMs, history))
+        .filter((it) => it.startMs >= input.periodStart && it.startMs <= input.periodEnd)
+        .sort((a, b) => a.startMs - b.startMs || a.sessionId - b.sessionId);
+      const ids = new Set(items.map((it) => it.sessionId));
+      closed = closedAll.filter((s) => ids.has(s.id)).sort((a, b) => (a.actualStartAtMs ?? a.declaredStartAtMs) - (b.actualStartAtMs ?? b.declaredStartAtMs));
+    } else {
+      const inPeriod = input.sessions.filter((s) => {
+        const start = s.actualStartAtMs ?? s.declaredStartAtMs;
+        return start >= input.periodStart && start <= input.periodEnd && !s.bookkeeping.isDeleted;
+      });
+      closed = inPeriod.filter((s) => s.domainStatus === "CERRADA");
+      if (closed.length !== inPeriod.length) warnings.push("OPEN_SESSION_EXCLUDED");
+      const minutes = closed
+        .map((s) => computeSessionMinutes(s, input.company, input.nowMs))
+        .filter((x): x is SessionMinutes => x !== null)
+        .sort((a, b) => a.startMs - b.startMs);
+      items = v1Items(minutes, policy, history, byId);
+    }
 
     const alloc = allocate(items, policy, {
-      history: companyCalendar(input.company),
+      history,
       transitionWeeklyThreshold: legalFlags(input.company).transitionWeeklyThreshold,
     });
-    const lines = items.flatMap((it) => buildLines(it, alloc.get(it.sessionId)!, input.rates));
+    const lines = items.flatMap((it, i) => buildLines(it, alloc[i], input.rates));
 
     const sumMin = (kinds: PayrollLine["kind"][]) =>
       lines.filter((l) => kinds.includes(l.kind)).reduce((acc, l) => acc + l.minutes, 0);
@@ -279,7 +360,12 @@ export const PayrollEngineService = {
     const transitMin = sumMin(["TRANSIT"]);
     const lunchMin = sumMin(["LUNCH_DEDUCTION"]);
     const pauseMin = sumMin(["PAUSE_DEDUCTION"]);
-    items.forEach((it) => it.warnings.forEach((w) => warnings.push(`${w}#${it.sessionId}`)));
+    items.forEach((it) =>
+      it.warnings.forEach((w) => {
+        const tag = `${w}#${it.sessionId}`;
+        if (!warnings.includes(tag)) warnings.push(tag);
+      }),
+    );
     if (ledgerSegmented) warnings.push("LEDGER_CHAIN_SEGMENTED");
 
     return {
@@ -311,19 +397,30 @@ export const PayrollEngineService = {
     rates: PayrollRates,
     company: CompanyPolicy,
     nowMs: number,
+    /** Política del periodo que contiene la sesión (policyForPeriod, §5.2 N3). Por defecto session.policyId. */
+    policyId: string = session.policyId,
   ): SessionPayrollPreview | null {
-    const policy = getPayrollPolicy(session.policyId);
-    const it = computeSessionMinutes(session, company, nowMs);
-    if (!it) return null;
-    const a = allocate([it], { ...policy, weeklyOvertimeAfterMinutes: null });
-    const lines = buildLines(it, a.get(it.sessionId)!, rates);
+    const policy = getPayrollPolicy(policyId);
+    const history = companyCalendar(company);
+    let items: AllocItem[];
+    if (policy.segmentation === "WORKDAY") {
+      items = segmentItems(session, company, nowMs, history);
+      if (!items.length) return null;
+    } else {
+      const it = computeSessionMinutes(session, company, nowMs);
+      if (!it) return null;
+      items = v1Items([it], policy, history, new Map([[session.id, session]]));
+    }
+    const a = allocate(items, { ...policy, weeklyOvertimeAfterMinutes: null });
+    const lines = items.flatMap((it, i) => buildLines(it, a[i], rates));
+    const sum = (f: (x: AllocItem) => number) => items.reduce((acc, x) => acc + f(x), 0);
     return {
       sessionId: session.id,
-      netMinutes: it.workMinutes + it.transitPaidMinutes,
-      regularMinutes: a.get(it.sessionId)!.regular,
-      overtimeDailyMinutes: a.get(it.sessionId)!.otDaily,
-      transitMinutes: it.transitPaidMinutes,
-      lunchMinutes: it.lunchMinutes,
+      netMinutes: sum((x) => x.workMinutes + x.transitPaidMinutes),
+      regularMinutes: a.reduce((acc, x) => acc + x.regular, 0),
+      overtimeDailyMinutes: a.reduce((acc, x) => acc + x.otDaily, 0),
+      transitMinutes: sum((x) => x.transitPaidMinutes),
+      lunchMinutes: sum((x) => x.lunchMinutes),
       grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),
       certified: session.integrityClass !== "CONFLICT",
       policyId: policy.id,

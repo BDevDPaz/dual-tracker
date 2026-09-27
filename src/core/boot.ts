@@ -19,6 +19,7 @@ import { setLanguage, t } from "../i18n";
 import { serializeError } from "../utils/serializeError";
 import { FeedbackService } from "../services/application/FeedbackService";
 import { checkLedgerIntegrity } from "../services/application/useCases/ledgerIntegrity";
+import { migratePayrollPolicyToV2 } from "../services/application/useCases/policyMigration";
 import { SessionEngineService } from "../services/domain/SessionEngineService";
 import { SiteRegistryService } from "../services/domain/SiteRegistryService";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
@@ -75,6 +76,10 @@ export function ensureRuntimeReady(): Promise<void> {
     runtimeReady = (async () => {
       await PersistenceService.init();
       await FieldCryptoService.init();
+      // Migración de política a v2 (spec v1.3 §5.2 N2 / §11 paso 6).
+      await migratePayrollPolicyToV2().catch((e) =>
+        LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Migración de política falló", serializeError(e)),
+      );
       // Verificación incremental del ledger (spec v1.3 §5.5 / §11 paso 6).
       await checkLedgerIntegrity("INCREMENTAL").catch((e) =>
         LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Verificación del ledger falló", serializeError(e)),

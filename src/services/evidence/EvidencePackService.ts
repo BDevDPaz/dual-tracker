@@ -149,7 +149,10 @@ export const EvidencePackService = {
       if (!chain.valid) await IntegrityLedgerService.recordIncident(chain, nowMs);
       const ledgerIncident = await IntegrityLedgerService.getIncident();
       const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
-      const sessions = await PersistenceService.listSessions({ from: input.periodStart, to: input.periodEnd });
+      const sessions = await PersistenceService.listSessions({ from: input.periodStart, to: input.periodEnd, overlapping: true });
+      // Política por periodo (spec v1.3 §5.2 N3): un resello/reemisión de un periodo
+      // sellado con v1 recalcula con v1; los no sellados usan la vigente.
+      const policyId = (await PersistenceService.packPolicyForPeriod(input.periodStart, input.periodEnd)) ?? settings.company.overtimePolicyId;
       const statement = PayrollEngineService.buildStatement({
         segmentedLedgerTimestamps,
         periodStart: input.periodStart,
@@ -157,7 +160,7 @@ export const EvidencePackService = {
         sessions,
         rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
         company: settings.company,
-        policyId: settings.company.overtimePolicyId,
+        policyId,
         nowMs,
       });
       if (statement.sessionIds.length === 0) {
@@ -323,7 +326,7 @@ export const EvidencePackService = {
 
   /** Sesiones de un pack (para report/pack/[packId]). */
   async sessionsOf(pack: EvidencePack): Promise<SessionRecord[]> {
-    const all = await PersistenceService.listSessions({ from: pack.manifest.periodStart, to: pack.manifest.periodEnd, includeDeleted: true });
+    const all = await PersistenceService.listSessions({ from: pack.manifest.periodStart, to: pack.manifest.periodEnd, includeDeleted: true, overlapping: true });
     return all.filter((s) => pack.manifest.sessionIds.includes(s.id));
   },
 };

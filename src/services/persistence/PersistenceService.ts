@@ -312,7 +312,7 @@ export const PersistenceService = {
     return r?.n ?? 0;
   },
 
-  async listSessions(opts: { from?: number; to?: number; includeDeleted?: boolean } = {}): Promise<SessionRecord[]> {
+  async listSessions(opts: { from?: number; to?: number; includeDeleted?: boolean; overlapping?: boolean } = {}): Promise<SessionRecord[]> {
     const d = await ensureReady();
     const where: string[] = [];
     const params: SqlParam[] = [];
@@ -321,8 +321,12 @@ export const PersistenceService = {
     // (actual ?? declared). Un límite no finito (NaN) se ignora en vez de
     // enlazarse en SQL y devolver silenciosamente 0 filas.
     if (opts.from !== undefined && Number.isFinite(opts.from)) {
-      where.push("COALESCE(actual_start_ms, declared_start_ms) >= ?");
+      // overlapping (spec v1.3 §5.2 N5): también las que empezaron antes y siguen
+      // abiertas o terminan dentro del rango (superset; el motor filtra por segmento).
+      if (opts.overlapping) where.push("(COALESCE(actual_start_ms, declared_start_ms) >= ? OR end_ms IS NULL OR end_ms > ?)");
+      else where.push("COALESCE(actual_start_ms, declared_start_ms) >= ?");
       params.push(opts.from);
+      if (opts.overlapping) params.push(opts.from);
     }
     if (opts.to !== undefined && Number.isFinite(opts.to)) {
       where.push("COALESCE(actual_start_ms, declared_start_ms) <= ?");
@@ -615,6 +619,16 @@ export const PersistenceService = {
         pack.createdAtMs,
       ],
     );
+  },
+
+  /** policy_id del pack más reciente del periodo exacto (policyForPeriod, spec v1.3 §5.2 N3). */
+  async packPolicyForPeriod(periodStart: number, periodEnd: number): Promise<string | null> {
+    const d = await ensureReady();
+    const row = await d.getFirstAsync<{ policy_id: string }>(
+      `SELECT policy_id FROM evidence_packs WHERE period_start = ? AND period_end = ? ORDER BY created_at_ms DESC LIMIT 1`,
+      [periodStart, periodEnd],
+    );
+    return row?.policy_id ?? null;
   },
 
   async listPacks(): Promise<EvidencePack[]> {

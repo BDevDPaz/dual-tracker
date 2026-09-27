@@ -149,6 +149,8 @@ export interface SessionRecord {
     pausesSource?: PausesSource;
     /** MANUAL_PATCH recortó pausas/almuerzo fuera del nuevo intervalo (advertencia PAUSE_CLIPPED). */
     breaksClipped?: boolean;
+    /** RESOLVE_SPLIT (spec v1.3 §5.4): id de la sesión original de la que salió esta mitad. */
+    splitFromSessionId?: number;
   };
 }
 

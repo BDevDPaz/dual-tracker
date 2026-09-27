@@ -88,6 +88,12 @@ export interface PayrollPolicy {
    * "SESSION" replica calculatePay() de GEOTrack (umbral por sesión).
    */
   dailyScope: "DAY" | "SESSION";
+  /**
+   * spec v1.3 §5.2 N1: "WORKDAY" parte cada sesión en los límites de jornada
+   * del calendario; cada segmento suma a la cubeta de su jornada y de su semana.
+   * Ausente = atribución de toda la sesión a su inicio (v1).
+   */
+  segmentation?: "WORKDAY";
 }
 
 /** Entradas monetarias de la política de empresa usadas por el motor. */

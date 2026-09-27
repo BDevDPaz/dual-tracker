@@ -49,11 +49,12 @@ const queries = {
     const history = companyCalendar(state.settings.company);
     const periodStart = getWeekStart(start, history);
     const periodEnd = getWeekEnd(start, history);
-    const week = await PersistenceService.listSessions({ from: periodStart, to: periodEnd });
+    const week = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
+    const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? state.settings.company.overtimePolicyId;
     return PayrollEngineService.linesForSession(session.id, week, {
       rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: state.settings.company.overtimeMultiplier },
       company: state.settings.company,
-      policyId: state.settings.company.overtimePolicyId,
+      policyId,
       nowMs: TimeAuthorityService.now(),
       periodStart,
       periodEnd,

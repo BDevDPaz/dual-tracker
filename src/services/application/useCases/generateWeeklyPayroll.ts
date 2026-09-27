@@ -13,14 +13,15 @@ import { SettingsService } from "../../persistence/SettingsService";
 
 export async function previewPayroll(periodStart: number, periodEnd: number): Promise<PayrollStatement> {
   const settings = await SettingsService.load();
-  const sessions = await PersistenceService.listSessions({ from: periodStart, to: periodEnd });
+  const sessions = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
+  const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? settings.company.overtimePolicyId;
   return PayrollEngineService.buildStatement({
     periodStart,
     periodEnd,
     sessions,
     rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
     company: settings.company,
-    policyId: settings.company.overtimePolicyId,
+    policyId,
     nowMs: TimeAuthorityService.now(),
   });
 }

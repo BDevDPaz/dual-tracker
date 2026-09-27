@@ -532,8 +532,7 @@ export const toHHmm = (input: DateInput): string => {
 /**
  * Combina el día de `baseTs` con una hora "HH:mm" (zona corporativa).
  * Devuelve null si el texto no es una hora válida. No "salta" al día
- * siguiente: una jornada que cruza medianoche se rechaza como INVALID_TIMES.
- * TODO(propuesta): edición de jornadas nocturnas.
+ * siguiente; para la hora de salida usar atTimeOfDayAfter (§5.2 N6).
  */
 export const atTimeOfDay = (baseTs: number, hhmm: string): number | null => {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec((hhmm ?? "").trim());
@@ -541,4 +540,19 @@ export const atTimeOfDay = (baseTs: number, hhmm: string): number | null => {
   if (!m || base === null) return null;
   const w = wall(base);
   return fromWallClock(w.getUTCFullYear(), w.getUTCMonth() + 1, w.getUTCDate(), Number(m[1]), Number(m[2]));
+};
+
+/**
+ * Hora de salida "HH:mm" relativa a una entrada (spec v1.3 §5.2 N6): si la
+ * hora es ≤ a la de entrada, se toma como del día siguiente (jornadas
+ * nocturnas). La duración es la diferencia real de epoch ms (DST incluido).
+ */
+export const atTimeOfDayAfter = (startTs: number, hhmm: string): number | null => {
+  const sameDay = atTimeOfDay(startTs, hhmm);
+  if (sameDay === null) return null;
+  if (sameDay > startTs) return sameDay;
+  const w = wall(startTs);
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm.trim())!;
+  const next = new Date(Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() + 1));
+  return fromWallClock(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), Number(m[1]), Number(m[2]));
 };

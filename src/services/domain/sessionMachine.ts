@@ -528,6 +528,8 @@ export function transition(
       if (!Number.isFinite(start) || (end !== null && (!Number.isFinite(end) || end <= start))) {
         return reject("INVALID_TIMES");
       }
+      // Tope de 24 h por edición (spec v1.3 §5.2 N6).
+      if (end !== null && end - start > 24 * 60 * 60 * 1000) return reject("INVALID_TIMES", "MAX_24H");
       if (end === null && s.domainStatus === "CERRADA") return reject("INVALID_TIMES");
       if (end !== null && OPEN.includes(s.domainStatus)) return reject("INVALID_TIMES"); // cerrar = CLOSE_DAY
       if (requiresAuditNote(s, start, end, note)) return reject("NOTE_REQUIRED");
