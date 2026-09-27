@@ -90,7 +90,7 @@ export default function PeriodStatementScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   title: { ...FONT.h2 },
   caption: { ...FONT.caption },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.xs },

@@ -126,3 +126,37 @@ describe("dateUtils date_string y semanas", () => {
     expect(mismatches).toBe(0);
   });
 });
+
+describe("dateUtils — idioma y reloj de los formateadores", () => {
+  const { setLanguage } = require("../../i18n") as typeof import("../../i18n");
+  afterEach(() => setLanguage("es"));
+
+  test("ES por defecto (idioma activo es)", () => {
+    expect(formatDate(T)).toBe("sáb, 26 sep 2026");
+    expect(formatTime(T)).toBe("11:42 PM");
+  });
+
+  test("EN explícito: días y meses en inglés", () => {
+    expect(formatDate(T, { lang: "en" })).toBe("Sat, Sep 26, 2026");
+    expect(formatDateTime(T, { lang: "en" })).toBe("Sat, Sep 26, 2026 11:42 PM");
+    expect(formatRange(W, T, { lang: "en" })).toBe("Mon, Sep 21, 2026 – Sat, Sep 26, 2026");
+  });
+
+  test("sin opción, sigue el idioma activo (getLanguage)", () => {
+    setLanguage("en");
+    expect(formatDate(T)).toBe("Sat, Sep 26, 2026");
+    // lang explícito gana sobre el idioma activo (documentos de evidencia en ES).
+    expect(formatDate(T, { lang: "es" })).toBe("sáb, 26 sep 2026");
+  });
+
+  test("reloj de 24 h opcional", () => {
+    expect(formatTime(T, { clock: "24h" })).toBe("23:42");
+    expect(formatTime(Date.UTC(2026, 8, 27, 7, 5), { clock: "24h" })).toBe("00:05");
+    expect(formatDateTime(T, { lang: "es", clock: "24h" })).toBe("sáb, 26 sep 2026 23:42");
+  });
+
+  test("entradas inválidas siguen devolviendo el fallback en EN", () => {
+    expect(formatDate(NaN, { lang: "en" })).toBe(DATE_FALLBACK);
+    expect(formatTime("x", { clock: "24h" })).toBe(DATE_FALLBACK);
+  });
+});

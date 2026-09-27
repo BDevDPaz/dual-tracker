@@ -7,6 +7,7 @@ export const es = {
   app: {
     name: "Dual Tracker",
     tagline: "Tu tiempo y tu rastro de jornada",
+    brandSubtitle: "CONTROL DE JORNADA",
   },
   common: {
     cancel: "Cancelar",
@@ -23,6 +24,15 @@ export const es = {
     hours: "h",
     notSet: "No especificado",
     confirm: "Confirmar",
+    ok: "Entendido",
+    reconnecting: "Reconectando…",
+  },
+  a11y: {
+    closeModal: "Cerrar",
+    back: "Volver",
+    toast: "Aviso: {message}",
+    prevWeek: "Semana anterior",
+    nextWeek: "Semana siguiente",
   },
   states: {
     NO_INICIADA: { label: "Fuera de servicio", sub: "No hay jornada abierta." },
@@ -157,6 +167,8 @@ export const es = {
     notes: "Notas del operario",
     noNotes: "Sin notas",
     addNote: "Añadir nota",
+    activityTitle: "Actividad de la jornada",
+    activityEmpty: "Aún no hay actividad.",
   },
   trace: {
     title: "Rastro",
@@ -230,6 +242,10 @@ export const es = {
     invalidPeriod: "El periodo solicitado no es válido. Vuelve a Reportes y elige una semana.",
     uncertified: "No certificado",
     certified: "Certificado",
+    previewTitle: "Vista previa del reporte",
+    name: "Nombre",
+    period: "Periodo",
+    totalHours: "Total horas: {hours}",
   },
   settings: {
     title: "Ajustes",
@@ -299,6 +315,7 @@ export const es = {
     // FieldCrypto v1.3 §12 (microcopy exacta).
     BLOCKED: "No certificable",
     blockedDetail: "Se guardaron notas o ubicaciones sin cifrar en este dispositivo.",
+    a11yLabel: "Integridad: {label}",
   },
   fieldCrypto: {
     // FieldCrypto v1.3 §12 y §14 (microcopy exacta).

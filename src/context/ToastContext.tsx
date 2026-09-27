@@ -25,6 +25,7 @@ import { TOKENS, FONT } from "../constants/theme";
 import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
+import { t } from "../i18n";
 
 const now = () => TimeAuthorityService.now();
 
@@ -155,7 +156,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               },
             ]}
             accessibilityRole="alert"
-            accessibilityLabel={`Aviso: ${message}`}
+            accessibilityLabel={t("a11y.toast", { message })}
           >
             <View style={styles.contentRow}>
               <Ionicons

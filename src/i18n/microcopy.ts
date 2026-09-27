@@ -28,7 +28,9 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   RESUMED: { kind: "toast", tone: "success", es: { title: "Jornada reanudada", message: "" }, en: { title: "Shift resumed", message: "" } },
   TRANSFER_STARTED: { kind: "toast", tone: "info", es: { title: "Traslado iniciado", message: "Rumbo a {site}." }, en: { title: "Transfer started", message: "Heading to {site}." } },
   TRANSFER_CANCELLED: { kind: "toast", tone: "info", es: { title: "Traslado cancelado", message: "Sigues en jornada activa." }, en: { title: "Transfer cancelled", message: "Your shift remains active." } },
-  EXIT_DETECTED: { kind: "dialog", tone: "warning", es: { title: "Saliste del área", message: "¿Terminaste tu jornada o vas a otro sitio?" }, en: { title: "You left the area", message: "Did you finish your shift or are you going to another site?" } },
+  // La decisión de salida la pinta ExitDetectionModal (pantalla Hoy); aquí solo un aviso corto
+  // por si algún emisor lo publica (SessionEngineService hoy no lo emite).
+  EXIT_DETECTED: { kind: "toast", tone: "warning", es: { title: "Saliste del área", message: "Decide qué pasó en la pantalla Hoy." }, en: { title: "You left the area", message: "Choose what happened on the Today screen." } },
   STAY_WORKING: { kind: "toast", tone: "info", es: { title: "Sigues trabajando", message: "La salida quedó anotada en el expediente." }, en: { title: "Still working", message: "The exit was noted in the record." } },
   DAY_CLOSED: { kind: "toast", tone: "success", es: { title: "Jornada cerrada", message: "" }, en: { title: "Shift closed", message: "" } },
   DAY_AUTO_CLOSED: { kind: "dialog", tone: "warning", es: { title: "Jornada cerrada automáticamente", message: "Revisa la sesión: puede requerir tu confirmación." }, en: { title: "Shift closed automatically", message: "Review the session: it may need your confirmation." } },

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useId } from "react";
 import {
   Modal,
   View,
@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { ANIM_PRESETS } from "../../constants/animations";
 import { ICONS } from "../../constants/icons";
+import { t } from "../../i18n";
+import { BlockingModals } from "../feedback/blockingModals";
 import { Button, ButtonVariant } from "./Button";
 
 export type ModalTone = "neutral" | "info" | "warning" | "danger" | "success";
@@ -37,7 +39,22 @@ interface ModalShellProps {
   onClose: () => void;
   children?: React.ReactNode;
   scrollable?: boolean;
+  /**
+   * false → decisión obligatoria: sin toque en el fondo, sin X y el botón
+   * atrás de Android (onRequestClose) no cierra. Por defecto true.
+   */
+  dismissible?: boolean;
+  /**
+   * Muestra la X de cierre (solo si dismissible). Por defecto true; los modales
+   * con "Cancelar" explícito en el pie la ocultan para no duplicar la salida.
+   */
+  showCloseButton?: boolean;
+  /** Etiqueta accesible de la X (por defecto t("a11y.closeModal")). */
+  closeLabel?: string;
+  testID?: string;
 }
+
+const noop = () => undefined;
 
 export function ModalShell({
   visible,
@@ -50,7 +67,20 @@ export function ModalShell({
   onClose,
   children,
   scrollable = false,
+  dismissible = true,
+  showCloseButton = true,
+  closeLabel,
+  testID,
 }: ModalShellProps) {
+  const blockingId = useId();
+  const blocking = visible && !dismissible;
+  useEffect(() => {
+    if (!blocking) return;
+    BlockingModals.show(blockingId);
+    return () => BlockingModals.hide(blockingId);
+  }, [blocking, blockingId]);
+  const requestClose = dismissible ? onClose : noop;
+
   const getToneConfig = () => {
     switch (tone) {
       case "danger":
@@ -108,18 +138,21 @@ export function ModalShell({
                 {title}
               </Text>
             </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={12}
-              accessibilityLabel="Cerrar modal"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name={ICONS.actions.close as any}
-                size={24}
-                color={TOKENS.colors.text.muted}
-              />
-            </Pressable>
+            {dismissible && showCloseButton ? (
+              <Pressable
+                onPress={onClose}
+                hitSlop={12}
+                accessibilityLabel={closeLabel ?? t("a11y.closeModal")}
+                accessibilityRole="button"
+                testID={testID ? `${testID}-close` : undefined}
+              >
+                <Ionicons
+                  name={ICONS.actions.close as any}
+                  size={24}
+                  color={TOKENS.colors.text.muted}
+                />
+              </Pressable>
+            ) : null}
           </View>
           {description ? (
             <Text
@@ -135,6 +168,7 @@ export function ModalShell({
 
         <View style={styles.body}>{children}</View>
 
+        {primaryAction || secondaryAction ? (
         <View style={styles.footer}>
           {secondaryAction && (
             <Button
@@ -160,6 +194,7 @@ export function ModalShell({
             />
           )}
         </View>
+        ) : null}
       </View>
     );
 
@@ -184,10 +219,19 @@ export function ModalShell({
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={requestClose}
+      testID={testID}
     >
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {dismissible ? (
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            testID={testID ? `${testID}-backdrop` : undefined}
+          />
+        ) : null}
 
         <Animated.View
           entering={ANIM_PRESETS.modalEnter}

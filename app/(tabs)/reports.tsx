@@ -171,7 +171,7 @@ export default function ReportsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   periods: { flexDirection: "row", gap: TOKENS.spacing.sm },
   chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
   card: { padding: TOKENS.spacing.lg },

@@ -23,6 +23,11 @@ interface OperationalHeroCardProps {
   busy?: boolean;
   onPrimaryAction: () => void;
   onSecondaryAction?: () => void;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
 export const OperationalHeroCard = React.memo(function OperationalHeroCard({
@@ -34,12 +39,13 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   busy = false,
   onPrimaryAction,
   onSecondaryAction,
+  inset = false,
 }: OperationalHeroCardProps) {
   const primaryVariant = ui.state === "ACTIVA" || ui.state === "SALIDA" ? "danger" : "primary";
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}
-      style={[styles.cardContainer, { backgroundColor: TOKENS.colors.surfaceElevated, borderColor: TOKENS.colors.border, ...TOKENS.shadows.md }]}
+      style={[styles.cardContainer, inset && styles.inset, { backgroundColor: TOKENS.colors.surfaceElevated, borderColor: TOKENS.colors.border, ...TOKENS.shadows.md }]}
     >
       <View style={styles.headerRow}>
         <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
@@ -77,8 +83,9 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
 });
 
 const styles = StyleSheet.create({
+  inset: { marginHorizontal: TOKENS.layout.screenPadding },
   cardContainer: {
-    marginHorizontal: TOKENS.layout.screenPadding,
+    marginHorizontal: 0,
     borderRadius: TOKENS.radius.lg,
     padding: TOKENS.spacing.xl,
     borderWidth: 1,

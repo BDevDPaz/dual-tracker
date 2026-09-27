@@ -26,6 +26,7 @@
  * TODO: mover a CompanyPolicy.timezone cuando exista el campo en la zona admin.
  */
 import type { CalendarEntry } from "../core/contracts/settings";
+import { getLanguage, type Language } from "../i18n";
 
 export const CORPORATE_TIMEZONE = "America/Los_Angeles";
 
@@ -226,28 +227,49 @@ type DateInput = number | string | Date | null | undefined;
 
 const WEEKDAYS_ES = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** Formatea un timestamp a hora local corporativa (Ej: 08:30 AM). */
-export const formatTime = (input: DateInput): string => {
+export type DateLanguage = Language;
+export type ClockFormat = "12h" | "24h";
+
+/**
+ * Opciones de formato. Sin `lang` se usa el idioma activo (getLanguage(), ES
+ * por defecto); sin `clock`, 12 h ("11:42 PM") como hasta ahora.
+ * Los documentos de evidencia (reportTemplates) fijan lang: "es" explícito.
+ */
+export interface FormatOptions {
+  lang?: DateLanguage;
+  clock?: ClockFormat;
+}
+
+const langOf = (opts?: FormatOptions): DateLanguage => opts?.lang ?? getLanguage();
+
+/** Formatea un timestamp a hora local corporativa (Ej: 08:30 AM; 24 h: 20:30). */
+export const formatTime = (input: DateInput, opts?: FormatOptions): string => {
   const ts = parseTimestamp(input);
   if (ts === null) return DATE_FALLBACK;
   const w = wall(ts);
   const h = w.getUTCHours();
+  if (opts?.clock === "24h") return `${pad(h)}:${pad(w.getUTCMinutes())}`;
   return `${pad(h % 12 === 0 ? 12 : h % 12)}:${pad(w.getUTCMinutes())} ${h < 12 ? "AM" : "PM"}`;
 };
 
-/** Formatea un timestamp a fecha legible (Ej: dom, 31 may 2026). */
-export const formatDate = (input: DateInput): string => {
+/** Formatea un timestamp a fecha legible (ES: sáb, 26 sep 2026 · EN: Sat, Sep 26, 2026). */
+export const formatDate = (input: DateInput, opts?: FormatOptions): string => {
   const ts = parseTimestamp(input);
   if (ts === null) return DATE_FALLBACK;
   const w = wall(ts);
+  if (langOf(opts) === "en") {
+    return `${WEEKDAYS_EN[w.getUTCDay()]}, ${MONTHS_EN[w.getUTCMonth()]} ${w.getUTCDate()}, ${w.getUTCFullYear()}`;
+  }
   return `${WEEKDAYS_ES[w.getUTCDay()]}, ${w.getUTCDate()} ${MONTHS_ES[w.getUTCMonth()]} ${w.getUTCFullYear()}`;
 };
 
 /** Fecha y hora (Ej: dom, 31 may 2026 08:30 AM). */
-export const formatDateTime = (input: DateInput): string => {
+export const formatDateTime = (input: DateInput, opts?: FormatOptions): string => {
   const ts = parseTimestamp(input);
-  return ts === null ? DATE_FALLBACK : `${formatDate(ts)} ${formatTime(ts)}`;
+  return ts === null ? DATE_FALLBACK : `${formatDate(ts, opts)} ${formatTime(ts, opts)}`;
 };
 
 /** Convierte milisegundos a una cadena de duración (Ej: 8h 30m). */
@@ -515,9 +537,9 @@ export const parsePeriodId = (periodId: string, history?: CalendarHistory | null
 };
 
 /** Rango legible de un periodo. */
-export const formatRange = (start: DateInput, end: DateInput): string => {
-  const a = formatDate(start);
-  const b = formatDate(end);
+export const formatRange = (start: DateInput, end: DateInput, opts?: FormatOptions): string => {
+  const a = formatDate(start, opts);
+  const b = formatDate(end, opts);
   return a === DATE_FALLBACK || b === DATE_FALLBACK ? DATE_FALLBACK : `${a} – ${b}`;
 };
 

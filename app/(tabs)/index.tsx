@@ -251,7 +251,7 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   empty: { gap: TOKENS.spacing.md },
   visited: { gap: TOKENS.spacing.sm },
   sectionLabel: { ...FONT.label },

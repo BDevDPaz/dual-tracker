@@ -24,6 +24,7 @@ export function DeleteSessionModal({ visible, busy = false, onCancel, onConfirm 
       tone="danger"
       icon={ICONS.actions.delete}
       onClose={onCancel}
+      showCloseButton={false}
       primaryAction={{ label: t("common.delete"), onPress: onConfirm, variant: "danger", loading: busy }}
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
     />

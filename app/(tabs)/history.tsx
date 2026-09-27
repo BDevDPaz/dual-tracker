@@ -46,11 +46,11 @@ export default function HistoryScreen() {
     <ScreenContainer>
       <PageHeader title={t("history.title")} />
       <View style={styles.weekRow}>
-        <Pressable onPress={() => setWeekStart((w) => shiftWeek(w, -1, calendar))} accessibilityRole="button" accessibilityLabel="prev">
+        <Pressable onPress={() => setWeekStart((w) => shiftWeek(w, -1, calendar))} accessibilityRole="button" accessibilityLabel={t("a11y.prevWeek")}>
           <Ionicons name="chevron-back" size={22} color={TOKENS.colors.primary} />
         </Pressable>
         <Text style={[styles.weekText, { color: TOKENS.colors.text.primary }]}>{formatRange(weekStart, weekEnd)}</Text>
-        <Pressable disabled={isCurrentWeek} onPress={() => setWeekStart((w) => shiftWeek(w, 1, calendar))} accessibilityRole="button" accessibilityLabel="next">
+        <Pressable disabled={isCurrentWeek} onPress={() => setWeekStart((w) => shiftWeek(w, 1, calendar))} accessibilityRole="button" accessibilityLabel={t("a11y.nextWeek")}>
           <Ionicons name="chevron-forward" size={22} color={isCurrentWeek ? TOKENS.colors.text.muted : TOKENS.colors.primary} />
         </Pressable>
       </View>

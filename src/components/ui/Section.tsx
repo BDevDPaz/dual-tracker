@@ -6,11 +6,16 @@ interface SectionProps {
   title: string;
   children: React.ReactNode;
   style?: ViewStyle;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
-export function Section({ title, children, style }: SectionProps) {
+export function Section({ title, children, style, inset = false }: SectionProps) {
   return (
-    <View style={[styles.sectionBlock, style]}>
+    <View style={[styles.sectionBlock, inset && styles.inset, style]}>
       <Text style={[styles.sectionTitle, { color: TOKENS.colors.text.muted }]}>
         {title.toUpperCase()}
       </Text>
@@ -20,9 +25,10 @@ export function Section({ title, children, style }: SectionProps) {
 }
 
 const styles = StyleSheet.create({
+  inset: { paddingHorizontal: TOKENS.layout.screenPadding },
   sectionBlock: {
     marginTop: TOKENS.spacing.xl,
-    paddingHorizontal: TOKENS.layout.screenPadding,
+    paddingHorizontal: 0,
   },
   sectionTitle: {
     ...FONT.label,

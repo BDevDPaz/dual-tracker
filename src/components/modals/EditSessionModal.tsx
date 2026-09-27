@@ -68,6 +68,7 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
       visible={visible}
       title={t("modals.editTitle")}
       onClose={onCancel}
+      showCloseButton={false}
       icon={ICONS.actions.edit}
       scrollable
       primaryAction={{

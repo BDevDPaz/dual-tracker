@@ -9,9 +9,9 @@
  * RESOLVE_SPLIT divide la jornada en dos (spec v1.3 §5.4).
  */
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { Button, Card, EmptyState, Input, IntegrityBadge, ScreenContainer } from "../../src/components/ui";
+import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell, ScreenContainer } from "../../src/components/ui";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useClock, useWorkTracker } from "../../src/core/hooks";
@@ -26,12 +26,13 @@ export default function ConflictScreen() {
   const nowMs = useClock(60_000);
   const views = selectConflictViews(state, nowMs);
   const hasConflicts = views.length > 0;
+  const [blockedNotice, setBlockedNotice] = useState(false);
 
   useEffect(() => {
     const unsub = navigation.addListener("beforeRemove", (e) => {
       if (!hasConflicts) return;
       e.preventDefault();
-      Alert.alert(t("conflict.title"), t("conflict.blockedBack"));
+      setBlockedNotice(true);
     });
     return unsub;
   }, [navigation, hasConflicts]);
@@ -46,11 +47,21 @@ export default function ConflictScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {views.map((v) => (
-        <ConflictCard key={v.session.id} view={v} onOpenSession={() => router.push(`/session/${v.session.id}`)} />
-      ))}
-    </ScrollView>
+    <>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {views.map((v) => (
+          <ConflictCard key={v.session.id} view={v} onOpenSession={() => router.push(`/session/${v.session.id}`)} />
+        ))}
+      </ScrollView>
+      <ModalShell
+        visible={blockedNotice}
+        title={t("conflict.title")}
+        description={t("conflict.blockedBack")}
+        tone="warning"
+        onClose={() => setBlockedNotice(false)}
+        primaryAction={{ label: t("common.ok"), onPress: () => setBlockedNotice(false), variant: "primary" }}
+      />
+    </>
   );
 }
 
@@ -105,7 +116,7 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm },
   title: { ...FONT.bodyStrong, flex: 1 },

@@ -20,7 +20,10 @@ import type {
   SessionRecord,
   Site,
 } from "../../core/contracts";
-import { formatCurrency, formatDate, formatRange, formatTime } from "../../utils/dateUtils";
+import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
+
+/** El expediente es un documento en español: sus fechas no siguen el idioma de la UI. */
+const ES: FormatOptions = { lang: "es" };
 
 export interface ReportInput {
   statement: PayrollStatement;
@@ -103,7 +106,7 @@ function header(title: string, subtitle: string, input: ReportInput): string {
         <div class="info-label">Empresa</div>
         <div class="info-value">${escapeHtml(company.employerName || "No especificada")}</div>
         <div class="info-label">Periodo</div>
-        <div class="info-value">${escapeHtml(formatRange(statement.periodStart, statement.periodEnd))}</div>
+        <div class="info-value">${escapeHtml(formatRange(statement.periodStart, statement.periodEnd, ES))}</div>
       </div>
     </div>`;
 }
@@ -131,10 +134,10 @@ function sessionRows(input: ReportInput): string {
       const start = s.actualStartAtMs ?? s.declaredStartAtMs;
       return `
         <tr>
-          <td><strong>${formatDate(start)}</strong></td>
+          <td><strong>${formatDate(start, ES)}</strong></td>
           <td>${escapeHtml(siteAlias(input.sites, s.siteId))}
             ${s.bookkeeping.manualNote ? `<span class="notes">"${escapeHtml(s.bookkeeping.manualNote)}"</span>` : ""}</td>
-          <td>${formatTime(start)} - ${s.endAtMs ? formatTime(s.endAtMs) : "—"}</td>
+          <td>${formatTime(start, ES)} - ${s.endAtMs ? formatTime(s.endAtMs, ES) : "—"}</td>
           <td><strong>${(worked / 60).toFixed(2)}</strong></td>
           <td>${formatCurrency(amount)}</td>
           <td><span class="badge b-${s.integrityClass}">${INTEGRITY_LABEL[s.integrityClass]}</span></td>
@@ -156,7 +159,7 @@ function hashBlock(input: ReportInput): string {
   return `
     <div class="section-title">Código de verificación del expediente</div>
     <div class="hash">${escapeHtml(input.manifest.packHash)}</div>
-    <div style="font-size:9px;color:#777;margin-top:4px;">Empleado y empleador pueden comparar este código. Expediente ${escapeHtml(input.manifest.packId)} · sellado ${escapeHtml(formatDate(input.manifest.sealedAtMs))} ${escapeHtml(formatTime(input.manifest.sealedAtMs))}</div>`;
+    <div style="font-size:9px;color:#777;margin-top:4px;">Empleado y empleador pueden comparar este código. Expediente ${escapeHtml(input.manifest.packId)} · sellado ${escapeHtml(formatDate(input.manifest.sealedAtMs, ES))} ${escapeHtml(formatTime(input.manifest.sealedAtMs, ES))}</div>`;
 }
 
 function uncertifiedStamp(input: ReportInput): string {
@@ -194,7 +197,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     .map(
       (t) =>
         `<div class="log-item">Sesión #${t.sessionId}: ${t.pointCount} puntos · ${t.unreliableCount} no fiables · ${t.enterExit
-          .map((e) => `${e.type} ${formatTime(e.timestampMs)}${e.reliable ? "" : " (no fiable)"}`)
+          .map((e) => `${e.type} ${formatTime(e.timestampMs, ES)}${e.reliable ? "" : " (no fiable)"}`)
           .join(", ") || "sin eventos de perímetro"}</div>`,
     )
     .join("");

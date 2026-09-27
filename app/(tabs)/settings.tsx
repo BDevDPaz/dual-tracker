@@ -333,7 +333,7 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: 120 },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: 120 },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   label: { ...FONT.label, marginTop: TOKENS.spacing.sm },
   row: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },

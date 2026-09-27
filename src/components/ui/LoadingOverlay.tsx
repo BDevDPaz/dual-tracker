@@ -10,17 +10,21 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT } from "../../constants/theme";
+import { t } from "../../i18n";
 
 interface LoadingOverlayProps {
   visible: boolean;
   message?: string;
   isReconnecting?: boolean;
+  /** Texto del estado de reconexión (por defecto t("common.reconnecting")). */
+  reconnectingLabel?: string;
 }
 
 export function LoadingOverlay({
   visible,
-  message = "Cargando...",
+  message,
   isReconnecting = false,
+  reconnectingLabel,
 }: LoadingOverlayProps) {
   const rotation = useSharedValue(0);
   const pulseOpacity = useSharedValue(1);
@@ -109,7 +113,7 @@ export function LoadingOverlay({
               },
             ]}
           >
-            {isReconnecting ? "Reconectando…" : message}
+            {isReconnecting ? (reconnectingLabel ?? t("common.reconnecting")) : (message ?? t("common.loading"))}
           </Text>
         </View>
       </View>

@@ -10,14 +10,14 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { t } from "../../i18n";
 
 type AppBrandTitleProps = {
   subtitle?: string;
 };
 
-export function AppBrandTitle({
-  subtitle = "CONTROL DE JORNADA",
-}: AppBrandTitleProps) {
+export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
+  const subtitle = subtitleProp ?? t("app.brandSubtitle");
   const glowOpacity = useSharedValue(0.14);
   const glowScale = useSharedValue(1);
   const lineScale = useSharedValue(0.35);

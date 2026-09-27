@@ -8,14 +8,20 @@ import { t } from "../../i18n";
 interface DailySummaryBlockProps {
   hours: string;
   earnings: string;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
-export function DailySummaryBlock({ hours, earnings }: DailySummaryBlockProps) {
+export function DailySummaryBlock({ hours, earnings, inset = false }: DailySummaryBlockProps) {
   return (
     <Animated.View
       entering={FadeInDown.delay(100).duration(400)}
       style={[
         styles.block,
+        inset && styles.inset,
         {
           backgroundColor: TOKENS.colors.surface,
           borderColor: TOKENS.colors.border,
@@ -77,9 +83,10 @@ export function DailySummaryBlock({ hours, earnings }: DailySummaryBlockProps) {
 }
 
 const styles = StyleSheet.create({
+  inset: { marginHorizontal: TOKENS.layout.screenPadding },
   block: {
     flexDirection: "row",
-    marginHorizontal: TOKENS.layout.screenPadding,
+    marginHorizontal: 0,
     padding: 18,
     borderRadius: TOKENS.radius.lg,
     marginBottom: TOKENS.spacing.xl,

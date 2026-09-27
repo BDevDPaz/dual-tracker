@@ -4,6 +4,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { TOKENS, FONT } from "../../constants/theme";
 import type { LedgerEntry } from "../../core/contracts";
+import { t } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
 
 /**
@@ -47,9 +48,14 @@ interface SessionTimelineProps {
   events: TimelineEvent[];
   title?: string;
   emptyText?: string;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
-export function SessionTimeline({ events, title = "Actividad de la jornada", emptyText = "Aún no hay actividad." }: SessionTimelineProps) {
+export function SessionTimeline({ events, title, emptyText, inset = false }: SessionTimelineProps) {
   const getEventStyle = (type: TimelineEvent["type"]) => {
     switch (type) {
       case "start":
@@ -69,12 +75,12 @@ export function SessionTimeline({ events, title = "Actividad de la jornada", emp
 
   return (
     <View
-      style={[styles.timelineBlock, { backgroundColor: TOKENS.colors.surface }]}
+      style={[styles.timelineBlock, inset && styles.inset, { backgroundColor: TOKENS.colors.surface }]}
     >
       <Text
         style={[styles.sectionTitle, { color: TOKENS.colors.text.primary }]}
       >
-        {title}
+        {title ?? t("session.activityTitle")}
       </Text>
 
       {events.length === 0 ? (
@@ -82,7 +88,7 @@ export function SessionTimeline({ events, title = "Actividad de la jornada", emp
           entering={FadeInDown.duration(400)}
           style={[styles.emptyText, { color: TOKENS.colors.text.muted }]}
         >
-          {emptyText}
+          {emptyText ?? t("session.activityEmpty")}
         </Animated.Text>
       ) : (
         <View style={styles.timeline}>
@@ -144,8 +150,9 @@ export function SessionTimeline({ events, title = "Actividad de la jornada", emp
 }
 
 const styles = StyleSheet.create({
+  inset: { marginHorizontal: TOKENS.layout.screenPadding },
   timelineBlock: {
-    marginHorizontal: TOKENS.layout.screenPadding,
+    marginHorizontal: 0,
     padding: 18,
     borderRadius: TOKENS.radius.lg,
     marginBottom: TOKENS.spacing.xl,

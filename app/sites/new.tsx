@@ -76,7 +76,7 @@ export default function NewSiteScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   card: { padding: TOKENS.spacing.lg, marginVertical: TOKENS.spacing.md },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
 });

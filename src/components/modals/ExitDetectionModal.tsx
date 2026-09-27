@@ -13,6 +13,9 @@ import { t } from "../../i18n";
  * Sigo trabajando aquí · Iniciar almuerzo · Iniciar traslado · Cerrar jornada.
  * El tiempo mostrado es la PRIMERA salida, no la última.
  * Presentacional: cada acción es un callback que la pantalla traduce a intención.
+ * NO descartable (dismissible={false}): sin X, sin toque en el fondo y el botón
+ * atrás no lo cierra; la salida se decide con una de las cuatro acciones.
+ * Los botones van apilados a ancho completo (no en el pie de dos botones).
  */
 interface ExitDetectionModalProps {
   visible: boolean;
@@ -34,6 +37,8 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
       tone="warning"
       icon={ICONS.status.warning}
       onClose={onDismiss}
+      dismissible={false}
+      testID="exit-detection-modal"
     >
       <View style={styles.grid}>
         <Button label={t("modals.exitStay")} variant="primary" onPress={onStay} isLoading={busy} style={styles.btn} />

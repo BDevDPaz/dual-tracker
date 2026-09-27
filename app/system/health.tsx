@@ -132,7 +132,7 @@ export default function HealthScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
+  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
   mode: { ...FONT.bodyStrong, marginBottom: TOKENS.spacing.md },
   caption: { ...FONT.caption, marginTop: TOKENS.spacing.md, textAlign: "right" },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },

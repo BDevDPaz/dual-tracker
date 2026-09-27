@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { t } from "../../i18n";
 
 interface DocumentPreviewWidgetProps {
   employeeName: string;
@@ -13,6 +14,11 @@ interface DocumentPreviewWidgetProps {
   companyName?: string;
   /** Sello visible cuando el periodo tiene CONFLICT. */
   certified?: boolean;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
 export function DocumentPreviewWidget({
@@ -22,9 +28,10 @@ export function DocumentPreviewWidget({
   totalEarnings,
   companyName = "",
   certified = true,
+  inset = false,
 }: DocumentPreviewWidgetProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, inset && styles.inset]}>
       <View style={styles.docHeader}>
         <Ionicons
           name="document-text-outline"
@@ -37,26 +44,26 @@ export function DocumentPreviewWidget({
             { color: TOKENS.colors.text.secondary },
           ]}
         >
-          Vista previa del reporte
+          {t("report.previewTitle")}
         </Text>
       </View>
 
       <View style={[styles.paper, TOKENS.shadows.md]}>
         <View style={styles.paperHeaderRow}>
           <Text style={styles.companyName}>{companyName || "—"}</Text>
-          <Text style={styles.docType}>{certified ? "Estado de nómina" : "Estado de nómina · NO CERTIFICADO"}</Text>
+          <Text style={styles.docType}>{certified ? t("report.statement") : `${t("report.statement")} · ${t("report.uncertified").toUpperCase()}`}</Text>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.detailsRow}>
           <View>
-            <Text style={styles.label}>Nombre</Text>
+            <Text style={styles.label}>{t("report.name")}</Text>
             <Text style={styles.value}>{employeeName}</Text>
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.label}>Periodo</Text>
+            <Text style={styles.label}>{t("report.period")}</Text>
             <Text style={styles.value}>{dateRange}</Text>
           </View>
         </View>
@@ -73,7 +80,7 @@ export function DocumentPreviewWidget({
         <View style={styles.divider} />
 
         <View style={styles.totalsRow}>
-          <Text style={styles.totalLabel}>Total horas: {totalHours}</Text>
+          <Text style={styles.totalLabel}>{t("report.totalHours", { hours: totalHours })}</Text>
           <Text style={styles.totalValue}>{totalEarnings}</Text>
         </View>
       </View>
@@ -82,8 +89,9 @@ export function DocumentPreviewWidget({
 }
 
 const styles = StyleSheet.create({
+  inset: { marginHorizontal: TOKENS.layout.screenPadding },
   container: {
-    marginHorizontal: TOKENS.layout.screenPadding,
+    marginHorizontal: 0,
     alignItems: "center",
   },
   docHeader: {

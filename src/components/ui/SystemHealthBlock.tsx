@@ -18,9 +18,14 @@ interface SystemHealthBlockProps {
   health: SystemHealthView;
   tracking: boolean;
   onPress?: () => void;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
-export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health, tracking, onPress }: SystemHealthBlockProps) {
+export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health, tracking, onPress, inset = false }: SystemHealthBlockProps) {
   const pulseOpacity = useSharedValue(1);
   useEffect(() => {
     pulseOpacity.value = tracking
@@ -39,7 +44,7 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   ] as const;
 
   const content = (
-    <Card variant="surface" style={[styles.block, health.degraded && { borderWidth: 1, borderColor: warn }]}>
+    <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: 1, borderColor: warn }]}>
       <View style={styles.titleRow}>
         <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("health.title").toUpperCase()}</Text>
         {onPress ? <Ionicons name="chevron-forward" size={16} color={health.degraded ? warn : TOKENS.colors.text.secondary} /> : null}
@@ -69,7 +74,8 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
 });
 
 const styles = StyleSheet.create({
-  block: { marginHorizontal: TOKENS.layout.screenPadding, marginTop: TOKENS.spacing.xl },
+  inset: { marginHorizontal: TOKENS.layout.screenPadding },
+  block: { marginHorizontal: 0 },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
   title: { ...FONT.label, letterSpacing: 1 },
   row: { flexDirection: "row", alignItems: "center", marginBottom: TOKENS.spacing.sm },

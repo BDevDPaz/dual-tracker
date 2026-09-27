@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { TOKENS, FONT } from "../../constants/theme";
 import { ICONS } from "../../constants/icons";
+import { t } from "../../i18n";
 
 interface PageHeaderProps {
   title: string;
@@ -17,6 +18,13 @@ interface PageHeaderProps {
     accessibilityLabel: string;
   };
   style?: ViewStyle;
+  /** Etiqueta accesible del botón atrás (por defecto t("a11y.back")). */
+  backLabel?: string;
+  /**
+   * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
+   * del ScrollView). true solo si se usa fuera de un contenedor con padding.
+   */
+  inset?: boolean;
 }
 
 export function PageHeader({
@@ -26,6 +34,8 @@ export function PageHeader({
   onBack,
   rightAction,
   style,
+  inset = false,
+  backLabel,
 }: PageHeaderProps) {
   const router = useRouter();
 
@@ -39,14 +49,14 @@ export function PageHeader({
   };
 
   return (
-    <View style={[styles.header, style]}>
+    <View style={[styles.header, inset && styles.inset, style]}>
       <View style={styles.topRow}>
         {showBack && (
           <Pressable
             onPress={handleBack}
             style={styles.backButton}
             hitSlop={12}
-            accessibilityLabel="Volver"
+            accessibilityLabel={backLabel ?? t("a11y.back")}
             accessibilityRole="button"
           >
             <Ionicons
@@ -97,8 +107,9 @@ export function PageHeader({
 }
 
 const styles = StyleSheet.create({
+  inset: { paddingHorizontal: TOKENS.layout.screenPadding },
   header: {
-    paddingHorizontal: TOKENS.layout.screenPadding,
+    paddingHorizontal: 0,
     paddingTop: TOKENS.spacing.xl,
     paddingBottom: TOKENS.spacing.md,
   },

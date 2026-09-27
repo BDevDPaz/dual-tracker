@@ -40,7 +40,7 @@ export function IntegrityBadge({ integrity, blocked = false }: IntegrityBadgePro
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}
       style={[styles.badge, { borderColor: config.color, backgroundColor: `${config.color}15` }]}
-      accessibilityLabel={`Integridad: ${label}`}
+      accessibilityLabel={t("integrity.a11yLabel", { label })}
     >
       <Ionicons name={config.icon as React.ComponentProps<typeof Ionicons>["name"]} size={12} color={config.color} style={styles.icon} />
       <Text style={[styles.text, { color: config.color }]}>{label.toUpperCase()}</Text>
