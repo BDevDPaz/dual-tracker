@@ -4,6 +4,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Eas
 import { Ionicons } from "@expo/vector-icons";
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { SystemHealthView } from "../../core/selectors";
 import { t } from "../../i18n";
 import { Card } from "./Card";
@@ -26,6 +27,7 @@ interface SystemHealthBlockProps {
 }
 
 export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health, tracking, onPress, inset = false }: SystemHealthBlockProps) {
+  const { colors } = useTheme();
   const pulseOpacity = useSharedValue(1);
   useEffect(() => {
     pulseOpacity.value = tracking
@@ -34,9 +36,9 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   }, [tracking, pulseOpacity]);
   const animatedDotStyle = useAnimatedStyle(() => ({ opacity: pulseOpacity.value }));
 
-  const ok = TOKENS.colors.status.success;
-  const warn = TOKENS.colors.status.warning;
-  const muted = TOKENS.colors.text.muted;
+  const ok = colors.status.success;
+  const warn = colors.status.warning;
+  const muted = colors.text.muted;
   const rows = [
     { icon: "locate-outline", label: t("health.gps"), color: !health.checked ? muted : health.gpsOk ? ok : warn, status: health.gpsOk ? t("health.ok") : t("health.warn"), pulse: tracking },
     { icon: "moon-outline", label: t("health.background"), color: !health.checked ? muted : health.backgroundOk ? ok : warn, status: health.backgroundOk ? t("health.ok") : t("health.warn"), pulse: false },
@@ -46,14 +48,14 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   const content = (
     <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: 1, borderColor: warn }]}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("health.title").toUpperCase()}</Text>
-        {onPress ? <Ionicons name="chevron-forward" size={16} color={health.degraded ? warn : TOKENS.colors.text.secondary} /> : null}
+        <Text style={[styles.title, { color: colors.text.primary }]}>{t("health.title").toUpperCase()}</Text>
+        {onPress ? <Ionicons name="chevron-forward" size={16} color={health.degraded ? warn : colors.text.secondary} /> : null}
       </View>
       {rows.map((r) => (
         <View key={r.label} style={styles.row}>
           <Animated.View style={[styles.dot, { backgroundColor: r.color }, r.pulse ? animatedDotStyle : null]} />
           <Ionicons name={r.icon} size={16} color={r.color} style={styles.icon} />
-          <Text style={[styles.text, { color: TOKENS.colors.text.secondary }]}>{r.label}</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>{r.label}</Text>
           <Text style={[styles.status, { color: r.color }]}>{r.status}</Text>
         </View>
       ))}

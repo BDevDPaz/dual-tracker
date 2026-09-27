@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
 import { TOKENS } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 interface CardProps {
   children: React.ReactNode;
@@ -15,25 +16,26 @@ export function Card({
   elevation = "sm",
   variant = "elevated",
 }: CardProps) {
+  const { colors } = useTheme();
   const getVariantStyle = () => {
     switch (variant) {
       case "surface":
         return {
-          backgroundColor: TOKENS.colors.surface,
+          backgroundColor: colors.surface,
           borderWidth: 0,
         };
       case "outline":
         return {
           backgroundColor: "transparent",
           borderWidth: 1,
-          borderColor: TOKENS.colors.border,
+          borderColor: colors.border,
         };
       case "elevated":
       default:
         return {
-          backgroundColor: TOKENS.colors.surfaceElevated,
+          backgroundColor: colors.surfaceElevated,
           borderWidth: 1,
-          borderColor: TOKENS.colors.border,
+          borderColor: colors.border,
         };
     }
   };

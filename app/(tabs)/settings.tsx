@@ -121,7 +121,7 @@ export default function SettingsScreen() {
               <Chip key={l} label={l.toUpperCase()} selected={draft.language === l} onPress={() => set("language", l)} />
             ))}
           </View>
-          <Input label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} />
+          <Input label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
         </Section>
 
         <Section title={t("settings.monitoring")}>
@@ -163,7 +163,7 @@ export default function SettingsScreen() {
                   {admin.hasPin ? t("settings.adminLocked") : t("settings.adminSetup", { min: PIN_MIN_LENGTH })}
                 </Text>
               </View>
-              <Input label={t("settings.pin")} value={pin} onChangeText={setPin} secureTextEntry keyboardType="number-pad" />
+              <Input label={t("settings.pin")} value={pin} onChangeText={setPin} secureToggle keyboardType="number-pad" />
               <Button
                 label={admin.hasPin ? t("settings.unlock") : t("settings.setPin")}
                 disabled={pin.length < PIN_MIN_LENGTH || busy || admin.status === "locked_out"}
@@ -262,7 +262,7 @@ function WorkCalendarBlock() {
         </>
       ) : (
         <>
-          <Input label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" />
+          <Input label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" mask="HH:mm" />
           <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.weekStart")}</Text>
           <View style={styles.row}>
             {WEEKDAYS.map((d) => (

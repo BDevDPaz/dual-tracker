@@ -2,7 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, font } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
 
 interface DocumentPreviewWidgetProps {
@@ -30,18 +31,19 @@ export function DocumentPreviewWidget({
   certified = true,
   inset = false,
 }: DocumentPreviewWidgetProps) {
+  const { colors } = useTheme();
   return (
     <View style={[styles.container, inset && styles.inset]}>
       <View style={styles.docHeader}>
         <Ionicons
           name="document-text-outline"
           size={14}
-          color={TOKENS.colors.primary}
+          color={colors.primary}
         />
         <Text
           style={[
             styles.docHeaderText,
-            { color: TOKENS.colors.text.secondary },
+            { color: colors.text.secondary },
           ]}
         >
           {t("report.previewTitle")}
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   },
   paper: {
     width: "100%",
-    backgroundColor: "#EAECEE",
+    backgroundColor: TOKENS.colors.paper.background,
     borderRadius: TOKENS.radius.md,
     padding: TOKENS.spacing.lg,
   },
@@ -117,19 +119,19 @@ const styles = StyleSheet.create({
   },
   companyName: {
     fontSize: 11,
-    fontWeight: "800",
-    color: "#1A1A1A",
+    ...font("800"),
+    color: TOKENS.colors.paper.ink,
     width: "60%",
   },
   docType: {
     fontSize: 9,
-    fontWeight: "800",
-    color: "#666666",
+    ...font("800"),
+    color: TOKENS.colors.paper.muted,
     letterSpacing: 1,
   },
   divider: {
     height: 1,
-    backgroundColor: "#CCCCCC",
+    backgroundColor: TOKENS.colors.paper.line,
     marginVertical: TOKENS.spacing.md,
   },
   detailsRow: {
@@ -139,15 +141,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 9,
-    fontWeight: "700",
-    color: "#888888",
+    ...font("700"),
+    color: TOKENS.colors.paper.label,
     textTransform: "uppercase",
     marginBottom: 2,
   },
   value: {
     fontSize: 12,
-    fontWeight: "700",
-    color: "#333333",
+    ...font("700"),
+    color: TOKENS.colors.paper.text,
   },
   skeletonContainer: {
     gap: 10,
@@ -161,13 +163,13 @@ const styles = StyleSheet.create({
   },
   skeletonBarLong: {
     height: 5,
-    backgroundColor: "#D1D5DB",
+    backgroundColor: TOKENS.colors.paper.skeleton,
     borderRadius: 3,
     width: "65%",
   },
   skeletonBarShort: {
     height: 5,
-    backgroundColor: "#D1D5DB",
+    backgroundColor: TOKENS.colors.paper.skeleton,
     borderRadius: 3,
     width: "20%",
   },
@@ -178,13 +180,13 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 11,
-    fontWeight: "800",
-    color: "#666666",
+    ...font("800"),
+    color: TOKENS.colors.paper.muted,
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: "800",
-    color: "#1A1A1A",
+    ...font("800"),
+    color: TOKENS.colors.paper.ink,
     letterSpacing: -0.5,
   },
 });

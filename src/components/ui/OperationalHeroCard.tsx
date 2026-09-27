@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { SessionStateUI } from "../../core/selectors";
 import { t } from "../../i18n";
 import { StatusPill } from "./StatusPill";
@@ -41,31 +42,32 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   onSecondaryAction,
   inset = false,
 }: OperationalHeroCardProps) {
+  const { colors } = useTheme();
   const primaryVariant = ui.state === "ACTIVA" || ui.state === "SALIDA" ? "danger" : "primary";
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}
-      style={[styles.cardContainer, inset && styles.inset, { backgroundColor: TOKENS.colors.surfaceElevated, borderColor: TOKENS.colors.border, ...TOKENS.shadows.md }]}
+      style={[styles.cardContainer, inset && styles.inset, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, ...TOKENS.shadows.md }]}
     >
       <View style={styles.headerRow}>
         <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
-        <Text style={[styles.destinationText, { color: TOKENS.colors.text.primary }]} numberOfLines={1}>
+        <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={1}>
           {destination ?? t("today.noDestination")}
         </Text>
       </View>
 
-      <Text style={[styles.subText, { color: TOKENS.colors.text.secondary }]}>{t(ui.subKey)}</Text>
+      <Text style={[styles.subText, { color: colors.text.secondary }]}>{t(ui.subKey)}</Text>
       {uncertified ? <StatusPill tone="warning" label={t("today.uncertified")} /> : null}
 
       {ui.showTimer ? (
         <View style={styles.metricsRow}>
           <View style={styles.metricBlock}>
-            <Text style={[styles.metricLabel, { color: TOKENS.colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
-            <Text style={[styles.metricBigValue, { color: TOKENS.colors.text.primary }]}>{timeString}</Text>
+            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
+            <Text style={[styles.metricBigValue, { color: colors.text.primary }]}>{timeString}</Text>
           </View>
           <View style={styles.metricBlockRight}>
-            <Text style={[styles.metricLabel, { color: TOKENS.colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
-            <Text style={[styles.metricBigValue, { color: TOKENS.colors.primary }]}>{earnings}</Text>
+            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
+            <Text style={[styles.metricBigValue, { color: colors.primary }]}>{earnings}</Text>
           </View>
         </View>
       ) : (
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
   metricBlock: { flex: 1 },
   metricBlockRight: { flex: 1, alignItems: "flex-end" },
   metricLabel: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
-  metricBigValue: { ...FONT.h1, fontSize: 36 },
+  metricBigValue: { ...FONT.h1, ...FONT.tabular, fontSize: 36, lineHeight: 42 },
   spacer: { height: TOKENS.spacing.lg },
   actionRow: { flexDirection: "row", gap: TOKENS.spacing.md },
   flexButton: { flex: 1 },

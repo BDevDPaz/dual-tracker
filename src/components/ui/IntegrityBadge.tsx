@@ -3,7 +3,8 @@ import { Text, StyleSheet } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, font, type ThemeColors } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
 import type { IntegrityClass } from "../../core/contracts";
 import { t } from "../../i18n";
@@ -23,23 +24,30 @@ interface IntegrityBadgeProps {
   blocked?: boolean;
 }
 
-const CONFIG: Record<IntegrityClass, { color: string; icon: string }> = {
-  VALID: { color: TOKENS.colors.status.success, icon: ICONS.status.success },
-  MANUAL: { color: TOKENS.colors.text.secondary, icon: ICONS.actions.edit },
-  AUTO: { color: TOKENS.colors.status.info, icon: ICONS.domain.time },
-  CONFLICT: { color: TOKENS.colors.status.warning, icon: ICONS.status.warning },
-};
+type BadgeConfig = { color: string; bg: string; icon: string };
 
-const BLOCKED_CONFIG = { color: TOKENS.colors.status.warning, icon: ICONS.status.warning };
+function configFor(colors: ThemeColors, integrity: IntegrityClass): BadgeConfig {
+  switch (integrity) {
+    case "VALID":
+      return { color: colors.status.success, bg: colors.statusBg.success, icon: ICONS.status.success };
+    case "MANUAL":
+      return { color: colors.text.secondary, bg: colors.surface, icon: ICONS.actions.edit };
+    case "AUTO":
+      return { color: colors.status.info, bg: colors.statusBg.info, icon: ICONS.domain.time };
+    case "CONFLICT":
+      return { color: colors.status.warning, bg: colors.statusBg.warning, icon: ICONS.status.warning };
+  }
+}
 
 export function IntegrityBadge({ integrity, blocked = false }: IntegrityBadgeProps) {
   const showBlocked = blocked && integrity !== "CONFLICT";
-  const config = showBlocked ? BLOCKED_CONFIG : CONFIG[integrity];
+  const { colors } = useTheme();
+  const config = configFor(colors, showBlocked ? "CONFLICT" : integrity);
   const label = showBlocked ? t("integrity.BLOCKED") : t(`integrity.${integrity}`);
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}
-      style={[styles.badge, { borderColor: config.color, backgroundColor: `${config.color}15` }]}
+      style={[styles.badge, { borderColor: config.color, backgroundColor: config.bg }]}
       accessibilityLabel={t("integrity.a11yLabel", { label })}
     >
       <Ionicons name={config.icon as React.ComponentProps<typeof Ionicons>["name"]} size={12} color={config.color} style={styles.icon} />
@@ -59,5 +67,5 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   icon: { marginRight: 4 },
-  text: { ...FONT.label, fontWeight: "800", letterSpacing: 0.5 },
+  text: { ...FONT.label, ...font("800"), letterSpacing: 0.5 },
 });

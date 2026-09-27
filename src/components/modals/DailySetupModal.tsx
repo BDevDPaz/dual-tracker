@@ -4,6 +4,7 @@ import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { Site, SiteDraft } from "../../core/contracts";
 import { t } from "../../i18n";
 
@@ -27,6 +28,7 @@ interface DailySetupModalProps {
 }
 
 export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, busy = false, onCancel, onConfirm, onQuickCreate }: DailySetupModalProps) {
+  const { colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
   const [quick, setQuick] = useState(false);
   const [alias, setAlias] = useState("");
@@ -81,8 +83,8 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
         {(["pick", "quick"] as const).map((k) => {
           const active = (k === "quick") === quick;
           return (
-            <Pressable key={k} onPress={() => setQuick(k === "quick")} style={[styles.tab, active && { borderColor: TOKENS.colors.primary }]} accessibilityRole="tab" accessibilityState={{ selected: active }}>
-              <Text style={[styles.tabText, { color: active ? TOKENS.colors.primary : TOKENS.colors.text.secondary }]}>
+            <Pressable key={k} onPress={() => setQuick(k === "quick")} style={[styles.tab, { borderColor: active ? colors.primary : colors.border }]} accessibilityRole="tab" accessibilityState={{ selected: active }}>
+              <Text style={[styles.tabText, { color: active ? colors.primary : colors.text.secondary }]}>
                 {t(k === "pick" ? "modals.pickSite" : "modals.quickCreate")}
               </Text>
             </Pressable>
@@ -96,18 +98,18 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
             <Pressable
               key={s.id}
               onPress={() => setSelected(s.id)}
-              style={[styles.siteRow, { borderColor: selected === s.id ? TOKENS.colors.primary : TOKENS.colors.border }]}
+              style={[styles.siteRow, { backgroundColor: colors.surface, borderColor: selected === s.id ? colors.primary : colors.border }]}
               accessibilityRole="radio"
               accessibilityState={{ selected: selected === s.id }}
             >
-              <Text style={[styles.siteAlias, { color: TOKENS.colors.text.primary }]}>{s.alias}</Text>
-              <Text style={[styles.siteAddr, { color: TOKENS.colors.text.secondary }]} numberOfLines={1}>
+              <Text style={[styles.siteAlias, { color: colors.text.primary }]}>{s.alias}</Text>
+              <Text style={[styles.siteAddr, { color: colors.text.secondary }]} numberOfLines={1}>
                 {s.clientName ? `${s.clientName} · ` : ""}
                 {s.address}
               </Text>
             </Pressable>
           ))}
-          {options.length === 0 ? <Text style={[styles.siteAddr, { color: TOKENS.colors.text.muted }]}>{t("sites.empty")}</Text> : null}
+          {options.length === 0 ? <Text style={[styles.siteAddr, { color: colors.text.muted }]}>{t("sites.empty")}</Text> : null}
         </View>
       ) : (
         <View>
@@ -122,10 +124,10 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
 
 const styles = StyleSheet.create({
   tabs: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
-  tab: { flex: 1, paddingVertical: TOKENS.spacing.sm, borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radius.md, alignItems: "center" },
+  tab: { flex: 1, paddingVertical: TOKENS.spacing.sm, borderWidth: 1, borderRadius: TOKENS.radius.md, alignItems: "center" },
   tabText: { ...FONT.label },
   list: { gap: TOKENS.spacing.sm },
-  siteRow: { borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, backgroundColor: TOKENS.colors.surface },
+  siteRow: { borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md },
   siteAlias: { ...FONT.bodyStrong },
   siteAddr: { ...FONT.caption, marginTop: 2 },
 });

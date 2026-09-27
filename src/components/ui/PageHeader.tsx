@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
 import { t } from "../../i18n";
 
@@ -37,6 +38,7 @@ export function PageHeader({
   inset = false,
   backLabel,
 }: PageHeaderProps) {
+  const { colors } = useTheme();
   const router = useRouter();
 
   const handleBack = () => {
@@ -62,14 +64,14 @@ export function PageHeader({
             <Ionicons
               name={ICONS.actions.back as any}
               size={28}
-              color={TOKENS.colors.text.primary}
+              color={colors.text.primary}
             />
           </Pressable>
         )}
 
         <View style={styles.titleContainer}>
           <Text
-            style={[styles.headerTitle, { color: TOKENS.colors.text.primary }]}
+            style={[styles.headerTitle, { color: colors.text.primary }]}
           >
             {title}
           </Text>
@@ -86,7 +88,7 @@ export function PageHeader({
             <Ionicons
               name={rightAction.icon as any}
               size={24}
-              color={TOKENS.colors.text.primary}
+              color={colors.text.primary}
             />
           </Pressable>
         )}
@@ -96,7 +98,7 @@ export function PageHeader({
         <Text
           style={[
             styles.headerSubtitle,
-            { color: TOKENS.colors.text.secondary },
+            { color: colors.text.secondary },
           ]}
         >
           {subtitle}

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { LedgerEntry } from "../../core/contracts";
 import { t } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
@@ -56,29 +57,30 @@ interface SessionTimelineProps {
 }
 
 export function SessionTimeline({ events, title, emptyText, inset = false }: SessionTimelineProps) {
+  const { colors } = useTheme();
   const getEventStyle = (type: TimelineEvent["type"]) => {
     switch (type) {
       case "start":
-        return { dotColor: TOKENS.colors.primary, hasBorder: false };
+        return { dotColor: colors.primary, hasBorder: false };
       case "arrival":
-        return { dotColor: TOKENS.colors.status.success, hasBorder: false };
+        return { dotColor: colors.status.success, hasBorder: false };
       case "warning":
-        return { dotColor: TOKENS.colors.status.warning, hasBorder: false };
+        return { dotColor: colors.status.warning, hasBorder: false };
       case "note":
-        return { dotColor: TOKENS.colors.status.info, hasBorder: false };
+        return { dotColor: colors.status.info, hasBorder: false };
       case "close":
-        return { dotColor: TOKENS.colors.surfaceElevated, hasBorder: true };
+        return { dotColor: colors.surfaceElevated, hasBorder: true };
       default:
-        return { dotColor: TOKENS.colors.text.muted, hasBorder: false };
+        return { dotColor: colors.text.muted, hasBorder: false };
     }
   };
 
   return (
     <View
-      style={[styles.timelineBlock, inset && styles.inset, { backgroundColor: TOKENS.colors.surface }]}
+      style={[styles.timelineBlock, inset && styles.inset, { backgroundColor: colors.surface }]}
     >
       <Text
-        style={[styles.sectionTitle, { color: TOKENS.colors.text.primary }]}
+        style={[styles.sectionTitle, { color: colors.text.primary }]}
       >
         {title ?? t("session.activityTitle")}
       </Text>
@@ -86,7 +88,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
       {events.length === 0 ? (
         <Animated.Text
           entering={FadeInDown.duration(400)}
-          style={[styles.emptyText, { color: TOKENS.colors.text.muted }]}
+          style={[styles.emptyText, { color: colors.text.muted }]}
         >
           {emptyText ?? t("session.activityEmpty")}
         </Animated.Text>
@@ -108,7 +110,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
                     { backgroundColor: dotColor },
                     hasBorder && {
                       borderWidth: 1,
-                      borderColor: TOKENS.colors.border,
+                      borderColor: colors.border,
                     },
                   ]}
                 />
@@ -117,7 +119,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
                   <View
                     style={[
                       styles.nodeLine,
-                      { backgroundColor: TOKENS.colors.border },
+                      { backgroundColor: colors.border },
                     ]}
                   />
                 )}
@@ -126,7 +128,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
                   <Text
                     style={[
                       styles.nodeTitle,
-                      { color: TOKENS.colors.text.primary },
+                      { color: colors.text.primary },
                     ]}
                   >
                     {event.title}
@@ -134,7 +136,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
                   <Text
                     style={[
                       styles.nodeTime,
-                      { color: TOKENS.colors.text.secondary },
+                      { color: colors.text.secondary },
                     ]}
                   >
                     {event.time} {event.subtitle ? `• ${event.subtitle}` : ""}

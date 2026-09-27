@@ -5,7 +5,7 @@
  * global del bundle. No pinta UI de negocio: la decisión de grupo visible
  * ((boot) / (onboarding) / (tabs)) la toma el gate app/index.tsx.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -31,6 +31,9 @@ registerBackgroundTasks();
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+/** Si Montserrat no carga en este plazo se pinta con la fuente del sistema (nunca pantalla en blanco). */
+const FONT_LOAD_TIMEOUT_MS = 3000;
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
@@ -46,11 +49,18 @@ export default function RootLayout() {
     void boot();
   }, []);
 
+  const [fontTimeout, setFontTimeout] = useState(false);
   useEffect(() => {
-    if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsLoaded, fontError]);
+    const id = setTimeout(() => setFontTimeout(true), FONT_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, []);
+  const fontsSettled = fontsLoaded || !!fontError || fontTimeout;
 
-  if (!fontsLoaded && !fontError) return null;
+  useEffect(() => {
+    if (fontsSettled) SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontsSettled]);
+
+  if (!fontsSettled) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: TOKENS.colors.background }}>

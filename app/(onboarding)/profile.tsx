@@ -56,7 +56,7 @@ export default function ProfileScreen() {
           </Pressable>
         ))}
       </View>
-      <Input label={t("onboarding.reminderTime")} value={reminder} onChangeText={setReminder} placeholder="07:00" />
+      <Input label={t("onboarding.reminderTime")} value={reminder} onChangeText={setReminder} placeholder="07:00" mask="HH:mm" />
       <Button label={t("onboarding.enter")} disabled={!valid} isLoading={busy} onPress={onEnter} />
     </ScrollView>
   );

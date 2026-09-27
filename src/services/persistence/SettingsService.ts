@@ -30,6 +30,7 @@ export const DEFAULT_PROFILE: PersonProfile = {
   hourlyRate: 25.0,
   language: "es",
   dailyReminderTime: "07:00",
+  theme: "dark",
 };
 
 export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
@@ -131,6 +132,9 @@ export const SettingsService = {
       return { ok: false, code: "INVALID_VALUE" };
     }
     if (!(next.company.defaultRadiusM > 0)) return { ok: false, code: "INVALID_VALUE" };
+    if (next.profile.theme !== undefined && !["system", "dark", "light"].includes(next.profile.theme)) {
+      return { ok: false, code: "INVALID_VALUE" };
+    }
 
     if (patch.profile) await SettingsService.saveProfile(next.profile);
     if (patch.company) await SettingsService.saveCompany(next.company);

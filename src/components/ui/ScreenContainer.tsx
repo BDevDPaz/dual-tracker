@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, ViewStyle, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TOKENS } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -18,12 +19,13 @@ export function ScreenContainer({
   testID,
   useSafeArea = true,
 }: ScreenContainerProps) {
+  const { colors, scheme } = useTheme();
   const content = (
     <View
       style={[styles.innerContainer, !noPadding && styles.withPadding, style]}
       testID={testID}
     >
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
       {children}
     </View>
   );
@@ -31,7 +33,7 @@ export function ScreenContainer({
   if (useSafeArea) {
     return (
       <SafeAreaView
-        style={[styles.safeArea, { backgroundColor: TOKENS.colors.background }]}
+        style={[styles.safeArea, { backgroundColor: colors.background }]}
       >
         {content}
       </SafeAreaView>
@@ -40,7 +42,7 @@ export function ScreenContainer({
 
   return (
     <View
-      style={[styles.safeArea, { backgroundColor: TOKENS.colors.background }]}
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
       {content}
     </View>

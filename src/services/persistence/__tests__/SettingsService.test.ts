@@ -30,4 +30,15 @@ describe("SettingsService", () => {
     expect(ok.ok && ok.next.company.overtimeMultiplier).toBe(2);
     expect((await SettingsService.load()).company.overtimeMultiplier).toBe(2);
   });
+
+  test("profile.theme: por defecto dark, se persiste y rechaza valores desconocidos", async () => {
+    const cur = await SettingsService.load();
+    expect(cur.profile.theme).toBe("dark");
+    const r = await SettingsService.applyPatch(cur, { profile: { theme: "light" } }, { adminUnlocked: false });
+    expect(r.ok).toBe(true);
+    expect((await SettingsService.load()).profile.theme).toBe("light");
+    expect(
+      await SettingsService.applyPatch(cur, { profile: { theme: "sepia" as never } }, { adminUnlocked: false }),
+    ).toEqual({ ok: false, code: "INVALID_VALUE" });
+  });
 });

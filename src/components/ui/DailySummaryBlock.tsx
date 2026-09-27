@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
 
 interface DailySummaryBlockProps {
@@ -16,6 +17,7 @@ interface DailySummaryBlockProps {
 }
 
 export function DailySummaryBlock({ hours, earnings, inset = false }: DailySummaryBlockProps) {
+  const { colors } = useTheme();
   return (
     <Animated.View
       entering={FadeInDown.delay(100).duration(400)}
@@ -23,8 +25,8 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
         styles.block,
         inset && styles.inset,
         {
-          backgroundColor: TOKENS.colors.surface,
-          borderColor: TOKENS.colors.border,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
           ...TOKENS.shadows.sm,
         },
       ]}
@@ -34,12 +36,12 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
           <Ionicons
             name="time-outline"
             size={16}
-            color={TOKENS.colors.text.secondary}
+            color={colors.text.secondary}
           />
           <Text
             style={[
               styles.metricLabel,
-              { color: TOKENS.colors.text.secondary },
+              { color: colors.text.secondary },
             ]}
           >
             {t("today.netHours")}
@@ -47,14 +49,14 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
         </View>
 
         <Text
-          style={[styles.metricValue, { color: TOKENS.colors.text.primary }]}
+          style={[styles.metricValue, { color: colors.text.primary }]}
         >
           {hours}
         </Text>
       </View>
 
       <View
-        style={[styles.divider, { backgroundColor: TOKENS.colors.border }]}
+        style={[styles.divider, { backgroundColor: colors.border }]}
       />
 
       <View style={styles.metricZone}>
@@ -62,19 +64,19 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
           <Ionicons
             name="cash-outline"
             size={16}
-            color={TOKENS.colors.primary}
+            color={colors.primary}
           />
           <Text
             style={[
               styles.metricLabel,
-              { color: TOKENS.colors.text.secondary },
+              { color: colors.text.secondary },
             ]}
           >
             {t("today.estimate")}
           </Text>
         </View>
 
-        <Text style={[styles.metricValue, { color: TOKENS.colors.primary }]}>
+        <Text style={[styles.metricValue, { color: colors.primary }]}>
           {earnings}
         </Text>
       </View>
@@ -108,7 +110,9 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     ...FONT.h3,
+    ...FONT.tabular,
     fontSize: 24,
+    lineHeight: 30,
   },
   divider: {
     width: 1,

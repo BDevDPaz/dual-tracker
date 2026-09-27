@@ -3,7 +3,14 @@
  * Sistema de diseño endurecido para Dual Tracker (heredado de GEOTrack Trial and Trace).
  */
 
-export const PALETTE = {
+import { Platform } from "react-native";
+
+export type ColorScheme = "dark" | "light";
+/** Preferencia persistida en profile.theme. */
+export type ThemePreference = "system" | "dark" | "light";
+
+/** Paleta oscura (por defecto, userInterfaceStyle "dark"). */
+export const PALETTE_DARK = {
   obsidian: "#0A0A0C", // Fondo principal
   graphite: "#121214", // Fondos secundarios (ej. inputs, pills)
   carbonMist: "#1C1C1F", // Capas de elevación (ej. tarjetas, modales)
@@ -18,27 +25,97 @@ export const PALETTE = {
   slateBlue: "#546E7A",
 };
 
-export const TOKENS = {
-  colors: {
-    background: PALETTE.obsidian,
-    surface: PALETTE.graphite,
-    surfaceElevated: PALETTE.carbonMist,
-    primary: PALETTE.mutedGold,
-    border: PALETTE.steelLine,
+/** Paleta clara ("papel"): preparada y cableada en primitivas; el selector sigue oculto. */
+export const PALETTE_LIGHT: typeof PALETTE_DARK = {
+  obsidian: "#F4F1EA", // paper
+  graphite: "#ECE7DC",
+  carbonMist: "#FBF9F4",
+  steelLine: "#D6CFC1",
+  textPrimary: "#1A1714", // ink
+  textSecondary: "#5A534A",
+  textMuted: "#8A8378",
+  mutedGold: "#8A6D1F", // gold
+  successGreen: "#1E7F47",
+  amberWarning: "#A85A12",
+  deepRed: "#B83227",
+  slateBlue: "#3F5963",
+};
+
+/** Compatibilidad: PALETTE sigue siendo la oscura. */
+export const PALETTE = PALETTE_DARK;
+
+/** "#RRGGBB" + alfa → rgba() fijo (sustituye los `${color}15` sueltos). */
+export function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+const STATUS_BG_ALPHA = 0.12;
+
+function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
+  return {
+    background: p.obsidian,
+    surface: p.graphite,
+    surfaceElevated: p.carbonMist,
+    primary: p.mutedGold,
+    border: p.steelLine,
     text: {
-      primary: PALETTE.textPrimary,
-      secondary: PALETTE.textSecondary,
-      muted: PALETTE.textMuted,
-      inverse: PALETTE.obsidian,
+      primary: p.textPrimary,
+      secondary: p.textSecondary,
+      muted: p.textMuted,
+      inverse: p.obsidian,
     },
     status: {
-      success: PALETTE.successGreen,
-      warning: PALETTE.amberWarning,
-      danger: PALETTE.deepRed,
-      info: PALETTE.slateBlue,
+      success: p.successGreen,
+      warning: p.amberWarning,
+      danger: p.deepRed,
+      info: p.slateBlue,
     },
-    overlay: "rgba(0, 0, 0, 0.6)",
-  },
+    /** Fondo tenue por tono (StatusPill, IntegrityBadge, icono de ModalShell…). */
+    statusBg: {
+      success: withAlpha(p.successGreen, STATUS_BG_ALPHA),
+      warning: withAlpha(p.amberWarning, STATUS_BG_ALPHA),
+      danger: withAlpha(p.deepRed, STATUS_BG_ALPHA),
+      info: withAlpha(p.slateBlue, STATUS_BG_ALPHA),
+      primary: withAlpha(p.mutedGold, STATUS_BG_ALPHA),
+    },
+    /** Texto sobre botones sólidos danger/success. */
+    onDanger: "#FFFFFF",
+    onSuccess: "#FFFFFF",
+    /** Anillo de foco de Input: primario al 40 %. */
+    focusRing: withAlpha(p.mutedGold, 0.4),
+    overlay: scheme === "dark" ? "rgba(0, 0, 0, 0.6)" : "rgba(26, 23, 20, 0.35)",
+    /** Cristal (hero y modales): relleno blanco 12 % + filo dorado 1 px. */
+    glass: {
+      fill: scheme === "dark" ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.55)",
+      hairline: "rgba(212, 175, 55, 0.18)",
+      blurTint: scheme === "dark" ? ("dark" as const) : ("light" as const),
+    },
+    /** "Papel" de la vista previa del reporte (igual en ambos esquemas: es un documento). */
+    paper: {
+      background: "#EAECEE",
+      ink: "#1A1A1A",
+      text: "#333333",
+      muted: "#666666",
+      label: "#888888",
+      line: "#CCCCCC",
+      skeleton: "#D1D5DB",
+    },
+    /** Pista de las líneas decorativas (AppBrandTitle, spinner). */
+    track: scheme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(26, 23, 20, 0.08)",
+  };
+}
+
+export type ThemeColors = ReturnType<typeof buildColors>;
+
+export const COLORS: Record<ColorScheme, ThemeColors> = {
+  dark: buildColors(PALETTE_DARK, "dark"),
+  light: buildColors(PALETTE_LIGHT, "light"),
+};
+
+export const TOKENS = {
+  /** Estático = oscuro. Las primitivas leen useTheme().colors. */
+  colors: COLORS.dark,
   spacing: {
     zero: 0,
     xs: 4,
@@ -122,12 +199,35 @@ export const SPACING = {
   xxl: TOKENS.spacing["2xl"],
 };
 
+export type FontWeight = "400" | "500" | "600" | "700" | "800";
+
+/** Familias de @expo-google-fonts/montserrat cargadas con useFonts en app/_layout.tsx. */
+export const FONT_FAMILY: Record<FontWeight, string> = {
+  "400": "Montserrat_400Regular",
+  "500": "Montserrat_500Medium",
+  "600": "Montserrat_600SemiBold",
+  "700": "Montserrat_700Bold",
+  "800": "Montserrat_800ExtraBold",
+};
+
+/**
+ * Montserrat del peso pedido. En Android la familia ya ES el peso (sumar
+ * fontWeight provoca negrita sintética o caída a la fuente del sistema); en
+ * iOS/web se conserva fontWeight para que, si las fuentes no cargan, la caída
+ * a la fuente del sistema mantenga la jerarquía.
+ */
+export function font(weight: FontWeight): { fontFamily: string; fontWeight?: FontWeight } {
+  return Platform.OS === "android" ? { fontFamily: FONT_FAMILY[weight] } : { fontFamily: FONT_FAMILY[weight], fontWeight: weight };
+}
+
 export const FONT = {
-  h1: { fontSize: 32, fontWeight: "800" as const, letterSpacing: -0.5 },
-  h2: { fontSize: 24, fontWeight: "700" as const, letterSpacing: -0.3 },
-  h3: { fontSize: 18, fontWeight: "600" as const },
-  bodyStrong: { fontSize: 16, fontWeight: "600" as const },
-  body: { fontSize: 16, fontWeight: "400" as const },
-  caption: { fontSize: 13, fontWeight: "500" as const },
-  label: { fontSize: 11, fontWeight: "700" as const, letterSpacing: 1 },
+  h1: { fontSize: 32, lineHeight: 38, letterSpacing: -0.5, ...font("800") },
+  h2: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3, ...font("700") },
+  h3: { fontSize: 18, lineHeight: 24, ...font("600") },
+  bodyStrong: { fontSize: 16, lineHeight: 22, ...font("600") },
+  body: { fontSize: 16, lineHeight: 22, ...font("400") },
+  caption: { fontSize: 13, lineHeight: 18, ...font("500") },
+  label: { fontSize: 11, lineHeight: 14, letterSpacing: 1, ...font("700") },
+  /** Cifras de ancho fijo (temporizador del hero, importes): no "bailan" al avanzar. */
+  tabular: { ...font("700"), fontVariant: ["tabular-nums"] as ["tabular-nums"] },
 };

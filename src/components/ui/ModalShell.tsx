@@ -12,6 +12,7 @@ import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { ANIM_PRESETS } from "../../constants/animations";
 import { ICONS } from "../../constants/icons";
 import { t } from "../../i18n";
@@ -72,6 +73,7 @@ export function ModalShell({
   closeLabel,
   testID,
 }: ModalShellProps) {
+  const { colors } = useTheme();
   const blockingId = useId();
   const blocking = visible && !dismissible;
   useEffect(() => {
@@ -85,28 +87,33 @@ export function ModalShell({
     switch (tone) {
       case "danger":
         return {
-          color: TOKENS.colors.status.danger,
+          color: colors.status.danger,
+          bg: colors.statusBg.danger,
           icon: icon || ICONS.status.error,
         };
       case "warning":
         return {
-          color: TOKENS.colors.status.warning,
+          color: colors.status.warning,
+          bg: colors.statusBg.warning,
           icon: icon || ICONS.status.warning,
         };
       case "success":
         return {
-          color: TOKENS.colors.status.success,
+          color: colors.status.success,
+          bg: colors.statusBg.success,
           icon: icon || ICONS.status.success,
         };
       case "info":
         return {
-          color: TOKENS.colors.status.info,
+          color: colors.status.info,
+          bg: colors.statusBg.info,
           icon: icon || ICONS.status.info,
         };
       case "neutral":
       default:
         return {
-          color: TOKENS.colors.primary,
+          color: colors.primary,
+          bg: colors.statusBg.primary,
           icon: icon || ICONS.status.neutral,
         };
     }
@@ -122,7 +129,7 @@ export function ModalShell({
             <View
               style={[
                 styles.iconWrapper,
-                { backgroundColor: `${toneConfig.color}20` },
+                { backgroundColor: toneConfig.bg },
               ]}
             >
               <Ionicons
@@ -133,7 +140,7 @@ export function ModalShell({
             </View>
             <View style={styles.titleContainer}>
               <Text
-                style={[styles.title, { color: TOKENS.colors.text.primary }]}
+                style={[styles.title, { color: colors.text.primary }]}
               >
                 {title}
               </Text>
@@ -149,7 +156,7 @@ export function ModalShell({
                 <Ionicons
                   name={ICONS.actions.close as any}
                   size={24}
-                  color={TOKENS.colors.text.muted}
+                  color={colors.text.muted}
                 />
               </Pressable>
             ) : null}
@@ -158,7 +165,7 @@ export function ModalShell({
             <Text
               style={[
                 styles.description,
-                { color: TOKENS.colors.text.secondary },
+                { color: colors.text.secondary },
               ]}
             >
               {description}
@@ -222,7 +229,7 @@ export function ModalShell({
       onRequestClose={requestClose}
       testID={testID}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
         {dismissible ? (
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -238,8 +245,8 @@ export function ModalShell({
           style={[
             styles.modalCard,
             {
-              backgroundColor: TOKENS.colors.surfaceElevated,
-              borderColor: TOKENS.colors.border,
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
             },
           ]}
         >
@@ -253,7 +260,6 @@ export function ModalShell({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: TOKENS.colors.overlay,
     justifyContent: "flex-end",
   },
   modalCard: {

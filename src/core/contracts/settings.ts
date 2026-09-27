@@ -12,6 +12,11 @@ export interface PersonProfile {
   language: "es" | "en";
   /** HH:mm del recordatorio diario. */
   dailyReminderTime: string;
+  /**
+   * Tema visual (ThemeContext). Ausente = "dark". El selector no se expone en
+   * la UI hasta que todas las pantallas lean useTheme() (ver ThemeContext.tsx).
+   */
+  theme?: "system" | "dark" | "light";
 }
 
 /**

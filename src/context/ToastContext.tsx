@@ -22,6 +22,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 
 import { TOKENS, FONT } from "../constants/theme";
+import { useTheme } from "./ThemeContext";
 import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
@@ -40,6 +41,7 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 const DEDUPE_THRESHOLD_MS = 2500;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
   const [message, setMessage] = useState("");
   const [type, setType] = useState<ToastType>("info");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,19 +124,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     switch (type) {
       case "success":
         return {
-          color: TOKENS.colors.status.success,
+          color: colors.status.success,
           icon: ICONS.status.success,
         };
       case "error":
-        return { color: TOKENS.colors.status.danger, icon: ICONS.status.error };
+        return { color: colors.status.danger, icon: ICONS.status.error };
       case "warning":
         return {
-          color: TOKENS.colors.status.warning,
+          color: colors.status.warning,
           icon: ICONS.status.warning,
         };
       case "info":
       default:
-        return { color: TOKENS.colors.status.info, icon: ICONS.status.info };
+        return { color: colors.status.info, icon: ICONS.status.info };
     }
   };
 
@@ -150,7 +152,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             style={[
               styles.toastCard,
               {
-                backgroundColor: TOKENS.colors.surfaceElevated,
+                backgroundColor: colors.surfaceElevated,
                 borderColor: config.color,
                 ...TOKENS.shadows.md,
               },
@@ -167,7 +169,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <Text
                 style={[
                   styles.toastText,
-                  { color: TOKENS.colors.text.primary },
+                  { color: colors.text.primary },
                 ]}
                 numberOfLines={3}
               >

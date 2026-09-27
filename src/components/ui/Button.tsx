@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 // Importaciones del sistema de diseño y contexto
 
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { INTERACTION } from "../../constants/animations";
 
 export type ButtonVariant =
@@ -51,6 +52,7 @@ export const Button = React.memo(function Button({
   iconName,
   ...props
 }: ButtonProps) {
+  const { colors } = useTheme();
   const scale = useSharedValue(1);
   const isDisabled = disabled || isLoading;
 
@@ -109,33 +111,33 @@ export const Button = React.memo(function Button({
     switch (variant) {
       case "primary":
         return {
-          backgroundColor: TOKENS.colors.primary,
-          textColor: TOKENS.colors.text.inverse,
-          borderColor: TOKENS.colors.primary,
+          backgroundColor: colors.primary,
+          textColor: colors.text.inverse,
+          borderColor: colors.primary,
         };
       case "secondary":
         return {
           backgroundColor: "transparent",
-          textColor: TOKENS.colors.text.primary,
-          borderColor: TOKENS.colors.border,
+          textColor: colors.text.primary,
+          borderColor: colors.border,
         };
       case "danger":
         return {
-          backgroundColor: TOKENS.colors.status.danger,
-          textColor: "#FFFFFF",
-          borderColor: TOKENS.colors.status.danger,
+          backgroundColor: colors.status.danger,
+          textColor: colors.onDanger,
+          borderColor: colors.status.danger,
         };
       case "success":
         return {
-          backgroundColor: TOKENS.colors.status.success,
-          textColor: "#FFFFFF",
-          borderColor: TOKENS.colors.status.success,
+          backgroundColor: colors.status.success,
+          textColor: colors.onSuccess,
+          borderColor: colors.status.success,
         };
       case "ghost":
       default:
         return {
           backgroundColor: "transparent",
-          textColor: TOKENS.colors.text.secondary,
+          textColor: colors.text.secondary,
           borderColor: "transparent",
         };
     }
@@ -145,7 +147,8 @@ export const Button = React.memo(function Button({
     switch (size) {
       case "sm":
         return {
-          height: 40,
+          // Nunca por debajo del objetivo táctil mínimo (44 pt).
+          height: TOKENS.layout.minTouchTarget,
           paddingHorizontal: TOKENS.spacing.md,
           fontSize: 14,
           iconSize: 16,
@@ -226,7 +229,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
-    minWidth: 44, // Accesibilidad: min touch target width
+    minWidth: TOKENS.layout.minTouchTarget, // Accesibilidad: objetivo táctil mínimo
   },
   content: {
     flexDirection: "row",

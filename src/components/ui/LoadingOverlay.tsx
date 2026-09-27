@@ -9,7 +9,8 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, font } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
 
 interface LoadingOverlayProps {
@@ -26,6 +27,7 @@ export function LoadingOverlay({
   isReconnecting = false,
   reconnectingLabel,
 }: LoadingOverlayProps) {
+  const { colors } = useTheme();
   const rotation = useSharedValue(0);
   const pulseOpacity = useSharedValue(1);
 
@@ -65,15 +67,15 @@ export function LoadingOverlay({
       <View style={styles.container}>
         <Animated.View
           entering={FadeIn.duration(250)}
-          style={styles.backdrop}
+          style={[styles.backdrop, { backgroundColor: colors.overlay }]}
         />
 
         <View
           style={[
             styles.contentCard,
             {
-              backgroundColor: TOKENS.colors.surfaceElevated,
-              borderColor: TOKENS.colors.border,
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
             },
           ]}
         >
@@ -82,13 +84,13 @@ export function LoadingOverlay({
               style={[
                 styles.radarWrapper,
                 animatedPulseStyle,
-                { backgroundColor: `${TOKENS.colors.status.warning}20` },
+                { backgroundColor: colors.statusBg.warning },
               ]}
             >
               <Ionicons
                 name="cloud-offline-outline"
                 size={28}
-                color={TOKENS.colors.status.warning}
+                color={colors.status.warning}
               />
             </Animated.View>
           ) : (
@@ -97,7 +99,7 @@ export function LoadingOverlay({
                 style={[
                   styles.spinnerRing,
                   animatedSpinnerStyle,
-                  { borderTopColor: TOKENS.colors.primary },
+                  { borderColor: colors.track, borderTopColor: colors.primary },
                 ]}
               />
             </View>
@@ -106,10 +108,10 @@ export function LoadingOverlay({
           <Text
             style={[
               styles.messageText,
-              { color: TOKENS.colors.text.secondary },
+              { color: colors.text.secondary },
               isReconnecting && {
-                color: TOKENS.colors.status.warning,
-                fontWeight: "700",
+                color: colors.status.warning,
+                ...font("700"),
               },
             ]}
           >
@@ -129,7 +131,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: TOKENS.colors.overlay,
   },
   contentCard: {
     paddingVertical: TOKENS.spacing.xl,
@@ -151,7 +152,6 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.1)",
   },
   radarWrapper: {
     width: 56,

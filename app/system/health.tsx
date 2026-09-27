@@ -84,7 +84,7 @@ export default function HealthScreen() {
               <ScreenStatusBanner status="conflict" message={`${t("health.ledger.brokenTitle")} — ${t("health.ledger.brokenBody")}`} />
               {admin.hasPin ? (
                 <>
-                  <Input label={t("health.ledger.pin")} value={pin} onChangeText={setPin} secureTextEntry keyboardType="number-pad" />
+                  <Input label={t("health.ledger.pin")} value={pin} onChangeText={setPin} secureToggle keyboardType="number-pad" />
                   <Button label={t("health.ledger.acknowledge")} disabled={busy || pin.length < PIN_MIN_LENGTH} isLoading={busy} onPress={() => void acknowledge()} />
                 </>
               ) : (

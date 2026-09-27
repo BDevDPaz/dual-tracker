@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, font, type ThemeColors } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 /**
  * StatusPill — portado de GEOTrack. Los tonos dejan de ser estados de dominio
@@ -14,17 +15,24 @@ interface StatusPillProps {
   label: string;
 }
 
-const TONE_COLOR: Record<StatusTone, string> = {
-  neutral: TOKENS.colors.text.secondary,
-  info: TOKENS.colors.status.info,
-  success: TOKENS.colors.status.success,
-  warning: TOKENS.colors.status.warning,
-  danger: TOKENS.colors.status.danger,
-};
+export function toneColors(colors: ThemeColors, tone: StatusTone): { color: string; bg: string } {
+  switch (tone) {
+    case "neutral":
+      return { color: colors.text.secondary, bg: colors.surface };
+    case "info":
+      return { color: colors.status.info, bg: colors.statusBg.info };
+    case "success":
+      return { color: colors.status.success, bg: colors.statusBg.success };
+    case "warning":
+      return { color: colors.status.warning, bg: colors.statusBg.warning };
+    case "danger":
+      return { color: colors.status.danger, bg: colors.statusBg.danger };
+  }
+}
 
 export function StatusPill({ tone, label }: StatusPillProps) {
-  const color = TONE_COLOR[tone];
-  const bg = tone === "neutral" ? TOKENS.colors.surface : `${color}15`;
+  const { colors } = useTheme();
+  const { color, bg } = toneColors(colors, tone);
   return (
     <View style={[styles.pill, { backgroundColor: bg }]} accessibilityRole="text">
       <Text style={[styles.text, { color }]}>{label.toUpperCase()}</Text>
@@ -41,7 +49,7 @@ const styles = StyleSheet.create({
   },
   text: {
     ...FONT.label,
-    fontWeight: "800",
+    ...font("800"),
     letterSpacing: 0.5,
   },
 });

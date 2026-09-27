@@ -4,6 +4,7 @@ import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
 
 /**
@@ -29,6 +30,7 @@ const OPTIONS = [0, 30, 45, 60];
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export function LunchModal(props: LunchModalProps) {
+  const { colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
   const [startHHmm, setStartHHmm] = useState("");
   useEffect(() => {
@@ -74,14 +76,14 @@ export function LunchModal(props: LunchModalProps) {
             onPress={() => setSelected(min)}
             style={[
               styles.optionPill,
-              { backgroundColor: TOKENS.colors.surface, borderColor: TOKENS.colors.border },
-              selected === min && [styles.optionPillActive, { borderColor: TOKENS.colors.primary }],
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              selected === min && { backgroundColor: colors.statusBg.primary, borderColor: colors.primary },
             ]}
             accessibilityRole="radio"
             accessibilityState={{ selected: selected === min }}
             accessibilityLabel={`${min} ${t("common.minutes")}`}
           >
-            <Text style={[styles.optionText, { color: TOKENS.colors.text.secondary }, selected === min && { color: TOKENS.colors.primary }]}>
+            <Text style={[styles.optionText, { color: colors.text.secondary }, selected === min && { color: colors.primary }]}>
               {min === 0 ? t("modals.lunchNo") : `${min} ${t("common.minutes")}`}
             </Text>
           </Pressable>
@@ -89,8 +91,8 @@ export function LunchModal(props: LunchModalProps) {
       </View>
       {needsStart ? (
         <View style={styles.startRow}>
-          <Input label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" keyboardType="numbers-and-punctuation" />
-          <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("modals.lunchStartHint")}</Text>
+          <Input label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" testID="lunch-start" />
+          <Text style={[styles.hint, { color: colors.text.muted }]}>{t("modals.lunchStartHint")}</Text>
         </View>
       ) : null}
     </ModalShell>
@@ -100,7 +102,6 @@ export function LunchModal(props: LunchModalProps) {
 const styles = StyleSheet.create({
   optionsRow: { flexDirection: "row", justifyContent: "space-between", gap: TOKENS.spacing.sm },
   optionPill: { flex: 1, paddingVertical: TOKENS.spacing.md, alignItems: "center", borderRadius: TOKENS.radius.md, borderWidth: 1 },
-  optionPillActive: { backgroundColor: `${TOKENS.colors.primary}15` },
   optionText: { ...FONT.bodyStrong, fontSize: 14 },
   startRow: { marginTop: TOKENS.spacing.md, gap: TOKENS.spacing.xs },
   hint: { ...FONT.caption },

@@ -26,6 +26,7 @@ export const es = {
     confirm: "Confirmar",
     ok: "Entendido",
     reconnecting: "Reconectando…",
+    invalidTime: "Hora no válida: usa HH:mm de 24 h, por ejemplo 12:30.",
   },
   a11y: {
     closeModal: "Cerrar",
@@ -33,6 +34,8 @@ export const es = {
     toast: "Aviso: {message}",
     prevWeek: "Semana anterior",
     nextWeek: "Semana siguiente",
+    showSecret: "Mostrar PIN",
+    hideSecret: "Ocultar PIN",
   },
   states: {
     NO_INICIADA: { label: "Fuera de servicio", sub: "No hay jornada abierta." },

@@ -4,6 +4,7 @@ import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { SessionRecord } from "../../core/contracts";
 import { t } from "../../i18n";
 import { atTimeOfDay, atTimeOfDayAfter, toHHmm } from "../../utils/dateUtils";
@@ -27,6 +28,7 @@ interface EditSessionModalProps {
 }
 
 export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap }: EditSessionModalProps) {
+  const { colors } = useTheme();
   const base = session ? session.actualStartAtMs ?? session.declaredStartAtMs : 0;
   const [inTime, setInTime] = useState("");
   const [outTime, setOutTime] = useState("");
@@ -80,15 +82,15 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
     >
       {overlap ? (
-        <View style={[styles.banner, { borderColor: TOKENS.colors.status.warning }]}>
-          <Text style={[styles.bannerText, { color: TOKENS.colors.status.warning }]}>{t("modals.overlapBanner")}</Text>
+        <View style={[styles.banner, { borderColor: colors.status.warning }]}>
+          <Text style={[styles.bannerText, { color: colors.status.warning }]}>{t("modals.overlapBanner")}</Text>
         </View>
       ) : null}
       <View style={styles.row}>
-        <Input label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" error={invalidStart ? "HH:mm" : undefined} containerStyle={styles.flexInput} />
-        <Input label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" error={invalidEnd ? "HH:mm" : undefined} containerStyle={styles.flexInput} />
+        <Input label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" mask="HH:mm" error={invalidStart ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} />
+        <Input label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" error={invalidEnd ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} />
       </View>
-      {nextDay ? <Text style={[styles.nextDay, { color: TOKENS.colors.text.secondary }]}>{t("modals.endsNextDay")}</Text> : null}
+      {nextDay ? <Text style={[styles.nextDay, { color: colors.text.secondary }]}>{t("modals.endsNextDay")}</Text> : null}
       <Input label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} />
     </ModalShell>
   );

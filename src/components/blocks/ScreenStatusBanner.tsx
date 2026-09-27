@@ -30,8 +30,9 @@ export function ScreenStatusBanner({ status, message, onPress, emptyIcon }: Prop
   }
   if (status === "empty") return <EmptyState title={message ?? ""} icon={emptyIcon} />;
   const color = status === "conflict" ? TOKENS.colors.status.danger : TOKENS.colors.status.warning;
+  const bg = status === "conflict" ? TOKENS.colors.statusBg.danger : TOKENS.colors.statusBg.warning;
   const body = (
-    <View style={[styles.banner, { borderColor: color, backgroundColor: `${color}15` }]}>
+    <View style={[styles.banner, { borderColor: color, backgroundColor: bg }]}>
       <Ionicons name={status === "conflict" ? "alert-circle-outline" : "warning-outline"} size={18} color={color} />
       <Text style={[styles.bannerText, { color }]}>{message}</Text>
       {onPress ? <Ionicons name="chevron-forward" size={16} color={color} /> : null}

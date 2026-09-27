@@ -30,6 +30,7 @@ export const en: Dictionary = {
     confirm: "Confirm",
     ok: "OK",
     reconnecting: "Reconnecting…",
+    invalidTime: "Invalid time: use 24-hour HH:mm, for example 12:30.",
   },
   a11y: {
     closeModal: "Close",
@@ -37,6 +38,8 @@ export const en: Dictionary = {
     toast: "Notice: {message}",
     prevWeek: "Previous week",
     nextWeek: "Next week",
+    showSecret: "Show PIN",
+    hideSecret: "Hide PIN",
   },
   states: {
     NO_INICIADA: { label: "Off duty", sub: "No open shift." },

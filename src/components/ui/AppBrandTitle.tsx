@@ -9,7 +9,8 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, font } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
 
 type AppBrandTitleProps = {
@@ -17,6 +18,7 @@ type AppBrandTitleProps = {
 };
 
 export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
+  const { colors } = useTheme();
   const subtitle = subtitleProp ?? t("app.brandSubtitle");
   const glowOpacity = useSharedValue(0.14);
   const glowScale = useSharedValue(1);
@@ -87,18 +89,18 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
             style={[
               styles.accentGlow,
               accentAnimatedStyle,
-              { backgroundColor: TOKENS.colors.primary },
+              { backgroundColor: colors.primary },
             ]}
           />
 
-          <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>
+          <Text style={[styles.title, { color: colors.text.primary }]}>
             <Text
-              style={[styles.titleAccent, { color: TOKENS.colors.primary }]}
+              style={[styles.titleAccent, { color: colors.primary }]}
             >
               Dual
             </Text>
             <Text
-              style={[styles.titleMain, { color: TOKENS.colors.text.primary }]}
+              style={[styles.titleMain, { color: colors.text.primary }]}
             >
               {" "}Tracker
             </Text>
@@ -106,16 +108,16 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
         </View>
       </Animated.View>
 
-      <Text style={[styles.subtitle, { color: TOKENS.colors.text.secondary }]}>
+      <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
         {subtitle}
       </Text>
 
-      <View style={styles.lineTrack}>
+      <View style={[styles.lineTrack, { backgroundColor: colors.track }]}>
         <Animated.View
           style={[
             styles.lineAccent,
             lineAnimatedStyle,
-            { backgroundColor: TOKENS.colors.primary },
+            { backgroundColor: colors.primary },
           ]}
         />
       </View>
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: "800",
+    ...font("800"),
     letterSpacing: -0.4,
   },
   titleAccent: {},
@@ -154,14 +156,13 @@ const styles = StyleSheet.create({
     ...FONT.caption,
     marginTop: 4,
     fontSize: 11,
-    fontWeight: "700",
+    ...font("700"),
     letterSpacing: 2,
   },
   lineTrack: {
     marginTop: 10,
     height: 2,
     width: 120,
-    backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: 2,
     overflow: "hidden",
   },
