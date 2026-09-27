@@ -28,7 +28,7 @@ import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
-import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS } from "./schema";
+import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SITE_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
@@ -202,6 +202,8 @@ async function readKv(database: SQLite.SQLiteDatabase, key: string): Promise<unk
 async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   // v1: esquema inicial. Columnas aditivas (spec v1.3 §5.3: pausas por intervalo).
   for (const [col, def] of SESSION_ADDED_COLUMNS) await addColumnIfMissing(database, "sessions", col, def);
+  // v3 DDL (FieldCrypto §7): sin clave. El paso de datos va en runCryptoDataMigrations.
+  for (const [col, def] of SITE_ADDED_COLUMNS) await addColumnIfMissing(database, "sites", col, def);
   // v2: reparación de date_string (ver arriba).
   await repairInvalidDateStrings(database);
   // Paso de datos sin clave: pausas antiguas desde el ledger (una vez).
@@ -223,7 +225,11 @@ const SITE_TEXT_FIELDS = [
  * Cifra y escribe alias, dirección, cliente y notas (§6). Un campo ilegible
  * (kid perdido, §14) que sigue con su valor hidratado vacío no se reescribe.
  */
-async function writeSiteText(d: SQLite.SQLiteDatabase, site: Pick<Site, "id" | "alias" | "address" | "clientName" | "notes" | "unreadableFields">, report?: WriteReport): Promise<void> {
+async function writeSiteText(
+  d: SQLite.SQLiteDatabase,
+  site: Pick<Site, "id" | "alias" | "address" | "clientName" | "notes" | "unreadableFields" | "targetLat" | "targetLon">,
+  report?: WriteReport,
+): Promise<void> {
   const sets: string[] = [];
   const params: SqlParam[] = [];
   for (const f of SITE_TEXT_FIELDS) {
@@ -232,6 +238,14 @@ async function writeSiteText(d: SQLite.SQLiteDatabase, site: Pick<Site, "id" | "
     const enc = await FieldCryptoService.encrypt(f.fieldId, site.id, value);
     if (enc.degraded) report?.degradedFields.push(f.fieldId);
     sets.push(`${f.column} = ?`);
+    params.push(enc.stored);
+  }
+  // Coordenadas (§6/§7): target_coords_enc cifrado; las REAL quedan en NULL.
+  if (!(site.unreadableFields?.includes("coords") && site.targetLat === null)) {
+    const coords = site.targetLat !== null && site.targetLon !== null ? { lat: site.targetLat, lon: site.targetLon } : null;
+    const enc = await FieldCryptoService.encryptJson("site.coords", site.id, coords);
+    if (enc.degraded) report?.degradedFields.push("site.coords");
+    sets.push("target_coords_enc = ?", "target_lat = NULL", "target_lon = NULL");
     params.push(enc.stored);
   }
   if (sets.length) await d.runAsync(`UPDATE sites SET ${sets.join(", ")} WHERE id = ?`, [...params, site.id]);
@@ -426,10 +440,8 @@ export const PersistenceService = {
     return PersistenceService.transaction(async (tx) => {
       const res = await tx.runAsync(
       `INSERT INTO sites (alias, address, client_name, notes, target_lat, target_lon, radius_m, active, created_at_ms, archived_at_ms)
-       VALUES ('', '', NULL, NULL, ?, ?, ?, ?, ?, ?)`,
+       VALUES ('', '', NULL, NULL, NULL, NULL, ?, ?, ?, ?)`,
       [
-        site.targetLat,
-        site.targetLon,
         site.radiusM,
         site.active ? 1 : 0,
         site.createdAtMs,
@@ -446,11 +458,8 @@ export const PersistenceService = {
     await PersistenceService.transaction(async (d) => {
       await writeSiteText(d, site, report);
       await d.runAsync(
-      `UPDATE sites SET target_lat = ?, target_lon = ?,
-         radius_m = ?, active = ?, archived_at_ms = ? WHERE id = ?`,
+      `UPDATE sites SET radius_m = ?, active = ?, archived_at_ms = ? WHERE id = ?`,
       [
-        site.targetLat,
-        site.targetLon,
         site.radiusM,
         site.active ? 1 : 0,
         site.archivedAtMs,

@@ -12,6 +12,7 @@ import { LoggingService } from "../../persistence/LoggingService";
 import { OfflineQueueService } from "../../persistence/OfflineQueueService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { KV_KEYS } from "../../persistence/schema";
+import { detectKeyLoss, sweepPlaintext } from "../../persistence/cryptoMigrations";
 import { SettingsService } from "../../persistence/SettingsService";
 
 export async function runIntegritySweep(force = false): Promise<{ chainValid: boolean; purged: number } | null> {
@@ -23,6 +24,9 @@ export async function runIntegritySweep(force = false): Promise<{ chainValid: bo
   if (!chain.valid) {
     LoggingService.log("ROJO", "INTEGRIDAD_COMPROMETIDA", "ERROR", "Cadena del ledger rota", { brokenAtId: chain.brokenAtId });
   }
+  // FieldCrypto v1.3 §11/§14: continúa el barrido plain → enc y detecta kids perdidos.
+  await sweepPlaintext(500).catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Barrido de cifrado falló", { error: String(e) }));
+  await detectKeyLoss().catch(() => undefined);
   const settings = await SettingsService.load();
   const purged = await TraceRecorderService.purgeExpired(settings.company.traceRetentionDays);
   await OfflineQueueService.flush();

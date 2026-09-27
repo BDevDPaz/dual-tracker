@@ -13,7 +13,8 @@
  *    `ledtracker_v2.db` queda como TODO (ver mappers.mapLegacyStatus).
  */
 export const DB_NAME = "dual_tracker_v1.db";
-export const SCHEMA_VERSION = 2; // v2: reparación de date_string (ver PersistenceService.runMigrations)
+// v2: reparación de date_string; v3: FieldCrypto v1.3 (DDL sin clave + paso de datos con clave, §7).
+export const SCHEMA_VERSION = 3;
 
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
@@ -22,6 +23,9 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["breaks_clipped", "INTEGER NOT NULL DEFAULT 0"],
   ["split_from_session_id", "INTEGER"], // P4 RESOLVE_SPLIT (§5.4)
 ];
+
+/** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. */
+export const SITE_ADDED_COLUMNS: [string, string][] = [["target_coords_enc", "TEXT"]];
 
 export const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (
@@ -66,6 +70,7 @@ export const CREATE_TABLES_SQL = `
     notes TEXT,
     target_lat REAL,
     target_lon REAL,
+    target_coords_enc TEXT,
     radius_m REAL,
     active INTEGER NOT NULL DEFAULT 1,
     created_at_ms INTEGER NOT NULL,
@@ -184,4 +189,8 @@ export const KV_KEYS = {
   MUTEX_PREFIX: "mutex.",
   /** Migración única de pausas antiguas desde el ledger (spec v1.3 §5.3). */
   PAUSES_BACKFILL: "payroll.pauses_backfill.v1",
+  /** FieldCrypto v1.3 §7: paso de datos con clave (coordenadas de destinos) completado. */
+  CRYPTO_BACKFILL: "crypto.backfill.v3",
+  /** FieldCrypto v1.3 §11 paso 5: barrido plain → enc completado. */
+  CRYPTO_SWEEP: "crypto.sweep.v1",
 } as const;

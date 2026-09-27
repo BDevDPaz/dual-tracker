@@ -88,6 +88,7 @@ export interface DbSiteRow {
   notes: string | null;
   target_lat: number | null;
   target_lon: number | null;
+  target_coords_enc?: string | null;
   radius_m: number | null;
   active: number;
   created_at_ms: number;
@@ -300,6 +301,20 @@ export async function rowToSite(row: DbSiteRow): Promise<Site> {
   const address = await read("site.address", "address", row.address);
   const clientName = await read("site.clientName", "clientName", row.client_name);
   const notes = await read("site.notes", "notes", row.notes);
+  // §7: coordenadas en target_coords_enc; REAL solo en filas aún sin migrar.
+  let targetLat = row.target_lat;
+  let targetLon = row.target_lon;
+  if (row.target_coords_enc) {
+    try {
+      const c = await FieldCryptoService.decryptJson<{ lat: number; lon: number }>("site.coords", row.id, row.target_coords_enc);
+      targetLat = c?.lat ?? null;
+      targetLon = c?.lon ?? null;
+    } catch {
+      unreadable.push("coords");
+      targetLat = null;
+      targetLon = null;
+    }
+  }
   return {
     id: row.id,
     alias: alias ?? "",
@@ -307,8 +322,8 @@ export async function rowToSite(row: DbSiteRow): Promise<Site> {
     clientName,
     notes,
     ...(unreadable.length ? { unreadableFields: unreadable } : {}),
-    targetLat: row.target_lat,
-    targetLon: row.target_lon,
+    targetLat,
+    targetLon,
     radiusM: row.radius_m,
     active: Boolean(row.active),
     createdAtMs: ms(row.created_at_ms) ?? 0,

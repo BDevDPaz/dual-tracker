@@ -26,6 +26,7 @@ import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService"
 import { TraceRecorderService } from "../services/evidence/TraceRecorderService";
 import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
 import { IntegrityLedgerService } from "../services/domain/IntegrityLedgerService";
+import { bootFieldCrypto } from "../services/persistence/cryptoMigrations";
 import { LoggingService } from "../services/persistence/LoggingService";
 import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
@@ -77,8 +78,12 @@ function wirePorts(): void {
 export function ensureRuntimeReady(): Promise<void> {
   if (!runtimeReady) {
     runtimeReady = (async () => {
+      // Orden de arranque (spec FieldCrypto v1.3 §11):
+      // 1. Base + migraciones sin clave (v2 date_string, v3 DDL, pausas antiguas).
       await PersistenceService.init();
-      await FieldCryptoService.ensureMasterKey();
+      // 2-5. Clave maestra (alias, estado), pérdida de clave, paso de datos con
+      //      clave y barrido único de hasta 500 filas. Nunca lanza.
+      await bootFieldCrypto();
       // Migración de política a v2 (spec v1.3 §5.2 N2 / §11 paso 6).
       await migratePayrollPolicyToV2().catch((e) =>
         LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Migración de política falló", serializeError(e)),
