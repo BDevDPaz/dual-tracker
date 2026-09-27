@@ -137,8 +137,27 @@ export interface SessionRecord {
     manualNote: string | null;
     /** Última modificación (TimeAuthority). */
     updatedAtMs: number;
+    /**
+     * Pausas no-almuerzo con horas (spec v1.3 §5.3, sessions.pauses_json).
+     * Ausente = []. total_paused_ms se mantiene como suma derivada.
+     */
+    pauses?: PauseInterval[];
+    /**
+     * Origen de las pausas: RECORDED (registradas), LEDGER (reconstruidas del
+     * ledger en la migración) o PRORATED (solo total → prorrateo con advertencia).
+     */
+    pausesSource?: PausesSource;
+    /** MANUAL_PATCH recortó pausas/almuerzo fuera del nuevo intervalo (advertencia PAUSE_CLIPPED). */
+    breaksClipped?: boolean;
   };
 }
+
+/** Intervalo de pausa (spec v1.3 §5.3). endAtMs null = pausa en curso. */
+export interface PauseInterval {
+  startAtMs: number;
+  endAtMs: number | null;
+}
+export type PausesSource = "RECORDED" | "LEDGER" | "PRORATED";
 
 /** Borrador para crear una sesión (START_DAY). */
 export interface NewSessionDraft {

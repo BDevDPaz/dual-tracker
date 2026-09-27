@@ -24,9 +24,10 @@ import type {
   SessionRecordStatus,
   SessionState,
   TransitSegment,
+  PauseInterval,
 } from "../../core/contracts";
 import { companyCalendar } from "../../utils/companyPolicy";
-import { workdayDateString } from "../../utils/dateUtils";
+import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -65,6 +66,8 @@ export type TransitionOutcome =
       reason: string;
       effects: EngineEffect[];
       feedback: FeedbackCode | null;
+      /** Datos adicionales para el asiento del ledger (p. ej. recortes de pausas). */
+      ledgerExtra?: Record<string, unknown>;
     }
   | { ok: false; code: IntentRejection; detail?: string };
 
@@ -161,6 +164,11 @@ function ok(
   };
 }
 
+/** Cierra la pausa abierta de pauses_json (spec v1.3 §5.3). */
+function closeOpenPause(s: SessionRecord, atMs: number): PauseInterval[] {
+  return (s.bookkeeping.pauses ?? []).map((p) => (p.endAtMs === null ? { ...p, endAtMs: Math.max(p.startAtMs, atMs) } : p));
+}
+
 /** Cierre común: cierra almuerzo/pausa/tramo abiertos y fija endAtMs. */
 function closeRecord(s: SessionRecord, endMs: number): SessionRecord {
   const lunch =
@@ -173,7 +181,52 @@ function closeRecord(s: SessionRecord, endMs: number): SessionRecord {
     lunch,
     totalPausedMs: s.totalPausedMs + pauseExtra,
     transitSegments: closeOpenSegment(s, endMs),
-    bookkeeping: { ...s.bookkeeping, lastPauseStartMs: null },
+    bookkeeping: { ...s.bookkeeping, lastPauseStartMs: null, pauses: closeOpenPause(s, endMs) },
+  };
+}
+
+type ClippedBreak = { kind: "LUNCH" | "PAUSE"; before: { startAtMs: number; endAtMs: number }; after: { startAtMs: number; endAtMs: number } | null };
+
+/**
+ * MANUAL_PATCH (spec v1.3 §5.3): recorta almuerzo y pausas al nuevo intervalo.
+ * Lo que queda fuera se descarta y se devuelve para el asiento del ledger.
+ */
+function clipBreaks(s: SessionRecord, start: number, end: number): { next: SessionRecord; clipped: ClippedBreak[] } {
+  const clipped: ClippedBreak[] = [];
+  const clip = (a: number, b: number) => {
+    const ns = Math.max(a, start);
+    const ne = Math.min(b, end);
+    return ne > ns ? { startAtMs: ns, endAtMs: ne } : null;
+  };
+  let lunch = s.lunch;
+  if (lunch.startAtMs && lunch.endAtMs) {
+    const after = clip(lunch.startAtMs, lunch.endAtMs);
+    if (!after || after.startAtMs !== lunch.startAtMs || after.endAtMs !== lunch.endAtMs) {
+      clipped.push({ kind: "LUNCH", before: { startAtMs: lunch.startAtMs, endAtMs: lunch.endAtMs }, after });
+      lunch = after
+        ? { ...lunch, startAtMs: after.startAtMs, endAtMs: after.endAtMs, deductedMinutes: lunch.deductedMinutes === null ? null : Math.round((after.endAtMs - after.startAtMs) / 60000) }
+        : { ...lunch, startAtMs: null, endAtMs: null, deductedMinutes: 0 };
+    }
+  }
+  let pauses = s.bookkeeping.pauses ?? [];
+  let totalPausedMs = s.totalPausedMs;
+  if (pauses.length && s.bookkeeping.pausesSource !== "PRORATED") {
+    const kept: PauseInterval[] = [];
+    for (const p of pauses) {
+      const pe = p.endAtMs ?? end;
+      const after = clip(p.startAtMs, pe);
+      if (!after || after.startAtMs !== p.startAtMs || after.endAtMs !== pe) clipped.push({ kind: "PAUSE", before: { startAtMs: p.startAtMs, endAtMs: pe }, after });
+      if (after) kept.push(after);
+    }
+    if (clipped.some((c) => c.kind === "PAUSE")) {
+      pauses = kept;
+      totalPausedMs = kept.reduce((a, p) => a + ((p.endAtMs ?? p.startAtMs) - p.startAtMs), 0);
+    }
+  }
+  if (!clipped.length) return { next: s, clipped };
+  return {
+    next: { ...s, lunch, totalPausedMs, bookkeeping: { ...s.bookkeeping, pauses, breaksClipped: true } },
+    clipped,
   };
 }
 
@@ -276,7 +329,11 @@ export function transition(
       if (open.domainStatus !== "ACTIVA") return reject("ILLEGAL_TRANSITION");
       // Primera pausa = almuerzo (línea explícita). Pausas siguientes = pausa genérica.
       const next: SessionRecord = open.lunch.taken
-        ? { ...open, domainStatus: "PAUSADA", bookkeeping: { ...open.bookkeeping, lastPauseStartMs: now } }
+        ? {
+            ...open,
+            domainStatus: "PAUSADA",
+            bookkeeping: { ...open.bookkeeping, lastPauseStartMs: now, pauses: [...(open.bookkeeping.pauses ?? []), { startAtMs: now, endAtMs: null }] },
+          }
         : { ...open, domainStatus: "PAUSADA", lunch: { ...open.lunch, taken: true, startAtMs: now, endAtMs: null } };
       return ok(open, next, ctx, open.lunch.taken ? "PAUSE_STARTED" : "LUNCH_STARTED", [sync(next, next.siteId)], "LUNCH_STARTED");
     }
@@ -294,7 +351,7 @@ export function transition(
           ...open,
           domainStatus: "ACTIVA",
           totalPausedMs: open.totalPausedMs + extra,
-          bookkeeping: { ...open.bookkeeping, lastPauseStartMs: null },
+          bookkeeping: { ...open.bookkeeping, lastPauseStartMs: null, pauses: closeOpenPause(open, now) },
         };
       }
       return ok(open, next, ctx, "USER_RESUMED_WORK", [sync(next, next.siteId)], "RESUMED");
@@ -384,8 +441,22 @@ export function transition(
       const endMs =
         open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
       let next = closeRecord(open, endMs);
-      if (intent.lunchDeductedMinutes !== undefined && intent.lunchDeductedMinutes !== null && !next.lunch.startAtMs) {
-        next = { ...next, lunch: { ...next.lunch, taken: intent.lunchDeductedMinutes > 0, deductedMinutes: intent.lunchDeductedMinutes } };
+      const declared = intent.lunchDeductedMinutes;
+      if (declared !== undefined && declared !== null && !next.lunch.startAtMs) {
+        let lunch: SessionRecord["lunch"] = { ...next.lunch, taken: declared > 0, deductedMinutes: declared };
+        if (declared > 0) {
+          // spec v1.3 §5.3: si la jornada cruza un límite de jornada, la hora de inicio es obligatoria.
+          const start = open.actualStartAtMs ?? open.declaredStartAtMs;
+          const crosses = nextWorkdayBoundary(start, companyCalendar(ctx.company)) < endMs;
+          const ls = intent.lunchStartAtMs;
+          if (ls !== undefined && ls !== null) {
+            if (!Number.isFinite(ls) || ls < start || ls + declared * 60_000 > endMs) return reject("INVALID_TIMES", "LUNCH_OUTSIDE_SESSION");
+            lunch = { ...lunch, startAtMs: ls, endAtMs: ls + declared * 60_000 };
+          } else if (crosses && ctx.actor === "USER") {
+            return reject("LUNCH_START_REQUIRED");
+          }
+        }
+        next = { ...next, lunch };
       }
       // Cierre VALID exige confirmación humana o Enter/Exit limpio (§7.3).
       if (ctx.actor !== "USER") next = withIntegrity(next, "CONFLICT", "UNRELIABLE_FIX");
@@ -478,8 +549,16 @@ export function transition(
         endAtMs: end,
         bookkeeping: { ...s.bookkeeping, original, manualNote: note.trim() },
       };
+      let clippedBreaks: ClippedBreak[] = [];
+      if (end !== null) {
+        const c = clipBreaks(next, start, end);
+        next = c.next;
+        clippedBreaks = c.clipped;
+      }
       next = withIntegrity(next, "MANUAL", "MANUAL_PATCH");
-      return ok(s, next, ctx, "MANUAL_PATCH_WITH_NOTE", [], "SESSION_PATCHED");
+      const out = ok(s, next, ctx, "MANUAL_PATCH_WITH_NOTE", [], "SESSION_PATCHED");
+      if (out.ok && clippedBreaks.length) out.ledgerExtra = { clippedBreaks };
+      return out;
     }
 
     // ------------------------------------------------------------ ADD_NOTE

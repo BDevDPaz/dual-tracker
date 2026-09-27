@@ -38,6 +38,8 @@ export type SessionIntent =
       /** "EXIT_CONFIRMED" usa la primera salida como hora de cierre. */
       mode: "MANUAL" | "EXIT_CONFIRMED";
       lunchDeductedMinutes?: number | null;
+      /** Hora de inicio del almuerzo declarado (obligatoria si la jornada cruza un límite de jornada, §5.3). */
+      lunchStartAtMs?: number | null;
     }
   | {
       type: "AUTO_CLOSE";
@@ -100,7 +102,13 @@ export type IntentRejection =
   | "UNRELIABLE_FACT"
   | "NOT_IN_CONFLICT"
   | "ADMIN_LOCKED"
-  | "PERSISTENCE_ERROR";
+  | "PERSISTENCE_ERROR"
+  // spec v1.3 §5.3: almuerzo declarado en jornada que cruza un límite de jornada.
+  | "LUNCH_START_REQUIRED"
+  // spec v1.3 §5.4: RESOLVE_SPLIT.
+  | "SPLIT_INSIDE_BREAK"
+  // spec v1.3 §12: escritura de nota sin cifrado disponible.
+  | "FIELD_CRYPTO_UNAVAILABLE";
 
 // ---------------------------------------------------------------------------
 // 2) ViewIntent
@@ -116,8 +124,8 @@ export type ViewIntent =
   | { type: "START_TRANSFER"; toSiteId: number }
   | { type: "CANCEL_TRANSFER" }
   | { type: "STAY_WORKING" }
-  | { type: "CONFIRM_EXIT"; lunchDeductedMinutes?: number | null }
-  | { type: "CLOSE_DAY"; lunchDeductedMinutes?: number | null }
+  | { type: "CONFIRM_EXIT"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }
+  | { type: "CLOSE_DAY"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }
   // Sesión
   | { type: "PATCH_SESSION"; sessionId: number; declaredStartAtMs: number; endAtMs: number | null; note: string }
   | { type: "ADD_NOTE"; sessionId: number; note: string }

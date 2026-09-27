@@ -150,7 +150,7 @@ describe("P5 — LEDGER_BREAK_ACKNOWLEDGED", () => {
     expect(r.data.statement.integrityRollup.certified).toBe(false);
     expect(r.data.statement.warnings).toContain("LEDGER_CHAIN_SEGMENTED");
 
-    time.travel(7 * 24 * HOUR);
+    time.travel(7 * 24 * HOUR - 10 * HOUR);
     const next = await closedDay(siteA);
     const r2 = await EvidencePackService.seal(next);
     if (!r2.ok) throw new Error(r2.code);
@@ -163,7 +163,7 @@ describe("P5 — LEDGER_BREAK_ACKNOWLEDGED", () => {
     await tamper(entries[1].id);
     const first = (await checkLedgerIntegrity("FULL")).incident!;
     await acknowledgeLedgerBreak(PIN, first);
-    time.travel(HOUR);
+    time.travel(14 * HOUR);
     await closedDay(siteA);
     const later = (await PersistenceService.listLedger()).filter((e) => e.id > entries[entries.length - 1].id + 1);
     await tamper(later[1].id);

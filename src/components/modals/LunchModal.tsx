@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
+import { Input } from "../ui/Input";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { t } from "../../i18n";
@@ -14,15 +15,27 @@ import { t } from "../../i18n";
  *    permite reanudar o finalizar la jornada.
  */
 type LunchModalProps =
-  | { visible: boolean; mode: "close"; onCancel: () => void; onConfirm: (minutes: number | null) => void }
+  | {
+      visible: boolean;
+      mode: "close";
+      /** La jornada cruza un límite de jornada: se pide la hora de inicio (spec v1.3 §5.3). */
+      askStartTime?: boolean;
+      onCancel: () => void;
+      onConfirm: (minutes: number | null, startHHmm: string | null) => void;
+    }
   | { visible: boolean; mode: "supervisor"; elapsed: string; onCancel: () => void; onResume: () => void; onFinish: () => void };
 
 const OPTIONS = [0, 30, 45, 60];
+const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export function LunchModal(props: LunchModalProps) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [startHHmm, setStartHHmm] = useState("");
   useEffect(() => {
-    if (props.visible) setSelected(null);
+    if (props.visible) {
+      setSelected(null);
+      setStartHHmm("");
+    }
   }, [props.visible]);
 
   if (props.mode === "supervisor") {
@@ -39,6 +52,7 @@ export function LunchModal(props: LunchModalProps) {
     );
   }
 
+  const needsStart = !!props.askStartTime && (selected ?? 0) > 0;
   return (
     <ModalShell
       visible={props.visible}
@@ -46,7 +60,11 @@ export function LunchModal(props: LunchModalProps) {
       description={t("modals.lunchSub")}
       icon={ICONS.domain.lunch}
       onClose={props.onCancel}
-      primaryAction={{ label: t("common.confirm"), onPress: () => props.onConfirm(selected), disabled: selected === null }}
+      primaryAction={{
+        label: t("common.confirm"),
+        onPress: () => props.onConfirm(selected, needsStart ? startHHmm.trim() : null),
+        disabled: selected === null || (needsStart && !HHMM.test(startHHmm.trim())),
+      }}
       secondaryAction={{ label: t("common.cancel"), onPress: props.onCancel }}
     >
       <View style={styles.optionsRow}>
@@ -69,6 +87,12 @@ export function LunchModal(props: LunchModalProps) {
           </Pressable>
         ))}
       </View>
+      {needsStart ? (
+        <View style={styles.startRow}>
+          <Input label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" keyboardType="numbers-and-punctuation" />
+          <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("modals.lunchStartHint")}</Text>
+        </View>
+      ) : null}
     </ModalShell>
   );
 }
@@ -78,4 +102,6 @@ const styles = StyleSheet.create({
   optionPill: { flex: 1, paddingVertical: TOKENS.spacing.md, alignItems: "center", borderRadius: TOKENS.radius.md, borderWidth: 1 },
   optionPillActive: { backgroundColor: `${TOKENS.colors.primary}15` },
   optionText: { ...FONT.bodyStrong, fontSize: 14 },
+  startRow: { marginTop: TOKENS.spacing.md, gap: TOKENS.spacing.xs },
+  hint: { ...FONT.caption },
 });

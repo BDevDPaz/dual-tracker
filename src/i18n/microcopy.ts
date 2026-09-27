@@ -101,6 +101,8 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     CALENDAR_CHANGE_PENDING: "Ya hay un cambio de calendario pendiente. Anúlalo antes de solicitar otro.",
     CALENDAR_CHANGE_ALREADY_EFFECTIVE: "El cambio de calendario ya está en vigor y no se puede anular.",
     NO_PENDING_CALENDAR_CHANGE: "No hay ningún cambio de calendario pendiente.",
+    LUNCH_START_REQUIRED: "La jornada cruza el inicio de otra jornada: indica a qué hora empezó el almuerzo.",
+    SPLIT_INSIDE_BREAK: "El corte no puede caer dentro del almuerzo ni de una pausa.",
   },
   en: {
     NO_OPEN_SESSION: "There is no open shift.",

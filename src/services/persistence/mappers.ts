@@ -11,6 +11,8 @@ import type {
   IntegrityClass,
   IntegrityReason,
   OriginalTimes,
+  PauseInterval,
+  PausesSource,
   SessionRecord,
   SessionRecordStatus,
   Site,
@@ -63,6 +65,9 @@ export interface DbSessionRow {
   original_json: string | null;
   manual_note_sealed: string | null;
   updated_at_ms: number;
+  pauses_json?: string | null;
+  pauses_source?: string | null;
+  breaks_clipped?: number | null;
 }
 
 export interface DbSiteRow {
@@ -138,6 +143,20 @@ function normalizeIntegrity(raw: string): IntegrityClass {
   return raw === "VALID" || raw === "MANUAL" || raw === "AUTO" || raw === "CONFLICT" ? raw : "CONFLICT";
 }
 
+function pauseFields(row: DbSessionRow): Partial<SessionRecord["bookkeeping"]> {
+  const out: Partial<SessionRecord["bookkeeping"]> = {};
+  const pauses = parseJson<PauseInterval[]>(row.pauses_json ?? null, []);
+  if (Array.isArray(pauses) && pauses.length) out.pauses = pauses;
+  const src = normalizePausesSource(row.pauses_source);
+  if (src !== "RECORDED") out.pausesSource = src;
+  if (row.breaks_clipped) out.breaksClipped = true;
+  return out;
+}
+
+function normalizePausesSource(raw: unknown): PausesSource {
+  return raw === "LEDGER" || raw === "PRORATED" ? raw : "RECORDED";
+}
+
 function parseJson<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
   try {
@@ -180,6 +199,9 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
       original: parseJson<OriginalTimes | null>(row.original_json, null),
       manualNote: await FieldCryptoService.open(row.manual_note_sealed),
       updatedAtMs,
+      // Campos de §5.3 solo cuando difieren del valor por defecto: los registros
+      // antiguos quedan idénticos (misma evidencia, mismo contentHash).
+      ...pauseFields(row),
     },
   };
 }
@@ -210,6 +232,9 @@ export const SESSION_COLUMNS = [
   "original_json",
   "manual_note_sealed",
   "updated_at_ms",
+  "pauses_json",
+  "pauses_source",
+  "breaks_clipped",
 ] as const;
 
 export async function sessionToParams(s: SessionRecord): Promise<(string | number | null)[]> {
@@ -239,6 +264,9 @@ export async function sessionToParams(s: SessionRecord): Promise<(string | numbe
     b.original ? JSON.stringify(b.original) : null,
     await FieldCryptoService.seal(b.manualNote),
     b.updatedAtMs,
+    JSON.stringify(b.pauses ?? []),
+    b.pausesSource ?? "RECORDED",
+    b.breaksClipped ? 1 : 0,
   ];
 }
 

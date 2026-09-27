@@ -312,6 +312,8 @@ export const es = {
     lunch30: "Sí (30 min)",
     lunch60: "Sí (60 min)",
     lunchNo: "No tomé",
+    lunchStartQuestion: "¿A qué hora empezó el almuerzo?",
+    lunchStartHint: "Tu jornada cruza el inicio de otra jornada; la hora sirve para descontarlo en el día correcto.",
     lunchSupervisorTitle: "Almuerzo en curso",
     lunchElapsed: "Tiempo transcurrido",
     editTitle: "Editar sesión",

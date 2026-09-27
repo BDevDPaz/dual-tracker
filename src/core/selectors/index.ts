@@ -20,7 +20,7 @@ import type {
 import { OPEN_SESSION_STATES } from "../contracts";
 import { DISCLOSURE_VERSION } from "../../i18n/legal";
 import { PayrollEngineService } from "../../services/domain/PayrollEngineService";
-import { toDateString } from "../../utils/dateUtils";
+import { nextWorkdayBoundary, toDateString } from "../../utils/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Gate (Producto §5.1)
@@ -312,3 +312,15 @@ export const selectLedgerHealth = (s: DualTrackerState) => s.health.ledger;
 // ---------------------------------------------------------------------------
 export const selectCalendarHistory = (s: DualTrackerState) => companyCalendar(s.settings.company);
 export const selectPendingCalendarChange = (s: DualTrackerState, nowMs: number) => pendingCalendarChange(s.settings.company, nowMs);
+
+/**
+ * ¿La jornada abierta cruza un límite de jornada si se cerrara ahora? LunchModal
+ * pide entonces la hora de inicio del almuerzo (spec v1.3 §5.3).
+ */
+export function selectActiveCrossesWorkday(s: DualTrackerState, nowMs: number): boolean {
+  const open = selectActiveSession(s);
+  if (!open || !OPEN_SESSION_STATES.includes(open.domainStatus)) return false;
+  const start = open.actualStartAtMs ?? open.declaredStartAtMs;
+  const end = open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : nowMs;
+  return nextWorkdayBoundary(start, companyCalendar(s.settings.company)) < end;
+}

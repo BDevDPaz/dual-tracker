@@ -54,7 +54,12 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
     case "STAY_WORKING":
       return { type: "STAY_WORKING" };
     case "CLOSE_DAY":
-      return { type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: i.lunchDeductedMinutes ?? null };
+      return {
+        type: "CLOSE_DAY",
+        mode: "MANUAL",
+        lunchDeductedMinutes: i.lunchDeductedMinutes ?? null,
+        ...(i.lunchStartAtMs != null ? { lunchStartAtMs: i.lunchStartAtMs } : {}),
+      };
     case "PATCH_SESSION":
       return { type: "MANUAL_PATCH", sessionId: i.sessionId, declaredStartAtMs: i.declaredStartAtMs, endAtMs: i.endAtMs, note: i.note };
     case "ADD_NOTE":
@@ -84,7 +89,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       const { result } = await startDay({ siteId: intent.siteId, clientId: intent.clientId, note: intent.note });
       return report(result);
     }
-    if (intent.type === "CONFIRM_EXIT") return report(await confirmExit(intent.lunchDeductedMinutes));
+    if (intent.type === "CONFIRM_EXIT") return report(await confirmExit(intent.lunchDeductedMinutes, "UI", intent.lunchStartAtMs));
     const sessionIntent = toSessionIntent(intent);
     if (sessionIntent) return report(await SessionEngineService.dispatch(sessionIntent, "UI"));
 

@@ -27,7 +27,7 @@ import { OPEN_SESSION_STATES } from "../../core/contracts";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { LoggingService } from "./LoggingService";
-import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION } from "./schema";
+import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
@@ -113,11 +113,78 @@ async function repairInvalidDateStrings(database: SQLite.SQLiteDatabase): Promis
   return fixed;
 }
 
+/** Tolerancia de la reconstrucción de pausas (spec v1.3 §5.3: ±60 s). */
+const PAUSE_BACKFILL_TOLERANCE_MS = 60_000;
+
+/**
+ * Migración única de pausas antiguas (spec v1.3 §5.3). Para sesiones cerradas
+ * con total_paused_ms > 0 y pauses_json vacío, empareja en el ledger cada
+ * LUNCH_START/PAUSE_STARTED con el RESUME siguiente de la misma sesión (una
+ * pausa abierta al cierre se cierra en end_ms, como hace closeRecord). Si la
+ * suma coincide con total_paused_ms (±60 s) → pauses_source = LEDGER; si no →
+ * PRORATED (el motor prorratea con advertencia). Idempotente (KV).
+ */
+export async function backfillPausesFromLedger(database: SQLite.SQLiteDatabase): Promise<{ ledger: number; prorated: number }> {
+  const out = { ledger: 0, prorated: 0 };
+  if (await readKv(database, KV_KEYS.PAUSES_BACKFILL)) return out;
+  const rows = await database.getAllAsync<{ id: number; total_paused_ms: number; end_ms: number | null }>(
+    `SELECT id, total_paused_ms, end_ms FROM sessions
+     WHERE domain_status = 'CERRADA' AND total_paused_ms > 0 AND (pauses_json IS NULL OR pauses_json = '[]')`,
+  );
+  for (const r of rows) {
+    const entries = await database.getAllAsync<{ intent: string; reason: string; timestamp_ms: number }>(
+      `SELECT intent, reason, timestamp_ms FROM ledger_entries WHERE session_id = ? ORDER BY id ASC`,
+      [r.id],
+    );
+    const pauses: { startAtMs: number; endAtMs: number }[] = [];
+    let open: number | null = null;
+    for (const e of entries) {
+      if (e.intent === "LUNCH_START" && e.reason === "PAUSE_STARTED") open = Number(e.timestamp_ms);
+      else if (open !== null && (e.intent === "RESUME" || e.intent === "CLOSE_DAY" || e.intent === "AUTO_CLOSE")) {
+        const end = e.intent === "RESUME" ? Number(e.timestamp_ms) : Number(r.end_ms ?? e.timestamp_ms);
+        pauses.push({ startAtMs: open, endAtMs: Math.max(open, end) });
+        open = null;
+      }
+    }
+    const sum = pauses.reduce((a, p) => a + (p.endAtMs - p.startAtMs), 0);
+    const matches = pauses.length > 0 && Math.abs(sum - Number(r.total_paused_ms)) <= PAUSE_BACKFILL_TOLERANCE_MS;
+    if (matches) {
+      await database.runAsync(`UPDATE sessions SET pauses_json = ?, pauses_source = 'LEDGER' WHERE id = ?`, [JSON.stringify(pauses), r.id]);
+      out.ledger++;
+    } else {
+      await database.runAsync(`UPDATE sessions SET pauses_source = 'PRORATED' WHERE id = ?`, [r.id]);
+      out.prorated++;
+    }
+  }
+  await database.runAsync(`INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`, [
+    KV_KEYS.PAUSES_BACKFILL,
+    JSON.stringify({ doneAtMs: TimeAuthorityService.now(), ...out }),
+    TimeAuthorityService.now(),
+  ]);
+  if (out.ledger + out.prorated > 0) {
+    LoggingService.system({
+      color: "AMARILLO",
+      category: "SERVICIOS_ACTIVOS",
+      severity: "INFO",
+      message: "Pausas antiguas reconstruidas desde el ledger",
+      metadata: out,
+    });
+  }
+  return out;
+}
+
+async function readKv(database: SQLite.SQLiteDatabase, key: string): Promise<unknown> {
+  const row = await database.getFirstAsync<{ value_json: string }>(`SELECT value_json FROM app_kv WHERE key = ?`, [key]);
+  return row ? JSON.parse(row.value_json) : null;
+}
+
 async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
-  // v1: esquema inicial. Las siguientes versiones añaden columnas aquí.
-  void addColumnIfMissing;
+  // v1: esquema inicial. Columnas aditivas (spec v1.3 §5.3: pausas por intervalo).
+  for (const [col, def] of SESSION_ADDED_COLUMNS) await addColumnIfMissing(database, "sessions", col, def);
   // v2: reparación de date_string (ver arriba).
   await repairInvalidDateStrings(database);
+  // Paso de datos sin clave: pausas antiguas desde el ledger (una vez).
+  await backfillPausesFromLedger(database);
   await database.runAsync(
     `INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`,
     [KV_KEYS.SCHEMA_VERSION, JSON.stringify(SCHEMA_VERSION), TimeAuthorityService.now()],

@@ -176,7 +176,7 @@ export const SessionEngineService = {
               reason: out.reason,
               timestampMs: nowMs,
               integrityClass: record.integrityClass,
-              data: ledgerData(intent),
+              data: out.ledgerExtra ? { ...(ledgerData(intent) as object), ...out.ledgerExtra } : ledgerData(intent),
             },
             db,
           );

@@ -8,6 +8,14 @@
 import type { IntentOrigin } from "../../../core/contracts";
 import { SessionEngineService } from "../../domain/SessionEngineService";
 
-export async function confirmExit(lunchDeductedMinutes: number | null | undefined, origin: IntentOrigin = "UI") {
-  return SessionEngineService.dispatch({ type: "CLOSE_DAY", mode: "EXIT_CONFIRMED", lunchDeductedMinutes: lunchDeductedMinutes ?? null }, origin);
+export async function confirmExit(lunchDeductedMinutes: number | null | undefined, origin: IntentOrigin = "UI", lunchStartAtMs?: number | null) {
+  return SessionEngineService.dispatch(
+    {
+      type: "CLOSE_DAY",
+      mode: "EXIT_CONFIRMED",
+      lunchDeductedMinutes: lunchDeductedMinutes ?? null,
+      ...(lunchStartAtMs != null ? { lunchStartAtMs } : {}),
+    },
+    origin,
+  );
 }

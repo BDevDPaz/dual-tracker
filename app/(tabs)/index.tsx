@@ -28,6 +28,7 @@ import {
   selectActiveSession,
   selectCurrentTargetSite,
   selectHasConflict,
+  selectActiveCrossesWorkday,
   selectLastSessionToday,
   selectLedgerHealth,
   selectLunchElapsedMs,
@@ -40,7 +41,7 @@ import {
   type HeroAction,
 } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
-import { formatCurrency, formatDate, formatDuration, formatTime } from "../../src/utils/dateUtils";
+import { formatCurrency, formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
 type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT";
 
@@ -206,13 +207,20 @@ export default function TodayScreen() {
       <LunchModal
         visible={modal === "LUNCH_CLOSE_DAY" || modal === "LUNCH_CLOSE_EXIT"}
         mode="close"
+        askStartTime={selectActiveCrossesWorkday(state, nowMs)}
         onCancel={() => setModal(null)}
-        onConfirm={(minutes) =>
+        onConfirm={(minutes, startHHmm) => {
+          // "HH:mm" → primer instante ≥ inicio de la jornada con esa hora de pared (§5.3).
+          const [h, m] = (startHHmm ?? "").split(":").map(Number);
+          const base = active ? active.actualStartAtMs ?? active.declaredStartAtMs : nowMs;
+          const lunchStartAtMs = startHHmm ? wallMinutesOnOrAfter(base, h * 60 + m) : null;
           void run(
-            modal === "LUNCH_CLOSE_EXIT" ? { type: "CONFIRM_EXIT", lunchDeductedMinutes: minutes } : { type: "CLOSE_DAY", lunchDeductedMinutes: minutes },
+            modal === "LUNCH_CLOSE_EXIT"
+              ? { type: "CONFIRM_EXIT", lunchDeductedMinutes: minutes, lunchStartAtMs }
+              : { type: "CLOSE_DAY", lunchDeductedMinutes: minutes, lunchStartAtMs },
             () => setModal(null),
-          )
-        }
+          );
+        }}
       />
 
       <LunchModal

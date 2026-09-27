@@ -15,6 +15,13 @@
 export const DB_NAME = "dual_tracker_v1.db";
 export const SCHEMA_VERSION = 2; // v2: reparación de date_string (ver PersistenceService.runMigrations)
 
+/** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
+export const SESSION_ADDED_COLUMNS: [string, string][] = [
+  ["pauses_json", "TEXT NOT NULL DEFAULT '[]'"],
+  ["pauses_source", "TEXT NOT NULL DEFAULT 'RECORDED'"],
+  ["breaks_clipped", "INTEGER NOT NULL DEFAULT 0"],
+];
+
 export const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +48,10 @@ export const CREATE_TABLES_SQL = `
     first_exit_reliable INTEGER,
     original_json TEXT,
     manual_note_sealed TEXT,
-    updated_at_ms INTEGER NOT NULL
+    updated_at_ms INTEGER NOT NULL,
+    pauses_json TEXT NOT NULL DEFAULT '[]',
+    pauses_source TEXT NOT NULL DEFAULT 'RECORDED',
+    breaks_clipped INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_start ON sessions(declared_start_ms);
   CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(domain_status);
@@ -170,4 +180,6 @@ export const KV_KEYS = {
   LAST_FIX: "runtime.last_fix",
   LAST_PACK_WEEK: "runtime.last_payroll_export_week",
   MUTEX_PREFIX: "mutex.",
+  /** Migración única de pausas antiguas desde el ledger (spec v1.3 §5.3). */
+  PAUSES_BACKFILL: "payroll.pauses_backfill.v1",
 } as const;
