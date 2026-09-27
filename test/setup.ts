@@ -32,6 +32,7 @@ import { CREATE_TABLES_SQL } from "../src/services/persistence/schema";
 import { ConcurrencyGuardService } from "../src/services/domain/ConcurrencyGuardService";
 import { GeofenceRuntimeService } from "../src/services/runtime/GeofenceRuntimeService";
 import { Store } from "../src/core/store";
+import { FieldCryptoService } from "../src/services/persistence/FieldCryptoService";
 
 const RESETTABLE = [
   "expo-location",
@@ -51,6 +52,7 @@ beforeEach(async () => {
   ConcurrencyGuardService.__resetForTests();
   GeofenceRuntimeService.__resetForTests();
   Store.reset();
+  FieldCryptoService.__resetForTests();
   for (const m of RESETTABLE) (require(m) as { __reset?: () => void }).__reset?.();
   await (require("expo-sqlite") as typeof import("./mocks/expo-sqlite")).__resetAll(CREATE_TABLES_SQL);
 

@@ -14,7 +14,11 @@ const config: Config = {
   testMatch: ["**/__tests__/**/*.test.ts?(x)"],
   setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
   // Sin alias @/ en tsconfig: imports relativos como el árbol actual.
-  // transformIgnorePatterns: el de jest-expo, sin recortar.
+  // transformIgnorePatterns: el de jest-expo + @noble (ESM puro, spec v1.3 §8).
+  transformIgnorePatterns: [
+    "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@noble/.*))",
+    "/node_modules/react-native-reanimated/plugin/",
+  ],
   clearMocks: true,
   restoreMocks: true,
   collectCoverageFrom: [

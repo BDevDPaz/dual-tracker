@@ -26,6 +26,7 @@ import type {
 import { OPEN_SESSION_STATES } from "../../core/contracts";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
+import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
 import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS } from "./schema";
 import {
@@ -731,3 +732,39 @@ function mapPackRow(row: Record<string, unknown>): EvidencePack {
     createdAtMs: Number(row.created_at_ms),
   };
 }
+
+// ---------------------------------------------------------------------------
+// FieldCrypto: metadatos en app_kv y escaneo de kids (spec v1.3 §9, §14)
+// ---------------------------------------------------------------------------
+/** Columnas del inventario (§6) con sobres; app_kv se revisa por separado. */
+export const CRYPTO_INVENTORY: { table: string; column: string }[] = [
+  { table: "sessions", column: "manual_note_sealed" },
+  { table: "sites", column: "alias" },
+  { table: "sites", column: "client_name" },
+  { table: "sites", column: "address" },
+  { table: "sites", column: "notes" },
+  { table: "spatial_facts", column: "coords_sealed" },
+];
+
+async function scanKids(): Promise<string[]> {
+  const d = await ensureReady();
+  const kids = new Set<string>();
+  const cols = [...CRYPTO_INVENTORY];
+  const siteCols = await d.getAllAsync<{ name: string }>(`PRAGMA table_info(sites);`);
+  if (siteCols.some((c) => c.name === "target_coords_enc")) cols.push({ table: "sites", column: "target_coords_enc" });
+  for (const { table, column } of cols) {
+    const rows = await d.getAllAsync<{ k: string | null }>(
+      `SELECT DISTINCT substr(${column}, 8, instr(substr(${column}, 8), ':') - 1) AS k FROM ${table} WHERE ${column} LIKE 'enc:v1:%'`,
+    );
+    for (const r of rows) if (r.k) kids.add(r.k);
+  }
+  const kv = await d.getAllAsync<{ value_json: string }>(`SELECT value_json FROM app_kv WHERE value_json LIKE '%enc:v1:%'`);
+  for (const r of kv) for (const m of r.value_json.matchAll(/enc:v1:(k\d+):/g)) kids.add(m[1]);
+  return [...kids].sort();
+}
+
+FieldCryptoService.attachStorage({
+  getKv: (k) => PersistenceService.getKv(k),
+  setKv: (k, v) => PersistenceService.setKv(k, v),
+  scanKids,
+});
