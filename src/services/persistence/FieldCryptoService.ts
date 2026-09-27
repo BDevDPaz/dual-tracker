@@ -384,38 +384,4 @@ export const FieldCryptoService = {
   __forgetCache(): void {
     state = fresh();
   },
-
-  // ------------------------------------------------------------------ LEGADO (se retira en C2)
-  /** @deprecated pass-through de 8df2b9a; se elimina al cablear los mappers (C2). */
-  async init(): Promise<boolean> {
-    await FieldCryptoService.ensureMasterKey();
-    return state.status !== "UNAVAILABLE";
-  },
-  /** @deprecated */
-  isEncryptionActive(): boolean {
-    return false;
-  },
-  /** @deprecated */
-  async seal(plain: string | null): Promise<string | null> {
-    return plain === null || plain === undefined ? null : `${PLAIN_PREFIX}${plain}`;
-  },
-  /** @deprecated */
-  async open(sealed: string | null): Promise<string | null> {
-    if (sealed === null || sealed === undefined) return null;
-    return sealed.startsWith(PLAIN_PREFIX) ? sealed.slice(PLAIN_PREFIX.length) : sealed;
-  },
-  /** @deprecated */
-  async sealJson(value: unknown): Promise<string | null> {
-    return value === null || value === undefined ? null : FieldCryptoService.seal(JSON.stringify(value));
-  },
-  /** @deprecated */
-  async openJson<T>(sealed: string | null): Promise<T | null> {
-    const raw = await FieldCryptoService.open(sealed);
-    if (raw === null) return null;
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      return null;
-    }
-  },
 };

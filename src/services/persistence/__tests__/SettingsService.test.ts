@@ -16,7 +16,8 @@ describe("SettingsService", () => {
     await SettingsService.saveCompany({ ...DEFAULT_COMPANY_POLICY, companyEmail: "rrhh@empresa.test" });
     const raw = await PersistenceService.getKv<Record<string, unknown>>(KV_KEYS.COMPANY);
     expect(raw).not.toHaveProperty("companyEmail");
-    expect(raw?.companyEmailSealed).toMatch(/^plain:v1:|^aesgcm:v1:/);
+    expect(raw?.companyEmailSealed).toMatch(/^enc:v1:k1:settings\.companyEmail:/);
+    expect(JSON.stringify(raw)).not.toContain("rrhh@empresa.test");
     expect((await SettingsService.load()).company.companyEmail).toBe("rrhh@empresa.test");
   });
 

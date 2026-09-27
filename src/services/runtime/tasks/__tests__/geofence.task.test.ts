@@ -130,6 +130,8 @@ describe("geofence.task", () => {
     time.travel(2000);
     await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
     expect(await PersistenceService.listSpatialFacts(s.id, ["ENTER"])).toHaveLength(1);
-    expect(await PersistenceService.getKv(KV_KEYS.LAST_FIX)).toMatchObject({ lat: SITE_LAT });
+    // spec v1.3 §6: runtime.last_fix cifrado en app_kv; se lee descifrado.
+    expect(await PersistenceService.getKv(KV_KEYS.LAST_FIX)).toMatch(/^enc:v1:k1:kv\.lastFix:/);
+    expect(await PersistenceService.getLastFix()).toMatchObject({ lat: SITE_LAT });
   });
 });

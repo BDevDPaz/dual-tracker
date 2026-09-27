@@ -35,7 +35,7 @@ describe("mappers", () => {
 
   test("sessionToParams ↔ rowToSession es ida y vuelta", async () => {
     const s = makeClosedSession(MONDAY_8AM, 8, { id: 7 });
-    const params = await sessionToParams(s);
+    const params = sessionToParams(s, null);
     const cols = SESSION_COLUMNS as readonly string[];
     expect(params).toHaveLength(cols.length);
     const row = Object.fromEntries(cols.map((c, i) => [c, params[i]])) as unknown as DbSessionRow;
@@ -44,7 +44,7 @@ describe("mappers", () => {
 
   test("rowToSession tolera timestamps TEXT y clase de integridad desconocida (→ CONFLICT)", async () => {
     const s = makeClosedSession(MONDAY_8AM, 8, { id: 3 });
-    const params = await sessionToParams(s);
+    const params = sessionToParams(s, null);
     const row = Object.fromEntries((SESSION_COLUMNS as readonly string[]).map((c, i) => [c, params[i]])) as unknown as Record<string, unknown>;
     const weird = { ...row, id: 3, declared_start_ms: String(MONDAY_8AM), integrity_class: "???", date_string: "Invalid Date", domain_status: "ACTIVE_WORK" };
     const out = await rowToSession(weird as unknown as DbSessionRow);
@@ -54,8 +54,8 @@ describe("mappers", () => {
     expect(out.domainStatus).toBe("ACTIVA");
   });
 
-  test("rowToSite mapea booleanos y nulos", () => {
-    const site = rowToSite({ id: 1, alias: "A", address: "x", client_name: null, notes: null, target_lat: 1, target_lon: 2, radius_m: null, active: 0, created_at_ms: MONDAY_8AM, archived_at_ms: MONDAY_8AM + 1000 } as Parameters<typeof rowToSite>[0]);
+  test("rowToSite mapea booleanos y nulos", async () => {
+    const site = await rowToSite({ id: 1, alias: "A", address: "x", client_name: null, notes: null, target_lat: 1, target_lon: 2, radius_m: null, active: 0, created_at_ms: MONDAY_8AM, archived_at_ms: MONDAY_8AM + 1000 } as Parameters<typeof rowToSite>[0]);
     expect(site).toMatchObject({ id: 1, active: false, radiusM: null, createdAtMs: MONDAY_8AM, archivedAtMs: MONDAY_8AM + 1000 });
   });
 });

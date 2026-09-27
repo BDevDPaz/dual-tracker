@@ -153,6 +153,11 @@ export interface SessionRecord {
     breaksClipped?: boolean;
     /** RESOLVE_SPLIT (spec v1.3 §5.4): id de la sesión original de la que salió esta mitad. */
     splitFromSessionId?: number;
+    /**
+     * FieldCrypto v1.3 §14: campos cifrados con un kid perdido (no legibles en
+     * este dispositivo). Solo se hidrata; nunca se persiste ni se reescribe.
+     */
+    unreadableFields?: ("note" | "trace")[];
   };
 }
 

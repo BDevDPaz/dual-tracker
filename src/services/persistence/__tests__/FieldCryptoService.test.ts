@@ -8,6 +8,10 @@ import { KeyStore } from "../keyStore";
 import { SCHEMA_VERSION } from "../schema";
 import { b64urlDecode, b64urlEncode } from "../cryptoCodec";
 import { makeClosedSession, MONDAY_8AM } from "../../../../test/fixtures/session.fixture";
+import { makeBreadcrumb } from "../../../../test/fixtures/spatial.fixture";
+import { seedSite } from "../../../../test/helpers";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const F = FieldCryptoService;
 const code = async (p: Promise<unknown>) => {
@@ -175,14 +179,73 @@ describe("FieldCryptoService v1.3 — noteDigest (§13)", () => {
 });
 
 describe("FieldCryptoService — persistencia", () => {
-  /**
-   * TODO(C2): la Propuesta de calidad §4.4 pide "texto distinto al plano tras
-   * persistir". Pasa a verde al cablear los mappers con la API canónica.
-   */
-  test.failing("tras persistir, la nota no aparece en claro en SQLite", async () => {
+  /** Propuesta de calidad §4.4 / spec v1.3 §17 #3: antes test.failing; ahora verde. */
+  test("tras persistir, la nota no aparece en claro en SQLite", async () => {
     const db = await PersistenceService.init();
     await PersistenceService.insertSession(makeClosedSession(MONDAY_8AM, 8, { bookkeeping: { manualNote: "nota muy privada" } }));
     const row = await db.getFirstAsync<{ manual_note_sealed: string }>(`SELECT manual_note_sealed FROM sessions`);
     expect(row!.manual_note_sealed).not.toContain("nota muy privada");
+  });
+
+  test("#3 SQL crudo ciego: nota, alias, cliente, dirección y notas del destino; hechos espaciales", async () => {
+    const db = await PersistenceService.init();
+    const siteId = await seedSite({ alias: "Obra Ñuñoa", clientName: "Cliente Secreto SA", address: "Calle Privada 123", notes: "portón azul" });
+    await PersistenceService.insertSpatialFact({ ...makeBreadcrumb({ sessionId: 1, lat: 34.123456789 }), siteId });
+    const site = (await db.getFirstAsync<Record<string, string>>(`SELECT * FROM sites WHERE id = ?`, [siteId]))!;
+    for (const [col, txt] of [["alias", "Obra"], ["client_name", "Cliente"], ["address", "Privada"], ["notes", "portón"]]) {
+      expect(site[col]).toMatch(/^enc:v1:k1:site\./);
+      expect(site[col]).not.toContain(txt);
+    }
+    const fact = (await db.getFirstAsync<{ coords_sealed: string; id: number }>(`SELECT id, coords_sealed FROM spatial_facts`))!;
+    expect(fact.coords_sealed).toMatch(/^enc:v1:k1:spatial\.coords:/);
+    expect(fact.coords_sealed).not.toContain("34.12");
+    // Se hidratan descifrados.
+    expect(await PersistenceService.getSite(siteId)).toMatchObject({ alias: "Obra Ñuñoa", clientName: "Cliente Secreto SA", address: "Calle Privada 123", notes: "portón azul" });
+    expect((await PersistenceService.listSpatialFacts(1))[0].lat).toBe(34.1234568);
+  });
+
+  test("listSites ordena en memoria (acentos y mayúsculas, desempate por id); el SQL no ordena por alias", async () => {
+    await PersistenceService.init();
+    const ids: Record<string, number> = {};
+    for (const a of ["zeta", "Álamo", "alamo", "Beta", "ábaco"]) ids[a] = await seedSite({ alias: a });
+    const sorted = (await PersistenceService.listSites()).map((x) => x.alias);
+    expect(sorted).toEqual(["ábaco", "Álamo", "alamo", "Beta", "zeta"]);
+    const src = readFileSync(join(__dirname, "..", "PersistenceService.ts"), "utf8");
+    expect(src).not.toMatch(/ORDER BY\s+s?\.?alias/i);
+  });
+
+  test("reescritura en la siguiente escritura: una nota plain:v1: pasa a enc:v1: al actualizar la fila", async () => {
+    const db = await PersistenceService.init();
+    const id = await PersistenceService.insertSession(makeClosedSession(MONDAY_8AM, 8));
+    await db.runAsync(`UPDATE sessions SET manual_note_sealed = 'plain:v1:antigua' WHERE id = ?`, [id]);
+    const s = (await PersistenceService.getSession(id))!;
+    expect(s.bookkeeping.manualNote).toBe("antigua");
+    // Leer no reescribe.
+    expect((await db.getFirstAsync<{ n: string }>(`SELECT manual_note_sealed AS n FROM sessions WHERE id = ?`, [id]))!.n).toBe("plain:v1:antigua");
+    await PersistenceService.updateSession(s);
+    const raw = (await db.getFirstAsync<{ n: string }>(`SELECT manual_note_sealed AS n FROM sessions WHERE id = ?`, [id]))!.n;
+    expect(raw).toMatch(/^enc:v1:k1:session\.note:/);
+    expect((await PersistenceService.getSession(id))!.bookkeeping.manualNote).toBe("antigua");
+  });
+
+  test("escritura degradada: con UNAVAILABLE el informe lista los campos y se guarda plain:v1:", async () => {
+    await PersistenceService.init();
+    KeyStore.__setFailure(new Error("sin llavero"));
+    const report = { degradedFields: [] as string[] };
+    await PersistenceService.insertSession(makeClosedSession(MONDAY_8AM, 8, { bookkeeping: { manualNote: "n" } }), undefined, report);
+    await PersistenceService.insertSpatialFact(makeBreadcrumb({ sessionId: 1 }), report);
+    expect(report.degradedFields).toEqual(["session.note", "spatial.coords"]);
+    // Sin escritura sensible no hay campo degradado.
+    const r2 = { degradedFields: [] as string[] };
+    await PersistenceService.insertSession(makeClosedSession(MONDAY_8AM + 86_400_000, 8), undefined, r2);
+    expect(r2.degradedFields).toEqual([]);
+  });
+
+  test("companyEmail y last_fix cifrados en app_kv", async () => {
+    await PersistenceService.init();
+    await PersistenceService.setLastFix({ lat: 34.05, lon: -118.24, timestampMs: 1 });
+    const raw = await PersistenceService.getKv<string>("runtime.last_fix");
+    expect(raw).toMatch(/^enc:v1:k1:kv\.lastFix:/);
+    expect(await PersistenceService.getLastFix()).toEqual({ lat: 34.05, lon: -118.24, timestampMs: 1 });
   });
 });

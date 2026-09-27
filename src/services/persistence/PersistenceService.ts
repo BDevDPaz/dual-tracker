@@ -37,9 +37,29 @@ import {
   rowToSession,
   rowToSite,
   rowToSpatialFact,
-  sealCoords,
   sessionToParams,
+  type SealedCoords,
 } from "./mappers";
+
+/**
+ * Informe de escritura (spec v1.3 §10): campos sensibles que salieron
+ * degradados (plain:v1:, FieldCrypto UNAVAILABLE). El motor aplica §12.
+ * Se pasa como parámetro de salida opcional para no romper las firmas.
+ */
+export interface WriteReport {
+  degradedFields: string[];
+}
+
+/** Orden de destinos (§7): en memoria, colación española sin mayúsculas ni acentos; desempate por id. */
+let collator: Intl.Collator | null = null;
+function compareAlias(a: Site, b: Site): number {
+  try {
+    collator ??= new Intl.Collator("es", { sensitivity: "base" });
+    return collator.compare(a.alias, b.alias) || a.id - b.id;
+  } catch {
+    return a.alias.toLocaleLowerCase().localeCompare(b.alias.toLocaleLowerCase()) || a.id - b.id;
+  }
+}
 
 type SqlParam = string | number | null;
 
@@ -192,6 +212,31 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   );
 }
 
+const SITE_TEXT_FIELDS = [
+  { column: "alias", key: "alias", fieldId: "site.alias" },
+  { column: "address", key: "address", fieldId: "site.address" },
+  { column: "client_name", key: "clientName", fieldId: "site.clientName" },
+  { column: "notes", key: "notes", fieldId: "site.notes" },
+] as const;
+
+/**
+ * Cifra y escribe alias, dirección, cliente y notas (§6). Un campo ilegible
+ * (kid perdido, §14) que sigue con su valor hidratado vacío no se reescribe.
+ */
+async function writeSiteText(d: SQLite.SQLiteDatabase, site: Pick<Site, "id" | "alias" | "address" | "clientName" | "notes" | "unreadableFields">, report?: WriteReport): Promise<void> {
+  const sets: string[] = [];
+  const params: SqlParam[] = [];
+  for (const f of SITE_TEXT_FIELDS) {
+    const value = site[f.key];
+    if (site.unreadableFields?.includes(f.key) && (value === null || value === "")) continue;
+    const enc = await FieldCryptoService.encrypt(f.fieldId, site.id, value);
+    if (enc.degraded) report?.degradedFields.push(f.fieldId);
+    sets.push(`${f.column} = ?`);
+    params.push(enc.stored);
+  }
+  if (sets.length) await d.runAsync(`UPDATE sites SET ${sets.join(", ")} WHERE id = ?`, [...params, site.id]);
+}
+
 async function ensureReady(): Promise<SQLite.SQLiteDatabase> {
   if (ready && db) return db;
   return PersistenceService.init();
@@ -262,9 +307,10 @@ export const PersistenceService = {
   // -------------------------------------------------------------------------
   // Sesiones (solo SessionEngineService escribe)
   // -------------------------------------------------------------------------
-  async insertSession(record: SessionRecord, database?: SQLite.SQLiteDatabase): Promise<number> {
+  async insertSession(record: SessionRecord, database?: SQLite.SQLiteDatabase, report?: WriteReport): Promise<number> {
     const d = database ?? (await ensureReady());
-    const params = await sessionToParams(record);
+    // §8: INSERT con la columna sensible en NULL → lastInsertRowId → encrypt(rowId) → UPDATE.
+    const params = sessionToParams(record, null);
     const placeholders = SESSION_COLUMNS.map(() => "?").join(", ");
     const res = await d.runAsync(
       `INSERT INTO sessions (${SESSION_COLUMNS.join(", ")}) VALUES (${placeholders})`,
@@ -274,14 +320,27 @@ export const PersistenceService = {
     if (!Number.isFinite(id) || id <= 0) {
       throw new Error("La base de datos no devolvió un ID válido al crear la sesión.");
     }
+    if (record.bookkeeping.manualNote !== null && record.bookkeeping.manualNote !== undefined) {
+      const enc = await FieldCryptoService.encrypt("session.note", id, record.bookkeeping.manualNote);
+      if (enc.degraded) report?.degradedFields.push("session.note");
+      await d.runAsync(`UPDATE sessions SET manual_note_sealed = ? WHERE id = ?`, [enc.stored, id]);
+    }
     return id;
   },
 
-  async updateSession(record: SessionRecord, database?: SQLite.SQLiteDatabase): Promise<void> {
+  /**
+   * Reescribe la fila completa; la nota se vuelve a cifrar con el kid activo
+   * (reescritura en la siguiente escritura, §11). Una nota ilegible (kid
+   * perdido, §14) que sigue en null NO se toca: el sobre perdido se conserva.
+   */
+  async updateSession(record: SessionRecord, database?: SQLite.SQLiteDatabase, report?: WriteReport): Promise<void> {
     const d = database ?? (await ensureReady());
-    const params = await sessionToParams(record);
-    const sets = SESSION_COLUMNS.map((c) => `${c} = ?`).join(", ");
-    await d.runAsync(`UPDATE sessions SET ${sets} WHERE id = ?`, [...params, record.id]);
+    const keepNote = !!record.bookkeeping.unreadableFields?.includes("note") && record.bookkeeping.manualNote === null;
+    const enc = keepNote ? { stored: null, degraded: false } : await FieldCryptoService.encrypt("session.note", record.id, record.bookkeeping.manualNote);
+    if (enc.degraded) report?.degradedFields.push("session.note");
+    const params = sessionToParams(record, enc.stored);
+    const cols = SESSION_COLUMNS.map((c, i) => [c, params[i]] as const).filter(([c]) => !(keepNote && c === "manual_note_sealed"));
+    await d.runAsync(`UPDATE sessions SET ${cols.map(([c]) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map(([, v]) => v), record.id]);
   },
 
   async getSession(id: number): Promise<SessionRecord | null> {
@@ -362,16 +421,13 @@ export const PersistenceService = {
   // -------------------------------------------------------------------------
   // Sitios
   // -------------------------------------------------------------------------
-  async insertSite(site: Omit<Site, "id" | "lastVisitAtMs">): Promise<number> {
-    const d = await ensureReady();
-    const res = await d.runAsync(
+  async insertSite(site: Omit<Site, "id" | "lastVisitAtMs">, report?: WriteReport): Promise<number> {
+    // §8: INSERT con alias/address vacíos (NOT NULL) y el resto en NULL → id → encrypt → UPDATE.
+    return PersistenceService.transaction(async (tx) => {
+      const res = await tx.runAsync(
       `INSERT INTO sites (alias, address, client_name, notes, target_lat, target_lon, radius_m, active, created_at_ms, archived_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ('', '', NULL, NULL, ?, ?, ?, ?, ?, ?)`,
       [
-        site.alias,
-        site.address,
-        site.clientName,
-        site.notes,
         site.targetLat,
         site.targetLon,
         site.radiusM,
@@ -379,20 +435,20 @@ export const PersistenceService = {
         site.createdAtMs,
         site.archivedAtMs,
       ],
-    );
-    return Number(res.lastInsertRowId);
+      );
+      const id = Number(res.lastInsertRowId);
+      await writeSiteText(tx, { ...site, id }, report);
+      return id;
+    });
   },
 
-  async updateSite(site: Site): Promise<void> {
-    const d = await ensureReady();
-    await d.runAsync(
-      `UPDATE sites SET alias = ?, address = ?, client_name = ?, notes = ?, target_lat = ?, target_lon = ?,
+  async updateSite(site: Site, report?: WriteReport): Promise<void> {
+    await PersistenceService.transaction(async (d) => {
+      await writeSiteText(d, site, report);
+      await d.runAsync(
+      `UPDATE sites SET target_lat = ?, target_lon = ?,
          radius_m = ?, active = ?, archived_at_ms = ? WHERE id = ?`,
       [
-        site.alias,
-        site.address,
-        site.clientName,
-        site.notes,
         site.targetLat,
         site.targetLon,
         site.radiusM,
@@ -400,13 +456,14 @@ export const PersistenceService = {
         site.archivedAtMs,
         site.id,
       ],
-    );
+      );
+    });
   },
 
   async getSite(id: number): Promise<Site | null> {
     const d = await ensureReady();
     const row = await d.getFirstAsync<DbSiteRow>(`SELECT * FROM sites WHERE id = ?`, [id]);
-    return row ? rowToSite(row) : null;
+    return row ? await rowToSite(row) : null;
   },
 
   async listSites(opts: { includeArchived?: boolean } = {}): Promise<Site[]> {
@@ -416,13 +473,16 @@ export const PersistenceService = {
          SELECT MAX(COALESCE(x.actual_start_ms, x.declared_start_ms)) FROM sessions x
          WHERE x.site_id = s.id AND x.is_deleted = 0
        ) AS last_visit
-       FROM sites s ${opts.includeArchived ? "" : "WHERE s.active = 1"}
-       ORDER BY s.alias COLLATE NOCASE ASC`,
+       FROM sites s ${opts.includeArchived ? "" : "WHERE s.active = 1"}`,
     );
-    return rows.map((r) => ({
-      ...rowToSite(r),
-      lastVisitAtMs: parseTimestamp((r as DbSiteRow & { last_visit: unknown }).last_visit),
-    }));
+    // §7: alias cifrado → el orden pasa a memoria tras descifrar.
+    const sites = await Promise.all(
+      rows.map(async (r) => ({
+        ...(await rowToSite(r)),
+        lastVisitAtMs: parseTimestamp((r as DbSiteRow & { last_visit: unknown }).last_visit),
+      })),
+    );
+    return sites.sort(compareAlias);
   },
 
   async countActiveSites(): Promise<number> {
@@ -510,21 +570,18 @@ export const PersistenceService = {
   // -------------------------------------------------------------------------
   async insertSpatialFact(
     fact: SpatialFact & { speedMps?: number | null; altitudeM?: number | null; battery?: number | null },
+    report?: WriteReport,
+    database?: SQLite.SQLiteDatabase,
   ): Promise<number> {
-    const d = await ensureReady();
+    const d = database ?? (await ensureReady());
+    // §8: INSERT con coords_sealed NULL → lastInsertRowId → encryptJson(rowId) → UPDATE.
     const res = await d.runAsync(
       `INSERT INTO spatial_facts (session_id, site_id, type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
       [
         fact.sessionId,
         fact.siteId ?? null,
         fact.type,
-        await sealCoords({
-          lat: fact.lat,
-          lon: fact.lon,
-          speedMps: fact.speedMps ?? null,
-          altitudeM: fact.altitudeM ?? null,
-        }),
         fact.accuracyM,
         fact.source,
         fact.reliable ? 1 : 0,
@@ -533,7 +590,12 @@ export const PersistenceService = {
         fact.timestampMs,
       ],
     );
-    return Number(res.lastInsertRowId);
+    const id = Number(res.lastInsertRowId);
+    const coords: SealedCoords = { lat: fact.lat, lon: fact.lon, speedMps: fact.speedMps ?? null, altitudeM: fact.altitudeM ?? null };
+    const enc = await FieldCryptoService.encryptJson("spatial.coords", id, coords);
+    if (enc.degraded) report?.degradedFields.push("spatial.coords");
+    await d.runAsync(`UPDATE spatial_facts SET coords_sealed = ? WHERE id = ?`, [enc.stored, id]);
+    return id;
   },
 
   async listSpatialFacts(sessionId: number, types?: SpatialFact["type"][]) {
@@ -588,6 +650,23 @@ export const PersistenceService = {
       JSON.stringify(value),
       TimeAuthorityService.now(),
     ]);
+  },
+
+  /** runtime.last_fix cifrado (§6, fieldId kv.lastFix, rowId = la clave KV). Acepta el valor legado en claro. */
+  async getLastFix(): Promise<{ lat: number; lon: number; timestampMs: number } | null> {
+    const raw = await PersistenceService.getKv<unknown>(KV_KEYS.LAST_FIX);
+    if (raw === null) return null;
+    if (typeof raw === "object") return raw as { lat: number; lon: number; timestampMs: number };
+    try {
+      return await FieldCryptoService.decryptJson("kv.lastFix", KV_KEYS.LAST_FIX, raw as string);
+    } catch {
+      return null;
+    }
+  },
+
+  async setLastFix(fix: { lat: number; lon: number; timestampMs: number }): Promise<void> {
+    const enc = await FieldCryptoService.encryptJson("kv.lastFix", KV_KEYS.LAST_FIX, fix);
+    await PersistenceService.setKv(KV_KEYS.LAST_FIX, enc.stored);
   },
 
   async deleteKv(key: string): Promise<void> {

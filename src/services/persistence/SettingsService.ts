@@ -77,7 +77,7 @@ export const SettingsService = {
       company = {
         ...DEFAULT_COMPANY_POLICY,
         ...rest,
-        companyEmail: (await FieldCryptoService.open(companyEmailSealed)) ?? "",
+        companyEmail: (await FieldCryptoService.decrypt("settings.companyEmail", KV_KEYS.COMPANY, companyEmailSealed).catch(() => null)) ?? "",
       };
     }
 
@@ -96,7 +96,7 @@ export const SettingsService = {
     const { companyEmail, ...rest } = company;
     const stored: StoredCompany = {
       ...rest,
-      companyEmailSealed: await FieldCryptoService.seal(companyEmail),
+      companyEmailSealed: (await FieldCryptoService.encrypt("settings.companyEmail", KV_KEYS.COMPANY, companyEmail)).stored,
     };
     await PersistenceService.setKv(KV_KEYS.COMPANY, stored, database);
   },

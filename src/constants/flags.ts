@@ -10,9 +10,4 @@
  */
 export const DEMO_MODE = false as const;
 
-/**
- * FieldCrypto: expo-crypto (SDK 54) no expone AES. Mientras no haya una
- * primitiva simétrica disponible, FieldCryptoService opera en modo
- * "pass-through" marcado. Ver README → TODO Fase 5.
- */
-export const FIELD_CRYPTO_AVAILABLE = false as const;
+// FieldCrypto v1.3: sin interruptor (se eliminó FIELD_CRYPTO_AVAILABLE; §10 y §12).

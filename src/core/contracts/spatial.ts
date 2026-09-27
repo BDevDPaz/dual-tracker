@@ -33,6 +33,8 @@ export interface SpatialFact {
   /** Motivo de no fiabilidad (ACCURACY_OVER_RADIUS, LOCATION_JUMP, …). */
   reason?: string | null;
   siteId?: number | null;
+  /** FieldCrypto v1.3 §14: coordenadas ilegibles (kid perdido); lat/lon llegan null. */
+  unreadable?: boolean;
 }
 
 /**

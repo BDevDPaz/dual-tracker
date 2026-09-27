@@ -75,7 +75,7 @@ export function ensureRuntimeReady(): Promise<void> {
   if (!runtimeReady) {
     runtimeReady = (async () => {
       await PersistenceService.init();
-      await FieldCryptoService.init();
+      await FieldCryptoService.ensureMasterKey();
       // Migración de política a v2 (spec v1.3 §5.2 N2 / §11 paso 6).
       await migratePayrollPolicyToV2().catch((e) =>
         LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Migración de política falló", serializeError(e)),

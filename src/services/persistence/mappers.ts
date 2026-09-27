@@ -22,7 +22,16 @@ import type {
   TransitSegment,
 } from "../../core/contracts";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
-import { FieldCryptoService } from "./FieldCryptoService";
+import { FieldCryptoService, type FieldId } from "./FieldCryptoService";
+
+/** Descifra; un sobre ilegible (kid perdido, manipulado…) se hidrata como null y se marca. */
+async function readField(fieldId: FieldId, rowId: number | string, stored: string | null): Promise<{ value: string | null; unreadable: boolean }> {
+  try {
+    return { value: await FieldCryptoService.decrypt(fieldId, rowId, stored), unreadable: false };
+  } catch {
+    return { value: null, unreadable: true };
+  }
+}
 
 /**
  * Columnas *_ms: SQLite puede devolver INTEGER, REAL o TEXT (datos legados o
@@ -172,6 +181,7 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
   const updatedAtMs = ms(row.updated_at_ms) ?? 0;
   const declaredStartAtMs = ms(row.declared_start_ms) ?? updatedAtMs;
   const actualStartAtMs = ms(row.actual_start_ms);
+  const note = await readField("session.note", row.id, row.manual_note_sealed);
   return {
     id: row.id,
     declaredStartAtMs,
@@ -199,11 +209,12 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
       firstExitReliable: row.first_exit_reliable === null ? null : Boolean(row.first_exit_reliable),
       integrityReason: (row.integrity_reason as IntegrityReason) ?? "CLEAN",
       original: parseJson<OriginalTimes | null>(row.original_json, null),
-      manualNote: await FieldCryptoService.open(row.manual_note_sealed),
+      manualNote: note.value,
       updatedAtMs,
       // Campos de §5.3 solo cuando difieren del valor por defecto: los registros
       // antiguos quedan idénticos (misma evidencia, mismo contentHash).
       ...pauseFields(row),
+      ...(note.unreadable ? { unreadableFields: ["note" as const] } : {}),
     },
   };
 }
@@ -240,7 +251,11 @@ export const SESSION_COLUMNS = [
   "split_from_session_id",
 ] as const;
 
-export async function sessionToParams(s: SessionRecord): Promise<(string | number | null)[]> {
+/**
+ * Parámetros posicionales. `noteStored` es el sobre ya calculado por
+ * PersistenceService (necesita el rowId: INSERT → lastInsertRowId → UPDATE).
+ */
+export function sessionToParams(s: SessionRecord, noteStored: string | null): (string | number | null)[] {
   const b = s.bookkeeping;
   return [
     s.declaredStartAtMs,
@@ -265,7 +280,7 @@ export async function sessionToParams(s: SessionRecord): Promise<(string | numbe
     b.firstExitAtMs,
     b.firstExitReliable === null ? null : b.firstExitReliable ? 1 : 0,
     b.original ? JSON.stringify(b.original) : null,
-    await FieldCryptoService.seal(b.manualNote),
+    noteStored,
     b.updatedAtMs,
     JSON.stringify(b.pauses ?? []),
     b.pausesSource ?? "RECORDED",
@@ -274,13 +289,24 @@ export async function sessionToParams(s: SessionRecord): Promise<(string | numbe
   ];
 }
 
-export function rowToSite(row: DbSiteRow): Site {
+export async function rowToSite(row: DbSiteRow): Promise<Site> {
+  const unreadable: NonNullable<Site["unreadableFields"]> = [];
+  const read = async (fieldId: FieldId, key: NonNullable<Site["unreadableFields"]>[number], stored: string | null) => {
+    const r = await readField(fieldId, row.id, stored);
+    if (r.unreadable) unreadable.push(key);
+    return r.value;
+  };
+  const alias = await read("site.alias", "alias", row.alias);
+  const address = await read("site.address", "address", row.address);
+  const clientName = await read("site.clientName", "clientName", row.client_name);
+  const notes = await read("site.notes", "notes", row.notes);
   return {
     id: row.id,
-    alias: row.alias,
-    address: row.address,
-    clientName: row.client_name,
-    notes: row.notes,
+    alias: alias ?? "",
+    address: address ?? "",
+    clientName,
+    notes,
+    ...(unreadable.length ? { unreadableFields: unreadable } : {}),
     targetLat: row.target_lat,
     targetLon: row.target_lon,
     radiusM: row.radius_m,
@@ -293,8 +319,15 @@ export function rowToSite(row: DbSiteRow): Site {
 type SealedCoords = { lat: number | null; lon: number | null; speedMps?: number | null; altitudeM?: number | null };
 
 export async function rowToSpatialFact(row: DbSpatialRow): Promise<SpatialFact & { speedMps?: number | null; altitudeM?: number | null; battery?: number | null }> {
-  const coords = (await FieldCryptoService.openJson<SealedCoords>(row.coords_sealed)) ?? { lat: null, lon: null };
+  let coords: SealedCoords = { lat: null, lon: null };
+  let unreadable = false;
+  try {
+    coords = (await FieldCryptoService.decryptJson<SealedCoords>("spatial.coords", row.id, row.coords_sealed)) ?? coords;
+  } catch {
+    unreadable = true;
+  }
   return {
+    ...(unreadable ? { unreadable: true } : {}),
     id: row.id,
     sessionId: row.session_id,
     siteId: row.site_id,
@@ -312,6 +345,4 @@ export async function rowToSpatialFact(row: DbSpatialRow): Promise<SpatialFact &
   };
 }
 
-export async function sealCoords(c: SealedCoords): Promise<string | null> {
-  return FieldCryptoService.sealJson(c);
-}
+export type { SealedCoords };

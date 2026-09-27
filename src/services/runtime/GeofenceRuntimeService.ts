@@ -83,7 +83,7 @@ async function reliabilityIssue(
   if (accuracy === null || accuracy === undefined) return "ACCURACY_UNKNOWN";
   if (accuracy > MAX_ACCEPTABLE_ACCURACY_METERS || accuracy > target.radiusM) return "ACCURACY_GT_RADIUS";
 
-  const last = await PersistenceService.getKv<LastFix>(KV_KEYS.LAST_FIX);
+  const last: LastFix | null = await PersistenceService.getLastFix();
   if (last) {
     const jump = getDistanceFromLatLonInMeters(latitude, longitude, last.lat, last.lon);
     if (Number.isFinite(jump) && jump > MAX_INSTANT_LOCATION_JUMP_METERS) return "LOCATION_JUMP_DETECTED";
@@ -219,7 +219,7 @@ export const GeofenceRuntimeService = {
     };
     await SessionEngineService.recordSpatialFact(fact);
     if (loc && issue === null) {
-      await PersistenceService.setKv(KV_KEYS.LAST_FIX, { lat: loc.coords.latitude, lon: loc.coords.longitude, timestampMs: nowMs } satisfies LastFix);
+      await PersistenceService.setLastFix({ lat: loc.coords.latitude, lon: loc.coords.longitude, timestampMs: nowMs } satisfies LastFix);
     }
 
     if (type === "ENTER") {

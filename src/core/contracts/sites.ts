@@ -17,6 +17,8 @@ export interface Site {
   archivedAtMs: number | null;
   /** Derivado (no persistido): última visita registrada a este siteId. */
   lastVisitAtMs?: number | null;
+  /** FieldCrypto v1.3 §14: campos ilegibles en este dispositivo (kid perdido). Derivado, no persistido. */
+  unreadableFields?: ("alias" | "clientName" | "address" | "notes" | "coords")[];
 }
 
 export interface SiteDraft {
