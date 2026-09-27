@@ -249,3 +249,31 @@ describe("FieldCryptoService — persistencia", () => {
     expect(await PersistenceService.getLastFix()).toEqual({ lat: 34.05, lon: -118.24, timestampMs: 1 });
   });
 });
+
+/**
+ * Vector fijo (spec v1.3 §18 D1): el mismo sobre debe descifrarse en el equipo
+ * (Hermes) y en Jest. Valores repetidos en docs/PRUEBAS_DISPOSITIVO.md.
+ */
+export const KAT = {
+  keyHex: "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  ivB64: "oKGio6Slpqeoqaqr",
+  aad: "dt-fc|v1|k1|session.note|42",
+  plaintext: "Llegué tarde por tráfico 🚧",
+  envelope: "enc:v1:k1:session.note:oKGio6Slpqeoqaqr:qnQZSjAIq58WBPW3YlqwsQKMLWJRFiQF_2EGduAx0kSLcyYB5TzEvnwWD5NisVI",
+};
+
+describe("FieldCryptoService v1.3 — vector fijo D1", () => {
+  test("descifra el sobre de referencia y el cifrado con el mismo IV da los mismos bytes", async () => {
+    (SecureStore as unknown as { __reset: () => void }).__reset();
+    F.__resetForTests();
+    await SecureStore.setItemAsync("dt.mk.k1", b64urlEncode(Uint8Array.from(Buffer.from(KAT.keyHex, "hex"))));
+    F.__forgetCache();
+    expect(await F.decrypt("session.note", 42, KAT.envelope)).toBe(KAT.plaintext);
+    expect(F.activeKid()).toBe("k1");
+    const spy = jest.spyOn(Crypto, "getRandomBytes").mockReturnValue(b64urlDecode(KAT.ivB64));
+    expect((await F.encrypt("session.note", 42, KAT.plaintext)).stored).toBe(KAT.envelope);
+    spy.mockRestore();
+    // Otra fila / otro campo → la AAD no cuadra.
+    await expect(F.decrypt("session.note", 43, KAT.envelope)).rejects.toBeInstanceOf(FieldCryptoError);
+  });
+});

@@ -29,8 +29,15 @@ const OPTIONS: SecureStore.SecureStoreOptions = {
 let failure: Error | null = null;
 let platformOverride: boolean | null = null;
 
+/**
+ * Build de prueba D11 (spec §18): EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1 al
+ * compilar simula un llavero caído. Nunca activar en builds de producción.
+ */
+const FORCED_FAILURE = process.env.EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE === "1";
+
 function guard(): void {
   if (failure) throw failure;
+  if (FORCED_FAILURE) throw new Error("KeyStore forzado a fallar (build de prueba D11)");
   if (!KeyStore.platformSupported) throw new Error("KeyStore no disponible en esta plataforma");
 }
 

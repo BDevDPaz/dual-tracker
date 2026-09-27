@@ -174,9 +174,11 @@ async function doEnsure(): Promise<void> {
       else next.lostKids.push(kid);
     }
     if (!kids.length) {
-      // Sin kids ni datos cifrados: primera clave.
-      const key = Crypto.getRandomBytes(32);
-      await writeSlotVerified("k1", key);
+      // Sin kids ni datos cifrados: primera clave. Si el llavero ya tiene un k1
+      // (p. ej. iOS conserva el llavero tras reinstalar), se adopta: nunca se pisa un slot.
+      const existing = await readSlot("k1");
+      const key = existing ?? Crypto.getRandomBytes(32);
+      if (!existing) await writeSlotVerified("k1", key);
       next.keys.set("k1", key);
       kids = ["k1"];
       active = "k1";

@@ -29,6 +29,7 @@ No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por de
 ## Expediente: contentHash, idempotencia y verificación
 
 - **Manifiesto v2** (`manifestVersion: 2`, `PACK_MANIFEST_VERSION`): añade `contentHash` = SHA-256 (expo-crypto, `canonicalJson`: claves ordenadas, sin `undefined`, fechas en epoch ms, no finitos → `null`) del contenido del periodo: el `PayrollStatement` sin `packHash` + la evidencia de sesiones (asientos con `sessionId`, trazas, conflictos). Excluye lo volátil de cada sello: `packId`, `sealedAtMs`, `ledgerHeadHash`, `ledgerChainValid` (estado global de la cadena) y los asientos sin sesión (`PAYROLL_SEALED` de sellos previos). `packHash` sigue siendo el hash del manifiesto completo y ahora incluye `manifestVersion` y `contentHash`; `statementHash` no cambia.
+- **Manifiesto v3** (FieldCrypto v1.3 §15, `PACK_MANIFEST_VERSION = 3`): añade `sealWarnings: { code: "FIELD_CRYPTO_KEY_LOST"; sessionIds }[]` (vacío si no hay). Es contexto del dispositivo en el momento del sello: entra en `packHash` y **no** en `contentHash`, así que un resello tras perder la clave reutiliza el pack existente. `verify()` acepta v1, v2 y v3. El PDF y el detalle del pack muestran la advertencia.
 - **Verificación** (`EvidencePackService.verify(pack)`): recomputa `statementHash`, `evidenceHash`, `contentHash` y `packHash` y comprueba que `statement.packHash` coincide. Devuelve `{ valid, legacy, failures[] }`.
 - **Packs legados** (v1, sin `manifestVersion` ni `contentHash`): se verifican con el formato antiguo de `packHash` y sin comprobación de contenido (`legacy: true`). A un v2 no se le puede "degradar" a legado quitándole campos: su `packHash` deja de cuadrar. Un pack legado nunca se reutiliza.
 - **Idempotencia**: sellar un periodo cuyo `contentHash` coincide con el del pack más reciente del mismo periodo devuelve ese pack (`reused: true`) sin `packId`, PDFs ni asiento nuevos; el router emite `PACK_REUSED` ("El expediente ya estaba sellado con este mismo contenido; se reutilizó."). No existe revocación de packs en el modelo actual, así que "no revocado" = cualquiera (TODO si se añade).
@@ -54,7 +55,9 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 - `test/fixtures/`: `SessionRecord`, `SpatialFact`, `PayrollStatement`, `LedgerEntry` tipados con los contratos (sin `any`).
 - `__tests__/` colocados por capa. Componentes: solo `IntegrityBadge`, `StatusPill`, `SessionTimeline`.
 - Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_v1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
-- `test.failing` marca reglas de la propuesta que el código aún no cumple por decisión pendiente (no por bug): cifrado real de campos (ver TODO).
+- Ya no queda ningún `test.failing`: el de cifrado de campos pasa desde C2 (spec FieldCrypto v1.3 §17 #3).
+- Estático (`src/core/__tests__/staticGuards.test.ts`): `FieldCryptoService` solo se importa desde `src/services/persistence/**` y `src/core/boot.ts`; `LoggingService` no recibe campos sensibles; Jest resuelve los subpaths `.js` de `@noble`.
+- Matriz de dispositivo D1–D15 (spec §18): checklist en `docs/PRUEBAS_DISPOSITIVO.md`.
 - `scripts/check-dates.ts` se mantiene para el camino **sin Intl** en Hermes real; su equivalente Node vive en `src/utils/__tests__/dateUtils.test.ts`.
 - Jest no sustituye la matriz de dispositivo: permisos reales, Foreground Service y geocerca en hardware siguen siendo prueba manual / Maestro.
 
@@ -239,6 +242,55 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
   | `caDoubleTime` | `false` | — |
   | `caSeventhDay` | `false` | — |
 
+### Especificación FieldCryptoService v1.3 — cifrado de campos (§6–§16, C1–C7)
+
+- **Algoritmo y sobre**: AES-256-GCM (`@noble/ciphers`), IV aleatorio de 12 bytes. Sobre `enc:v1:{kid}:{fieldId}:{iv}:{ct}` en base64url. AAD = `dt-fc|v1|{kid}|{fieldId}|{rowId}` con versión explícita, así un sobre no se puede mover a otro campo ni a otra fila. Los valores degradados se guardan como `plain:v1:…`; el texto legado sin prefijo se sigue leyendo.
+- **Clave maestra**: 32 bytes en SecureStore (`dt.mk.{kid}`, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, sin biometría), para que las tareas en segundo plano funcionen con la pantalla bloqueada tras el primer desbloqueo. El alias antiguo migra a `dt.mk.k1` con los mismos bytes. `crypto.kids` (app_kv) guarda los kids conocidos.
+- **Inventario cifrado**:
+  - `sessions.manual_note_sealed`.
+  - `sites.alias`, `client_name`, `address`, `notes` y `target_coords_enc`. Las columnas REAL `target_lat`/`target_lon` quedan en NULL.
+  - `spatial_facts.coords_sealed`.
+  - `app_kv` `settings.company` (companyEmail) y `runtime.last_fix`.
+  - `listSites` ordena en memoria con `Intl.Collator("es")` y desempata por id; el SQL ya no hace `ORDER BY alias`.
+  - Quedan en claro el nombre del empleado y la tarifa (§22 #9).
+- **Arranque** (§11):
+  1. `PersistenceService.init`.
+  2. `ensureMasterKey`.
+  3. Detección de pérdida de clave.
+  4. `runCryptoDataMigrations`: REAL → `target_coords_enc` con verificación y ROLLBACK por fila.
+  5. Barrido de hasta 500 filas `plain:v1:`/legado → `enc:v1:` (lo continúa `integritySweep`).
+  6. Migración de política y verificación del ledger.
+  7. `wirePorts` → `StoreActions.cryptoHealth` → hidratación.
+- **Estados**:
+
+  | Estado | Significado |
+  | --- | --- |
+  | `READY` | Clave activa disponible. |
+  | `NEEDS_MIGRATE` | Alguna fila del paso de datos no verificó; se sigue cifrando con normalidad. |
+  | `KEY_MISSING` | Hay sobres de un kid sin slot legible (restauración sin clave). |
+  | `UNAVAILABLE` | Sin llavero: las escrituras se degradan a `plain:v1:`. |
+  | `UNINITIALIZED` | Todavía no se ha intentado leer la clave. |
+
+- **Sin cifrado** (§12): **no es CONFLICT**.
+  - Cuándo aparece el bloqueo `FIELD_CRYPTO_UNAVAILABLE` (en `cert_blockers_json` y asiento `CERT_BLOCKER_ADDED`): solo si se escribió de verdad una nota o unas coordenadas en modo degradado. Es permanente, aunque la clave vuelva.
+  - Qué provoca: el periodo solo puede sellarse como no certificado (`PERIOD_NOT_CERTIFIABLE`, `rollup.blockedCount`) y el badge muestra "No certificable".
+  - Qué se rechaza: las 5 intenciones que escriben nota sobre una sesión cerrada.
+  - Web: no admite jornadas certificadas y lo avisa con la microcopy de la spec.
+- **Ledger v2** (§13): los asientos nuevos llevan `ledgerPayloadVersion: 2` y `noteDigest` = HMAC-SHA256 con una clave derivada por HKDF de la MK (info `dt.noteDigest.v1`). Nunca llevan la nota.
+  - **Riesgo residual**: los asientos v1 ya escritos pueden contener notas en claro. No se reescriben porque el ledger es append-only (§20).
+- **Pérdida de clave** (§14):
+  - Kid nuevo: se crea el siguiente (máximo + 1) como activo y el slot perdido nunca se escribe.
+  - Lectura: los sobres perdidos se hidratan como `null` + `unreadableFields`. La UI muestra "— (ilegible en este dispositivo)", "Rastro ilegible…" o "Datos del destino ilegibles…".
+  - Integridad: las sesiones cerradas conservan su clase y su certificación. La jornada abierta afectada recibe `INTEGRITY_DEGRADE` con `FIELD_CRYPTO_KEY_LOST`.
+  - Expedientes: los packs nuevos llevan `sealWarnings`.
+- **Respaldos** (§16):
+  - Registro: compartir un expediente deja el asiento `PACK_SHARED { packId, target }` y actualiza `Store.packs.sharedIds`.
+  - Selector: `selectBackupAdvice` devuelve los packs sin compartir y el periodo cerrado más reciente sin pack.
+  - Interfaz: tarjeta en Reportes y en el detalle del pack, y fila "Copia de expedientes" en Salud.
+  - Acción: "Exportar expediente" lanza `EXPORT_PACK`, que sella el periodo si falta y luego lo comparte.
+- **Fuera de alcance** (§20): SQLCipher, cifrado de los PDFs (van **sin cifrar**), rotación voluntaria de claves y recuperación tras perder la clave.
+- **Logs**: `LoggingService` redacta las claves sensibles (`note`, `alias`, `lat`/`lon`, `companyEmail`…) y un test estático impide pasarlas.
+
 ### Bugs de los dumps corregidos al portar (GEOTrack)
 
 - El borrado marcaba la sesión como CLOSED en lugar de borrado lógico.
@@ -261,7 +313,7 @@ Se marcan en el código como `TODO(propuesta)`:
 - **Sesión y ledger**
   - Criterio de sesión huérfana o abandonada del watchdog.
 - **Seguridad y cifrado**
-  - `FieldCryptoService` funciona en modo pass-through (`FIELD_CRYPTO_AVAILABLE = false`). Falta decidir el algoritmo y la gestión de claves.
+  - Cifrado de campos: implementado (spec FieldCrypto v1.3). Pendiente fuera de Jest: la matriz de dispositivo D1–D15 (`docs/PRUEBAS_DISPOSITIVO.md`).
   - Aprovisionamiento del PIN admin por el empleador (hoy lo fija el primer usuario del dispositivo).
 - **Evidencia y retención**
   - Firma del manifiesto JSON del pack (hoy va sin firmar, solo con hashes).
