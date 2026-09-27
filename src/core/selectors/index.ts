@@ -6,6 +6,7 @@
  * Los cálculos de nómina se delegan a PayrollEngineService (funciones puras),
  * así la vista "no calcula horas: muestra selectores" (Producto §5.7).
  */
+import { companyCalendar, pendingCalendarChange } from "../../utils/companyPolicy";
 import type {
   DualTrackerState,
   EvidencePack,
@@ -305,3 +306,9 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
 // Integridad del ledger (spec v1.3 §5.5)
 // ---------------------------------------------------------------------------
 export const selectLedgerHealth = (s: DualTrackerState) => s.health.ledger;
+
+// ---------------------------------------------------------------------------
+// Calendario laboral (spec v1.3 §5.1)
+// ---------------------------------------------------------------------------
+export const selectCalendarHistory = (s: DualTrackerState) => companyCalendar(s.settings.company);
+export const selectPendingCalendarChange = (s: DualTrackerState, nowMs: number) => pendingCalendarChange(s.settings.company, nowMs);

@@ -17,7 +17,8 @@ import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, Payroll
 import { PACK_MANIFEST_VERSION } from "../../core/contracts";
 import { StoreActions } from "../../core/store";
 import { canonicalJson } from "../../utils/canonicalJson";
-import { isValidRange, weekPeriodId } from "../../utils/dateUtils";
+import { companyCalendar } from "../../utils/companyPolicy";
+import { isValidRange, periodIdAt } from "../../utils/dateUtils";
 import { serializeError } from "../../utils/serializeError";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { PayrollEngineService } from "../domain/PayrollEngineService";
@@ -137,7 +138,7 @@ export const EvidencePackService = {
    */
   async seal(input: { periodStart: number; periodEnd: number; allowUncertified?: boolean; reissue?: boolean }): Promise<SealResult> {
     // Periodo no finito (antes: NaN por dayjs tz en Hermes) → mensaje claro, no "No encontrado".
-    if (!isValidRange(input.periodStart, input.periodEnd) || !weekPeriodId(input.periodStart)) {
+    if (!isValidRange(input.periodStart, input.periodEnd) || !periodIdAt(input.periodStart)) {
       return { ok: false, code: "INVALID_PERIOD" };
     }
     try {
@@ -179,7 +180,7 @@ export const EvidencePackService = {
       // Ruptura sin reconocer: ningún sello nuevo, ni siquiera no certificado.
       if (ledgerIncident) return { ok: false, code: "LEDGER_BROKEN", detail: `breakAtId=${ledgerIncident.breakAtId}` };
 
-      const packId = `${weekPeriodId(input.periodStart)}-${Crypto.randomUUID().slice(0, 8)}`;
+      const packId = `${periodIdAt(input.periodStart, companyCalendar(settings.company))}-${Crypto.randomUUID().slice(0, 8)}`;
       const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));
       const evidenceHash = await sha256Hex(canonicalJson(evidence));
       const certified = statement.integrityRollup.certified;

@@ -10,6 +10,7 @@
  * las claves wtracker_onboarding_completed / wtracker_disclaimer_accepted):
  * ahora se guardan en SQLite (app_kv).
  */
+import type * as SQLite from "expo-sqlite";
 import type {
   CompanyPolicy,
   DevicePreferences,
@@ -91,13 +92,13 @@ export const SettingsService = {
     await PersistenceService.setKv(KV_KEYS.PROFILE, profile);
   },
 
-  async saveCompany(company: CompanyPolicy): Promise<void> {
+  async saveCompany(company: CompanyPolicy, database?: SQLite.SQLiteDatabase): Promise<void> {
     const { companyEmail, ...rest } = company;
     const stored: StoredCompany = {
       ...rest,
       companyEmailSealed: await FieldCryptoService.seal(companyEmail),
     };
-    await PersistenceService.setKv(KV_KEYS.COMPANY, stored);
+    await PersistenceService.setKv(KV_KEYS.COMPANY, stored, database);
   },
 
   async saveDevice(device: DevicePreferences): Promise<void> {
@@ -114,6 +115,8 @@ export const SettingsService = {
     ctx: { adminUnlocked: boolean },
   ): Promise<{ ok: true; next: SettingsSnapshot } | { ok: false; code: "ADMIN_LOCKED" | "INVALID_VALUE" }> {
     if (patch.company && !ctx.adminUnlocked) return { ok: false, code: "ADMIN_LOCKED" };
+    // El historial de calendario solo cambia por el caso de uso de §5.1 (prospectivo + ledger).
+    if (patch.company && "calendarHistory" in patch.company) return { ok: false, code: "INVALID_VALUE" };
 
     const next: SettingsSnapshot = {
       ...current,

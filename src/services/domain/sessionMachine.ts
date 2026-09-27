@@ -25,7 +25,8 @@ import type {
   SessionState,
   TransitSegment,
 } from "../../core/contracts";
-import { toDateString } from "../../utils/dateUtils";
+import { companyCalendar } from "../../utils/companyPolicy";
+import { workdayDateString } from "../../utils/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -215,7 +216,8 @@ export function transition(
         integrityClass: "VALID",
         policyId: ctx.policyId,
         bookkeeping: {
-          dateString: toDateString(now),
+          // Jornada de inicio bajo el calendario vigente (spec v1.3 §5.1 / §5.2 N4).
+          dateString: workdayDateString(now, companyCalendar(ctx.company)),
           isDeleted: false,
           cancelled: false,
           lastPauseStartMs: null,

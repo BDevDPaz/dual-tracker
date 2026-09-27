@@ -25,13 +25,14 @@
  * independiente de la ubicación del dispositivo. Heredado de GEOTrack.
  * TODO: mover a CompanyPolicy.timezone cuando exista el campo en la zona admin.
  */
+import type { CalendarEntry } from "../core/contracts/settings";
+
 export const CORPORATE_TIMEZONE = "America/Los_Angeles";
 
 /** Texto que se muestra cuando una fecha no es válida o no existe. */
 export const DATE_FALLBACK = "—";
 
 const MS_MIN = 60_000;
-const MS_DAY = 86_400_000;
 /** Por debajo de esto un número se interpreta como epoch en SEGUNDOS (≈ 1973 en ms). */
 const EPOCH_SECONDS_THRESHOLD = 1e11;
 
@@ -217,13 +218,6 @@ export function fromWallClock(y: number, m1: number, d: number, h = 0, mi = 0, s
   return local - Math.max(o2, o3) * MS_MIN;
 }
 
-/** Medianoche corporativa del día `ts` desplazada `days` días. */
-const dayStart = (ts: number, days = 0): number => {
-  const w = wall(ts);
-  const base = Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate()) + days * MS_DAY;
-  const b = new Date(base);
-  return fromWallClock(b.getUTCFullYear(), b.getUTCMonth() + 1, b.getUTCDate());
-};
 
 // ---------------------------------------------------------------------------
 // Formateadores (nunca "Invalid Date")
@@ -296,51 +290,227 @@ export const corporateDayAndHour = (ts: number): { day: number; hour: number } =
 // Semanas y periodos
 // ---------------------------------------------------------------------------
 /**
- * Inicio de semana ISO (lunes 00:00, zona corporativa) que contiene `ts`.
- * Usado por Historial (flechas de semana) y por PayrollEngine (overtime semanal).
+ * Inicio del periodo semanal que contiene `ts`. Sin historial = calendario por
+ * defecto (lunes 00:00, zona corporativa), idéntico al comportamiento previo.
+ * Con historial delega en workweekStartAt (spec v1.3 §5.1).
  * Con entrada inválida devuelve NaN; las pantallas pasan siempre TimeAuthority.now().
  */
-export const getWeekStart = (input: DateInput): number => {
-  const ts = parseTimestamp(input);
-  if (ts === null) return NaN;
-  const dow = wall(ts).getUTCDay();
-  return dayStart(ts, -((dow + 6) % 7));
-};
+export const getWeekStart = (input: DateInput, history?: CalendarHistory | null): number => workweekStartAt(input, history);
 
-/** Fin de semana ISO (domingo 23:59:59.999) que contiene `ts`. */
-export const getWeekEnd = (input: DateInput): number => {
-  const start = getWeekStart(input);
-  return Number.isFinite(start) ? dayStart(start, 7) - 1 : NaN;
-};
+/** Fin inclusivo (… .999) del periodo semanal que contiene `ts`. */
+export const getWeekEnd = (input: DateInput, history?: CalendarHistory | null): number => workweekEndAt(input, history);
 
-/** Desplaza un inicio de semana N semanas (siempre cae en lunes 00:00). */
-export const shiftWeek = (weekStartTs: number, weeks: number): number => {
-  const start = getWeekStart(weekStartTs);
-  return Number.isFinite(start) ? dayStart(start, weeks * 7) : NaN;
-};
+/** Desplaza un inicio de periodo N periodos. */
+export const shiftWeek = (weekStartTs: number, weeks: number, history?: CalendarHistory | null): number => shiftPeriod(weekStartTs, weeks, history);
 
 /** ¿Es un rango de periodo utilizable? */
 export const isValidRange = (start: number, end: number): boolean =>
   Number.isFinite(start) && Number.isFinite(end) && start > 0 && end >= start;
 
-/** Identificador de periodo semanal estable: "W2026-09-21" ("" si no es válido). */
-export const weekPeriodId = (weekStartTs: number): string => {
-  const d = toDateString(getWeekStart(weekStartTs));
-  return d ? `W${d}` : "";
-};
+/** Identificador de periodo estable: "W2026-09-21" (o "T…" en transición; "" si no es válido). */
+export const weekPeriodId = (weekStartTs: number, history?: CalendarHistory | null): string => periodIdAt(weekStartTs, history);
 
 /** Inversa de weekPeriodId. Devuelve null si el id no es válido. */
-export const parseWeekPeriodId = (
-  periodId: string,
-): { start: number; end: number } | null => {
-  const match = /^W(\d{4})-(\d{2})-(\d{2})$/.exec((periodId ?? "").trim());
+export const parseWeekPeriodId = (periodId: string, history?: CalendarHistory | null): { start: number; end: number } | null =>
+  parsePeriodId(periodId, history);
+
+// ---------------------------------------------------------------------------
+// Calendario laboral configurable (spec v1.3 §5.1) [CONFIRMAR CON ASESORÍA LEGAL]
+// ---------------------------------------------------------------------------
+export type { CalendarEntry };
+export type CalendarHistory = readonly CalendarEntry[];
+
+/** Calendario por defecto: 00:00 y lunes (idéntico al comportamiento histórico). */
+export const DEFAULT_CALENDAR: CalendarEntry = Object.freeze({ effectiveFromMs: 0, workdayStartMinutes: 0, workweekStartDay: 1 });
+export const DEFAULT_CALENDAR_HISTORY: CalendarHistory = Object.freeze([DEFAULT_CALENDAR]);
+
+const histOrDefault = (h: CalendarHistory | null | undefined): CalendarHistory => (h && h.length ? h : DEFAULT_CALENDAR_HISTORY);
+
+/** ¿Calendario válido? (rango de minutos y día). */
+export const isValidCalendar = (c: { workdayStartMinutes: number; workweekStartDay: number }): boolean =>
+  Number.isInteger(c.workdayStartMinutes) &&
+  c.workdayStartMinutes >= 0 &&
+  c.workdayStartMinutes <= 1439 &&
+  Number.isInteger(c.workweekStartDay) &&
+  c.workweekStartDay >= 0 &&
+  c.workweekStartDay <= 6;
+
+/** Índice de la entrada vigente en `ts` (historial ordenado por effectiveFromMs). */
+function calendarIndexAt(ts: number, h: CalendarHistory): number {
+  let idx = 0;
+  for (let i = 0; i < h.length; i++) if (h[i].effectiveFromMs <= ts) idx = i;
+  return idx;
+}
+
+/** Calendario vigente en el instante `ts`. */
+export const calendarAt = (ts: number, history?: CalendarHistory | null): CalendarEntry => {
+  const h = histOrDefault(history);
+  return h[calendarIndexAt(ts, h)];
+};
+
+/** Instante de pared (fecha civil y minutos) → epoch ms. */
+const wallDateAt = (y: number, m0: number, d: number, minutes: number): number => {
+  const b = new Date(Date.UTC(y, m0, d));
+  return fromWallClock(b.getUTCFullYear(), b.getUTCMonth() + 1, b.getUTCDate(), Math.floor(minutes / 60), minutes % 60);
+};
+
+/** Fecha civil (UTC-fields) de la jornada que contiene ts bajo `c`, sin acotar por historial. */
+function workdayCivil(ts: number, c: CalendarEntry): { y: number; m0: number; d: number } {
+  const w = wall(ts);
+  let y = w.getUTCFullYear();
+  let m0 = w.getUTCMonth();
+  let d = w.getUTCDate();
+  const start = wallDateAt(y, m0, d, c.workdayStartMinutes);
+  if (ts < start) {
+    const prev = new Date(Date.UTC(y, m0, d - 1));
+    y = prev.getUTCFullYear();
+    m0 = prev.getUTCMonth();
+    d = prev.getUTCDate();
+  }
+  return { y, m0, d };
+}
+
+/**
+ * Inicio de la jornada que contiene `ts`: [fecha + m, fecha siguiente + m) en
+ * hora de pared. La primera jornada tras un cambio de calendario empieza en
+ * su effectiveFromMs (la acota).
+ */
+export const workdayStartAt = (ts: number, history?: CalendarHistory | null): number => {
+  const h = histOrDefault(history);
+  const c = h[calendarIndexAt(ts, h)];
+  const { y, m0, d } = workdayCivil(ts, c);
+  return Math.max(wallDateAt(y, m0, d, c.workdayStartMinutes), c.effectiveFromMs);
+};
+
+/** Primer límite de jornada estrictamente posterior a `ts` (incluye cambios de calendario). */
+export const nextWorkdayBoundary = (ts: number, history?: CalendarHistory | null): number => {
+  const h = histOrDefault(history);
+  const i = calendarIndexAt(ts, h);
+  const c = h[i];
+  const { y, m0, d } = workdayCivil(ts, c);
+  let next = wallDateAt(y, m0, d + 1, c.workdayStartMinutes);
+  if (i + 1 < h.length && h[i + 1].effectiveFromMs > ts && h[i + 1].effectiveFromMs < next) next = h[i + 1].effectiveFromMs;
+  return next;
+};
+
+/** "YYYY-MM-DD" de la jornada que contiene `ts` (fecha de su inicio). */
+export const workdayDateString = (ts: number, history?: CalendarHistory | null): string => toDateString(workdayStartAt(ts, history));
+
+/** Inicio de semana laboral sin acotar (bajo el calendario `c`). */
+function rawWorkweekStart(ts: number, c: CalendarEntry): number {
+  const { y, m0, d } = workdayCivil(ts, c);
+  const dow = new Date(Date.UTC(y, m0, d)).getUTCDay();
+  const back = (dow - c.workweekStartDay + 7) % 7;
+  return wallDateAt(y, m0, d - back, c.workdayStartMinutes);
+}
+
+/**
+ * Inicio de la semana laboral (7 jornadas desde una jornada cuya fecha cae en
+ * workweekStartDay) que contiene `ts`. Si la semana empezaría antes de la
+ * entrada en vigor del calendario, el periodo empieza en esa entrada
+ * (periodo de transición, §5.1).
+ */
+export const workweekStartAt = (input: DateInput, history?: CalendarHistory | null): number => {
+  const ts = parseTimestamp(input);
+  if (ts === null) return NaN;
+  const h = histOrDefault(history);
+  const c = h[calendarIndexAt(ts, h)];
+  return Math.max(rawWorkweekStart(ts, c), c.effectiveFromMs);
+};
+
+/** Inicio (exclusivo del periodo actual) del siguiente periodo. */
+function nextPeriodStart(ts: number, h: CalendarHistory): number {
+  const i = calendarIndexAt(ts, h);
+  const c = h[i];
+  const raw = rawWorkweekStart(ts, c);
+  // 7 jornadas después (en fecha civil, inmune a DST).
+  const { y, m0, d } = workdayCivil(raw, c);
+  let next = wallDateAt(y, m0, d + 7, c.workdayStartMinutes);
+  if (i + 1 < h.length && h[i + 1].effectiveFromMs > ts && h[i + 1].effectiveFromMs < next) next = h[i + 1].effectiveFromMs;
+  return next;
+}
+
+/** Fin inclusivo (… .999) del periodo semanal que contiene `ts`. */
+export const workweekEndAt = (input: DateInput, history?: CalendarHistory | null): number => {
+  const ts = parseTimestamp(input);
+  if (ts === null) return NaN;
+  return nextPeriodStart(ts, histOrDefault(history)) - 1;
+};
+
+/** ¿El periodo que contiene `ts` es de transición (acotado por un cambio de calendario)? */
+export const isTransitionPeriodAt = (ts: number, history?: CalendarHistory | null): boolean => {
+  const h = histOrDefault(history);
+  const c = h[calendarIndexAt(ts, h)];
+  return c.effectiveFromMs > 0 && rawWorkweekStart(ts, c) < c.effectiveFromMs;
+};
+
+/** Id de periodo: "W" + fecha de inicio, o "T" + fecha para un periodo de transición ("" si inválido). */
+export const periodIdAt = (input: DateInput, history?: CalendarHistory | null): string => {
+  const ts = parseTimestamp(input);
+  if (ts === null) return "";
+  const start = workweekStartAt(ts, history);
+  const d = toDateString(start);
+  if (!d) return "";
+  return `${isTransitionPeriodAt(ts, history) ? "T" : "W"}${d}`;
+};
+
+/** Desplaza N periodos desde el periodo que contiene `ts` (devuelve su inicio). */
+export const shiftPeriod = (ts: number, n: number, history?: CalendarHistory | null): number => {
+  const h = histOrDefault(history);
+  let start = workweekStartAt(ts, h);
+  if (!Number.isFinite(start)) return NaN;
+  for (let k = 0; k < Math.abs(n); k++) {
+    start = n > 0 ? workweekEndAt(start, h) + 1 : workweekStartAt(start - 1, h);
+  }
+  return start;
+};
+
+/** Primer instante ≥ ts cuya hora de pared corporativa es `minutes` (0..1439). */
+export const wallMinutesOnOrAfter = (ts: number, minutes: number): number => {
+  const w = wall(ts);
+  const same = wallDateAt(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate(), minutes);
+  return same >= ts ? same : wallDateAt(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() + 1, minutes);
+};
+
+/**
+ * Ventana de exportación semanal derivada del calendario (spec v1.3 §5.1):
+ * desde las 20:00 de la última jornada de la semana → periodo en curso; durante
+ * las dos primeras jornadas del periodo siguiente → periodo anterior. Con el
+ * calendario por defecto reproduce la ventana heredada (dom ≥ 20:00, lun, mar).
+ */
+export const payrollExportPeriodAt = (nowMs: number, history?: CalendarHistory | null): { start: number; end: number } | null => {
+  const h = histOrDefault(history);
+  const start = workweekStartAt(nowMs, h);
+  const end = workweekEndAt(nowMs, h);
+  if (!isValidRange(start, end)) return null;
+  const lastWorkday = workdayStartAt(end, h);
+  if (nowMs >= wallMinutesOnOrAfter(lastWorkday, 20 * 60)) return { start, end };
+  const twoWorkdays = nextWorkdayBoundary(nextWorkdayBoundary(start, h), h);
+  if (nowMs < twoWorkdays) {
+    const prevStart = workweekStartAt(start - 1, h);
+    return { start: prevStart, end: start - 1 };
+  }
+  return null;
+};
+
+/** Inversa de periodIdAt ("W…" o "T…"). null si el id no es válido o no corresponde a un periodo. */
+export const parsePeriodId = (periodId: string, history?: CalendarHistory | null): { start: number; end: number } | null => {
+  const match = /^([WT])(\d{4})-(\d{2})-(\d{2})$/.exec((periodId ?? "").trim());
   if (!match) return null;
-  const y = Number(match[1]);
-  const m = Number(match[2]);
-  const d = Number(match[3]);
-  if (!validYmd(y, m, d)) return null;
-  const start = getWeekStart(fromWallClock(y, m, d, 12)); // mediodía: inmune a DST
-  const end = getWeekEnd(start);
+  const y = Number(match[2]);
+  const mo = Number(match[3]);
+  const d = Number(match[4]);
+  if (!validYmd(y, mo, d)) return null;
+  const h = histOrDefault(history);
+  if (match[1] === "T") {
+    const entry = h.find((e) => e.effectiveFromMs > 0 && toDateString(e.effectiveFromMs) === `${match[2]}-${match[3]}-${match[4]}`);
+    if (!entry || !isTransitionPeriodAt(entry.effectiveFromMs, h)) return null;
+    return { start: entry.effectiveFromMs, end: workweekEndAt(entry.effectiveFromMs, h) };
+  }
+  // "W": se busca la semana cuyo inicio cae en esa fecha (tolerante: cualquier fecha dentro de la semana).
+  const probe = wallDateAt(y, mo - 1, d, calendarAt(fromWallClock(y, mo, d, 12), h).workdayStartMinutes);
+  const start = workweekStartAt(probe, h);
+  const end = workweekEndAt(probe, h);
   return isValidRange(start, end) ? { start, end } : null;
 };
 

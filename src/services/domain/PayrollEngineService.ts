@@ -31,7 +31,8 @@ import type {
   SessionPayrollPreview,
   SessionRecord,
 } from "../../core/contracts";
-import { getWeekStart } from "../../utils/dateUtils";
+import { companyCalendar, legalFlags } from "../../utils/companyPolicy";
+import { workweekEndAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
 import { getPayrollPolicy } from "./payrollPolicies";
 import { TransitPolicyService } from "./TransitPolicyService";
 
@@ -142,7 +143,22 @@ interface Allocation {
  * Reparte minutos de trabajo en regular / OT diario / OT semanal según la
  * política. Las sesiones deben venir ordenadas cronológicamente.
  */
-function allocate(items: SessionMinutes[], policy: PayrollPolicy): Map<number, Allocation> {
+interface AllocateCtx {
+  history?: CalendarHistory;
+  /** Umbral semanal de un periodo de transición < 7 días [CONFIRMAR CON ASESORÍA LEGAL]. */
+  transitionWeeklyThreshold?: "FULL" | "PRORATED";
+}
+
+/** Umbral semanal del periodo que empieza en `week` (proporcional solo con PRORATED). */
+function weeklyThreshold(policy: PayrollPolicy, week: number, ctx: AllocateCtx): number {
+  const full = policy.weeklyOvertimeAfterMinutes ?? 0;
+  if (ctx.transitionWeeklyThreshold !== "PRORATED") return full;
+  const len = workweekEndAt(week, ctx.history) + 1 - week;
+  const WEEK = 7 * 24 * 3_600_000;
+  return len > 0 && len < WEEK - 2 * 3_600_000 ? Math.round((full * len) / WEEK) : full;
+}
+
+function allocate(items: SessionMinutes[], policy: PayrollPolicy, ctx: AllocateCtx = {}): Map<number, Allocation> {
   const result = new Map<number, Allocation>();
   const dailyUsed = new Map<string, number>(); // capacidad regular consumida por día
   const weeklyRegular = new Map<number, number>(); // minutos regulares por semana
@@ -162,9 +178,9 @@ function allocate(items: SessionMinutes[], policy: PayrollPolicy): Map<number, A
 
     let otWeekly = 0;
     if (policy.weeklyOvertimeAfterMinutes !== null) {
-      const week = getWeekStart(it.startMs);
+      const week = workweekStartAt(it.startMs, ctx.history);
       const soFar = weeklyRegular.get(week) ?? 0;
-      const capacity = Math.max(0, policy.weeklyOvertimeAfterMinutes - soFar - it.transitOtMinutes);
+      const capacity = Math.max(0, weeklyThreshold(policy, week, ctx) - soFar - it.transitOtMinutes);
       const weeklyRegularPart = Math.min(regular, capacity);
       otWeekly = regular - weeklyRegularPart;
       regular = weeklyRegularPart;
@@ -248,7 +264,10 @@ export const PayrollEngineService = {
       .filter((x): x is SessionMinutes => x !== null)
       .sort((a, b) => a.startMs - b.startMs);
 
-    const alloc = allocate(items, policy);
+    const alloc = allocate(items, policy, {
+      history: companyCalendar(input.company),
+      transitionWeeklyThreshold: legalFlags(input.company).transitionWeeklyThreshold,
+    });
     const lines = items.flatMap((it) => buildLines(it, alloc.get(it.sessionId)!, input.rates));
 
     const sumMin = (kinds: PayrollLine["kind"][]) =>

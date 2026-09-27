@@ -150,6 +150,8 @@ export type ViewIntent =
   // Ajustes
   | { type: "SAVE_SETTINGS"; patch: import("./settings").SettingsPatch }
   | { type: "UNLOCK_ADMIN"; pin: string }
+  /** Anula un cambio de calendario pendiente (antes de su entrada en vigor; admin). */
+  | { type: "CANCEL_CALENDAR_CHANGE" }
   | { type: "LOCK_ADMIN" }
   | { type: "SETUP_ADMIN_PIN"; pin: string }
   | { type: "COMPLETE_ONBOARDING"; profile: { employeeName: string; hourlyRate: number; language: "es" | "en"; dailyReminderTime: string } }

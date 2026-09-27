@@ -14,7 +14,7 @@ import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/comp
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { EvidencePack } from "../../src/core/contracts";
 import { useClock, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
+import { selectCalendarHistory, selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatRange, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
 
@@ -27,8 +27,9 @@ export default function ReportsScreen() {
   const [period, setPeriod] = useState<Period>("CURRENT");
   const [sealing, setSealing] = useState(false);
   // TODO(propuesta): selector de "rango" libre (§5.12). Hoy solo semana actual / anterior.
-  const periodStart = period === "CURRENT" ? getWeekStart(nowMs) : shiftWeek(getWeekStart(nowMs), -1);
-  const periodEnd = getWeekEnd(periodStart);
+  const calendar = selectCalendarHistory(state);
+  const periodStart = period === "CURRENT" ? getWeekStart(nowMs, calendar) : shiftWeek(getWeekStart(nowMs, calendar), -1, calendar);
+  const periodEnd = getWeekEnd(periodStart, calendar);
   const settings = selectSettings(state);
 
   const sessionsVersion = state.sessions;
@@ -52,7 +53,7 @@ export default function ReportsScreen() {
   // Solo las jornadas CERRADAS entran al statement/expediente (PayrollEngine).
   const closedCount = st?.sessionIds.length ?? 0;
   const openCount = items.filter((c) => c.session.domainStatus !== "CERRADA" && !c.session.bookkeeping.cancelled).length;
-  const periodId = weekPeriodId(periodStart);
+  const periodId = weekPeriodId(periodStart, calendar);
   const status = statement.loading && !st ? "loading" : items.length === 0 ? "empty" : "ready";
   const canSeal = !!periodId && closedCount > 0 && !sealing;
 

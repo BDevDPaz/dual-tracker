@@ -97,6 +97,10 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     LEDGER_INCIDENT_MISMATCH: "El incidente cambió. Vuelve a abrir la pantalla de salud e inténtalo de nuevo.",
     ADMIN_DENIED: "PIN incorrecto.",
     ADMIN_LOCKOUT: "Demasiados intentos. Espera antes de reintentar.",
+    CALENDAR_CHANGE_CONFLICTS_SEALED: "Ya hay un expediente sellado posterior a la fecha de entrada en vigor. El calendario no se puede cambiar.",
+    CALENDAR_CHANGE_PENDING: "Ya hay un cambio de calendario pendiente. Anúlalo antes de solicitar otro.",
+    CALENDAR_CHANGE_ALREADY_EFFECTIVE: "El cambio de calendario ya está en vigor y no se puede anular.",
+    NO_PENDING_CALENDAR_CHANGE: "No hay ningún cambio de calendario pendiente.",
   },
   en: {
     NO_OPEN_SESSION: "There is no open shift.",

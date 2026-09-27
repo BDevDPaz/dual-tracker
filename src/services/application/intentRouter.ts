@@ -27,7 +27,15 @@ import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
 import { SecurityService } from "../runtime/SecurityService";
 import { FeedbackService } from "./FeedbackService";
-import { acknowledgeLedgerBreak, confirmExit, exportLedgerIncident, generateWeeklyPayroll, startDay } from "./useCases";
+import {
+  acknowledgeLedgerBreak,
+  cancelCalendarChange,
+  confirmExit,
+  exportLedgerIncident,
+  generateWeeklyPayroll,
+  requestCalendarChange,
+  startDay,
+} from "./useCases";
 
 function toSessionIntent(i: ViewIntent): SessionIntent | null {
   switch (i.type) {
@@ -119,13 +127,33 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         if (intent.patch.profile?.hourlyRate !== undefined && intent.patch.profile.hourlyRate !== state.settings.profile.hourlyRate && !unlocked) {
           return report({ ok: false, code: "ADMIN_LOCKED" });
         }
-        const r = await SettingsService.applyPatch(state.settings, intent.patch, { adminUnlocked: unlocked });
+        const { calendar, ...rest } = intent.patch;
+        let base = state.settings;
+        // Cambio de calendario (spec v1.3 §5.1): zona admin, prospectivo y con asiento en el ledger.
+        if (calendar) {
+          if (!unlocked) return report({ ok: false, code: "ADMIN_LOCKED" });
+          const c = await requestCalendarChange(base, calendar);
+          if (!c.ok) return report(c);
+          base = c.data!.settings;
+          if (!rest.company && !rest.profile) {
+            FeedbackService.emit("SETTINGS_SAVED");
+            return { ok: true, data: c.data!.change };
+          }
+        }
+        const r = await SettingsService.applyPatch(base, rest, { adminUnlocked: unlocked });
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.settingsReplaced(r.next);
         setLanguage(r.next.profile.language);
         if (r.next.profile.dailyReminderTime !== state.settings.profile.dailyReminderTime) {
           await NotificationService.scheduleDailyReminder(r.next.profile.dailyReminderTime);
         }
+        FeedbackService.emit("SETTINGS_SAVED");
+        return { ok: true };
+      }
+      case "CANCEL_CALENDAR_CHANGE": {
+        if (!SecurityService.isUnlocked()) return report({ ok: false, code: "ADMIN_LOCKED" });
+        const r = await cancelCalendarChange(state.settings);
+        if (!r.ok) return report(r);
         FeedbackService.emit("SETTINGS_SAVED");
         return { ok: true };
       }

@@ -12,7 +12,7 @@ import { Card, PageHeader, ScreenContainer } from "../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker, useClock } from "../../src/core/hooks";
-import { selectComputedSessions, selectHasConflict, selectRollup, selectSessionsInRange, selectVisibleSessions } from "../../src/core/selectors";
+import { selectCalendarHistory, selectComputedSessions, selectHasConflict, selectRollup, selectSessionsInRange, selectVisibleSessions } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatRange, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
 
@@ -23,10 +23,11 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { state } = useWorkTracker();
   const nowMs = useClock(60_000);
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(nowMs));
+  const calendar = selectCalendarHistory(state);
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(nowMs, calendar));
   const [filter, setFilter] = useState<Filter>("WEEK");
-  const weekEnd = getWeekEnd(weekStart);
-  const isCurrentWeek = weekStart >= getWeekStart(nowMs);
+  const weekEnd = getWeekEnd(weekStart, calendar);
+  const isCurrentWeek = weekStart >= getWeekStart(nowMs, calendar);
 
   const weekItems = useMemo(
     () => selectComputedSessions(state, nowMs, selectSessionsInRange(state, weekStart, weekEnd)),
@@ -45,11 +46,11 @@ export default function HistoryScreen() {
     <ScreenContainer>
       <PageHeader title={t("history.title")} />
       <View style={styles.weekRow}>
-        <Pressable onPress={() => setWeekStart((w) => shiftWeek(w, -1))} accessibilityRole="button" accessibilityLabel="prev">
+        <Pressable onPress={() => setWeekStart((w) => shiftWeek(w, -1, calendar))} accessibilityRole="button" accessibilityLabel="prev">
           <Ionicons name="chevron-back" size={22} color={TOKENS.colors.primary} />
         </Pressable>
         <Text style={[styles.weekText, { color: TOKENS.colors.text.primary }]}>{formatRange(weekStart, weekEnd)}</Text>
-        <Pressable disabled={isCurrentWeek} onPress={() => setWeekStart((w) => shiftWeek(w, 1))} accessibilityRole="button" accessibilityLabel="next">
+        <Pressable disabled={isCurrentWeek} onPress={() => setWeekStart((w) => shiftWeek(w, 1, calendar))} accessibilityRole="button" accessibilityLabel="next">
           <Ionicons name="chevron-forward" size={22} color={isCurrentWeek ? TOKENS.colors.text.muted : TOKENS.colors.primary} />
         </Pressable>
       </View>

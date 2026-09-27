@@ -25,7 +25,10 @@ export type LedgerIntent =
   | "PAYROLL_SEALED"
   // Spec FieldCrypto v1.3 §5.5: reconocimiento y exportación de una ruptura de cadena.
   | "LEDGER_BREAK_ACKNOWLEDGED"
-  | "LEDGER_BREAK_EXPORTED";
+  | "LEDGER_BREAK_EXPORTED"
+  // §5.1: calendario laboral.
+  | "CALENDAR_CHANGED"
+  | "CALENDAR_CHANGE_CANCELLED";
 
 export interface LedgerEntry {
   id: number;

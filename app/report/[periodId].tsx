@@ -10,15 +10,15 @@ import { Button, Card, EmptyState, ScreenContainer, Section } from "../../src/co
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectPacks } from "../../src/core/selectors";
+import { selectCalendarHistory, selectPacks } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatRange, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
 export default function PeriodStatementScreen() {
   const router = useRouter();
   const { periodId } = useLocalSearchParams<{ periodId: string }>();
-  const range = parseWeekPeriodId(String(periodId ?? ""));
   const { state, queries } = useWorkTracker();
+  const range = parseWeekPeriodId(String(periodId ?? ""), selectCalendarHistory(state));
   const statement = useQuery(
     () => (range ? queries.previewPeriod(range.start, range.end) : Promise.resolve(null)),
     [range?.start, range?.end, state.sessions],

@@ -16,7 +16,17 @@ import { TOKENS, FONT } from "../../src/constants/theme";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
 import { useClock, useWorkTracker } from "../../src/core/hooks";
-import { selectAdmin, selectHealth, selectIsAdminUnlocked, selectSettings, selectSystemHealth } from "../../src/core/selectors";
+import {
+  selectAdmin,
+  selectCalendarHistory,
+  selectHealth,
+  selectIsAdminUnlocked,
+  selectPendingCalendarChange,
+  selectSettings,
+  selectSystemHealth,
+} from "../../src/core/selectors";
+import { legalFlags } from "../../src/utils/companyPolicy";
+import { calendarAt, formatDateTime } from "../../src/utils/dateUtils";
 import { t } from "../../src/i18n";
 
 interface Draft {
@@ -182,6 +192,7 @@ export default function SettingsScreen() {
               </View>
               <Input label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} keyboardType="number-pad" />
               <Input label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} keyboardType="number-pad" />
+              <WorkCalendarBlock />
               <Button label={t("settings.lock")} variant="ghost" size="sm" iconName="lock-closed-outline" onPress={() => void emit({ type: "LOCK_ADMIN" })} />
             </Card>
           )}
@@ -201,6 +212,86 @@ export default function SettingsScreen() {
         </View>
       ) : null}
     </ScreenContainer>
+  );
+}
+
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0] as const;
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+/**
+ * Calendario laboral (spec v1.3 §5.1) [CONFIRMAR CON ASESORÍA LEGAL]: inicio de
+ * jornada y día de inicio de semana. El cambio es prospectivo (final de la
+ * semana en curso) y se puede anular antes de entrar en vigor.
+ */
+function WorkCalendarBlock() {
+  const { state, emit } = useWorkTracker();
+  const nowMs = useClock(60_000);
+  const current = calendarAt(nowMs, selectCalendarHistory(state));
+  const pending = selectPendingCalendarChange(state, nowMs);
+  const flags = legalFlags(selectSettings(state).company);
+  const [start, setStart] = useState(hhmm(current.workdayStartMinutes));
+  const [day, setDay] = useState<number>(current.workweekStartDay);
+  const [busy, setBusy] = useState(false);
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(start.trim());
+  const minutes = m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  const changed = minutes !== null && (minutes !== current.workdayStartMinutes || day !== current.workweekStartDay);
+
+  const run = async (intent: Parameters<typeof emit>[0]) => {
+    setBusy(true);
+    await emit(intent);
+    setBusy(false);
+  };
+
+  return (
+    <View style={styles.calendar}>
+      <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.title")}</Text>
+      <KeyValueRow
+        label={t("settings.calendar.current")}
+        value={`${hhmm(current.workdayStartMinutes)} · ${t(`settings.calendar.days.${current.workweekStartDay}`)}`}
+      />
+      {pending ? (
+        <>
+          <Text style={[styles.hint, { color: TOKENS.colors.status.warning }]}>
+            {t("settings.calendar.pending", {
+              start: hhmm(pending.workdayStartMinutes),
+              day: t(`settings.calendar.days.${pending.workweekStartDay}`),
+              date: formatDateTime(pending.effectiveFromMs),
+            })}
+          </Text>
+          <Button label={t("settings.calendar.cancel")} variant="secondary" size="sm" disabled={busy} onPress={() => void run({ type: "CANCEL_CALENDAR_CHANGE" })} />
+        </>
+      ) : (
+        <>
+          <Input label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" />
+          <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.weekStart")}</Text>
+          <View style={styles.row}>
+            {WEEKDAYS.map((d) => (
+              <Chip key={d} label={t(`settings.calendar.days.${d}`)} selected={day === d} onPress={() => setDay(d)} />
+            ))}
+          </View>
+          <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.calendar.hint")}</Text>
+          <Button
+            label={t("settings.calendar.schedule")}
+            size="sm"
+            disabled={!changed || busy}
+            isLoading={busy}
+            onPress={() => void run({ type: "SAVE_SETTINGS", patch: { calendar: { workdayStartMinutes: minutes!, workweekStartDay: day } } })}
+          />
+        </>
+      )}
+      <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.transitionThreshold")}</Text>
+      <View style={styles.row}>
+        {(["FULL", "PRORATED"] as const).map((v) => (
+          <Chip
+            key={v}
+            label={t(`settings.calendar.threshold.${v}`)}
+            selected={flags.transitionWeeklyThreshold === v}
+            onPress={() => void run({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, transitionWeeklyThreshold: v } } } })}
+          />
+        ))}
+      </View>
+      <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.legalReview")}</Text>
+    </View>
   );
 }
 
@@ -233,6 +324,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, paddingVertical: TOKENS.spacing.xs },
   hint: { ...FONT.caption, flex: 1 },
+  calendar: { gap: TOKENS.spacing.sm, marginTop: TOKENS.spacing.sm },
   chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, padding: TOKENS.spacing.lg, borderTopWidth: 1 },
 });

@@ -14,6 +14,30 @@ export interface PersonProfile {
   dailyReminderTime: string;
 }
 
+/**
+ * Calendario laboral (spec v1.3 §5.1) [CONFIRMAR CON ASESORÍA LEGAL].
+ * Entrada del historial: vigente desde effectiveFromMs (zona corporativa).
+ */
+export interface CalendarEntry {
+  effectiveFromMs: number;
+  /** Inicio de jornada en minutos desde las 00:00 de pared, 0..1439. */
+  workdayStartMinutes: number;
+  /** Día de inicio de semana laboral: 0 = domingo, 1 = lunes … 6 = sábado. */
+  workweekStartDay: number;
+}
+
+/**
+ * Criterios laborales que la spec marca [CONFIRMAR CON ASESORÍA LEGAL].
+ * Se implementan detrás de estas banderas con valores por defecto conservadores.
+ */
+export interface PayrollLegalFlags {
+  /**
+   * Umbral semanal de un periodo de transición más corto que 7 días (§5.1).
+   * FULL (por defecto de la spec) = 40 h completas; PRORATED = proporcional a su duración.
+   */
+  transitionWeeklyThreshold: "FULL" | "PRORATED";
+}
+
 /** Política de empresa — detrás de SecurityService (zona administrativa). */
 export interface CompanyPolicy {
   employerName: string;
@@ -39,6 +63,14 @@ export interface CompanyPolicy {
   transitPaid: boolean;
   transitRateMultiplier: number;
   transitCountsTowardOvertime: boolean;
+  /**
+   * Historial de calendario laboral ordenado (spec v1.3 §5.1). Ausente =
+   * [{ 0, 00:00, lunes }]. Solo se modifica con el caso de uso de cambio de
+   * calendario (prospectivo, con asiento CALENDAR_CHANGED).
+   */
+  calendarHistory?: CalendarEntry[];
+  /** Banderas de criterios pendientes de asesoría legal (ausente = valores por defecto). */
+  payrollLegalFlags?: Partial<PayrollLegalFlags>;
 }
 
 /** Preferencias de dispositivo (no sensibles). */
@@ -59,4 +91,9 @@ export interface SettingsPatch {
   profile?: Partial<PersonProfile>;
   /** Requiere zona admin desbloqueada. */
   company?: Partial<CompanyPolicy>;
+  /**
+   * Cambio de calendario laboral (spec v1.3 §5.1). Requiere zona admin; entra
+   * en vigor al final de la semana laboral en curso.
+   */
+  calendar?: Pick<CalendarEntry, "workdayStartMinutes" | "workweekStartDay">;
 }

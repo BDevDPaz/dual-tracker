@@ -34,6 +34,7 @@ import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityServi
 import { TraceRecorderService } from "../../services/evidence/TraceRecorderService";
 import { FeedbackService } from "../../services/application/FeedbackService";
 import { PersistenceService } from "../../services/persistence/PersistenceService";
+import { companyCalendar } from "../../utils/companyPolicy";
 import { getWeekEnd, getWeekStart } from "../../utils/dateUtils";
 
 const queries = {
@@ -45,8 +46,9 @@ const queries = {
   sessionLines: async (session: SessionRecord): Promise<PayrollLine[]> => {
     const state = Store.getState();
     const start = session.actualStartAtMs ?? session.declaredStartAtMs;
-    const periodStart = getWeekStart(start);
-    const periodEnd = getWeekEnd(start);
+    const history = companyCalendar(state.settings.company);
+    const periodStart = getWeekStart(start, history);
+    const periodEnd = getWeekEnd(start, history);
     const week = await PersistenceService.listSessions({ from: periodStart, to: periodEnd });
     return PayrollEngineService.linesForSession(session.id, week, {
       rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: state.settings.company.overtimeMultiplier },

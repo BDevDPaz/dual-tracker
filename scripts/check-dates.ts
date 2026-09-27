@@ -31,6 +31,14 @@ import {
   toHHmm,
   atTimeOfDay,
   weekPeriodId,
+  nextWorkdayBoundary,
+  parsePeriodId,
+  periodIdAt,
+  shiftPeriod,
+  workdayStartAt,
+  workweekEndAt,
+  workweekStartAt,
+  type CalendarHistory,
 } from "../src/utils/dateUtils";
 
 declare const print: ((...a: unknown[]) => void) | undefined;
@@ -188,6 +196,39 @@ eq("closed session counted", closedSt.sessionIds, [2]);
 eq("closed session V1", closedSt.integrityRollup.byClass.VALID, 1);
 eq("closed session regular hours", closedSt.regularHours, 1);
 eq("closed session dateString in lines", closedSt.lines[0]?.dateString, "2026-09-26");
+
+// --- Calendario laboral no por defecto (spec v1.3 §5.1) --------------------
+// E = lun 28 sep 2026 00:00 PDT (fin de la semana que contiene T).
+const E = Date.UTC(2026, 8, 28, 7);
+const H6: CalendarHistory = [
+  { effectiveFromMs: 0, workdayStartMinutes: 0, workweekStartDay: 1 },
+  { effectiveFromMs: E, workdayStartMinutes: 360, workweekStartDay: 1 },
+];
+const HSUN: CalendarHistory = [
+  { effectiveFromMs: 0, workdayStartMinutes: 0, workweekStartDay: 1 },
+  { effectiveFromMs: E, workdayStartMinutes: 0, workweekStartDay: 0 },
+];
+eq("cal: semana en curso sin cambios", workweekStartAt(T, H6), W);
+eq("cal: fin de semana en curso = E-1", workweekEndAt(T, H6), E - 1);
+eq("cal: límite de jornada en E", nextWorkdayBoundary(E - 3_600_000, H6), E);
+eq("cal: primera jornada nueva E→06:00", nextWorkdayBoundary(E, H6), Date.UTC(2026, 8, 28, 13));
+eq("cal: jornada 06:00 (03:00 → día anterior)", workdayStartAt(Date.UTC(2026, 9, 1, 10), H6), Date.UTC(2026, 8, 30, 13));
+eq("cal: transición 06:00 id", periodIdAt(E, H6), "T2026-09-28");
+eq("cal: semana nueva 06:00 id", periodIdAt(Date.UTC(2026, 9, 1, 12), H6), "W2026-09-28");
+eq("cal: semana nueva 06:00 inicio", workweekStartAt(Date.UTC(2026, 9, 1, 12), H6), Date.UTC(2026, 8, 28, 13));
+eq("cal: lun→dom transición 6 días", (workweekEndAt(E, HSUN) + 1 - E) / 86_400_000, 6);
+eq("cal: lun→dom id T", periodIdAt(E + 3_600_000, HSUN), "T2026-09-28");
+eq("cal: lun→dom semana siguiente W", periodIdAt(Date.UTC(2026, 9, 4, 8), HSUN), "W2026-10-04");
+eq("cal: parse T", parsePeriodId("T2026-09-28", HSUN), { start: E, end: Date.UTC(2026, 9, 4, 7) - 1 });
+eq("cal: parse W", parsePeriodId("W2026-10-04", HSUN)?.start, Date.UTC(2026, 9, 4, 7));
+eq("cal: parse T inexistente", parsePeriodId("T2026-09-21", HSUN), null);
+eq("cal: shift -1 desde W → T", shiftPeriod(Date.UTC(2026, 9, 4, 7), -1, HSUN), E);
+eq("cal: shift -1 desde T → W previa", shiftPeriod(E, -1, HSUN), W);
+eq("cal: shift +2 desde W previa", shiftPeriod(W, 2, HSUN), Date.UTC(2026, 9, 4, 7));
+eq("cal: por defecto = getWeekStart", workweekStartAt(T, null), getWeekStart(T));
+// Otoño (1 nov 2026, 25 h) con jornada 06:00: la jornada del sáb 31 oct dura 25 h reales.
+const HOCT: CalendarHistory = [{ effectiveFromMs: 0, workdayStartMinutes: 360, workweekStartDay: 1 }];
+eq("cal: jornada DST otoño 25 h", (nextWorkdayBoundary(Date.UTC(2026, 10, 1, 7), HOCT) - workdayStartAt(Date.UTC(2026, 10, 1, 7), HOCT)) / 3_600_000, 25);
 
 log(`[${engine}${hasIntl ? " + Intl" : " sin Intl"}] ${passed} passed, ${failed} failed`);
 if (failed > 0) {
