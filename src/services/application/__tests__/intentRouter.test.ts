@@ -116,9 +116,14 @@ describe("intentRouter", () => {
     const periodStart = getWeekStart(time.now());
     const r = await routeIntent({ type: "SEAL_PACK", periodStart, periodEnd: getWeekEnd(time.now()) });
     expect(r.ok).toBe(true);
-    expect(seal).toHaveBeenCalledWith({ periodStart, periodEnd: getWeekEnd(time.now()), allowUncertified: false });
+    expect(seal).toHaveBeenCalledWith({ periodStart, periodEnd: getWeekEnd(time.now()), allowUncertified: false, reissue: false });
     expect(spy).not.toHaveBeenCalled();
     expect(w.upd).not.toHaveBeenCalled();
+    expect(Store.getState().feedback.pending.at(-1)?.code).toBe("PACK_SEALED");
+    // reissue viaja intacto hasta el servicio (reemisión explícita, crea pack nuevo).
+    const again = await routeIntent({ type: "SEAL_PACK", periodStart, periodEnd: getWeekEnd(time.now()), reissue: true });
+    expect(again.ok).toBe(true);
+    expect(seal).toHaveBeenLastCalledWith(expect.objectContaining({ reissue: true }));
     expect(Store.getState().feedback.pending.at(-1)?.code).toBe("PACK_SEALED");
   });
 

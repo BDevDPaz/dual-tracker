@@ -103,9 +103,9 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
 
       // ---- Reportes ----
       case "SEAL_PACK": {
-        const r = await generateWeeklyPayroll(intent.periodStart, intent.periodEnd, intent.allowUncertified ?? false);
-        if (r.ok && r.data) FeedbackService.emit("PACK_SEALED", { hash: r.data.manifest.packHash.slice(0, 12) });
-        return report(r);
+        const r = await generateWeeklyPayroll(intent.periodStart, intent.periodEnd, intent.allowUncertified ?? false, intent.reissue ?? false);
+        if (r.ok) FeedbackService.emit(r.reused ? "PACK_REUSED" : "PACK_SEALED", { hash: r.data.manifest.packHash.slice(0, 12) });
+        return r.ok ? r : report(r);
       }
       case "SHARE_EMPLOYEE":
         return report(await EvidencePackService.shareEmployee(intent.packId));

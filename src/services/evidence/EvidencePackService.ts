@@ -13,7 +13,8 @@
  *    el policyId vigente del periodo.
  */
 import * as Crypto from "expo-crypto";
-import type { EvidencePack, IntentResult, PackManifest, SessionRecord } from "../../core/contracts";
+import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, SessionRecord } from "../../core/contracts";
+import { PACK_MANIFEST_VERSION } from "../../core/contracts";
 import { StoreActions } from "../../core/store";
 import { canonicalJson } from "../../utils/canonicalJson";
 import { isValidRange, weekPeriodId } from "../../utils/dateUtils";
@@ -31,13 +32,101 @@ import { TraceRecorderService } from "./TraceRecorderService";
 
 export type SealRejection = "INVALID_PERIOD" | "EMPTY_PERIOD" | "PERIOD_ONLY_OPEN" | "PERIOD_HAS_CONFLICT" | "PERSISTENCE_ERROR";
 
+/** Resultado de seal: `reused` = se devolvió el pack existente con el mismo contentHash. */
+export type SealResult = { ok: true; data: EvidencePack; reused: boolean } | { ok: false; code: SealRejection | string; detail?: string };
+
+export interface PackVerification {
+  valid: boolean;
+  /** Pack v1 sin contentHash: se verifica con el formato antiguo y no se comprueba contenido. */
+  legacy: boolean;
+  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH). */
+  failures: string[];
+}
+
+/**
+ * Normalización canónica del contenido: claves ordenadas (canonicalJson),
+ * sin undefined, fechas como epoch ms enteros (Date → getTime()), números no
+ * finitos → null. Los números finitos se serializan con Number#toString de
+ * ECMAScript (forma más corta de ida y vuelta), idéntico en Node y Hermes.
+ */
+function normalizeContent(value: unknown): unknown {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return Number.isFinite(value) ? (Object.is(value, -0) ? 0 : value) : null;
+  if (Array.isArray(value)) return value.map(normalizeContent);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== undefined) out[k] = normalizeContent(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Contenido sellable del periodo, sin campos volátiles por sello:
+ *  - statement sin `packHash` (lo asigna cada sello);
+ *  - evidencia sin `ledgerHeadHash` ni `ledgerChainValid` (estado GLOBAL de la
+ *    cadena en el instante del sello) y solo con asientos de sesiones: los
+ *    asientos sin sesión (PAYROLL_SEALED de sellos previos) no son contenido.
+ */
+export function contentOf(statement: PayrollStatement, evidence: EvidenceSummary): unknown {
+  const ledger = evidence.ledgerHashes.filter((e) => e.sessionId !== null);
+  return normalizeContent({
+    statement: { ...statement, packHash: null },
+    evidence: {
+      ledgerEntryCount: ledger.length,
+      ledgerHashes: ledger,
+      traces: evidence.traces,
+      conflicts: evidence.conflicts,
+    },
+  });
+}
+
+export async function computeContentHash(statement: PayrollStatement, evidence: EvidenceSummary): Promise<string> {
+  return sha256Hex(canonicalJson(contentOf(statement, evidence)));
+}
+
+/** packHash = SHA-256 del manifiesto canónico (sin packHash ni files). v1 no lleva versión ni contentHash. */
+async function computePackHash(m: Omit<PackManifest, "packHash" | "files">): Promise<string> {
+  const base = {
+    packId: m.packId,
+    periodStart: m.periodStart,
+    periodEnd: m.periodEnd,
+    sealedAtMs: m.sealedAtMs,
+    policyId: m.policyId,
+    sessionIds: m.sessionIds,
+    statementHash: m.statementHash,
+    evidenceHash: m.evidenceHash,
+    certified: m.certified,
+  };
+  const body = m.manifestVersion === undefined ? base : { ...base, manifestVersion: m.manifestVersion, contentHash: m.contentHash ?? null };
+  return sha256Hex(canonicalJson(body));
+}
+
+async function latestPackForPeriod(periodStart: number, periodEnd: number): Promise<EvidencePack | null> {
+  // TODO(propuesta): no existe revocación de packs en el modelo actual; todos
+  // cuentan como "no revocados". Si se añade, filtrar aquí.
+  const packs = (await PersistenceService.listPacks())
+    .filter((p) => p.manifest.periodStart === periodStart && p.manifest.periodEnd === periodEnd)
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+  return packs[0] ?? null;
+}
+
 export const EvidencePackService = {
   /**
    * Sella el periodo. Con CONFLICT en el periodo exige `allowUncertified`
    * (la vista antes debe pasar por /system/conflict o aceptar el sello
    * "no certificado" visible).
    */
-  async seal(input: { periodStart: number; periodEnd: number; allowUncertified?: boolean }): Promise<IntentResult<EvidencePack>> {
+  /**
+   * Idempotencia: si el contentHash coincide con el del pack más reciente del
+   * mismo periodo, se devuelve ese pack (`reused: true`) sin packId ni asiento
+   * nuevos. `reissue: true` fuerza un pack nuevo con el mismo contenido
+   * (reemisión explícita, p. ej. PDF perdido o reenvío formal); queda en el
+   * ledger como PACK_REISSUED con referencia al pack anterior.
+   */
+  async seal(input: { periodStart: number; periodEnd: number; allowUncertified?: boolean; reissue?: boolean }): Promise<SealResult> {
     // Periodo no finito (antes: NaN por dayjs tz en Hermes) → mensaje claro, no "No encontrado".
     if (!isValidRange(input.periodStart, input.periodEnd) || !weekPeriodId(input.periodStart)) {
       return { ok: false, code: "INVALID_PERIOD" };
@@ -65,25 +154,35 @@ export const EvidencePackService = {
       const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
       const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
 
+      const contentHash = await computeContentHash(statement, evidence);
+      const previous = await latestPackForPeriod(input.periodStart, input.periodEnd);
+      if (previous && previous.manifest.contentHash === contentHash && !input.reissue) {
+        LoggingService.log("AZUL", "PAYROLL", "INFO", "Expediente reutilizado: mismo contenido", { packId: previous.id, contentHash });
+        return { ok: true, data: previous, reused: true };
+      }
+
       const packId = `${weekPeriodId(input.periodStart)}-${Crypto.randomUUID().slice(0, 8)}`;
       const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));
       const evidenceHash = await sha256Hex(canonicalJson(evidence));
       const certified = statement.integrityRollup.certified;
-      const packHash = await sha256Hex(
-        canonicalJson({
-          packId,
-          periodStart: input.periodStart,
-          periodEnd: input.periodEnd,
-          sealedAtMs: nowMs,
-          policyId: statement.policyId,
-          sessionIds: statement.sessionIds,
-          statementHash,
-          evidenceHash,
-          certified,
-        }),
-      );
+      const unsigned = {
+        manifestVersion: PACK_MANIFEST_VERSION,
+        packId,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        sealedAtMs: nowMs,
+        policyId: statement.policyId,
+        sessionIds: statement.sessionIds,
+        statementHash,
+        evidenceHash,
+        contentHash,
+        certified,
+      };
+      const packHash = await computePackHash(unsigned);
 
       const manifest: PackManifest = {
+        manifestVersion: PACK_MANIFEST_VERSION,
+        contentHash,
         packId,
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
@@ -137,10 +236,10 @@ export const EvidencePackService = {
             intent: "PAYROLL_SEALED",
             fromState: null,
             toState: null,
-            reason: certified ? "PACK_SEALED" : "PACK_SEALED_UNCERTIFIED",
+            reason: input.reissue && previous ? "PACK_REISSUED" : certified ? "PACK_SEALED" : "PACK_SEALED_UNCERTIFIED",
             timestampMs: nowMs,
             integrityClass: null,
-            data: { packId, packHash },
+            data: { packId, packHash, contentHash, certified, reissueOf: input.reissue && previous ? previous.id : null },
           },
           db,
         );
@@ -148,11 +247,30 @@ export const EvidencePackService = {
       await PersistenceService.insertPack(pack);
       await OfflineQueueService.enqueue(packId);
       StoreActions.packUpserted(pack);
-      return { ok: true, data: pack };
+      return { ok: true, data: pack, reused: false };
     } catch (error) {
       LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Fallo sellando expediente", serializeError(error));
       return { ok: false, code: "PERSISTENCE_ERROR", detail: serializeError(error) };
     }
+  },
+
+  /**
+   * Verifica un pack recomputando todos sus hashes desde el contenido guardado.
+   * v2: statementHash, evidenceHash, contentHash y packHash (que incluye contentHash).
+   * v1 (legado, sin contentHash): mismas comprobaciones salvo contentHash,
+   * con el formato de packHash antiguo; se informa `legacy: true`.
+   */
+  async verify(pack: EvidencePack): Promise<PackVerification> {
+    const m = pack.manifest;
+    const legacy = m.manifestVersion === undefined && m.contentHash === undefined;
+    const failures: string[] = [];
+    if ((await sha256Hex(canonicalJson({ ...pack.statement, packHash: null }))) !== m.statementHash) failures.push("STATEMENT_HASH");
+    if ((await sha256Hex(canonicalJson(pack.evidence))) !== m.evidenceHash) failures.push("EVIDENCE_HASH");
+    if (!legacy && (await computeContentHash(pack.statement, pack.evidence)) !== m.contentHash) failures.push("CONTENT_HASH");
+    const { packHash, files: _files, ...rest } = m;
+    if ((await computePackHash(rest)) !== packHash) failures.push("PACK_HASH");
+    if (pack.statement.packHash !== packHash) failures.push("STATEMENT_PACK_HASH");
+    return { valid: failures.length === 0, legacy, failures };
   },
 
   async get(packId: string): Promise<EvidencePack | null> {

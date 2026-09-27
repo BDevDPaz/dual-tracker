@@ -14,7 +14,17 @@ export interface EvidenceSummary {
   conflicts: { sessionId: number; reason: string }[];
 }
 
+/**
+ * Versión del formato de manifiesto.
+ *  - 1 (legado, sin campo): packHash = SHA-256 del manifiesto canónico sin contentHash.
+ *  - 2: añade `contentHash` (hash de contenido estable entre sellos) y lo
+ *    incluye en packHash, de modo que alterar el contenido rompe ambos.
+ */
+export const PACK_MANIFEST_VERSION = 2;
+
 export interface PackManifest {
+  /** Ausente en packs legados (v1). */
+  manifestVersion?: number;
   packId: string;
   periodStart: number;
   periodEnd: number;
@@ -23,7 +33,14 @@ export interface PackManifest {
   sessionIds: number[];
   statementHash: string;
   evidenceHash: string;
-  /** SHA-256 del manifiesto canónico: el hash que ambas partes comparan. */
+  /**
+   * SHA-256 del contenido del periodo (statement sin packHash + evidencia de
+   * sesiones), SIN campos volátiles del sello (packId, sealedAtMs, cabeza del
+   * ledger, asientos de sello). Mismo contenido ⇒ mismo contentHash.
+   * Ausente en packs legados (v1).
+   */
+  contentHash?: string;
+  /** SHA-256 del manifiesto canónico (incluye contentHash en v2): identifica ESTE sello. */
   packHash: string;
   certified: boolean;
   files: { role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER" | "MANIFEST_JSON"; name: string }[];

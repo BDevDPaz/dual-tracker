@@ -27,6 +27,7 @@ export type FeedbackCode =
   | "SITE_SAVED"
   | "SITE_ARCHIVED"
   | "PACK_SEALED"
+  | "PACK_REUSED"
   | "SETTINGS_SAVED"
   | "ADMIN_UNLOCKED"
   | "ADMIN_LOCKED"

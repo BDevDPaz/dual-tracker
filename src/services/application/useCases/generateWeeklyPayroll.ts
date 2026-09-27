@@ -25,6 +25,10 @@ export async function previewPayroll(periodStart: number, periodEnd: number): Pr
   });
 }
 
-export async function generateWeeklyPayroll(periodStart: number, periodEnd: number, allowUncertified = false) {
-  return EvidencePackService.seal({ periodStart, periodEnd, allowUncertified });
+/**
+ * Sella el periodo. Si el contenido no cambió desde el último sello devuelve
+ * ese pack con `reused: true`; `reissue` fuerza un pack nuevo (reemisión).
+ */
+export async function generateWeeklyPayroll(periodStart: number, periodEnd: number, allowUncertified = false, reissue = false) {
+  return EvidencePackService.seal({ periodStart, periodEnd, allowUncertified, reissue });
 }

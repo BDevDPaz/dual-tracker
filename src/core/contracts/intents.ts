@@ -137,7 +137,14 @@ export type ViewIntent =
     }
   | { type: "ARCHIVE_SITE"; siteId: number }
   // Reportes
-  | { type: "SEAL_PACK"; periodStart: number; periodEnd: number; allowUncertified?: boolean }
+  | {
+      type: "SEAL_PACK";
+      periodStart: number;
+      periodEnd: number;
+      allowUncertified?: boolean;
+      /** Reemisión explícita: pack nuevo aunque el contenido sea idéntico al último sello. */
+      reissue?: boolean;
+    }
   | { type: "SHARE_EMPLOYEE"; packId: string }
   | { type: "SHARE_EMPLOYER"; packId: string }
   // Ajustes

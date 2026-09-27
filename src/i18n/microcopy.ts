@@ -42,6 +42,7 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   SITE_SAVED: { kind: "toast", tone: "success", es: { title: "Destino guardado", message: "" }, en: { title: "Site saved", message: "" } },
   SITE_ARCHIVED: { kind: "toast", tone: "info", es: { title: "Destino archivado", message: "El historial se conserva." }, en: { title: "Site archived", message: "History is kept." } },
   PACK_SEALED: { kind: "toast", tone: "success", es: { title: "Expediente sellado", message: "Código {hash}" }, en: { title: "Pack sealed", message: "Code {hash}" } },
+  PACK_REUSED: { kind: "toast", tone: "info", es: { title: "Expediente sin cambios", message: "El expediente ya estaba sellado con este mismo contenido; se reutilizó. Código {hash}" }, en: { title: "Pack unchanged", message: "This pack was already sealed with the same content; it was reused. Code {hash}" } },
   SETTINGS_SAVED: { kind: "toast", tone: "success", es: { title: "Ajustes guardados", message: "" }, en: { title: "Settings saved", message: "" } },
   ADMIN_UNLOCKED: { kind: "toast", tone: "success", es: { title: "Modo administrador", message: "Desbloqueado temporalmente." }, en: { title: "Admin mode", message: "Temporarily unlocked." } },
   ADMIN_LOCKED: { kind: "toast", tone: "info", es: { title: "Modo administrador cerrado", message: "" }, en: { title: "Admin mode locked", message: "" } },

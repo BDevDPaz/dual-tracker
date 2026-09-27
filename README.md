@@ -26,6 +26,14 @@ npx expo-doctor
 
 No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por defecto e incluye el plugin de reanimated/worklets.
 
+## Expediente: contentHash, idempotencia y verificación
+
+- **Manifiesto v2** (`manifestVersion: 2`, `PACK_MANIFEST_VERSION`): añade `contentHash` = SHA-256 (expo-crypto, `canonicalJson`: claves ordenadas, sin `undefined`, fechas en epoch ms, no finitos → `null`) del contenido del periodo: el `PayrollStatement` sin `packHash` + la evidencia de sesiones (asientos con `sessionId`, trazas, conflictos). Excluye lo volátil de cada sello: `packId`, `sealedAtMs`, `ledgerHeadHash`, `ledgerChainValid` (estado global de la cadena) y los asientos sin sesión (`PAYROLL_SEALED` de sellos previos). `packHash` sigue siendo el hash del manifiesto completo y ahora incluye `manifestVersion` y `contentHash`; `statementHash` no cambia.
+- **Verificación** (`EvidencePackService.verify(pack)`): recomputa `statementHash`, `evidenceHash`, `contentHash` y `packHash` y comprueba que `statement.packHash` coincide. Devuelve `{ valid, legacy, failures[] }`.
+- **Packs legados** (v1, sin `manifestVersion` ni `contentHash`): se verifican con el formato antiguo de `packHash` y sin comprobación de contenido (`legacy: true`). A un v2 no se le puede "degradar" a legado quitándole campos: su `packHash` deja de cuadrar. Un pack legado nunca se reutiliza.
+- **Idempotencia**: sellar un periodo cuyo `contentHash` coincide con el del pack más reciente del mismo periodo devuelve ese pack (`reused: true`) sin `packId`, PDFs ni asiento nuevos; el router emite `PACK_REUSED` ("El expediente ya estaba sellado con este mismo contenido; se reutilizó."). No existe revocación de packs en el modelo actual, así que "no revocado" = cualquiera (TODO si se añade).
+- **Reemisión explícita** (`reissue: true` en `EvidencePackService.seal` / `SEAL_PACK`): única forma de obtener dos packs distintos con contenido idéntico (PDF perdido, reenvío formal). Queda auditada en el ledger como `PACK_REISSUED` con `reissueOf`. Se prefirió a "sellar en otro contexto" porque es intencional, visible en el ledger y no depende de efectos colaterales.
+
 ## Pruebas (Jest)
 
 Según la *Propuesta de integración de Jest*: se prueban las autoridades (dominio, evidencia, persistencia, runtime por contrato de handler), no el JSX de `app/`.
@@ -46,7 +54,7 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 - `test/fixtures/`: `SessionRecord`, `SpatialFact`, `PayrollStatement`, `LedgerEntry` tipados con los contratos (sin `any`).
 - `__tests__/` colocados por capa. Componentes: solo `IntegrityBadge`, `StatusPill`, `SessionTimeline`.
 - Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_v1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
-- `test.failing` marca reglas de la propuesta que el código aún no cumple por decisión pendiente (no por bug): `packHash` estable entre dos sellos y cifrado real de campos (ver TODO).
+- `test.failing` marca reglas de la propuesta que el código aún no cumple por decisión pendiente (no por bug): cifrado real de campos (ver TODO).
 - `scripts/check-dates.ts` se mantiene para el camino **sin Intl** en Hermes real; su equivalente Node vive en `src/utils/__tests__/dateUtils.test.ts`.
 - Jest no sustituye la matriz de dispositivo: permisos reales, Foreground Service y geocerca en hardware siguen siendo prueba manual / Maestro.
 
@@ -242,7 +250,7 @@ Se marcan en el código como `TODO(propuesta)`:
 - **Evidencia y retención**
   - Firma del manifiesto JSON del pack (hoy va sin firmar, solo con hashes).
   - Retención "hasta fin de periodo exportado": solo se aplica la retención por días.
-  - `packHash` estable: la Propuesta de calidad pide que dos sellos del mismo statement den el mismo `packHash`, pero hoy es el hash del manifiesto (incluye `packId`, `sealedAtMs` y la cabeza del ledger, que el propio sello cambia). Pendiente decidir si `packHash` pasa a ser hash de contenido (test `test.failing` en `EvidencePackService.test.ts`).
+
   - Destino remoto de `OfflineQueueService` (portal del empleador): la cola existe, el envío no.
 - **Plataforma**
   - Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico.
