@@ -1,5 +1,8 @@
 /** i18n — paridad ES/EN (EN es obligatorio completo) y claves nuevas de primitivas. */
 import { en, es, setLanguage, t } from "..";
+import { languageFromLocaleTag, resolveInitialLanguage } from "../locale";
+import { MICROCOPY, MICROCOPY_REJECTIONS } from "../microcopy";
+import { DISCLOSURE_VERSION, getDisclosureContent, getRetentionContent } from "../legal";
 
 type Tree = { [k: string]: string | Tree };
 function leaves(node: Tree, prefix = ""): string[] {
@@ -45,5 +48,55 @@ describe("i18n", () => {
     }
     expect(t("a11y.toast", { message: "x" }, "es")).toBe("Aviso: x");
     expect(t("integrity.a11yLabel", { label: "Validated" }, "en")).toBe("Integrity: Validated");
+  });
+});
+
+describe("microcopy y legal", () => {
+  test("cada aviso tiene EN y los {param} coinciden con ES", () => {
+    const missing: string[] = [];
+    const badParams: string[] = [];
+    for (const [code, entry] of Object.entries(MICROCOPY)) {
+      if (!entry.en) {
+        missing.push(code);
+        continue;
+      }
+      const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
+      if (ph(entry.es.title + entry.es.message) !== ph(entry.en.title + entry.en.message)) badParams.push(code);
+    }
+    expect(missing).toEqual([]);
+    expect(badParams).toEqual([]);
+  });
+
+  test("los motivos de rechazo tienen las mismas claves en ES y EN", () => {
+    const esKeys = Object.keys(MICROCOPY_REJECTIONS.es).sort();
+    const enKeys = Object.keys(MICROCOPY_REJECTIONS.en).sort();
+    expect(enKeys).toEqual(esKeys);
+    expect(enKeys.filter((k) => MICROCOPY_REJECTIONS.en[k].trim() === "")).toEqual([]);
+  });
+
+  test("el descargo y la retención tienen los mismos bloques en ES y EN", () => {
+    const esD = getDisclosureContent("es");
+    const enD = getDisclosureContent("en");
+    expect(esD.version).toBe(DISCLOSURE_VERSION);
+    expect(enD.version).toBe(esD.version);
+    expect(enD.blocks.map((b) => b.key)).toEqual(esD.blocks.map((b) => b.key));
+    expect(getRetentionContent("en", 90).blocks.map((b) => b.key)).toEqual(getRetentionContent("es", 90).blocks.map((b) => b.key));
+  });
+});
+
+describe("idioma inicial", () => {
+  test.each([
+    [undefined, "en-US", "en"],
+    [undefined, "en", "en"],
+    [undefined, "es-MX", "es"],
+    [undefined, "es_ES", "es"],
+    [undefined, "fr-FR", "es"],
+    [undefined, "", "es"],
+    ["en", "es-MX", "en"],
+    ["es", "en-US", "es"],
+    ["xx", "en-GB", "en"],
+  ] as const)("guardado %p + locale %p → %p", (stored, tag, expected) => {
+    expect(resolveInitialLanguage(stored, tag)).toBe(expected);
+    expect(languageFromLocaleTag(tag)).toBe(tag.toLowerCase().startsWith("en") ? "en" : "es");
   });
 });

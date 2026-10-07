@@ -159,6 +159,8 @@ export type ViewIntent =
   | { type: "EXPORT_PACK"; periodStart: number; periodEnd: number }
   // Ajustes
   | { type: "SAVE_SETTINGS"; patch: import("./settings").SettingsPatch }
+  /** Cambia el idioma al momento y lo persiste, sin el resto del formulario de Ajustes. */
+  | { type: "SET_LANGUAGE"; language: "es" | "en" }
   | { type: "UNLOCK_ADMIN"; pin: string }
   /** Anula un cambio de calendario pendiente (antes de su entrada en vigor; admin). */
   | { type: "CANCEL_CALENDAR_CHANGE" }

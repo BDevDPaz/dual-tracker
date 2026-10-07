@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { LedgerEntry } from "../../core/contracts";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
@@ -96,6 +96,7 @@ interface SessionTimelineProps {
 
 export function SessionTimeline({ events, title, emptyText, inset = false }: SessionTimelineProps) {
   const { colors } = useTheme();
+  useLanguage();
   const reduceMotion = useMotionPreference();
   const getEventStyle = (type: TimelineEvent["type"]) => {
     switch (type) {

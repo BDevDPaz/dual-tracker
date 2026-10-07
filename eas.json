@@ -13,6 +13,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "autoIncrement": true,
       "android": {
         "buildType": "apk"
       }
@@ -25,6 +26,7 @@
     },
     "preview-d11": {
       "extends": "preview",
+      "autoIncrement": true,
       "env": {
         "APP_VARIANT": "d11",
         "EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE": "1"

@@ -1,9 +1,10 @@
 /** legal/_layout.tsx — Stack legal de solo lectura (accesible desde onboarding y Ajustes). */
 import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 
 export default function LegalLayout() {
+  useLanguage();
   return (
     <Stack
       screenOptions={{

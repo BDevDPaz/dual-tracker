@@ -1,9 +1,10 @@
 /** sites/_layout.tsx — Stack de destinos (accesible desde Hoy y Ajustes; no es un quinto tab). */
 import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 
 export default function SitesLayout() {
+  useLanguage();
   return (
     <Stack
       screenOptions={{

@@ -15,7 +15,7 @@ import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
+import { t, tHealthValue } from "../../src/i18n";
 import { formatDateTime } from "../../src/utils/dateUtils";
 
 interface Row {
@@ -56,8 +56,8 @@ export default function HealthScreen() {
     { sensor: "locationForeground", value: t(`permission.${h.locationForeground}`), ok: h.locationForeground === "granted", blocksValid: true, repair: permRepair("locationForeground", h.locationForeground, "LOCATION") },
     { sensor: "locationBackground", value: t(`permission.${h.locationBackground}`), ok: h.locationBackground === "granted", blocksValid: true, repair: permRepair("locationBackground", h.locationBackground, "LOCATION") },
     { sensor: "notifications", value: t(`permission.${h.notifications}`), ok: h.notifications === "granted", blocksValid: false, repair: permRepair("notifications", h.notifications, "NOTIFICATIONS") },
-    { sensor: "foregroundService", value: h.foregroundService, ok: h.foregroundService === "running" || h.foregroundService === "n/a" || !hasOpenSession, blocksValid: true, repair: { type: "OPEN_OS_SETTINGS", target: "APP" } },
-    { sensor: "batteryOptimization", value: h.batteryOptimization, ok: h.batteryOptimization !== "restricted", blocksValid: false, repair: { type: "OPEN_OS_SETTINGS", target: "BATTERY" } },
+    { sensor: "foregroundService", value: tHealthValue(h.foregroundService), ok: h.foregroundService === "running" || h.foregroundService === "n/a" || !hasOpenSession, blocksValid: true, repair: { type: "OPEN_OS_SETTINGS", target: "APP" } },
+    { sensor: "batteryOptimization", value: tHealthValue(h.batteryOptimization), ok: h.batteryOptimization !== "restricted", blocksValid: false, repair: { type: "OPEN_OS_SETTINGS", target: "BATTERY" } },
     { sensor: "clockDriftMs", value: `${Math.round(h.clockDriftMs / 1000)} s`, ok: !h.clockDriftExceeded, blocksValid: true },
     { sensor: "isMonitoring", value: h.isMonitoring ? t("health.ok") : "—", ok: h.isMonitoring || !hasOpenSession, blocksValid: true },
     { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: true, blocksValid: false },

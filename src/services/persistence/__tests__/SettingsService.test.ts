@@ -1,7 +1,7 @@
 /** T4 — SettingsService: email de empresa sellado; patch de empresa exige admin. */
 import { PersistenceService } from "../PersistenceService";
 import { KV_KEYS } from "../schema";
-import { DEFAULT_COMPANY_POLICY, SettingsService } from "../SettingsService";
+import { DEFAULT_COMPANY_POLICY, DEFAULT_PROFILE, SettingsService } from "../SettingsService";
 
 describe("SettingsService", () => {
   beforeEach(() => PersistenceService.init());
@@ -29,6 +29,14 @@ describe("SettingsService", () => {
     const ok = await SettingsService.applyPatch(cur, { company: { overtimeMultiplier: 2 } }, { adminUnlocked: true });
     expect(ok.ok && ok.next.company.overtimeMultiplier).toBe(2);
     expect((await SettingsService.load()).company.overtimeMultiplier).toBe(2);
+  });
+
+  test("sin perfil el idioma de test es es; un perfil guardado conserva en", async () => {
+    expect((await SettingsService.load()).profile.language).toBe("es");
+    await SettingsService.saveProfile({ ...DEFAULT_PROFILE, language: "en", employeeName: "Ana" });
+    const loaded = await SettingsService.load();
+    expect(loaded.profile.language).toBe("en");
+    expect(loaded.profile.employeeName).toBe("Ana");
   });
 
   test("profile.theme: por defecto dark, se persiste y rechaza valores desconocidos", async () => {

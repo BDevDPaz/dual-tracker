@@ -6,7 +6,7 @@ import Animated, { LinearTransition } from "react-native-reanimated";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { SessionStateUI } from "../../core/selectors";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { StatusPill } from "./StatusPill";
 import { Button } from "./Button";
 import { GlassLayers, useGlass } from "./GlassSurface";
@@ -54,6 +54,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   inset = false,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
+  useLanguage();
   // Cristal: desenfoque + relleno 12 % + filo dorado; sólido si no hay blur o se reduce la transparencia.
   const { glass, containerStyle } = useGlass();
   // Teléfonos estrechos (< 360 dp): CTAs apilados a ancho completo; el texto nunca baja de 16.

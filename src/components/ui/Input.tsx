@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { isValidHHmm, maskHHmm } from "../../utils/hhmm";
 
 interface InputProps extends TextInputProps {
@@ -53,6 +53,7 @@ export function Input({
   ...props
 }: InputProps) {
   const { colors } = useTheme();
+  useLanguage();
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [touched, setTouched] = useState(false);

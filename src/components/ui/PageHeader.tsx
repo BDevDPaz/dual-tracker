@@ -7,7 +7,7 @@ import { haptics, useMotionPreference } from "./motion";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 interface PageHeaderProps {
   title: string;
@@ -40,6 +40,7 @@ export function PageHeader({
   backLabel,
 }: PageHeaderProps) {
   const { colors } = useTheme();
+  useLanguage();
   const router = useRouter();
   const reduceMotion = useMotionPreference();
 

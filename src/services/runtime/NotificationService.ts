@@ -49,12 +49,12 @@ function toPermissionState(p: Notifications.NotificationPermissionsStatus): Perm
 async function ensureChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DEFAULT, {
-    name: "Dual Tracker",
+    name: t("notifications.channelDefault"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
   });
   await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.FOREGROUND_WORK, {
-    name: "Jornada en curso",
+    name: t("notifications.channelForeground"),
     importance: Notifications.AndroidImportance.LOW,
   });
 }
@@ -155,8 +155,22 @@ export const NotificationService = {
     }
   },
 
+  /**
+   * Vuelve a registrar canales, botones de acción y el recordatorio diario
+   * con el idioma activo. Lo llama el cambio de idioma (y el alta).
+   */
+  async refreshLocalization(reminderTime: string): Promise<void> {
+    try {
+      await ensureChannels();
+      await ensureCategories();
+      await NotificationService.scheduleDailyReminder(reminderTime, { force: true });
+    } catch (error) {
+      LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Fallo actualizando textos de notificación", serializeError(error));
+    }
+  },
+
   /** Recordatorio diario (DAILY_REMINDER). timeString "HH:mm". */
-  async scheduleDailyReminder(timeString: string): Promise<boolean> {
+  async scheduleDailyReminder(timeString: string, opts?: { force?: boolean }): Promise<boolean> {
     const [h, m] = (timeString ?? "").split(":");
     const hour = Number(h);
     const minute = Number(m);
@@ -165,7 +179,7 @@ export const NotificationService = {
       return false;
     }
     if ((await NotificationService.getPermission()) !== "granted") return false;
-    if (isSpam(`daily_${timeString}`)) return true;
+    if (!opts?.force && isSpam(`daily_${timeString}`)) return true;
     await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
     await Notifications.scheduleNotificationAsync({
       identifier: DAILY_REMINDER_ID,
@@ -212,6 +226,9 @@ export const NotificationService = {
 
   /** Decisión de salida con tres acciones (cerrar / seguir / trasladar). */
   async notifyExitDetected(sessionId: number, firstExitAtMs: number): Promise<boolean> {
+    // Una tarea headless arranca un JS nuevo: los botones se registran aquí,
+    // ya con el idioma hidratado, no con el que tenía el proceso anterior.
+    await ensureCategories().catch(() => {});
     return NotificationService.notifyImmediate(
       t("notifications.exitTitle"),
       t("notifications.exitBody"),

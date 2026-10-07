@@ -12,7 +12,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 interface LoadingOverlayProps {
@@ -30,6 +30,7 @@ export function LoadingOverlay({
   reconnectingLabel,
 }: LoadingOverlayProps) {
   const { colors } = useTheme();
+  useLanguage();
   const reduceMotion = useMotionPreference();
   const rotation = useSharedValue(0);
   const pulseOpacity = useSharedValue(1);

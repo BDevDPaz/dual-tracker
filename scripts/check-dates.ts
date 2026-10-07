@@ -12,7 +12,12 @@
  * periodId "W<YYYY-MM-DD>", ISO de nowIso() y cabecera HTTP Date.
  */
 import type { CompanyPolicy, SessionRecord } from "../src/core/contracts";
+import { setLanguage } from "../src/i18n";
 import { PayrollEngineService } from "../src/services/domain/PayrollEngineService";
+
+// Estas comprobaciones fijan el calendario en español. El idioma de la UI
+// sigue al dispositivo; aquí no: las cadenas esperadas son las de es.
+setLanguage("es");
 import {
   DATE_FALLBACK,
   corporateOffsetMinutes,

@@ -26,7 +26,7 @@ npx expo-doctor
 
 ### Builds para equipos reales (EAS)
 
-`eas.json` define cuatro perfiles: `development` (dev client), `preview` (build de release interno: APK en Android, ad hoc en iOS; es el que se usa para la matriz D1–D15), `preview-d11` (variante aislada `com.bdevdpaz.dualtracker.d11` con el llavero forzado a fallar, solo para D11) y `production` (AAB / App Store, `autoIncrement`). Además, `preview-simulator` para el simulador de iOS.
+`eas.json` define cuatro perfiles: `development` (dev client), `preview` (build de release interno: APK en Android, ad hoc en iOS; es el que se usa para la matriz D1–D15; `autoIncrement`), `preview-d11` (variante aislada `com.bdevdpaz.dualtracker.d11` con el llavero forzado a fallar, solo para D11; también `autoIncrement`) y `production` (AAB / App Store, `autoIncrement`). Además, `preview-simulator` para el simulador de iOS (hereda `autoIncrement` de `preview`).
 
 ```bash
 npm run build:android:preview   # APK para instalar a mano en el Android

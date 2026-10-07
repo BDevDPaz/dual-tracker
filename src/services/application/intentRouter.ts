@@ -12,8 +12,9 @@
  *  - Salud → PermissionsHealthService.
  * Todo rechazo produce un FeedbackPayload (FeedbackService), nunca texto en la vista.
  */
-import type { IntentResult, SessionIntent, Site, ViewIntent } from "../../core/contracts";
+import type { IntentResult, SessionIntent, SettingsSnapshot, Site, ViewIntent } from "../../core/contracts";
 import { selectActiveSession } from "../../core/selectors";
+import type { Language } from "../../i18n";
 import { Store, StoreActions } from "../../core/store";
 import { setLanguage } from "../../i18n";
 import { serializeError } from "../../utils/serializeError";
@@ -25,6 +26,7 @@ import { EvidencePackService, latestPackFor } from "../evidence/EvidencePackServ
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { SettingsService } from "../persistence/SettingsService";
+import { ForegroundWorkService } from "../runtime/ForegroundWorkService";
 import { GeofenceRuntimeService } from "../runtime/GeofenceRuntimeService";
 import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
@@ -39,6 +41,17 @@ import {
   requestCalendarChange,
   startDay,
 } from "./useCases";
+
+/** Canales, botones, recordatorio y notificación del FGS en el idioma activo. */
+async function publishLanguage(lang: Language, settings: SettingsSnapshot): Promise<void> {
+  setLanguage(lang);
+  await NotificationService.refreshLocalization(settings.profile.dailyReminderTime);
+  const activeId = Store.getState().sessions.activeSessionId;
+  const session = activeId !== null ? Store.getState().sessions.byId[String(activeId)] : undefined;
+  if (session && ForegroundWorkService.shouldRun(session.domainStatus)) {
+    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, { relabel: true }).catch(() => {});
+  }
+}
 
 function toSessionIntent(i: ViewIntent): SessionIntent | null {
   switch (i.type) {
@@ -178,11 +191,27 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         const r = await SettingsService.applyPatch(base, rest, { adminUnlocked: unlocked });
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.settingsReplaced(r.next);
-        setLanguage(r.next.profile.language);
-        if (r.next.profile.dailyReminderTime !== state.settings.profile.dailyReminderTime) {
-          await NotificationService.scheduleDailyReminder(r.next.profile.dailyReminderTime);
+        const langChanged = r.next.profile.language !== state.settings.profile.language;
+        const timeChanged = r.next.profile.dailyReminderTime !== state.settings.profile.dailyReminderTime;
+        if (langChanged) await publishLanguage(r.next.profile.language, r.next);
+        else {
+          setLanguage(r.next.profile.language);
+          if (timeChanged) await NotificationService.scheduleDailyReminder(r.next.profile.dailyReminderTime);
         }
         FeedbackService.emit("SETTINGS_SAVED");
+        return { ok: true };
+      }
+      case "SET_LANGUAGE": {
+        if (intent.language !== "es" && intent.language !== "en") return report({ ok: false, code: "INVALID_VALUE" });
+        if (intent.language === state.settings.profile.language) {
+          setLanguage(intent.language);
+          return { ok: true };
+        }
+        const profile = { ...state.settings.profile, language: intent.language };
+        await SettingsService.saveProfile(profile);
+        const next = { ...state.settings, profile };
+        StoreActions.settingsReplaced(next);
+        await publishLanguage(intent.language, next);
         return { ok: true };
       }
       case "CANCEL_CALENDAR_CHANGE": {
@@ -220,8 +249,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         await SettingsService.saveProfile(profile);
         await SettingsService.saveDevice(device);
         StoreActions.settingsReplaced({ ...state.settings, profile, device });
-        setLanguage(profile.language);
-        await NotificationService.scheduleDailyReminder(profile.dailyReminderTime);
+        await publishLanguage(profile.language, { ...state.settings, profile, device });
         return { ok: true };
       }
       case "ACCEPT_DISCLOSURE": {

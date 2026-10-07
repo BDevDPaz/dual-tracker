@@ -16,6 +16,7 @@ import type { SessionRecord } from "./contracts";
 import { OPEN_SESSION_STATES } from "./contracts";
 import { Store, StoreActions } from "./store";
 import { setLanguage, t } from "../i18n";
+import { bootstrapLocaleTag, resolveInitialLanguage } from "../i18n/locale";
 import { serializeError } from "../utils/serializeError";
 import { FeedbackService } from "../services/application/FeedbackService";
 import { refreshMirror } from "../services/application/refreshMirror";
@@ -33,6 +34,7 @@ import { bootFieldCrypto } from "../services/persistence/cryptoMigrations";
 import { LoggingService } from "../services/persistence/LoggingService";
 import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
+import { KV_KEYS } from "../services/persistence/schema";
 import { ForegroundWorkService } from "../services/runtime/ForegroundWorkService";
 import { GeofenceRuntimeService } from "../services/runtime/GeofenceRuntimeService";
 import { NotificationService } from "../services/runtime/NotificationService";
@@ -82,6 +84,21 @@ function wirePorts(): void {
   });
 }
 
+/**
+ * Fija el idioma antes de que una tarea headless traduzca notificaciones.
+ * El perfil guardado gana; si no hay perfil, el idioma del dispositivo.
+ */
+async function hydrateUiLanguage(): Promise<void> {
+  let stored: unknown;
+  try {
+    const profile = await PersistenceService.getKv<{ language?: unknown }>(KV_KEYS.PROFILE);
+    stored = profile?.language;
+  } catch {
+    stored = undefined;
+  }
+  setLanguage(resolveInitialLanguage(stored, bootstrapLocaleTag()));
+}
+
 /** Mínimo imprescindible para UI y tareas headless. Idempotente. */
 export function ensureRuntimeReady(): Promise<void> {
   if (!runtimeReady) {
@@ -107,6 +124,9 @@ export function ensureRuntimeReady(): Promise<void> {
         LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Salud del cifrado no disponible", serializeError(e));
         StoreActions.cryptoHealth({ ...Store.getState().health.fieldCrypto, status: FieldCryptoService.status() });
       });
+      // Antes de cualquier notificación de una tarea headless (el JS arranca
+      // en "es" de módulo solo un instante; aquí ya hay perfil o locale).
+      await hydrateUiLanguage();
     })().catch((e) => {
       runtimeReady = null;
       throw e;

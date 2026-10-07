@@ -8,10 +8,11 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AppBrandTitle, Button, Card } from "../../src/components/ui";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  useLanguage();
   const columns = [
     { icon: "time-outline" as const, title: t("onboarding.colTimeTitle"), body: t("onboarding.colTimeBody") },
     { icon: "navigate-outline" as const, title: t("onboarding.colTraceTitle"), body: t("onboarding.colTraceBody") },

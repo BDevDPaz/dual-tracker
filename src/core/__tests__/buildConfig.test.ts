@@ -44,11 +44,20 @@ describe("eas.json — perfiles", () => {
     expect(pkg.dependencies["expo-dev-client"]).toBeDefined();
   });
 
-  test("preview: interno y APK en Android; production: app-bundle y autoIncrement", () => {
-    expect(eas.build.preview).toMatchObject({ distribution: "internal", android: { buildType: "apk" } });
+  test("preview: interno, APK y autoIncrement; production: app-bundle y autoIncrement", () => {
+    expect(eas.build.preview).toMatchObject({ distribution: "internal", autoIncrement: true, android: { buildType: "apk" } });
     expect(eas.build.production).toMatchObject({ autoIncrement: true, android: { buildType: "app-bundle" } });
     expect(eas.build.production.distribution ?? "store").toBe("store");
     expect(eas.build.production.developmentClient).toBeUndefined();
+  });
+
+  test("preview, preview-d11 y production suben versionCode/buildNumber; development no", () => {
+    expect(eas.build.preview.autoIncrement).toBe(true);
+    expect(eas.build["preview-d11"].autoIncrement).toBe(true);
+    expect(eas.build.production.autoIncrement).toBe(true);
+    expect(eas.build.development.autoIncrement).toBeUndefined();
+    // preview-simulator hereda el de preview (extends).
+    expect(eas.build["preview-simulator"].autoIncrement ?? eas.build.preview.autoIncrement).toBe(true);
   });
 
   test("preview-d11 extiende preview y fija la bandera con APP_VARIANT=d11", () => {
@@ -67,8 +76,8 @@ describe("eas.json — perfiles", () => {
       const env = resolveEnv(name);
       if (env[D11_FLAG] === undefined) continue;
       expect({ name, variant: env.APP_VARIANT }).toEqual({ name, variant: "d11" });
-      expect(eas.build[name].autoIncrement).toBeUndefined();
       expect(eas.build[name].developmentClient).toBeUndefined();
+      expect(eas.build[name].distribution ?? eas.build.preview.distribution).not.toBe("store");
     }
   });
 

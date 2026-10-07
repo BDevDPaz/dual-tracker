@@ -6,7 +6,7 @@
  * Footer "Guardar" solo con cambios pendientes. Intenciones: SAVE_SETTINGS,
  * UNLOCK_ADMIN, LOCK_ADMIN, SETUP_ADMIN_PIN, OPEN_OS_SETTINGS.
  */
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,7 +27,7 @@ import {
 } from "../../src/core/selectors";
 import { legalFlags } from "../../src/utils/companyPolicy";
 import { calendarAt, formatDateTime } from "../../src/utils/dateUtils";
-import { t } from "../../src/i18n";
+import { setLanguage as setActiveLanguage, t, tHealthValue } from "../../src/i18n";
 
 interface Draft {
   employeeName: string;
@@ -74,10 +74,33 @@ export default function SettingsScreen() {
   const [draft, setDraft] = useState<Draft>(initial);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => setDraft(initial), [initial]);
+  // El idioma se persiste al pulsar el chip. Ese guardado no debe borrar
+  // el resto del formulario si el usuario aún no ha pulsado Guardar.
+  const languageHold = useRef(false);
+  useEffect(() => {
+    if (languageHold.current) {
+      languageHold.current = false;
+      setDraft((d) => ({ ...d, language: initial.language }));
+      return;
+    }
+    setDraft(initial);
+  }, [initial]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const dirty = (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== initial[k]);
+
+  const onLanguage = async (l: "es" | "en") => {
+    if (l === draft.language && l === settings.profile.language) return;
+    languageHold.current = true;
+    setDraft((d) => ({ ...d, language: l }));
+    setActiveLanguage(l);
+    const res = await emit({ type: "SET_LANGUAGE", language: l });
+    if (!res.ok) {
+      languageHold.current = false;
+      setActiveLanguage(settings.profile.language);
+      setDraft((d) => ({ ...d, language: settings.profile.language }));
+    }
+  };
 
   const num = (s: string) => Number(s.replace(",", "."));
   const onSave = async () => {
@@ -120,7 +143,12 @@ export default function SettingsScreen() {
           <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("onboarding.language")}</Text>
           <View style={styles.row}>
             {(["es", "en"] as const).map((l) => (
-              <Chip key={l} label={l.toUpperCase()} selected={draft.language === l} onPress={() => set("language", l)} />
+              <Chip
+                key={l}
+                label={t(l === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
+                selected={draft.language === l}
+                onPress={() => void onLanguage(l)}
+              />
             ))}
           </View>
           <Input label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
@@ -138,7 +166,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.statusRow}>
               <Text style={{ color: TOKENS.colors.text.primary }}>{t("health.sensors.foregroundService")}</Text>
-              <StatusPill tone={health.foregroundService === "running" ? "success" : "neutral"} label={health.foregroundService} />
+              <StatusPill tone={health.foregroundService === "running" ? "success" : "neutral"} label={tHealthValue(health.foregroundService)} />
             </View>
             <View style={styles.statusRow}>
               <Text style={{ color: TOKENS.colors.text.primary }}>{t("settings.traceMode")}</Text>
@@ -182,9 +210,13 @@ export default function SettingsScreen() {
               <Input label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} keyboardType="email-address" autoCapitalize="none" />
               <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
               <View style={styles.row}>
-                {queries.payrollPolicies().map((p) => (
-                  <Chip key={p.id} label={p.label} selected={draft.overtimePolicyId === p.id} onPress={() => set("overtimePolicyId", p.id)} />
-                ))}
+                {queries.payrollPolicies().map((p) => {
+                  const key = `settings.policies.${p.id}`;
+                  const label = t(key);
+                  return (
+                    <Chip key={p.id} label={label === key ? p.label : label} selected={draft.overtimePolicyId === p.id} onPress={() => set("overtimePolicyId", p.id)} />
+                  );
+                })}
               </View>
               <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.traceMode")}</Text>
               <View style={styles.row}>

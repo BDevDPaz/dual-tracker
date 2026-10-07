@@ -283,7 +283,11 @@ export const formatDuration = (ms: number): string => {
 export const formatHours = (hours: number): string =>
   `${(Number.isFinite(hours) ? hours : 0).toFixed(2)} h`;
 
-/** Moneda USD simple (heredado de ReportGenerator de GEOTrack/LEDTracker). */
+/**
+ * Moneda USD fija (`$1.50`), sin separador de miles ni coma decimal.
+ * No sigue el idioma de la UI: la nómina es en dólares y el mismo formato
+ * entra en el PDF sellado (docs/IDIOMA.md).
+ */
 export const formatCurrency = (amount: number): string =>
   `$${(Number.isFinite(amount) ? amount : 0).toFixed(2)}`;
 

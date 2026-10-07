@@ -1,20 +1,39 @@
 /**
  * i18n — t("seccion.clave", { param }) con caída a ES.
  * El idioma activo lo fija el perfil (settings.profile.language) vía setLanguage.
+ * useLanguage() / useSyncExternalStore re-renderiza cada componente suscrito
+ * (tabs montadas, cabeceras, modales, pills) en el mismo instante.
  */
+import { useSyncExternalStore } from "react";
 import { en } from "./en";
 import { es } from "./es";
+import { bootstrapLocaleTag, resolveInitialLanguage, type Language } from "./locale";
 
-export type Language = "es" | "en";
+export type { Language };
 
-let current: Language = "es";
+const listeners = new Set<() => void>();
+
+let current: Language = resolveInitialLanguage(undefined, bootstrapLocaleTag());
 
 export function setLanguage(lang: Language): void {
+  if (lang !== "es" && lang !== "en") return;
+  if (current === lang) return;
   current = lang;
+  for (const listener of listeners) listener();
 }
 
 export function getLanguage(): Language {
   return current;
+}
+
+export function subscribeLanguage(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Idioma activo. Provoca re-render al cambiar, también dentro de React.memo. */
+export function useLanguage(): Language {
+  return useSyncExternalStore(subscribeLanguage, getLanguage, getLanguage);
 }
 
 function lookup(dict: unknown, path: string[]): string | undefined {
@@ -34,5 +53,23 @@ export function t(key: string, params: Record<string, string | number> = {}, lan
   return raw.replace(/\{(\w+)\}/g, (_m, k: string) => String(params[k] ?? `{${k}}`));
 }
 
+const HEALTH_VALUE_KEY: Record<string, string> = {
+  running: "health.values.running",
+  stopped: "health.values.stopped",
+  "n/a": "health.values.na",
+  unknown: "health.values.unknown",
+  restricted: "health.values.restricted",
+  unrestricted: "health.values.unrestricted",
+};
+
+/** Estado crudo de un sensor (running, n/a, …) → etiqueta del idioma activo. */
+export function tHealthValue(value: string): string {
+  const key = HEALTH_VALUE_KEY[value];
+  if (!key) return value;
+  const label = t(key);
+  return label === key ? value : label;
+}
+
 export { es, en };
 export { MICROCOPY, MICROCOPY_VERSION } from "./microcopy";
+export { bootstrapLocaleTag, languageFromLocaleTag, readDeviceLocaleTag, resolveInitialLanguage } from "./locale";

@@ -7,7 +7,7 @@ import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { SystemHealthView } from "../../core/selectors";
 import { ICONS } from "../../constants/icons";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { Card } from "./Card";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
@@ -30,6 +30,7 @@ interface SystemHealthBlockProps {
 
 export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health, tracking, onPress, inset = false }: SystemHealthBlockProps) {
   const { colors } = useTheme();
+  useLanguage();
   const reduceMotion = useMotionPreference();
   const pulseOpacity = useSharedValue(1);
   // Pulso solo en la fila GPS mientras se rastrea; nunca con movimiento reducido.

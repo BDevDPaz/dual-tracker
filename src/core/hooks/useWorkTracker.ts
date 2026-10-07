@@ -35,6 +35,7 @@ import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityServi
 import { TraceRecorderService } from "../../services/evidence/TraceRecorderService";
 import { FeedbackService } from "../../services/application/FeedbackService";
 import { PersistenceService } from "../../services/persistence/PersistenceService";
+import { useLanguage } from "../../i18n";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { getWeekEnd, getWeekStart } from "../../utils/dateUtils";
 
@@ -83,6 +84,7 @@ export function useWorkTracker(): {
   now: () => number;
   queries: WorkTrackerQueries;
 } {
+  useLanguage();
   const [state, setState] = useState<DualTrackerState>(Store.getState());
 
   useEffect(() => {

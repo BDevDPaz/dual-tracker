@@ -12,7 +12,7 @@ import { Button, Input } from "../../src/components/ui";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectSettings } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
+import { setLanguage as setActiveLanguage, t } from "../../src/i18n";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -47,12 +47,18 @@ export default function ProfileScreen() {
         {(["es", "en"] as const).map((l) => (
           <Pressable
             key={l}
-            onPress={() => setLanguage(l)}
+            onPress={() => {
+              setLanguage(l);
+              setActiveLanguage(l);
+            }}
             accessibilityRole="radio"
             accessibilityState={{ selected: language === l }}
+            accessibilityLabel={t(l === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
             style={[styles.chip, { borderColor: language === l ? TOKENS.colors.primary : TOKENS.colors.border }]}
           >
-            <Text style={{ color: language === l ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>{l.toUpperCase()}</Text>
+            <Text style={{ color: language === l ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>
+              {t(l === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
+            </Text>
           </Pressable>
         ))}
       </View>

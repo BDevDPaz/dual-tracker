@@ -7,7 +7,7 @@ import { TOKENS, FONT, font, type ThemeColors } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
 import type { IntegrityClass } from "../../core/contracts";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 /**
  * IntegrityBadge — portado de GEOTrack, ahora alimentado por IntegrityClass
@@ -40,6 +40,7 @@ function configFor(colors: ThemeColors, integrity: IntegrityClass): BadgeConfig 
 }
 
 export function IntegrityBadge({ integrity, blocked = false }: IntegrityBadgeProps) {
+  useLanguage();
   const showBlocked = blocked && integrity !== "CONFLICT";
   const { colors } = useTheme();
   const config = configFor(colors, showBlocked ? "CONFLICT" : integrity);
