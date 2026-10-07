@@ -40,6 +40,8 @@ export const en: Dictionary = {
     nextWeek: "Next week",
     showSecret: "Show PIN",
     hideSecret: "Hide PIN",
+    refresh: "Refresh",
+    refreshing: "Updating",
   },
   states: {
     NO_INICIADA: { label: "Off duty", sub: "No open shift." },

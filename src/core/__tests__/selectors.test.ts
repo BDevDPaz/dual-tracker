@@ -7,6 +7,7 @@ import {
   selectIsHydrated,
   selectNeedsDisclaimer,
   selectSessionState,
+  selectSiteLastVisitAtMs,
   selectVisibleSessions,
 } from "../selectors";
 import { DISCLOSURE_VERSION } from "../../i18n/legal";
@@ -43,6 +44,18 @@ describe("selectors", () => {
     expect(selectActiveSession(hydrate([makeSession({ id: 2 })]))?.id).toBe(2);
     const st = hydrate([makeClosedSession(MONDAY_8AM, 8, { id: 3 })]);
     expect(selectSessionState(st, MONDAY_8AM + 9 * HOUR)).toBe("CERRADA");
+  });
+
+  test("última visita sale de las sesiones vivas, no de un campo congelado", () => {
+    const st = hydrate([
+      makeSession({ id: 1, siteId: 4, declaredStartAtMs: MONDAY_8AM, actualStartAtMs: MONDAY_8AM }),
+      makeSession({ id: 2, siteId: 4, declaredStartAtMs: MONDAY_8AM + HOUR, actualStartAtMs: MONDAY_8AM + HOUR }),
+      makeSession({ id: 3, siteId: 9, declaredStartAtMs: MONDAY_8AM, actualStartAtMs: MONDAY_8AM }),
+      makeSession({ id: 5, siteId: 4, declaredStartAtMs: MONDAY_8AM + 5 * HOUR, actualStartAtMs: MONDAY_8AM + 5 * HOUR, bookkeeping: { isDeleted: true } }),
+    ]);
+    expect(selectSiteLastVisitAtMs(st, 4)).toBe(MONDAY_8AM + HOUR);
+    expect(selectSiteLastVisitAtMs(st, 9)).toBe(MONDAY_8AM);
+    expect(selectSiteLastVisitAtMs(st, 1)).toBeNull();
   });
 
   test("conflictos y aviso pendiente", () => {

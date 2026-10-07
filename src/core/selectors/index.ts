@@ -184,6 +184,23 @@ export const selectSites = (s: DualTrackerState, opts: { includeArchived?: boole
 export const selectSiteById = (s: DualTrackerState, id: number | null): Site | null =>
   id === null ? null : s.sites.byId[String(id)] ?? null;
 
+/**
+ * Última visita derivada de las sesiones del store (mismo criterio que el
+ * SQL de listSites: site_id, no borrada, MAX del inicio). El campo
+ * `site.lastVisitAtMs` solo se rellena al listar; si la jornada se abre
+ * después, ese campo se queda viejo hasta reiniciar.
+ */
+export function selectSiteLastVisitAtMs(s: DualTrackerState, siteId: number): number | null {
+  let max: number | null = null;
+  for (const id of s.sessions.order) {
+    const session = s.sessions.byId[String(id)];
+    if (!session || session.bookkeeping.isDeleted || session.siteId !== siteId) continue;
+    const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+    if (max === null || start > max) max = start;
+  }
+  return max;
+}
+
 /** Destino objetivo actual (tramo de traslado abierto o sitio de la sesión). */
 export const selectCurrentTargetSite = (s: DualTrackerState): Site | null => {
   const active = selectActiveSession(s);

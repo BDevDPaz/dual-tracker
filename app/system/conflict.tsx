@@ -11,10 +11,10 @@
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell, ScreenContainer } from "../../src/components/ui";
+import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell } from "../../src/components/ui";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { useClock, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectConflictViews, type ConflictView } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
@@ -24,6 +24,8 @@ export default function ConflictScreen() {
   const navigation = useNavigation();
   const { state } = useWorkTracker();
   const nowMs = useClock(60_000);
+  const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
+  useAutoRefresh();
   const views = selectConflictViews(state, nowMs);
   const hasConflicts = views.length > 0;
   const [blockedNotice, setBlockedNotice] = useState(false);
@@ -39,16 +41,16 @@ export default function ConflictScreen() {
 
   if (!hasConflicts) {
     return (
-      <ScreenContainer>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
         <EmptyState title={t("conflict.none")} icon="checkmark-circle-outline" />
         <Button label={t("common.close")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))} />
-      </ScreenContainer>
+      </ScrollView>
     );
   }
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
         {views.map((v) => (
           <ConflictCard key={v.session.id} view={v} onOpenSession={() => router.push(`/session/${v.session.id}`)} />
         ))}

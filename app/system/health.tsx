@@ -13,7 +13,7 @@ import { Button, Card, Input, Section } from "../../src/components/ui";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
-import { useClock, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDateTime } from "../../src/utils/dateUtils";
@@ -28,6 +28,8 @@ interface Row {
 
 export default function HealthScreen() {
   const { state, emit } = useWorkTracker();
+  const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
+  useAutoRefresh();
   const h = selectHealth(state);
   const sys = selectSystemHealth(state);
   const hasOpenSession = !!selectActiveSession(state);
@@ -62,7 +64,7 @@ export default function HealthScreen() {
   ];
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
       <Text style={[styles.mode, { color: sys.degraded ? TOKENS.colors.status.warning : TOKENS.colors.status.success }]}>
         {t(`health.modes.${sys.traceMode}`)}
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}

@@ -6,10 +6,10 @@
  */
 import { Text, StyleSheet, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, ScreenContainer, Section } from "../../../src/components/ui";
+import { Button, Card, EmptyState, Section } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
-import { useQuery, useWorkTracker } from "../../../src/core/hooks";
+import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectPackById, selectPackShared } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
 import { formatCurrency, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
@@ -19,25 +19,27 @@ export default function PackScreen() {
   const { packId } = useLocalSearchParams<{ packId: string }>();
   const id = String(packId ?? "");
   const { state, emit, queries } = useWorkTracker();
+  const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
+  useAutoRefresh();
   const cached = selectPackById(state, id);
-  const loaded = useQuery(() => (cached ? Promise.resolve(cached) : queries.loadPack(id)), [id, cached]);
+  const loaded = useQuery(() => (cached ? Promise.resolve(cached) : queries.loadPack(id)), [id, cached], ["packs"]);
   const pack = cached ?? loaded.data;
-  const sessions = useQuery(() => (pack ? queries.packSessions(pack) : Promise.resolve([])), [pack?.id]);
+  const sessions = useQuery(() => (pack ? queries.packSessions(pack) : Promise.resolve([])), [pack?.id], ["sessions"]);
 
   if (!pack && loaded.loading) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
   if (!pack) {
     return (
-      <ScreenContainer>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
         <EmptyState title={t("report.notFound")} icon="document-outline" />
         <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
-      </ScreenContainer>
+      </ScrollView>
     );
   }
   const m = pack.manifest;
   const shared = selectPackShared(state, pack.id);
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
       {!m.certified ? <ScreenStatusBanner status="conflict" message={t("report.uncertified")} /> : null}
       {m.sealWarnings?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.sealWarning")} /> : null}
       <Card style={styles.card}>

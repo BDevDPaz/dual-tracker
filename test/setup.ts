@@ -58,6 +58,8 @@ beforeEach(async () => {
   GeofenceRuntimeService.__resetForTests();
   Store.reset();
   FieldCryptoService.__resetForTests();
+  (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();
+  (require("../src/services/application/refreshMirror") as typeof import("../src/services/application/refreshMirror")).__resetForTests();
   (require("../src/components/ui/motion") as typeof import("../src/components/ui/motion")).ReduceMotionPref.__reset();
   (require("../src/components/ui/motion") as typeof import("../src/components/ui/motion")).ReduceTransparencyPref.__reset();
   (require("../src/components/feedback/blockingModals") as typeof import("../src/components/feedback/blockingModals")).BlockingModals.__reset();
@@ -75,4 +77,5 @@ beforeEach(async () => {
 afterEach(() => {
   // Ningún temporizador de debounce vivo entre casos (evita handles abiertos).
   GeofenceRuntimeService.__resetForTests();
+  (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();
 });

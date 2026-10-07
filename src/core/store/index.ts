@@ -21,6 +21,7 @@ import type {
   SystemHealthSnapshot,
 } from "../contracts";
 import { OPEN_SESSION_STATES } from "../contracts";
+import { canonicalJson } from "../../utils/canonicalJson";
 import { createInitialState } from "./initialState";
 
 type Listener = (state: DualTrackerState) => void;
@@ -50,6 +51,28 @@ function findActive(byId: Record<string, SessionRecord>): number | null {
     (s) => !s.bookkeeping.isDeleted && OPEN_SESSION_STATES.includes(s.domainStatus),
   );
   return open ? open.id : null;
+}
+
+function sessionsSlice(sessions: SessionRecord[]): DualTrackerState["sessions"] {
+  const byId: Record<string, SessionRecord> = {};
+  sessions.forEach((s) => (byId[String(s.id)] = s));
+  return { byId, order: sortIdsByStartDesc(byId), activeSessionId: findActive(byId) };
+}
+
+function sitesSlice(sites: Site[]): DualTrackerState["sites"] {
+  const byId: Record<string, Site> = {};
+  sites.forEach((s) => (byId[String(s.id)] = s));
+  return { byId, order: sites.map((s) => s.id) };
+}
+
+function packsSlice(packs: EvidencePack[], sharedIds: string[]): DualTrackerState["packs"] {
+  const byId: Record<string, EvidencePack> = {};
+  packs.forEach((p) => (byId[p.id] = p));
+  return { byId, order: packs.map((p) => p.id), sharedIds: [...new Set(sharedIds)].sort() };
+}
+
+function sameJson(a: unknown, b: unknown): boolean {
+  return canonicalJson(a) === canonicalJson(b);
 }
 
 export const Store = {
@@ -83,21 +106,49 @@ export const StoreActions = {
     hasPin: boolean;
     nowMs: number;
   }): void {
-    const byId: Record<string, SessionRecord> = {};
-    input.sessions.forEach((s) => (byId[String(s.id)] = s));
-    const sitesById: Record<string, Site> = {};
-    input.sites.forEach((s) => (sitesById[String(s.id)] = s));
-    const packsById: Record<string, EvidencePack> = {};
-    input.packs.forEach((p) => (packsById[p.id] = p));
     commit({
       ...state,
       boot: { isRehydrating: false, lastHydratedAtMs: input.nowMs, osKillDetected: input.osKillDetected, bootError: null },
-      sessions: { byId, order: sortIdsByStartDesc(byId), activeSessionId: findActive(byId) },
-      sites: { byId: sitesById, order: input.sites.map((s) => s.id) },
-      packs: { byId: packsById, order: input.packs.map((p) => p.id), sharedIds: input.sharedPackIds ?? state.packs.sharedIds },
+      sessions: sessionsSlice(input.sessions),
+      sites: sitesSlice(input.sites),
+      packs: packsSlice(input.packs, input.sharedPackIds ?? state.packs.sharedIds),
       settings: input.settings,
       admin: { ...state.admin, hasPin: input.hasPin },
     });
+  },
+
+  /**
+   * Relee el reflejo sin pasar por el arranque. Conserva salud, admin
+   * (incluido el desbloqueo), feedback y peticiones de UI. No pone
+   * isRehydrating (eso vaciaría las tabs). Devuelve false si nada cambió,
+   * para no re-renderizar ni pisar un borrador de Ajustes.
+   */
+  refreshed(input: {
+    sessions: SessionRecord[];
+    sites: Site[];
+    packs: EvidencePack[];
+    sharedPackIds?: string[];
+    settings: SettingsSnapshot;
+    nowMs: number;
+  }): boolean {
+    const sessions = sameJson(state.sessions, sessionsSlice(input.sessions)) ? state.sessions : sessionsSlice(input.sessions);
+    const sites = sameJson(state.sites, sitesSlice(input.sites)) ? state.sites : sitesSlice(input.sites);
+    const packs = sameJson(state.packs, packsSlice(input.packs, input.sharedPackIds ?? state.packs.sharedIds))
+      ? state.packs
+      : packsSlice(input.packs, input.sharedPackIds ?? state.packs.sharedIds);
+    const settings = sameJson(state.settings, input.settings) ? state.settings : input.settings;
+    if (sessions === state.sessions && sites === state.sites && packs === state.packs && settings === state.settings) {
+      return false;
+    }
+    commit({
+      ...state,
+      boot: { ...state.boot, lastHydratedAtMs: input.nowMs },
+      sessions,
+      sites,
+      packs,
+      settings,
+    });
+    return true;
   },
 
   bootFailed(error: string): void {

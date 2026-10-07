@@ -36,6 +36,8 @@ export const es = {
     nextWeek: "Semana siguiente",
     showSecret: "Mostrar PIN",
     hideSecret: "Ocultar PIN",
+    refresh: "Actualizar",
+    refreshing: "Actualizando",
   },
   states: {
     NO_INICIADA: { label: "Fuera de servicio", sub: "No hay jornada abierta." },

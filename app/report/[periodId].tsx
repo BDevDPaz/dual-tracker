@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, ScreenContainer, Section } from "../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { useQuery, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { selectCalendarHistory, selectPacks } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatRange, parseWeekPeriodId } from "../../src/utils/dateUtils";
@@ -18,10 +18,13 @@ export default function PeriodStatementScreen() {
   const router = useRouter();
   const { periodId } = useLocalSearchParams<{ periodId: string }>();
   const { state, queries } = useWorkTracker();
+  const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
+  useAutoRefresh();
   const range = parseWeekPeriodId(String(periodId ?? ""), selectCalendarHistory(state));
   const statement = useQuery(
     () => (range ? queries.previewPeriod(range.start, range.end) : Promise.resolve(null)),
     [range?.start, range?.end, state.sessions],
+    ["sessions", "settings"],
   );
 
   if (!range) {
@@ -39,7 +42,7 @@ export default function PeriodStatementScreen() {
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === range.start);
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("report.statement")}</Text>
       <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>{formatRange(range.start, range.end)}</Text>
       {st.sessionIds.length === 0 ? (

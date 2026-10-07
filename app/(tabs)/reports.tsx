@@ -13,7 +13,7 @@ import { Button, Card, DocumentPreviewWidget, LoadingOverlay, PageHeader, Screen
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { EvidencePack } from "../../src/core/contracts";
-import { useClock, useQuery, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { selectBackupAdvice, selectCalendarHistory, selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
 import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
@@ -25,6 +25,8 @@ export default function ReportsScreen() {
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(60_000);
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const [period, setPeriod] = useState<Period>("CURRENT");
   const [sealing, setSealing] = useState(false);
   // TODO(propuesta): selector de "rango" libre (§5.12). Hoy solo semana actual / anterior.
@@ -34,7 +36,7 @@ export default function ReportsScreen() {
   const settings = selectSettings(state);
 
   const sessionsVersion = state.sessions;
-  const statement = useQuery(() => queries.previewPeriod(periodStart, periodEnd), [periodStart, periodEnd, sessionsVersion]);
+  const statement = useQuery(() => queries.previewPeriod(periodStart, periodEnd), [periodStart, periodEnd, sessionsVersion], ["sessions", "settings"]);
   const items = useMemo(
     () => selectComputedSessions(state, nowMs, selectSessionsInRange(state, periodStart, periodEnd)),
     [state, nowMs, periodStart, periodEnd],
@@ -71,7 +73,7 @@ export default function ReportsScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
         <PageHeader title={t("reports.title")} subtitle={formatRange(periodStart, periodEnd)} />
         <View style={styles.periods}>
           {(["CURRENT", "PREVIOUS"] as const).map((p) => (

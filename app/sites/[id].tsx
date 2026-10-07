@@ -9,8 +9,8 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, Input, ScreenContainer, Section } from "../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
-import { useClock, useWorkTracker } from "../../src/core/hooks";
-import { selectComputedSessions, selectIsHydrated, selectSiteById, selectVisibleSessions } from "../../src/core/selectors";
+import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { selectComputedSessions, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
 
@@ -20,6 +20,8 @@ export default function SiteDetailScreen() {
   const siteId = Number(id);
   const { state, emit } = useWorkTracker();
   const nowMs = useClock(60_000);
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const site = Number.isFinite(siteId) ? selectSiteById(state, siteId) : null;
   const [radius, setRadius] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,6 +41,7 @@ export default function SiteDetailScreen() {
     nowMs,
     selectVisibleSessions(state).filter((s) => s.siteId === site.id || s.transitSegments.some((x) => x.toSiteId === site.id && !x.cancelled)),
   );
+  const lastVisit = selectSiteLastVisitAtMs(state, site.id);
   const radiusValue = radius ?? String(site.radiusM ?? state.settings.company.defaultRadiusM);
   const radiusDirty = radius !== null && Math.round(Number(radius)) !== (site.radiusM ?? state.settings.company.defaultRadiusM);
 
@@ -62,7 +65,7 @@ export default function SiteDetailScreen() {
   return (
     <ScreenContainer noPadding>
       <Stack.Screen options={{ title: site.alias || t("sites.title") }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
         {!site.active ? <ScreenStatusBanner status="degraded" message={t("sites.archived")} /> : null}
         {site.unreadableFields?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableSite")} /> : null}
         <Card style={styles.card}>
@@ -74,7 +77,7 @@ export default function SiteDetailScreen() {
             value={site.targetLat !== null && site.targetLon !== null ? `${site.targetLat.toFixed(5)}, ${site.targetLon.toFixed(5)}` : t("sites.coordsMissing")}
             mono
           />
-          <KeyValueRow label={t("sites.lastVisit")} value={site.lastVisitAtMs ? formatDate(site.lastVisitAtMs) : t("sites.never")} />
+          <KeyValueRow label={t("sites.lastVisit")} value={lastVisit ? formatDate(lastVisit) : t("sites.never")} />
         </Card>
 
         {site.active ? (
