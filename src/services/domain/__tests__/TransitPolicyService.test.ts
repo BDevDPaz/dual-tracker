@@ -4,7 +4,7 @@ import { PersistenceService } from "../../persistence/PersistenceService";
 import { PayrollEngineService } from "../PayrollEngineService";
 import { SessionEngineService } from "../SessionEngineService";
 import { TransitPolicyService } from "../TransitPolicyService";
-import { COMPANY, HOUR, MIN, RATES, makeSegment } from "../../../../test/fixtures/session.fixture";
+import { COMPANY, HOUR, MIN, MONDAY_8AM, RATES, makeSegment } from "../../../../test/fixtures/session.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 
@@ -14,6 +14,14 @@ describe("TransitPolicyService", () => {
     expect(TransitPolicyService.decide(seg, { ...COMPANY, transitPaid: true, transitRateMultiplier: 1, transitCountsTowardOvertime: true })).toEqual({ paid: true, rateMultiplier: 1, countsTowardOvertime: true });
     expect(TransitPolicyService.decide(seg, { ...COMPANY, transitPaid: false, transitCountsTowardOvertime: true }).countsTowardOvertime).toBe(false);
     expect(TransitPolicyService.decide({ ...seg, cancelled: true }, COMPANY).paid).toBe(false);
+    expect(TransitPolicyService.decide({ ...seg, paid: true, rateMultiplier: 1, countsTowardOvertime: true }, { ...COMPANY, transitPaid: false }).paid).toBe(true);
+    expect(TransitPolicyService.decide({ ...seg, paid: false }, { ...COMPANY, transitPaid: true }).paid).toBe(false);
+  });
+
+  test("boundedMinutes ignora el tramo que cae fuera de la jornada", () => {
+    const seg = makeSegment({ startAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + 40 * MIN });
+    expect(TransitPolicyService.boundedMinutes(seg, MONDAY_8AM + 10 * MIN, MONDAY_8AM + 25 * MIN)).toBe(15);
+    expect(TransitPolicyService.boundedMinutes(seg, MONDAY_8AM + 50 * MIN, MONDAY_8AM + 60 * MIN)).toBe(0);
   });
 
   test("segmentMinutes: abierto cuenta hasta now; cancelado = 0", () => {

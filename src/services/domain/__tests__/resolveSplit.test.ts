@@ -83,6 +83,19 @@ describe("P4 — RESOLVE_SPLIT (máquina)", () => {
     expect(split(base, MONDAY_8AM + 7 * HOUR + 5 * MIN)).toMatchObject({ ok: false, code: "SPLIT_INSIDE_BREAK" });
   });
 
+  test("corte antes del traslado: A conserva el origen y B el sitio de llegada", () => {
+    const s = makeClosedSession(MONDAY_8AM, 8, {
+      siteId: 2,
+      transitSegments: [makeSegment({ fromSiteId: 1, toSiteId: 2, startAtMs: MONDAY_8AM + 4 * HOUR, endAtMs: MONDAY_8AM + 5 * HOUR })],
+    });
+    const before = mustSplit(s, MONDAY_8AM + 2 * HOUR);
+    expect(before.a.siteId).toBe(1);
+    expect(before.b.siteId).toBe(2);
+    const after = mustSplit(s, MONDAY_8AM + 6 * HOUR);
+    expect(after.a.siteId).toBe(2);
+    expect(after.b.siteId).toBe(2);
+  });
+
   test("tránsito que cruza el corte se parte en dos", () => {
     const s = makeClosedSession(MONDAY_8AM, 8, { transitSegments: [makeSegment({ startAtMs: MONDAY_8AM + 3 * HOUR, endAtMs: MONDAY_8AM + 4 * HOUR })] });
     const at = MONDAY_8AM + 3.5 * HOUR;

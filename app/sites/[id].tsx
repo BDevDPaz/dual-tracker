@@ -10,7 +10,7 @@ import { Button, Card, EmptyState, Input, ScreenContainer, Section } from "../..
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
-import { selectComputedSessions, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions } from "../../src/core/selectors";
+import { selectComputedSessions, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
 
@@ -39,7 +39,7 @@ export default function SiteDetailScreen() {
   const visits = selectComputedSessions(
     state,
     nowMs,
-    selectVisibleSessions(state).filter((s) => s.siteId === site.id || s.transitSegments.some((x) => x.toSiteId === site.id && !x.cancelled)),
+    selectVisibleSessions(state).filter((s) => sessionVisitsSite(s, site.id)),
   );
   const lastVisit = selectSiteLastVisitAtMs(state, site.id);
   const radiusValue = radius ?? String(site.radiusM ?? state.settings.company.defaultRadiusM);

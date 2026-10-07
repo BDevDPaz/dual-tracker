@@ -93,8 +93,17 @@ export interface TransitSegment {
   endAtMs: number | null;
   /** true si el operario canceló el traslado (no genera línea de tránsito). */
   cancelled: boolean;
-  /** Decisión de TransitPolicy congelada al cerrar el tramo. */
+  /**
+   * Decisión de TransitPolicy congelada al cerrar el tramo.
+   * null = tramo abierto o legado (se aplica la política vigente de la empresa).
+   * true/false ya no cambia si después se edita `transitPaid`.
+   */
   paid: boolean | null;
+  /** Congelados junto con `paid` cuando el tramo se cierra. Ausentes en tramos legados. */
+  rateMultiplier?: number;
+  countsTowardOvertime?: boolean;
+  /** MANUAL_PATCH recortó este tramo al intervalo de la jornada. */
+  clipped?: boolean;
 }
 
 /** Horario original conservado ante una edición manual (Propuesta §5.3). */

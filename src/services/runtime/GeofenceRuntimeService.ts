@@ -32,6 +32,7 @@ import { getDistanceFromLatLonInMeters, isValidCoordinate } from "../../utils/ge
 import { serializeError } from "../../utils/serializeError";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
+import { monitoredSiteId } from "../domain/siteVisits";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
@@ -106,8 +107,7 @@ async function loadContext(): Promise<{
 } | null> {
   const session = await PersistenceService.getOpenSession();
   if (!session) return null;
-  const transit = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled);
-  const siteId = transit ? transit.toSiteId : session.siteId;
+  const siteId = monitoredSiteId(session);
   if (siteId === null) return null;
   const site = await PersistenceService.getSite(siteId);
   if (!site || !isValidCoordinate(site.targetLat, site.targetLon)) return null;
@@ -139,6 +139,10 @@ export const GeofenceRuntimeService = {
         LoggingService.log("ROJO", "UBICACION", "ERROR", "servicios de ubicación desactivados");
         return false;
       }
+      // Cambiar de sitio invalida la salida pendiente del anterior. Reanudar
+      // el mismo sitio (arranque, OS_KILL) no la borra: el debounce sigue vivo.
+      const pending = await GeofenceRuntimeService.getPendingExit();
+      if (pending && pending.siteId !== siteId) await GeofenceRuntimeService.clearPendingExit();
       await Location.stopGeofencingAsync(GEOFENCE_TASK_NAME).catch(() => {});
       await Location.startGeofencingAsync(GEOFENCE_TASK_NAME, [
         {
@@ -223,11 +227,13 @@ export const GeofenceRuntimeService = {
     }
 
     if (type === "ENTER") {
-      // Rebote: volver a entrar durante el debounce anula la salida pendiente.
+      // Rebote: volver a entrar al MISMO sitio durante el debounce anula la salida.
+      // Una salida pendiente de otro sitio (traslado) no puede tragarse el ENTER del destino.
       const pending = await GeofenceRuntimeService.getPendingExit();
       if (pending && pending.sessionId === session.id) {
+        const sameSite = pending.siteId === target.siteId;
         await GeofenceRuntimeService.clearPendingExit();
-        return;
+        if (sameSite) return;
       }
       if (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") {
         await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact }, "GEOFENCE");

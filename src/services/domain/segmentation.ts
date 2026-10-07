@@ -156,11 +156,21 @@ export function computeSegmentMinutes(
   let singlePaid = 0;
   let singleOt = 0;
   let singleUnpaid = 0;
+  const markTransitClip = (t: (typeof session.transitSegments)[number]) => {
+    if ((t.clipped || TransitPolicyService.overlapsOutside(t, startMs, endMs)) && !warn[0].includes("TRANSIT_CLIPPED")) warn[0].push("TRANSIT_CLIPPED");
+  };
   for (const t of session.transitSegments) {
     if (t.cancelled) continue;
-    const iv: Interval = [t.startAtMs, t.endAtMs ?? endMs];
+    const a = Math.max(t.startAtMs, startMs);
+    const b = Math.min(t.endAtMs ?? endMs, endMs);
+    if (b <= a) {
+      markTransitClip(t);
+      continue;
+    }
+    const iv: Interval = [a, b];
     const d = TransitPolicyService.decide(t, company);
-    const minutes = TransitPolicyService.segmentMinutes(t, endMs);
+    const minutes = TransitPolicyService.boundedMinutes(t, startMs, endMs);
+    markTransitClip(t);
     if (d.paid) {
       transitRateMultiplier = d.rateMultiplier;
       (d.countsTowardOvertime ? paidOt : paidNoOt).push(iv);

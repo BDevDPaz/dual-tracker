@@ -141,6 +141,7 @@ export default function ReportsScreen() {
             lines={[
               { label: t("reports.regular"), value: `${st.regularHours.toFixed(2)} ${t("common.hours")}` },
               { label: t("reports.overtime"), value: `${st.overtimeHours.toFixed(2)} ${t("common.hours")}` },
+              { label: t("reports.transit"), value: `${st.transitHours.toFixed(2)} ${t("common.hours")}` },
             ]}
             packHash={latestPack?.manifest.packHash ?? null}
             onHashCopied={(tail) => showToast(t("report.hashCopied", { hash: tail }), "success")}

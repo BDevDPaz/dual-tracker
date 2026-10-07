@@ -21,6 +21,7 @@ import type {
   Site,
 } from "../../core/contracts";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
+import { checkedInSiteIds } from "../domain/siteVisits";
 
 /** El expediente es un documento en español: sus fechas no siguen el idioma de la UI. */
 const ES: FormatOptions = { lang: "es" };
@@ -88,6 +89,13 @@ function siteAlias(sites: Site[], id: number | null): string {
   return sites.find((s) => s.id === id)?.alias ?? `Destino #${id}`;
 }
 
+/** Cadena de destinos de la jornada (origen → llegadas). Un solo sitio queda igual. */
+function sessionSitesLabel(session: SessionRecord, sites: Site[]): string {
+  const ids = checkedInSiteIds(session);
+  if (!ids.length) return siteAlias(sites, session.siteId);
+  return ids.map((id) => siteAlias(sites, id)).join(" → ");
+}
+
 function header(title: string, subtitle: string, input: ReportInput): string {
   const { profile, company, statement } = input;
   return `
@@ -135,7 +143,7 @@ function sessionRows(input: ReportInput): string {
       return `
         <tr>
           <td><strong>${formatDate(start, ES)}</strong></td>
-          <td>${escapeHtml(siteAlias(input.sites, s.siteId))}
+          <td>${escapeHtml(sessionSitesLabel(s, input.sites))}
             ${s.bookkeeping.manualNote ? `<span class="notes">"${escapeHtml(s.bookkeeping.manualNote)}"</span>` : ""}</td>
           <td>${formatTime(start, ES)} - ${s.endAtMs ? formatTime(s.endAtMs, ES) : "—"}</td>
           <td><strong>${(worked / 60).toFixed(2)}</strong></td>
