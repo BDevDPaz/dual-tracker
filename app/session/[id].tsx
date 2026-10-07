@@ -91,7 +91,7 @@ export default function SessionDetailScreen() {
 
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: TOKENS.colors.text.primary }]} numberOfLines={2}>
-            {computed.site?.alias ?? t("today.noDestination")}
+            {computed.siteLabel || computed.site?.alias || t("today.noDestination")}
           </Text>
           <IntegrityBadge integrity={session.integrityClass} blocked={cert.blocked} />
         </View>

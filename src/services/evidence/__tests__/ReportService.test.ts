@@ -2,7 +2,7 @@
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import { makeEvidence, makeStatement } from "../../../../test/fixtures/payroll.fixture";
-import { COMPANY, makeClosedSession, MONDAY_8AM } from "../../../../test/fixtures/session.fixture";
+import { COMPANY, HOUR, makeClosedSession, makeSegment, MONDAY_8AM } from "../../../../test/fixtures/session.fixture";
 import { DEFAULT_PROFILE } from "../../persistence/SettingsService";
 import { ReportService } from "../ReportService";
 
@@ -31,6 +31,23 @@ describe("ReportService", () => {
     const r = await ReportService.renderPdf("EMPLOYER_DOSSIER", input());
     expect(r.name).toMatch(/^DualTracker_Expediente_W2026-09-21-abcdef12\.pdf$/);
     expect(r.uri).toContain("/packs/");
+  });
+
+  test("un día con dos destinos lista la cadena y no solo el último sitio", () => {
+    const session = makeClosedSession(MONDAY_8AM, 8, {
+      siteId: 2,
+      transitSegments: [makeSegment({ fromSiteId: 1, toSiteId: 2, startAtMs: MONDAY_8AM + 2 * HOUR, endAtMs: MONDAY_8AM + 3 * HOUR })],
+    });
+    const html = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
+      ...input(),
+      sessions: [session],
+      sites: [
+        { id: 1, alias: "Obra Norte", address: "1", clientName: null, notes: null, targetLat: 1, targetLon: 1, radiusM: 100, active: true, createdAtMs: 0, archivedAtMs: null },
+        { id: 2, alias: "Obra Sur", address: "2", clientName: null, notes: null, targetLat: 2, targetLon: 2, radiusM: 100, active: true, createdAtMs: 0, archivedAtMs: null },
+      ],
+    });
+    expect(html).toContain("Obra Norte → Obra Sur");
+    expect(html).not.toContain(">Obra Sur<");
   });
 
   test("share y email degradan con elegancia cuando no hay destino", async () => {

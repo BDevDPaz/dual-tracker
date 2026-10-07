@@ -21,7 +21,7 @@ export function SessionListItem({ item, onPress }: { item: ComputedSession; onPr
       <View style={styles.main}>
         <Text style={[styles.date, { color: TOKENS.colors.text.secondary }]}>{formatDate(start)}</Text>
         <Text style={[styles.site, { color: conflict ? TOKENS.colors.status.warning : TOKENS.colors.text.primary }]} numberOfLines={1}>
-          {item.site?.alias ?? t("today.noDestination")}
+          {item.siteLabel || item.site?.alias || t("today.noDestination")}
         </Text>
         <Text style={[styles.range, { color: TOKENS.colors.text.secondary }]}>
           {formatTime(start)} – {s.endAtMs ? formatTime(s.endAtMs) : "…"}

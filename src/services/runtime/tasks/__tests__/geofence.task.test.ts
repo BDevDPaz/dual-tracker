@@ -86,6 +86,41 @@ describe("geofence.task", () => {
     expect(after.bookkeeping.firstExitAtMs).toBe(exitAt);
   });
 
+  test("ENTER en el destino no se traga una salida pendiente del sitio anterior", async () => {
+    const { siteA, siteB } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, {
+      sessionId: s.id,
+      siteId: siteA,
+      firstExitAtMs: time.now(),
+      reliable: true,
+      reason: null,
+      strikes: 0,
+    });
+    await mustDispatch({ type: "TRANSFER_START", toSiteId: siteB });
+    time.travel(20 * 60_000);
+    LocationMock.__setPosition(SITE_LAT + 0.05, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteB) });
+    const after = (await PersistenceService.getSession(s.id))!;
+    expect(after.domainStatus).toBe("ACTIVA");
+    expect(after.siteId).toBe(siteB);
+    expect(await GeofenceRuntimeService.getPendingExit()).toBeNull();
+  });
+
+  test("rearmar la geocerca del mismo sitio conserva la salida pendiente; otro sitio la descarta", async () => {
+    const { siteA, siteB } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    const pending = await GeofenceRuntimeService.getPendingExit();
+    expect(await GeofenceRuntimeService.startMonitoring(s.id, siteA)).toBe(true);
+    expect(await GeofenceRuntimeService.getPendingExit()).toEqual(pending);
+    expect(await GeofenceRuntimeService.startMonitoring(s.id, siteB)).toBe(true);
+    expect(await GeofenceRuntimeService.getPendingExit()).toBeNull();
+  });
+
   test("ENTER tras EXIT pendiente anula la salida (rebote de GPS)", async () => {
     const { siteA } = await seedWorld();
     const s = await startAndArrive(siteA);

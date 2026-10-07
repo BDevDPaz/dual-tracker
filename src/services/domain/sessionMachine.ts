@@ -28,6 +28,8 @@ import type {
 } from "../../core/contracts";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
+import { siteCheckedInBefore } from "./siteVisits";
+import { TransitPolicyService } from "./TransitPolicyService";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -125,10 +127,21 @@ function openSegment(s: SessionRecord): TransitSegment | undefined {
   return s.transitSegments.find((t) => t.endAtMs === null && !t.cancelled);
 }
 
-function closeOpenSegment(s: SessionRecord, atMs: number, cancelled = false): TransitSegment[] {
-  return s.transitSegments.map((t) =>
-    t.endAtMs === null && !t.cancelled ? { ...t, endAtMs: atMs, cancelled } : t,
-  );
+/** Cierra el tramo abierto y congela la decisión de TransitPolicy de ese instante. */
+function closeOpenSegment(s: SessionRecord, atMs: number, company: CompanyPolicy, cancelled = false): TransitSegment[] {
+  return s.transitSegments.map((t) => {
+    if (t.endAtMs !== null || t.cancelled) return t;
+    if (cancelled) return { ...t, endAtMs: atMs, cancelled: true, paid: false, rateMultiplier: 0, countsTowardOvertime: false };
+    const d = TransitPolicyService.decide({ ...t, paid: null, cancelled: false }, company);
+    return {
+      ...t,
+      endAtMs: atMs,
+      cancelled: false,
+      paid: d.paid,
+      rateMultiplier: d.paid ? d.rateMultiplier : 0,
+      countsTowardOvertime: d.paid && d.countsTowardOvertime,
+    };
+  });
 }
 
 function sync(s: SessionRecord, geofenceSiteId: number | null): EngineEffect {
@@ -174,7 +187,7 @@ function closeOpenPause(s: SessionRecord, atMs: number): PauseInterval[] {
 }
 
 /** Cierre común: cierra almuerzo/pausa/tramo abiertos y fija endAtMs. */
-function closeRecord(s: SessionRecord, endMs: number): SessionRecord {
+function closeRecord(s: SessionRecord, endMs: number, company: CompanyPolicy): SessionRecord {
   const lunch =
     s.lunch.startAtMs && !s.lunch.endAtMs ? { ...s.lunch, endAtMs: endMs } : s.lunch;
   const pauseExtra = s.bookkeeping.lastPauseStartMs ? Math.max(0, endMs - s.bookkeeping.lastPauseStartMs) : 0;
@@ -184,12 +197,13 @@ function closeRecord(s: SessionRecord, endMs: number): SessionRecord {
     endAtMs: endMs,
     lunch,
     totalPausedMs: s.totalPausedMs + pauseExtra,
-    transitSegments: closeOpenSegment(s, endMs),
+    transitSegments: closeOpenSegment(s, endMs, company),
     bookkeeping: { ...s.bookkeeping, lastPauseStartMs: null, pauses: closeOpenPause(s, endMs) },
   };
 }
 
 type ClippedBreak = { kind: "LUNCH" | "PAUSE"; before: { startAtMs: number; endAtMs: number }; after: { startAtMs: number; endAtMs: number } | null };
+type ClippedTransit = { id: string; before: { startAtMs: number; endAtMs: number }; after: { startAtMs: number; endAtMs: number } | null };
 
 /**
  * MANUAL_PATCH (spec v1.3 §5.3): recorta almuerzo y pausas al nuevo intervalo.
@@ -232,6 +246,35 @@ function clipBreaks(s: SessionRecord, start: number, end: number): { next: Sessi
     next: { ...s, lunch, totalPausedMs, bookkeeping: { ...s.bookkeeping, pauses, breaksClipped: true } },
     clipped,
   };
+}
+
+/**
+ * MANUAL_PATCH: recorta tramos de tránsito al nuevo intervalo. Lo que queda
+ * totalmente fuera se descarta (el asiento guarda el antes/después).
+ */
+function clipTransits(s: SessionRecord, start: number, end: number): { next: SessionRecord; clipped: ClippedTransit[] } {
+  const clipped: ClippedTransit[] = [];
+  const kept: TransitSegment[] = [];
+  let changed = false;
+  for (const t of s.transitSegments) {
+    if (t.cancelled) {
+      kept.push(t);
+      continue;
+    }
+    const tEnd = t.endAtMs ?? end;
+    const ns = Math.max(t.startAtMs, start);
+    const ne = Math.min(tEnd, end);
+    const after = ne > ns ? { startAtMs: ns, endAtMs: ne } : null;
+    if (!after || after.startAtMs !== t.startAtMs || after.endAtMs !== tEnd) {
+      changed = true;
+      clipped.push({ id: t.id, before: { startAtMs: t.startAtMs, endAtMs: tEnd }, after });
+    }
+    if (!after) continue;
+    if (after.startAtMs === t.startAtMs && after.endAtMs === t.endAtMs) kept.push(t);
+    else kept.push({ ...t, startAtMs: after.startAtMs, endAtMs: after.endAtMs, clipped: true });
+  }
+  if (!changed) return { next: s, clipped: [] };
+  return { next: { ...s, transitSegments: kept }, clipped };
 }
 
 /**
@@ -310,6 +353,8 @@ function splitSession(
 
   const fe = s.bookkeeping.firstExitAtMs;
   const feInB = fe !== null && fe >= at;
+  // A termina en `at` (exclusivo): si el traslado es posterior, A sigue en el origen.
+  const siteAtSplit = siteCheckedInBefore(s, at);
   const halfIntegrity = (overlaps: boolean) =>
     overlaps ? { integrityClass: "CONFLICT" as const, reason: "OVERLAP" as const } : { integrityClass: "MANUAL" as const, reason: "SESSION_SPLIT" as const };
   const ia = halfIntegrity(!!ctx.splitOverlap?.a);
@@ -318,6 +363,7 @@ function splitSession(
 
   const a: SessionRecord = {
     ...s,
+    siteId: siteAtSplit,
     endAtMs: at,
     lunch: lunchA,
     totalPausedMs: totalA,
@@ -445,7 +491,7 @@ export function transition(
         domainStatus: "ACTIVA",
         actualStartAtMs: open.actualStartAtMs ?? at,
         siteId: seg ? seg.toSiteId : open.siteId,
-        transitSegments: closeOpenSegment(open, at),
+        transitSegments: closeOpenSegment(open, at, ctx.company),
         bookkeeping: { ...open.bookkeeping, firstExitAtMs: null, firstExitReliable: null },
       };
       const reason = ctx.actor === "GEOFENCE" ? "AUTO_CHECKIN_GEOFENCE_ENTRY" : "MANUAL_ARRIVAL_CONFIRMED";
@@ -455,16 +501,34 @@ export function transition(
     // ------------------------------------------------------------ LUNCH_START
     case "LUNCH_START": {
       if (!open) return reject("NO_OPEN_SESSION");
-      if (open.domainStatus !== "ACTIVA") return reject("ILLEGAL_TRANSITION");
+      // El hub de salida ofrece "Iniciar almuerzo" en SALIDA. El almuerzo
+      // empieza en la primera salida (el mismo instante que usa el traslado)
+      // y se anula el temporizador para que esa salida no cierre el día.
+      if (open.domainStatus !== "ACTIVA" && open.domainStatus !== "SALIDA") return reject("ILLEGAL_TRANSITION");
+      const fromExit = open.domainStatus === "SALIDA";
+      const at = fromExit && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
+      const cleared = fromExit ? { firstExitAtMs: null, firstExitReliable: null } : {};
       // Primera pausa = almuerzo (línea explícita). Pausas siguientes = pausa genérica.
       const next: SessionRecord = open.lunch.taken
         ? {
             ...open,
             domainStatus: "PAUSADA",
-            bookkeeping: { ...open.bookkeeping, lastPauseStartMs: now, pauses: [...(open.bookkeeping.pauses ?? []), { startAtMs: now, endAtMs: null }] },
+            bookkeeping: {
+              ...open.bookkeeping,
+              ...cleared,
+              lastPauseStartMs: at,
+              pauses: [...(open.bookkeeping.pauses ?? []), { startAtMs: at, endAtMs: null }],
+            },
           }
-        : { ...open, domainStatus: "PAUSADA", lunch: { ...open.lunch, taken: true, startAtMs: now, endAtMs: null } };
-      return ok(open, next, ctx, open.lunch.taken ? "PAUSE_STARTED" : "LUNCH_STARTED", [sync(next, next.siteId)], "LUNCH_STARTED");
+        : {
+            ...open,
+            domainStatus: "PAUSADA",
+            lunch: { ...open.lunch, taken: true, startAtMs: at, endAtMs: null },
+            bookkeeping: { ...open.bookkeeping, ...cleared },
+          };
+      const effects: EngineEffect[] = [sync(next, next.siteId)];
+      if (fromExit) effects.push({ type: "CANCEL_EXIT_DECISION", sessionId: open.id });
+      return ok(open, next, ctx, open.lunch.taken ? "PAUSE_STARTED" : "LUNCH_STARTED", effects, "LUNCH_STARTED");
     }
 
     // ------------------------------------------------------------ RESUME
@@ -519,7 +583,7 @@ export function transition(
       if (open.domainStatus !== "TRASLADO") return reject("ILLEGAL_TRANSITION");
       // TODO(propuesta): el efecto de nómina del tramo cancelado no está definido;
       // se marca cancelled (no genera línea TRANSIT) y el tiempo cuenta como jornada.
-      const next: SessionRecord = { ...open, domainStatus: "ACTIVA", transitSegments: closeOpenSegment(open, now, true) };
+      const next: SessionRecord = { ...open, domainStatus: "ACTIVA", transitSegments: closeOpenSegment(open, now, ctx.company, true) };
       return ok(open, next, ctx, "TRANSFER_CANCELLED", [sync(next, next.siteId)], "TRANSFER_CANCELLED");
     }
 
@@ -569,7 +633,7 @@ export function transition(
       // "El tiempo mostrado es la primera salida, no la última."
       const endMs =
         open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
-      let next = closeRecord(open, endMs);
+      let next = closeRecord(open, endMs, ctx.company);
       const declared = intent.lunchDeductedMinutes;
       if (declared !== undefined && declared !== null && !next.lunch.startAtMs) {
         let lunch: SessionRecord["lunch"] = { ...next.lunch, taken: declared > 0, deductedMinutes: declared };
@@ -644,7 +708,7 @@ export function transition(
           break;
       }
 
-      const next = withIntegrity(closeRecord(open, endMs), cls, reason);
+      const next = withIntegrity(closeRecord(open, endMs, ctx.company), cls, reason);
       return ok(open, next, ctx, `AUTO_CLOSE_${intent.cause}`, [sync(next, null), { type: "CANCEL_EXIT_DECISION", sessionId: open.id }], "DAY_AUTO_CLOSED");
     }
 
@@ -681,14 +745,23 @@ export function transition(
         bookkeeping: { ...s.bookkeeping, original, manualNote: note.trim() },
       };
       let clippedBreaks: ClippedBreak[] = [];
+      let clippedTransits: ClippedTransit[] = [];
       if (end !== null) {
         const c = clipBreaks(next, start, end);
         next = c.next;
         clippedBreaks = c.clipped;
+        const tr = clipTransits(next, start, end);
+        next = tr.next;
+        clippedTransits = tr.clipped;
       }
       next = withIntegrity(next, "MANUAL", "MANUAL_PATCH");
       const out = ok(s, next, ctx, "MANUAL_PATCH_WITH_NOTE", [], "SESSION_PATCHED");
-      if (out.ok && clippedBreaks.length) out.ledgerExtra = { clippedBreaks };
+      if (out.ok && (clippedBreaks.length || clippedTransits.length)) {
+        out.ledgerExtra = {
+          ...(clippedBreaks.length ? { clippedBreaks } : {}),
+          ...(clippedTransits.length ? { clippedTransits } : {}),
+        };
+      }
       return out;
     }
 

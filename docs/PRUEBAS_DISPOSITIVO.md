@@ -331,3 +331,11 @@ Para cada caso y cada plataforma, rellena una fila:
 | Android (gama baja, Android 10+) | ☐ | | |
 | iPhone (el más antiguo soportado) | ☐ | | |
 | Web (D12) | ☐ | | |
+
+---
+
+## Jornada con varios destinos y traslado pagado
+
+Lista para el teléfono (un solo operario, sin segundo equipo): [PRUEBAS_MULTI_DESTINO.md](PRUEBAS_MULTI_DESTINO.md).
+
+Qué hace el código hoy, qué se corrigió y qué decisiones quedan abiertas: [AUDITORIA_DESTINOS_Y_TRASLADO.md](AUDITORIA_DESTINOS_Y_TRASLADO.md).

@@ -84,6 +84,32 @@ describe("PayrollEngineService", () => {
     expect(st.overtimeDailyHours).toBe(0);
   });
 
+  test("tránsito que cuenta para OT consume la cubeta diaria y se paga en su línea", () => {
+    const seg = makeSegment({ startAtMs: MONDAY_8AM + 8 * HOUR, endAtMs: MONDAY_8AM + 8 * HOUR + 30 * MIN, paid: true, rateMultiplier: 1, countsTowardOvertime: true });
+    const s = makeClosedSession(MONDAY_8AM, 8.5, { transitSegments: [seg] });
+    const st = statement([s]);
+    expect(st.transitHours).toBe(0.5);
+    expect(st.regularHours).toBe(7.5);
+    expect(st.overtimeDailyHours).toBe(0.5);
+    expect(st.grossEstimate).toBe(7.5 * 20 + 0.5 * 30 + 0.5 * 20);
+  });
+
+  test("paid congelado no sigue un cambio posterior de transitPaid", () => {
+    const window = { startAtMs: MONDAY_8AM + 2 * HOUR, endAtMs: MONDAY_8AM + 2 * HOUR + 30 * MIN };
+    const paid = statement([makeClosedSession(MONDAY_8AM, 8, { transitSegments: [makeSegment({ ...window, paid: true, rateMultiplier: 1, countsTowardOvertime: true })] })], CA_POLICY_ID, { ...COMPANY, transitPaid: false });
+    expect(paid.transitHours).toBe(0.5);
+    const unpaid = statement([makeClosedSession(MONDAY_8AM, 8, { transitSegments: [makeSegment({ ...window, paid: false })] })], CA_POLICY_ID, { ...COMPANY, transitPaid: true });
+    expect(unpaid.transitHours).toBe(0);
+    expect(unpaid.regularHours).toBe(7.5);
+  });
+
+  test("minutos de tránsito fuera de la jornada no se pagan", () => {
+    const seg = makeSegment({ startAtMs: MONDAY_8AM + 7.5 * HOUR, endAtMs: MONDAY_8AM + 9 * HOUR });
+    const st = statement([makeClosedSession(MONDAY_8AM, 8, { transitSegments: [seg] })]);
+    expect(st.transitHours).toBe(0.5);
+    expect(st.warnings.some((w) => w.startsWith("TRANSIT_CLIPPED"))).toBe(true);
+  });
+
   test("tránsito según TransitPolicy: pagado sale como línea TRANSIT y no como trabajo", () => {
     const seg = makeSegment({ startAtMs: MONDAY_8AM + 2 * HOUR, endAtMs: MONDAY_8AM + 2 * HOUR + 30 * MIN });
     const s = makeClosedSession(MONDAY_8AM, 8, { transitSegments: [seg] });

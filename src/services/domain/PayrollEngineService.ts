@@ -99,8 +99,10 @@ export function computeSessionMinutes(
   let transitOtMinutes = 0;
   let transitUnpaidMinutes = 0;
   let transitRateMultiplier = company.transitRateMultiplier;
+  let transitClipped = false;
   for (const seg of session.transitSegments) {
-    const minutes = TransitPolicyService.segmentMinutes(seg, endMs);
+    const minutes = TransitPolicyService.boundedMinutes(seg, startMs, endMs);
+    if (seg.clipped || TransitPolicyService.overlapsOutside(seg, startMs, endMs)) transitClipped = true;
     const decision = TransitPolicyService.decide(seg, company);
     if (decision.paid) {
       transitPaidMinutes += minutes;
@@ -116,6 +118,7 @@ export function computeSessionMinutes(
     spanMinutes - lunchMinutes - pauseMinutes - transitPaidMinutes - transitUnpaidMinutes,
   );
 
+  if (transitClipped && !warnings.includes("TRANSIT_CLIPPED")) warnings.push("TRANSIT_CLIPPED");
   if (spanMinutes > 0 && workMinutes === 0) warnings.push("NO_WORK_MINUTES");
 
   return {

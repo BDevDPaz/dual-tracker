@@ -9,7 +9,10 @@ import { Store } from "../../../core/store";
 import { SessionEngineService } from "../../domain/SessionEngineService";
 import { EvidencePackService } from "../../evidence/EvidencePackService";
 import { PersistenceService } from "../../persistence/PersistenceService";
+import { GEOFENCE_TASK_NAME } from "../../../constants/geolocation";
+import { GeofenceRuntimeService } from "../../runtime/GeofenceRuntimeService";
 import { routeIntent } from "../intentRouter";
+import { LocationMock } from "../../../../test/runtimeHarness";
 import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
 import { makeExit } from "../../../../test/fixtures/spatial.fixture";
 import { acceptDisclosure, mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
@@ -145,6 +148,17 @@ describe("intentRouter", () => {
       { type: "TRANSFER_CANCEL" },
       { type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 15 },
     ]);
+  });
+
+  test("editar el radio del sitio vigilado reinicia la geocerca con el radio nuevo", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    expect(await GeofenceRuntimeService.startMonitoring(s.id, siteA)).toBe(true);
+    const site = (await PersistenceService.getSite(siteA))!;
+    const r = await routeIntent({ type: "UPSERT_SITE", site: { id: siteA, alias: site.alias, address: site.address, clientName: site.clientName, radiusM: 80 } });
+    expect(r.ok).toBe(true);
+    const regions = LocationMock.__state.geofences.get(GEOFENCE_TASK_NAME) as { radius: number }[];
+    expect(regions?.[0]?.radius).toBe(80);
   });
 
   test("OPEN_TRACE es navegación pura: no despacha", async () => {

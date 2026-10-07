@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { LinearTransition } from "react-native-reanimated";
 
@@ -31,6 +31,8 @@ interface OperationalHeroCardProps {
    * destino + estado de la geocerca). Sustituye al hueco vacío.
    */
   nextAction?: string | null;
+  /** Toque en el nombre del destino (ficha del sitio). Sustituye al CTA "Ver destino". */
+  onDestinationPress?: () => void;
   /**
    * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
    * del ScrollView). true solo si se usa fuera de un contenedor con padding.
@@ -48,6 +50,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   onPrimaryAction,
   onSecondaryAction,
   nextAction = null,
+  onDestinationPress,
   inset = false,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
@@ -66,9 +69,17 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
         <GlassLayers enabled={glass} />
         <View style={styles.headerRow}>
           <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
-          <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={1}>
-            {destination ?? t("today.noDestination")}
-          </Text>
+          {onDestinationPress ? (
+            <Pressable onPress={onDestinationPress} accessibilityRole="link" style={styles.destinationHit}>
+              <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={1}>
+                {destination ?? t("today.noDestination")}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={[styles.destinationText, styles.destinationPlain, { color: colors.text.primary }]} numberOfLines={1}>
+              {destination ?? t("today.noDestination")}
+            </Text>
+          )}
         </View>
 
         <Text style={[styles.subText, { color: colors.text.secondary }]}>{t(ui.subKey)}</Text>
@@ -123,7 +134,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
-  destinationText: { ...FONT.bodyStrong, flex: 1, textAlign: "right", marginLeft: TOKENS.spacing.md },
+  destinationHit: { flex: 1, marginLeft: TOKENS.spacing.md },
+  destinationPlain: { marginLeft: TOKENS.spacing.md },
+  destinationText: { ...FONT.bodyStrong, flex: 1, textAlign: "right" },
   subText: { ...FONT.caption, marginBottom: TOKENS.spacing.md },
   metricsRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: TOKENS.spacing.lg },
   metricBlock: { flex: 1 },

@@ -24,6 +24,7 @@ import { checkLedgerIntegrity } from "../services/application/useCases/ledgerInt
 import { migratePayrollPolicyToV2 } from "../services/application/useCases/policyMigration";
 import { SessionEngineService } from "../services/domain/SessionEngineService";
 import { SiteRegistryService } from "../services/domain/SiteRegistryService";
+import { monitoredSiteId } from "../services/domain/siteVisits";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../services/evidence/TraceRecorderService";
 import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
@@ -182,8 +183,7 @@ export function boot(): Promise<void> {
       // Tras reinicio del SO la geocerca/FGS pueden haberse perdido: re-sincronizar.
       const stillOpen = await PersistenceService.getOpenSession();
       if (stillOpen) {
-        const seg = stillOpen.transitSegments.find((t) => t.endAtMs === null && !t.cancelled);
-        await syncRuntimeFor(stillOpen, seg ? seg.toSiteId : stillOpen.siteId).catch(() => {});
+        await syncRuntimeFor(stillOpen, monitoredSiteId(stillOpen)).catch(() => {});
       }
       TaskOrchestratorService.startForegroundLoop(() => {
         onForeground().catch(() => {});

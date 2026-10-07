@@ -9,7 +9,7 @@ import { SettingsService } from "../../persistence/SettingsService";
 import { PayrollEngineService, policyForPeriod } from "../PayrollEngineService";
 import { SessionEngineService } from "../SessionEngineService";
 import { CA_DAILY8_WEEKLY40_V1, CA_DAILY8_WEEKLY40_V2 } from "../payrollPolicies";
-import { COMPANY, HOUR, RATES, makeClosedSession } from "../../../../test/fixtures/session.fixture";
+import { COMPANY, HOUR, RATES, makeClosedSession, makeSegment } from "../../../../test/fixtures/session.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 
@@ -35,6 +35,19 @@ const byDay = (st: ReturnType<typeof statement>, kind = "REGULAR") =>
 const TUE_22 = Date.UTC(2026, 8, 23, 5);
 
 describe("P2 — CA_DAILY8_WEEKLY40_v2", () => {
+  test("tránsito que cruza la medianoche se parte en las dos jornadas", () => {
+    const seg = makeSegment({ startAtMs: TUE_22 + HOUR, endAtMs: TUE_22 + 3 * HOUR });
+    const st = statement([makeClosedSession(TUE_22, 8, { transitSegments: [seg] })], TUE_22);
+    expect(st.lines.filter((l) => l.kind === "TRANSIT").map((l) => [l.dateString, l.minutes])).toEqual([
+      ["2026-09-22", 60],
+      ["2026-09-23", 60],
+    ]);
+    expect(byDay(st)).toEqual([
+      ["2026-09-22", 1],
+      ["2026-09-23", 5],
+    ]);
+  });
+
   test("22:00–06:00 → 2 h a J1 y 6 h a J2", () => {
     const st = statement([makeClosedSession(TUE_22, 8)], TUE_22);
     expect(byDay(st)).toEqual([

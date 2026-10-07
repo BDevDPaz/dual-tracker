@@ -12,17 +12,20 @@
  *  - Salud → PermissionsHealthService.
  * Todo rechazo produce un FeedbackPayload (FeedbackService), nunca texto en la vista.
  */
-import type { IntentResult, SessionIntent, ViewIntent } from "../../core/contracts";
+import type { IntentResult, SessionIntent, Site, ViewIntent } from "../../core/contracts";
+import { selectActiveSession } from "../../core/selectors";
 import { Store, StoreActions } from "../../core/store";
 import { setLanguage } from "../../i18n";
 import { serializeError } from "../../utils/serializeError";
 import { DualDisclosureService } from "../domain/DualDisclosureService";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
+import { monitoredSiteId } from "../domain/siteVisits";
 import { EvidencePackService, latestPackFor } from "../evidence/EvidencePackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { SettingsService } from "../persistence/SettingsService";
+import { GeofenceRuntimeService } from "../runtime/GeofenceRuntimeService";
 import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
 import { SecurityService } from "../runtime/SecurityService";
@@ -82,6 +85,19 @@ function report<T>(r: IntentResult<T>): IntentResult<T> {
   return r;
 }
 
+/** Si el sitio editado es el que vigila la jornada abierta, la geocerca usa el radio y las coordenadas nuevos. */
+async function resyncGeofenceIfTarget(site: Site): Promise<void> {
+  const open = selectActiveSession(Store.getState());
+  if (!open || monitoredSiteId(open) !== site.id) return;
+  if (!SiteRegistryService.isGeofenceReady(site)) {
+    await GeofenceRuntimeService.stopMonitoring();
+    StoreActions.healthUpdated({ isMonitoring: false });
+    return;
+  }
+  const watching = await GeofenceRuntimeService.startMonitoring(open.id, site.id);
+  StoreActions.healthUpdated({ isMonitoring: watching });
+}
+
 export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unknown>> {
   try {
     // ---- Jornada ----
@@ -103,6 +119,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         const r = await SiteRegistryService.upsert(intent.site, state.settings.company);
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.siteUpserted(r.site);
+        await resyncGeofenceIfTarget(r.site);
         FeedbackService.emit("SITE_SAVED");
         return { ok: true, data: r.site };
       }
