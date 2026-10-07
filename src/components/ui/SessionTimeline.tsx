@@ -1,12 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { LedgerEntry } from "../../core/contracts";
 import { t } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
+import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
  * SessionTimeline — portado de GEOTrack. Se alimenta de LedgerEntry (Producto
@@ -35,14 +36,51 @@ const INTENT_TYPE: Partial<Record<LedgerEntry["intent"], TimelineEvent["type"]>>
   INTEGRITY_DEGRADE: "warning",
 };
 
+/** Etiqueta humana de un estado de sesión (t("states.X.label")); nunca el enum crudo. */
+export function stateLabel(state: string): string {
+  const key = `states.${state}.label`;
+  const v = t(key);
+  return v === key ? "" : v;
+}
+
+/**
+ * Subtítulo de un asiento: transición "Esperando llegada → En sitio" traducida.
+ * Los `reason` del ledger son códigos internos (ACCURACY_GT_RADIUS, OVERLAP…):
+ * no se muestran tal cual; solo si existe traducción en ledger.reasons.*.
+ */
+export function ledgerSubtitle(e: Pick<LedgerEntry, "fromState" | "toState" | "reason">): string | undefined {
+  if (e.fromState && e.toState && e.fromState !== e.toState) {
+    const from = stateLabel(e.fromState);
+    const to = stateLabel(e.toState);
+    if (from && to) return `${from} → ${to}`;
+  }
+  if (e.reason) {
+    const key = `ledger.reasons.${e.reason}`;
+    const v = t(key);
+    if (v !== key) return v;
+  }
+  return undefined;
+}
+
 export function ledgerToTimeline(entries: LedgerEntry[], labelFor: (e: LedgerEntry) => string): TimelineEvent[] {
   return entries.map((e) => ({
     id: String(e.id),
     title: labelFor(e),
     time: formatTime(e.timestampMs),
-    subtitle: e.fromState && e.toState && e.fromState !== e.toState ? `${e.fromState} → ${e.toState}` : e.reason,
+    subtitle: ledgerSubtitle(e),
     type: INTENT_TYPE[e.intent] ?? (e.integrityClass === "CONFLICT" ? "warning" : "note"),
   }));
+}
+
+/** Solo los primeros nodos entran escalonados; el resto aparece sin animación. */
+export const TIMELINE_STAGGER_MAX = 6;
+const STAGGER_STEP_MS = 100;
+
+/** Animación de entrada del nodo `index` (undefined = sin animación). */
+export function timelineEntering(index: number, reduceMotion: boolean) {
+  if (index >= TIMELINE_STAGGER_MAX) return undefined;
+  if (reduceMotion) return FadeIn.duration(REDUCED_FADE_MS);
+  return FadeInDown.delay(STAGGER_STEP_MS + index * STAGGER_STEP_MS).duration(400);
 }
 
 interface SessionTimelineProps {
@@ -58,6 +96,7 @@ interface SessionTimelineProps {
 
 export function SessionTimeline({ events, title, emptyText, inset = false }: SessionTimelineProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   const getEventStyle = (type: TimelineEvent["type"]) => {
     switch (type) {
       case "start":
@@ -87,7 +126,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
 
       {events.length === 0 ? (
         <Animated.Text
-          entering={FadeInDown.duration(400)}
+          entering={reduceMotion ? FadeIn.duration(REDUCED_FADE_MS) : FadeInDown.duration(400)}
           style={[styles.emptyText, { color: colors.text.muted }]}
         >
           {emptyText ?? t("session.activityEmpty")}
@@ -101,7 +140,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
             return (
               <Animated.View
                 key={event.id}
-                entering={FadeInDown.delay(100 + index * 100).duration(400)}
+                entering={timelineEntering(index, reduceMotion)}
                 style={styles.timelineNode}
               >
                 <View

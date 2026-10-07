@@ -22,6 +22,8 @@ jest.mock("expo-background-task", () => require("./mocks/expo-background-task"))
 jest.mock("expo-sharing", () => require("./mocks/expo-sharing"));
 jest.mock("expo-mail-composer", () => require("./mocks/expo-mail-composer"));
 jest.mock("expo-clipboard", () => require("./mocks/expo-clipboard"));
+jest.mock("expo-blur", () => require("./mocks/expo-blur"));
+jest.mock("react-native-safe-area-context", () => require("./mocks/react-native-safe-area-context"));
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
@@ -47,6 +49,7 @@ const RESETTABLE = [
   "expo-sharing",
   "expo-mail-composer",
   "expo-clipboard",
+  "react-native-safe-area-context",
 ];
 
 beforeEach(async () => {
@@ -55,6 +58,9 @@ beforeEach(async () => {
   GeofenceRuntimeService.__resetForTests();
   Store.reset();
   FieldCryptoService.__resetForTests();
+  (require("../src/components/ui/motion") as typeof import("../src/components/ui/motion")).ReduceMotionPref.__reset();
+  (require("../src/components/ui/motion") as typeof import("../src/components/ui/motion")).ReduceTransparencyPref.__reset();
+  (require("../src/components/feedback/blockingModals") as typeof import("../src/components/feedback/blockingModals")).BlockingModals.__reset();
   for (const m of RESETTABLE) (require(m) as { __reset?: () => void }).__reset?.();
   await (require("expo-sqlite") as typeof import("./mocks/expo-sqlite")).__resetAll(CREATE_TABLES_SQL);
 

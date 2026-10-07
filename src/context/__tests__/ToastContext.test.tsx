@@ -1,0 +1,51 @@
+/** ToastContext: inset superior, título + leyenda, región viva, cola bajo modal bloqueante. */
+import React, { useEffect } from "react";
+import { StyleSheet } from "react-native";
+import { act, render, screen } from "@testing-library/react-native";
+import { ToastProvider, useToast, TOAST_TOP_GAP, type ToastType } from "../ToastContext";
+import { BlockingModals } from "../../components/feedback/blockingModals";
+import { __setInsets } from "../../../test/mocks/react-native-safe-area-context";
+
+let api: ReturnType<typeof useToast>;
+function Grab() {
+  const ctx = useToast();
+  useEffect(() => {
+    api = ctx;
+  });
+  return null;
+}
+const mount = () =>
+  render(
+    <ToastProvider>
+      <Grab />
+    </ToastProvider>,
+  );
+const show = (title: string, type?: ToastType, caption?: string) => act(() => api.showToast(title, type, caption));
+
+describe("ToastContext", () => {
+  test("top = inset seguro + 8; título y leyenda en nodos separados; polite + alert", () => {
+    __setInsets({ top: 47 });
+    mount();
+    show("Jornada iniciada", "success", "Geocerca activa");
+    expect(StyleSheet.flatten(screen.getByTestId("toast").props.style).top).toBe(47 + TOAST_TOP_GAP);
+    expect(screen.getByTestId("toast-title").props.children).toBe("Jornada iniciada");
+    expect(screen.getByTestId("toast-caption").props.children).toBe("Geocerca activa");
+    const card = screen.getByRole("alert");
+    expect(card.props.accessibilityLiveRegion).toBe("polite");
+  });
+
+  test("sin leyenda solo hay título", () => {
+    mount();
+    show("Hola");
+    expect(screen.queryByTestId("toast-caption")).toBeNull();
+  });
+
+  test("con un modal bloqueante visible se retiene y aparece al cerrarse", () => {
+    mount();
+    act(() => BlockingModals.show("exit"));
+    show("Aviso retenido", "warning");
+    expect(screen.queryByTestId("toast")).toBeNull();
+    act(() => BlockingModals.hide("exit"));
+    expect(screen.getByTestId("toast-title").props.children).toBe("Aviso retenido");
+  });
+});

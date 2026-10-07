@@ -57,7 +57,7 @@ export function FeedbackBridge() {
       }
       // Toast (o diálogo cuyo modal ya pinta la pantalla → aviso corto, no un segundo diálogo).
       const { title, message } = queries.renderFeedback(fb, getLanguage());
-      showToast(message ? `${title} · ${message}` : title, fb.tone);
+      showToast(title, fb.tone, message || undefined);
       void emit({ type: "DISMISS_FEEDBACK", feedbackId: fb.id });
     }
     if (dialogs.length) setQueue((q) => [...q, ...dialogs]);

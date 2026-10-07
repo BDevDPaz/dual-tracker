@@ -7,7 +7,9 @@ import {
   Pressable,
   Platform,
   ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -18,6 +20,8 @@ import { ICONS } from "../../constants/icons";
 import { t } from "../../i18n";
 import { BlockingModals } from "../feedback/blockingModals";
 import { Button, ButtonVariant } from "./Button";
+import { useMotionPreference } from "./motion";
+import { GlassLayers, useGlass } from "./GlassSurface";
 
 export type ModalTone = "neutral" | "info" | "warning" | "danger" | "success";
 
@@ -74,6 +78,8 @@ export function ModalShell({
   testID,
 }: ModalShellProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
+  const { glass, containerStyle } = useGlass();
   const blockingId = useId();
   const blocking = visible && !dismissible;
   useEffect(() => {
@@ -220,16 +226,34 @@ export function ModalShell({
     return content;
   };
 
+  const card = (
+    <Animated.View
+      entering={reduceMotion ? ANIM_PRESETS.reducedFade : ANIM_PRESETS.modalEnter}
+      style={[styles.modalCard, containerStyle, styles.modalCardEdges]}
+      testID={testID ? `${testID}-card` : undefined}
+    >
+      <GlassLayers enabled={glass} />
+      {/* Borde inferior seguro real en lugar del paddingBottom fijo de 40 en iOS. */}
+      <SafeAreaView edges={["bottom"]} style={styles.safeArea}>
+        {renderContent()}
+      </SafeAreaView>
+    </Animated.View>
+  );
+
   return (
+    // animationType="none": una sola animación (Reanimated), sin el fade nativo encima.
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={requestClose}
       testID={testID}
     >
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+      <Animated.View
+        entering={reduceMotion ? undefined : ANIM_PRESETS.overlayEnter}
+        style={[styles.overlay, { backgroundColor: colors.overlay }]}
+      >
         {dismissible ? (
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -240,19 +264,19 @@ export function ModalShell({
           />
         ) : null}
 
-        <Animated.View
-          entering={ANIM_PRESETS.modalEnter}
-          style={[
-            styles.modalCard,
-            {
-              backgroundColor: colors.surfaceElevated,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          {renderContent()}
-        </Animated.View>
-      </View>
+        {scrollable ? (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardAvoider}
+            pointerEvents="box-none"
+            testID={testID ? `${testID}-kav` : undefined}
+          >
+            {card}
+          </KeyboardAvoidingView>
+        ) : (
+          card
+        )}
+      </Animated.View>
     </Modal>
   );
 }
@@ -265,13 +289,20 @@ const styles = StyleSheet.create({
   modalCard: {
     borderTopLeftRadius: TOKENS.radius.xl,
     borderTopRightRadius: TOKENS.radius.xl,
-    borderWidth: 1,
-    borderBottomWidth: 0,
     maxHeight: "90%",
+    overflow: "hidden",
+  },
+  modalCardEdges: {
+    borderBottomWidth: 0,
+  },
+  safeArea: {
+    flexShrink: 1,
+  },
+  keyboardAvoider: {
+    justifyContent: "flex-end",
   },
   contentBody: {
     padding: TOKENS.spacing.xl,
-    paddingBottom: Platform.OS === "ios" ? 40 : TOKENS.spacing.xl,
   },
   scrollContent: {
     flexGrow: 1,

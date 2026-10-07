@@ -17,6 +17,7 @@ export const ICONS = {
     warning: "warning-outline",
     info: "information-circle-outline",
     neutral: "help-circle-outline",
+    idle: "ellipse-outline",
   },
 
   actions: {

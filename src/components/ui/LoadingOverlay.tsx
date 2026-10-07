@@ -7,11 +7,13 @@ import Animated, {
   withTiming,
   Easing,
   FadeIn,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
+import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -28,11 +30,18 @@ export function LoadingOverlay({
   reconnectingLabel,
 }: LoadingOverlayProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   const rotation = useSharedValue(0);
   const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && reduceMotion) {
+      // Movimiento reducido: icono estático, sin giro ni pulso.
+      cancelAnimation(rotation);
+      cancelAnimation(pulseOpacity);
+      rotation.value = 0;
+      pulseOpacity.value = 1;
+    } else if (visible) {
       rotation.value = withRepeat(
         withTiming(360, { duration: 1000, easing: Easing.linear }),
         -1,
@@ -50,7 +59,7 @@ export function LoadingOverlay({
       rotation.value = 0;
       pulseOpacity.value = 1;
     }
-  }, [visible, isReconnecting, rotation, pulseOpacity]);
+  }, [visible, isReconnecting, reduceMotion, rotation, pulseOpacity]);
 
   const animatedSpinnerStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
@@ -66,7 +75,7 @@ export function LoadingOverlay({
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.container}>
         <Animated.View
-          entering={FadeIn.duration(250)}
+          entering={FadeIn.duration(reduceMotion ? REDUCED_FADE_MS : 250)}
           style={[styles.backdrop, { backgroundColor: colors.overlay }]}
         />
 

@@ -51,4 +51,17 @@ describe("ModalShell", () => {
     render(<ModalShell visible title="Hi" onClose={() => undefined} />);
     expect(screen.getByLabelText("Close")).toBeTruthy();
   });
+
+  test("una sola animación: Modal animationType='none'", () => {
+    render(<ModalShell visible title="T" onClose={() => undefined} testID="m" />);
+    expect(screen.getByTestId("m").props.animationType).toBe("none");
+  });
+
+  test("scrollable → KeyboardAvoidingView; área segura inferior en lugar de padding fijo", () => {
+    const { rerender } = render(<ModalShell visible title="T" onClose={() => undefined} testID="m" />);
+    expect(screen.queryByTestId("m-kav")).toBeNull();
+    expect(screen.getByTestId("safe-area-view")).toBeTruthy();
+    rerender(<ModalShell visible scrollable title="T" onClose={() => undefined} testID="m" />);
+    expect(screen.getByTestId("m-kav")).toBeTruthy();
+  });
 });

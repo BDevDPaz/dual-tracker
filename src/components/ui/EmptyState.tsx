@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { useMotionPreference } from "./motion";
 import { ANIM_PRESETS } from "../../constants/animations";
 import Animated from "react-native-reanimated";
 import { Button } from "./Button";
@@ -25,8 +26,9 @@ export function EmptyState({
   compact = false,
 }: EmptyStateProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   return (
-    <Animated.View entering={ANIM_PRESETS.screenEntry} style={[styles.container, compact && styles.compact]}>
+    <Animated.View entering={reduceMotion ? ANIM_PRESETS.reducedFade : ANIM_PRESETS.screenEntry} style={[styles.container, compact && styles.compact]}>
       <View style={styles.iconWrapper}>
         <Ionicons
           name={icon as any}

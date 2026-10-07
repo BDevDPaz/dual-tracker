@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, FadeInDown } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, cancelAnimation, Easing, FadeIn, FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import { TOKENS, FONT } from "../../constants/theme";
@@ -9,6 +9,7 @@ import type { SystemHealthView } from "../../core/selectors";
 import { ICONS } from "../../constants/icons";
 import { t } from "../../i18n";
 import { Card } from "./Card";
+import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
  * SystemHealthBlock — portado de GEOTrack. Ahora lee el snapshot REAL de
@@ -29,19 +30,25 @@ interface SystemHealthBlockProps {
 
 export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health, tracking, onPress, inset = false }: SystemHealthBlockProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   const pulseOpacity = useSharedValue(1);
+  // Pulso solo en la fila GPS mientras se rastrea; nunca con movimiento reducido.
+  const pulsing = tracking && !reduceMotion;
   useEffect(() => {
-    pulseOpacity.value = tracking
-      ? withRepeat(withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }), -1, true)
-      : withTiming(1, { duration: 300 });
-  }, [tracking, pulseOpacity]);
+    if (pulsing) {
+      pulseOpacity.value = withRepeat(withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }), -1, true);
+    } else {
+      cancelAnimation(pulseOpacity);
+      pulseOpacity.value = reduceMotion ? 1 : withTiming(1, { duration: 300 });
+    }
+  }, [pulsing, reduceMotion, pulseOpacity]);
   const animatedDotStyle = useAnimatedStyle(() => ({ opacity: pulseOpacity.value }));
 
   const ok = colors.status.success;
   const warn = colors.status.warning;
   const muted = colors.text.muted;
   const rows = [
-    { icon: ICONS.domain.gps, label: t("health.gps"), color: !health.checked ? muted : health.gpsOk ? ok : warn, status: health.gpsOk ? t("health.ok") : t("health.warn"), pulse: tracking },
+    { icon: ICONS.domain.gps, label: t("health.gps"), color: !health.checked ? muted : health.gpsOk ? ok : warn, status: health.gpsOk ? t("health.ok") : t("health.warn"), pulse: pulsing },
     { icon: ICONS.domain.background, label: t("health.background"), color: !health.checked ? muted : health.backgroundOk ? ok : warn, status: health.backgroundOk ? t("health.ok") : t("health.warn"), pulse: false },
     { icon: ICONS.domain.trace, label: t("health.trace"), color: health.traceMode === "SIN_UBICACION" ? muted : ok, status: t(`health.modes.${health.traceMode}`), pulse: false },
   ] as const;
@@ -54,7 +61,10 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
       </View>
       {rows.map((r) => (
         <View key={r.label} style={styles.row}>
-          <Animated.View style={[styles.dot, { backgroundColor: r.color }, r.pulse ? animatedDotStyle : null]} />
+          <Animated.View
+            style={[styles.dot, { backgroundColor: r.color }, r.pulse ? animatedDotStyle : null]}
+            testID={r.pulse ? "health-dot-pulsing" : undefined}
+          />
           <Ionicons name={r.icon} size={16} color={r.color} style={styles.icon} />
           <Text style={[styles.text, { color: colors.text.secondary }]}>{r.label}</Text>
           <Text style={[styles.status, { color: r.color }]}>{r.status}</Text>
@@ -69,7 +79,7 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   );
 
   return (
-    <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+    <Animated.View entering={reduceMotion ? FadeIn.duration(REDUCED_FADE_MS) : FadeInDown.delay(200).duration(400)}>
       {onPress ? (
         <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={t("health.title")}>
           {content}

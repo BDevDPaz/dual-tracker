@@ -5,7 +5,6 @@ import {
   Pressable,
   PressableProps,
   ActivityIndicator,
-  Platform,
   StyleProp,
   ViewStyle,
   View,
@@ -17,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { haptics, useMotionPreference } from "./motion";
 
 // Importaciones del sistema de diseño y contexto
 
@@ -53,6 +53,7 @@ export const Button = React.memo(function Button({
   ...props
 }: ButtonProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   const scale = useSharedValue(1);
   const isDisabled = disabled || isLoading;
 
@@ -64,13 +65,13 @@ export const Button = React.memo(function Button({
     event: Parameters<NonNullable<PressableProps["onPressIn"]>>[0],
   ) => {
     if (!isDisabled) {
-      scale.value = withSpring(INTERACTION.pressedScale, {
-        damping: 20,
-        stiffness: 300,
-      });
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!reduceMotion) {
+        scale.value = withSpring(INTERACTION.pressedScale, {
+          damping: 20,
+          stiffness: 300,
+        });
       }
+      haptics.impact(Haptics.ImpactFeedbackStyle.Light, reduceMotion);
     }
 
     if (onPressIn) {
@@ -94,12 +95,10 @@ export const Button = React.memo(function Button({
       return;
     }
 
-    if (Platform.OS !== "web") {
-      if (variant === "danger") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      } else if (variant === "primary" || variant === "success") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
+    if (variant === "danger") {
+      haptics.notify(Haptics.NotificationFeedbackType.Warning, reduceMotion);
+    } else if (variant === "primary" || variant === "success") {
+      haptics.impact(Haptics.ImpactFeedbackStyle.Medium, reduceMotion);
     }
 
     if (onPress) {

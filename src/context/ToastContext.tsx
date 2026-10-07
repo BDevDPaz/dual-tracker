@@ -1,7 +1,11 @@
 /**
- * ToastContext — portado de GEOTrack sin cambios de comportamiento.
- * Único cambio: el reloj sale de TimeAuthorityService (antes utils/timeProvider).
+ * ToastContext — portado de GEOTrack. El reloj sale de TimeAuthorityService.
  * Lo alimenta FeedbackBridge a partir de FeedbackService (store.feedback).
+ *  - Posición: top = inset seguro superior + 8.
+ *  - Dos nodos de texto: título (FONT.bodyStrong) + leyenda opcional.
+ *  - accessibilityLiveRegion="polite" además del rol "alert".
+ *  - Mientras hay un modal bloqueante visible no se pinta: se encola y se
+ *    muestra al cerrarse (un Modal nativo taparía el aviso).
  */
 import React, {
   createContext,
@@ -11,7 +15,8 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import { StyleSheet, Text, View, Platform, Pressable } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,14 +32,23 @@ import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
 import { t } from "../i18n";
+import { useBlockingModalVisible } from "../components/feedback/blockingModals";
 
 const now = () => TimeAuthorityService.now();
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
 interface ToastContextType {
-  showToast: (message: string, type?: ToastType) => void;
+  /** title: línea principal; caption: detalle opcional en una segunda línea. */
+  showToast: (title: string, type?: ToastType, caption?: string) => void;
 }
+
+type ToastItem = { title: string; caption?: string; type: ToastType };
+
+/** Separación entre el borde seguro superior y el aviso. */
+export const TOAST_TOP_GAP = 8;
+/** Máximo de avisos encolados mientras un modal bloqueante está visible. */
+const MAX_QUEUED = 3;
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
@@ -42,8 +56,12 @@ const DEDUPE_THRESHOLD_MS = 2500;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const blockingVisible = useBlockingModalVisible();
   const [message, setMessage] = useState("");
+  const [caption, setCaption] = useState<string | undefined>(undefined);
   const [type, setType] = useState<ToastType>("info");
+  const [queued, setQueued] = useState<ToastItem[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastToastRef = useRef<{
     message: string;
@@ -80,35 +98,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const showToast = useCallback(
-    (msg: string, toastType: ToastType = "info") => {
-      if (!msg || msg.trim() === "") return;
+  // Lectura síncrona del estado bloqueante dentro de showToast (callback estable).
+  const blockingRef = useRef(blockingVisible);
+  blockingRef.current = blockingVisible;
 
-      const currentTs = now();
-      if (
-        lastToastRef.current &&
-        lastToastRef.current.message === msg &&
-        lastToastRef.current.type === toastType &&
-        currentTs - lastToastRef.current.timestamp < DEDUPE_THRESHOLD_MS
-      ) {
-        return;
-      }
-
-      lastToastRef.current = {
-        message: msg,
-        type: toastType,
-        timestamp: currentTs,
-      };
-
+  const present = useCallback(
+    ({ title, caption: cap, type: toastType }: ToastItem) => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
 
-      setMessage(msg);
+      setMessage(title);
+      setCaption(cap);
       setType(toastType);
 
       opacity.value = 1;
-      translateY.value = withSpring(Platform.OS === "ios" ? 60 : 40, {
+      translateY.value = withSpring(0, {
         damping: 20,
         stiffness: 150,
       });
@@ -119,6 +124,45 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     },
     [dismissToast, translateY, opacity],
   );
+
+  const showToast = useCallback(
+    (title: string, toastType: ToastType = "info", cap?: string) => {
+      if (!title || title.trim() === "") return;
+      const text = cap ? `${title}\n${cap}` : title;
+
+      const currentTs = now();
+      if (
+        lastToastRef.current &&
+        lastToastRef.current.message === text &&
+        lastToastRef.current.type === toastType &&
+        currentTs - lastToastRef.current.timestamp < DEDUPE_THRESHOLD_MS
+      ) {
+        return;
+      }
+
+      lastToastRef.current = {
+        message: text,
+        type: toastType,
+        timestamp: currentTs,
+      };
+
+      const item: ToastItem = { title, caption: cap || undefined, type: toastType };
+      if (blockingRef.current) {
+        setQueued((q) => [...q, item].slice(-MAX_QUEUED));
+        return;
+      }
+      present(item);
+    },
+    [present],
+  );
+
+  // Un modal bloqueante tapa el aviso: se retiene y se muestra al cerrarse.
+  useEffect(() => {
+    if (blockingVisible || queued.length === 0) return;
+    // Solo el más reciente: una ráfaga de avisos viejos no aporta.
+    present(queued[queued.length - 1]);
+    setQueued([]);
+  }, [blockingVisible, queued, present]);
 
   const getToastConfig = () => {
     switch (type) {
@@ -145,8 +189,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {message !== "" && (
-        <Animated.View style={[styles.toastContainer, animatedStyle]}>
+      {message !== "" && !blockingVisible && (
+        <Animated.View
+          style={[styles.toastContainer, { top: insets.top + TOAST_TOP_GAP }, animatedStyle]}
+          testID="toast"
+        >
           <Pressable
             onPress={dismissToast}
             style={[
@@ -158,7 +205,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               },
             ]}
             accessibilityRole="alert"
-            accessibilityLabel={t("a11y.toast", { message })}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={t("a11y.toast", { message: caption ? `${message}. ${caption}` : message })}
           >
             <View style={styles.contentRow}>
               <Ionicons
@@ -166,15 +214,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 size={22}
                 color={config.color}
               />
-              <Text
-                style={[
-                  styles.toastText,
-                  { color: colors.text.primary },
-                ]}
-                numberOfLines={3}
-              >
-                {message}
-              </Text>
+              <View style={styles.textCol}>
+                <Text
+                  style={[styles.toastTitle, { color: colors.text.primary }]}
+                  numberOfLines={2}
+                  testID="toast-title"
+                >
+                  {message}
+                </Text>
+                {caption ? (
+                  <Text
+                    style={[styles.toastCaption, { color: colors.text.secondary }]}
+                    numberOfLines={3}
+                    testID="toast-caption"
+                  >
+                    {caption}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </Pressable>
         </Animated.View>
@@ -196,7 +253,6 @@ export function useToast() {
 const styles = StyleSheet.create({
   toastContainer: {
     position: "absolute",
-    top: 0,
     left: 0,
     right: 0,
     zIndex: TOKENS.zIndex.toast,
@@ -216,10 +272,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: TOKENS.spacing.md,
   },
-  toastText: {
-    ...FONT.bodyStrong,
-    fontSize: 14,
+  textCol: {
     flex: 1,
-    lineHeight: 18,
+    gap: 2,
+  },
+  toastTitle: {
+    ...FONT.bodyStrong,
+  },
+  toastCaption: {
+    ...FONT.caption,
   },
 });

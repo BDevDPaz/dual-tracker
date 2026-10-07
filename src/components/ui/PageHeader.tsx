@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ViewStyle, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { haptics, useMotionPreference } from "./motion";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
@@ -40,9 +41,11 @@ export function PageHeader({
 }: PageHeaderProps) {
   const { colors } = useTheme();
   const router = useRouter();
+  const reduceMotion = useMotionPreference();
 
   const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Protegido: sin hápticos en web ni con movimiento reducido.
+    haptics.impact(Haptics.ImpactFeedbackStyle.Light, reduceMotion);
     if (onBack) {
       onBack();
     } else {

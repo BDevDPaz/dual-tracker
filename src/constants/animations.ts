@@ -2,6 +2,7 @@ import {
   Easing,
   WithSpringConfig,
   FadeInDown,
+  FadeIn,
   SlideInDown,
   Layout,
 } from "react-native-reanimated";
@@ -47,6 +48,12 @@ export const ANIM_PRESETS = {
 
   // Transición para elementos de lista
   listItem: FadeInDown.duration(DURATIONS.fast).easing(EASINGS.standard),
+
+  // Fondo del modal (Modal usa animationType="none"; la animación es solo esta)
+  overlayEnter: FadeIn.duration(DURATIONS.fast),
+
+  // Movimiento reducido: fundido corto de 150 ms en lugar de deslizamientos/resortes
+  reducedFade: FadeIn.duration(DURATIONS.fast),
 
   // Transición de layout automática
   layout: Layout.duration(DURATIONS.normal),

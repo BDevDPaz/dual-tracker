@@ -1,7 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT, font, type ThemeColors } from "../../constants/theme";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import { ICONS } from "../../constants/icons";
 
 /**
  * StatusPill — portado de GEOTrack. Los tonos dejan de ser estados de dominio
@@ -30,11 +32,21 @@ export function toneColors(colors: ThemeColors, tone: StatusTone): { color: stri
   }
 }
 
+/** Glifo inicial por tono: el estado no depende solo del color. */
+export const PILL_GLYPH: Record<StatusTone, React.ComponentProps<typeof Ionicons>["name"]> = {
+  neutral: ICONS.status.idle,
+  info: ICONS.status.info,
+  success: ICONS.status.success,
+  warning: ICONS.status.warning,
+  danger: ICONS.status.error,
+};
+
 export function StatusPill({ tone, label }: StatusPillProps) {
   const { colors } = useTheme();
   const { color, bg } = toneColors(colors, tone);
   return (
-    <View style={[styles.pill, { backgroundColor: bg }]} accessibilityRole="text">
+    <View style={[styles.pill, { backgroundColor: bg }]} accessibilityRole="text" accessibilityLabel={label}>
+      <Ionicons name={PILL_GLYPH[tone]} size={12} color={color} testID={`status-pill-glyph-${tone}`} />
       <Text style={[styles.text, { color }]}>{label.toUpperCase()}</Text>
     </View>
   );
@@ -46,6 +58,9 @@ const styles = StyleSheet.create({
     paddingVertical: TOKENS.spacing.xs,
     borderRadius: TOKENS.radius.round,
     alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   text: {
     ...FONT.label,

@@ -1,10 +1,11 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
+import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 interface DailySummaryBlockProps {
   hours: string;
@@ -18,9 +19,10 @@ interface DailySummaryBlockProps {
 
 export function DailySummaryBlock({ hours, earnings, inset = false }: DailySummaryBlockProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   return (
     <Animated.View
-      entering={FadeInDown.delay(100).duration(400)}
+      entering={reduceMotion ? FadeIn.duration(REDUCED_FADE_MS) : FadeInDown.delay(100).duration(400)}
       style={[
         styles.block,
         inset && styles.inset,

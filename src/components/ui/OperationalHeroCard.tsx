@@ -9,6 +9,7 @@ import type { SessionStateUI } from "../../core/selectors";
 import { t } from "../../i18n";
 import { StatusPill } from "./StatusPill";
 import { Button } from "./Button";
+import { GlassLayers, useGlass } from "./GlassSurface";
 
 /**
  * OperationalHeroCard — portado de GEOTrack y rediseñado (Producto §5.7):
@@ -50,6 +51,8 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   inset = false,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
+  // Cristal: desenfoque + relleno 12 % + filo dorado; sólido si no hay blur o se reduce la transparencia.
+  const { glass, containerStyle } = useGlass();
   // Teléfonos estrechos (< 360 dp): CTAs apilados a ancho completo; el texto nunca baja de 16.
   const { width } = useWindowDimensions();
   const narrow = width < NARROW_WIDTH;
@@ -57,47 +60,50 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}
-      style={[styles.cardContainer, inset && styles.inset, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, ...TOKENS.shadows.md }]}
+      style={[styles.cardOuter, inset && styles.inset, TOKENS.shadows.md]}
     >
-      <View style={styles.headerRow}>
-        <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
-        <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={1}>
-          {destination ?? t("today.noDestination")}
-        </Text>
-      </View>
-
-      <Text style={[styles.subText, { color: colors.text.secondary }]}>{t(ui.subKey)}</Text>
-      {uncertified ? <StatusPill tone="warning" label={t("today.uncertified")} /> : null}
-
-      {ui.showTimer ? (
-        <View style={styles.metricsRow}>
-          <View style={styles.metricBlock}>
-            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
-            <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]} testID="hero-timer">
-              {timeString}
-            </Text>
-          </View>
-          <View style={styles.metricBlockRight}>
-            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
-            <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}>{earnings}</Text>
-          </View>
-        </View>
-      ) : nextAction ? (
-        <View style={styles.nextRow} testID="hero-next-action">
-          <Ionicons name="navigate-outline" size={16} color={colors.status.info} />
-          <Text style={[styles.nextText, { color: colors.text.primary }]} numberOfLines={2}>
-            {nextAction}
+      <View style={[styles.cardContainer, containerStyle]} testID="hero-card">
+        <GlassLayers enabled={glass} />
+        <View style={styles.headerRow}>
+          <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
+          <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={1}>
+            {destination ?? t("today.noDestination")}
           </Text>
         </View>
-      ) : (
-        <View style={styles.spacer} />
-      )}
 
-      <View style={[styles.actionRow, narrow && styles.actionColumn]} testID="hero-actions">
-        <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={narrow ? styles.fullButton : styles.flexButton} />
-        {ui.secondary && onSecondaryAction ? (
-          <Button label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={narrow ? styles.fullButton : styles.flexButton} />
-        ) : null}
+        <Text style={[styles.subText, { color: colors.text.secondary }]}>{t(ui.subKey)}</Text>
+        {uncertified ? <StatusPill tone="warning" label={t("today.uncertified")} /> : null}
+
+        {ui.showTimer ? (
+          <View style={styles.metricsRow}>
+            <View style={styles.metricBlock}>
+              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
+              <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]} testID="hero-timer">
+                {timeString}
+              </Text>
+            </View>
+            <View style={styles.metricBlockRight}>
+              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
+              <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}>{earnings}</Text>
+            </View>
+          </View>
+        ) : nextAction ? (
+          <View style={styles.nextRow} testID="hero-next-action">
+            <Ionicons name="navigate-outline" size={16} color={colors.status.info} />
+            <Text style={[styles.nextText, { color: colors.text.primary }]} numberOfLines={2}>
+              {nextAction}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.spacer} />
+        )}
+
+        <View style={[styles.actionRow, narrow && styles.actionColumn]} testID="hero-actions">
+          <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={narrow ? styles.fullButton : styles.flexButton} />
+          {ui.secondary && onSecondaryAction ? (
+            <Button label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={narrow ? styles.fullButton : styles.flexButton} />
+          ) : null}
+        </View>
       </View>
     </Animated.View>
   );
@@ -107,8 +113,11 @@ export const NARROW_WIDTH = 360;
 
 const styles = StyleSheet.create({
   inset: { marginHorizontal: TOKENS.layout.screenPadding },
-  cardContainer: {
+  cardOuter: {
     marginHorizontal: 0,
+    borderRadius: TOKENS.radius.lg,
+  },
+  cardContainer: {
     borderRadius: TOKENS.radius.lg,
     padding: TOKENS.spacing.xl,
     borderWidth: 1,

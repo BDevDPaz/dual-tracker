@@ -6,12 +6,14 @@ import Animated, {
   withTiming,
   withRepeat,
   withSequence,
+  cancelAnimation,
   Easing,
 } from "react-native-reanimated";
 
 import { TOKENS, FONT, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t } from "../../i18n";
+import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 type AppBrandTitleProps = {
   subtitle?: string;
@@ -19,6 +21,7 @@ type AppBrandTitleProps = {
 
 export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   const subtitle = subtitleProp ?? t("app.brandSubtitle");
   const glowOpacity = useSharedValue(0.14);
   const glowScale = useSharedValue(1);
@@ -27,6 +30,18 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
   const titleOpacity = useSharedValue(0);
 
   useEffect(() => {
+    if (reduceMotion) {
+      // Movimiento reducido: fundido de 150 ms, sin desplazamiento ni bucles.
+      titleLift.value = 0;
+      titleOpacity.value = withTiming(1, { duration: REDUCED_FADE_MS });
+      cancelAnimation(glowScale);
+      cancelAnimation(glowOpacity);
+      cancelAnimation(lineScale);
+      glowScale.value = 1;
+      glowOpacity.value = 0.14;
+      lineScale.value = 0.85;
+      return;
+    }
     titleLift.value = withTiming(0, {
       duration: 550,
       easing: Easing.out(Easing.cubic),
@@ -64,7 +79,7 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
       -1,
       false,
     );
-  }, [glowOpacity, glowScale, lineScale, titleLift, titleOpacity]);
+  }, [reduceMotion, glowOpacity, glowScale, lineScale, titleLift, titleOpacity]);
 
   const titleAnimatedStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
