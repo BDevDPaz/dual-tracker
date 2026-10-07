@@ -48,6 +48,7 @@ npm run build:ios:d11           # perfil preview-d11, iOS (ad hoc)
    npx eas-cli@latest init
    ```
    Crea el proyecto `@bdevdpaz/dual-tracker` en expo.dev y escribe `extra.eas.projectId` en `app.json` (`app.config.ts` lo hereda). **Haz commit de ese cambio**: el `projectId` no es secreto.
+   Ya está hecho: `projectId` `d3fb0bb9-4964-403a-8801-b8761ad127b4`. Si `eas init` (u otro comando que reescriba la config) falla con `Error reading Expo config at …/app.config.ts: Unexpected token '{'`, es el `@expo/config` que trae eas-cli, que en Node 20 no sabe evaluar `app.config.ts`; ejecútalo con Node ≥ 22.12. `eas build` no se ve afectado porque lee la config con el `expo` del proyecto.
 5. EAS sube el proyecto desde git: haz commit antes de compilar para que el build corresponda a un commit concreto (anótalo en la columna «Build» de la matriz).
 
 No hay secretos en el repositorio. Los keystores de Android, certificados y perfiles de iOS los genera y guarda EAS en su servidor (`npx eas-cli@latest credentials` para verlos o descargarlos). `.gitignore` ya excluye `*.jks`, `*.p8`, `*.p12`, `*.key` y `*.mobileprovision`.
