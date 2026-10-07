@@ -18,6 +18,7 @@ import { Store, StoreActions } from "./store";
 import { setLanguage, t } from "../i18n";
 import { serializeError } from "../utils/serializeError";
 import { FeedbackService } from "../services/application/FeedbackService";
+import { refreshMirror } from "../services/application/refreshMirror";
 import { refreshFieldCryptoHealth } from "../services/application/useCases/fieldCryptoHealth";
 import { checkLedgerIntegrity } from "../services/application/useCases/ledgerIntegrity";
 import { migratePayrollPolicyToV2 } from "../services/application/useCases/policyMigration";
@@ -114,7 +115,10 @@ export function ensureRuntimeReady(): Promise<void> {
 }
 
 async function onForeground(): Promise<void> {
-  // Deriva de reloj medida dentro de la ventana en primer plano (TODO nativo en TimeAuthority).
+  // Primero el reflejo: una tarea headless pudo cerrar la jornada o anotar
+  // un EXIT mientras la UI estaba suspendida. Si no, la deriva de reloj
+  // actuaría sobre una sesión que ya no está abierta.
+  await refreshMirror().catch(() => {});
   const drift = TimeAuthorityService.isDriftExceeded();
   if (drift && Store.getState().sessions.activeSessionId !== null) {
     await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: "CLOCK_DRIFT" }, "SYSTEM");

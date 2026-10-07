@@ -4,20 +4,22 @@
  * CTA Nuevo destino. Lee SiteRegistry vía selectores.
  */
 import { useMemo, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, EmptyState, Input, ScreenContainer } from "../../src/components/ui";
 import { ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { useWorkTracker } from "../../src/core/hooks";
-import { selectIsHydrated, selectSites } from "../../src/core/selectors";
+import { useAutoRefresh, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { selectIsHydrated, selectSiteLastVisitAtMs, selectSites } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
 
 export default function SitesIndexScreen() {
   const router = useRouter();
   const { state } = useWorkTracker();
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const [q, setQ] = useState("");
   const sites = selectSites(state);
   const radiusDefault = state.settings.company.defaultRadiusM;
@@ -32,12 +34,14 @@ export default function SitesIndexScreen() {
   if (sites.length === 0) {
     return (
       <ScreenContainer>
-        <EmptyState
-          title={t("sites.empty")}
-          description={t("today.emptyHint")}
-          icon="location-outline"
-          action={{ label: t("cta.createFirstSite"), onPress: () => router.push("/sites/new") }}
-        />
+        <ScrollView contentContainerStyle={styles.empty} refreshControl={refreshControl}>
+          <EmptyState
+            title={t("sites.empty")}
+            description={t("today.emptyHint")}
+            icon="location-outline"
+            action={{ label: t("cta.createFirstSite"), onPress: () => router.push("/sites/new") }}
+          />
+        </ScrollView>
       </ScreenContainer>
     );
   }
@@ -46,10 +50,15 @@ export default function SitesIndexScreen() {
     <ScreenContainer>
       <Input placeholder={t("sites.search")} value={q} onChangeText={setQ} icon="search-outline" />
       <FlatList
+        style={styles.list}
         data={filtered}
         keyExtractor={(s) => String(s.id)}
+        refreshControl={refreshControl}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("sites.empty")} emptyIcon="location-outline" />}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const lastVisit = selectSiteLastVisitAtMs(state, item.id);
+          return (
           <Pressable onPress={() => router.push(`/sites/${item.id}`)} accessibilityRole="button" style={[styles.row, { borderColor: TOKENS.colors.border }]}>
             <View style={styles.flex}>
               <Text style={[styles.alias, { color: TOKENS.colors.text.primary }]}>{item.unreadableFields?.includes("alias") && !item.alias ? t("fieldCrypto.unreadableSite") : item.alias}</Text>
@@ -58,13 +67,14 @@ export default function SitesIndexScreen() {
                 {item.radiusM ?? radiusDefault} m
               </Text>
               <Text style={[styles.meta, { color: TOKENS.colors.text.muted }]}>
-                {t("sites.lastVisit")}: {item.lastVisitAtMs ? formatDate(item.lastVisitAtMs) : t("sites.never")}
+                {t("sites.lastVisit")}: {lastVisit ? formatDate(lastVisit) : t("sites.never")}
               </Text>
               {item.targetLat === null ? <Text style={[styles.meta, { color: TOKENS.colors.status.warning }]}>{t("sites.coordsMissing")}</Text> : null}
             </View>
             <Ionicons name="chevron-forward" size={18} color={TOKENS.colors.text.muted} />
           </Pressable>
-        )}
+          );
+        }}
       />
       <Button label={t("sites.newSite")} iconName="add" onPress={() => router.push("/sites/new")} />
     </ScreenContainer>
@@ -72,6 +82,9 @@ export default function SitesIndexScreen() {
 }
 
 const styles = StyleSheet.create({
+  empty: { flexGrow: 1 },
+  list: { flex: 1 },
+  listContent: { flexGrow: 1 },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: TOKENS.spacing.md, borderBottomWidth: 1, gap: TOKENS.spacing.md },
   flex: { flex: 1 },
   alias: { ...FONT.bodyStrong },

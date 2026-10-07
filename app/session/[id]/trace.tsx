@@ -15,7 +15,7 @@ import { ScreenContainer } from "../../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import type { SpatialFact } from "../../../src/core/contracts";
-import { useQuery, useWorkTracker } from "../../../src/core/hooks";
+import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectSessionById, selectSiteById } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
 import { formatTime } from "../../../src/utils/dateUtils";
@@ -26,12 +26,14 @@ export default function TraceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessionId = Number(id);
   const { state, queries } = useWorkTracker();
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const [layers, setLayers] = useState<Record<Layer, boolean>>({ PERIMETER: true, BREADCRUMB: true });
   const session = selectSessionById(state, sessionId);
   const site = selectSiteById(state, session?.siteId ?? null);
   const radius = site?.radiusM ?? state.settings.company.defaultRadiusM;
   const updatedAt = session?.bookkeeping.updatedAtMs ?? 0;
-  const facts = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt]);
+  const facts = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
 
   const all = facts.data ?? [];
   const visible = all.filter((f) => (f.type === "BREADCRUMB" ? layers.BREADCRUMB : layers.PERIMETER));
@@ -65,7 +67,10 @@ export default function TraceScreen() {
         <KeyValueRow label={t("trace.distance")} value={`${Math.round(queries.traceDistanceMeters(crumbs))} m`} />
       ) : null}
       <FlatList
+        style={styles.list}
         data={visible}
+        refreshControl={refreshControl}
+        contentContainerStyle={styles.listContent}
         keyExtractor={(f, i) => String(f.id ?? `${f.timestampMs}-${i}`)}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("trace.empty")} emptyIcon="navigate-circle-outline" />}
         renderItem={({ item }) => {
@@ -93,6 +98,8 @@ export default function TraceScreen() {
 }
 
 const styles = StyleSheet.create({
+  list: { flex: 1 },
+  listContent: { flexGrow: 1 },
   layers: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
   chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
   row: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.md, paddingVertical: TOKENS.spacing.sm, borderBottomWidth: 1 },

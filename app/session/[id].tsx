@@ -15,7 +15,7 @@ import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/co
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { LedgerEntry, PayrollLineKind } from "../../src/core/contracts";
-import { useClock, useQuery, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { selectCertification, selectComputedSessions, selectIsHydrated, selectSessionById } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
@@ -42,21 +42,25 @@ export default function SessionDetailScreen() {
   const sessionId = Number(id);
   const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(30_000);
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const [modal, setModal] = useState<null | "EDIT" | "DELETE" | "NOTE">(null);
   const [busy, setBusy] = useState(false);
 
   const session = Number.isFinite(sessionId) ? selectSessionById(state, sessionId) : null;
   const updatedAt = session?.bookkeeping.updatedAtMs ?? 0;
-  const ledger = useQuery(() => queries.loadSessionLedger(sessionId), [sessionId, updatedAt]);
-  const trace = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt]);
-  const lines = useQuery(() => (session ? queries.sessionLines(session) : Promise.resolve([])), [sessionId, updatedAt]);
+  const ledger = useQuery(() => queries.loadSessionLedger(sessionId), [sessionId, updatedAt], ["ledger"]);
+  const trace = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
+  const lines = useQuery(() => (session ? queries.sessionLines(session) : Promise.resolve([])), [sessionId, updatedAt], ["sessions", "settings"]);
 
   if (!selectIsHydrated(state)) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
   if (!session) {
     return (
       <ScreenContainer>
-        <EmptyState title={t("session.notFound")} icon="alert-circle-outline" />
-        <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
+        <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+          <EmptyState title={t("session.notFound")} icon="alert-circle-outline" />
+          <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
+        </ScrollView>
       </ScreenContainer>
     );
   }
@@ -79,7 +83,7 @@ export default function SessionDetailScreen() {
   return (
     <ScreenContainer noPadding>
       <Stack.Screen options={{ title: formatDate(start) }} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
         {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
         {session.integrityClass === "CONFLICT" && !deleted ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />

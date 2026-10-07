@@ -25,6 +25,7 @@ import type {
   SpatialFact,
 } from "../../core/contracts";
 import { OPEN_SESSION_STATES } from "../../core/contracts";
+import { abortWriteBuffer, beginWriteBuffer, flushWriteBuffer, markPersisted } from "../../core/refresh/dataRevision";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { FieldCryptoService } from "./FieldCryptoService";
@@ -301,11 +302,14 @@ export const PersistenceService = {
     const run = async (): Promise<T> => {
       const database = await ensureReady();
       await database.execAsync("BEGIN IMMEDIATE TRANSACTION");
+      beginWriteBuffer();
       try {
         const result = await work(database);
         await database.execAsync("COMMIT");
+        flushWriteBuffer();
         return result;
       } catch (error) {
+        abortWriteBuffer();
         try {
           await database.execAsync("ROLLBACK");
         } catch {
@@ -340,6 +344,7 @@ export const PersistenceService = {
       if (enc.degraded) report?.degradedFields.push("session.note");
       await d.runAsync(`UPDATE sessions SET manual_note_sealed = ? WHERE id = ?`, [enc.stored, id]);
     }
+    markPersisted("sessions");
     return id;
   },
 
@@ -356,6 +361,7 @@ export const PersistenceService = {
     const params = sessionToParams(record, enc.stored);
     const cols = SESSION_COLUMNS.map((c, i) => [c, params[i]] as const).filter(([c]) => !(keepNote && c === "manual_note_sealed"));
     await d.runAsync(`UPDATE sessions SET ${cols.map(([c]) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map(([, v]) => v), record.id]);
+    markPersisted("sessions");
   },
 
   /**
@@ -374,6 +380,7 @@ export const PersistenceService = {
     }
     if (list.includes(blocker)) return false;
     await d.runAsync(`UPDATE sessions SET cert_blockers_json = ? WHERE id = ?`, [JSON.stringify([...list, blocker]), sessionId]);
+    markPersisted("sessions");
     return true;
   },
 
@@ -470,6 +477,7 @@ export const PersistenceService = {
       );
       const id = Number(res.lastInsertRowId);
       await writeSiteText(tx, { ...site, id }, report);
+      markPersisted("sites");
       return id;
     });
   },
@@ -486,6 +494,7 @@ export const PersistenceService = {
         site.id,
       ],
       );
+      markPersisted("sites");
     });
   },
 
@@ -542,7 +551,9 @@ export const PersistenceService = {
         entry.integrityClass,
       ],
     );
-    return Number(res.lastInsertRowId);
+    const id = Number(res.lastInsertRowId);
+    markPersisted("ledger");
+    return id;
   },
 
   async getLastLedgerEntry(database?: SQLite.SQLiteDatabase): Promise<LedgerEntry | null> {
@@ -624,6 +635,7 @@ export const PersistenceService = {
     const enc = await FieldCryptoService.encryptJson("spatial.coords", id, coords);
     if (enc.degraded) report?.degradedFields.push("spatial.coords");
     await d.runAsync(`UPDATE spatial_facts SET coords_sealed = ? WHERE id = ?`, [enc.stored, id]);
+    markPersisted("trace");
     return id;
   },
 
@@ -728,6 +740,7 @@ export const PersistenceService = {
         pack.createdAtMs,
       ],
     );
+    markPersisted("packs");
   },
 
   /**
@@ -737,6 +750,7 @@ export const PersistenceService = {
   async moveSpatialFacts(fromSessionId: number, toSessionId: number, fromMs: number, database?: SQLite.SQLiteDatabase): Promise<number> {
     const d = database ?? (await ensureReady());
     const r = await d.runAsync(`UPDATE spatial_facts SET session_id = ? WHERE session_id = ? AND timestamp_ms >= ?`, [toSessionId, fromSessionId, fromMs]);
+    if ((r.changes ?? 0) > 0) markPersisted("trace");
     return r.changes ?? 0;
   },
 

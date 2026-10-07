@@ -20,7 +20,7 @@ import { DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/compo
 import { ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
-import { useClock, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import {
   getSessionStateUI,
   selectActiveElapsedMs,
@@ -50,6 +50,8 @@ export default function TodayScreen() {
   const router = useRouter();
   const { state, emit } = useWorkTracker();
   const nowMs = useClock(1000);
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const [modal, setModal] = useState<OpenModal>(null);
   const [busy, setBusy] = useState(false);
 
@@ -131,7 +133,7 @@ export default function TodayScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
         <PageHeader
           title={t("app.name")}
           subtitle={formatDate(nowMs)}

@@ -4,14 +4,15 @@
  * rollup semanal, filtros reales por periodo e integridad y tap →
  * /session/[id]. Sin mutaciones directas; sin swipe-to-delete.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, PageHeader, ScreenContainer } from "../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { useWorkTracker, useClock } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { resolveWeekCursor } from "../../src/core/refresh/weekCursor";
 import { selectCalendarHistory, selectComputedSessions, selectHasConflict, selectRollup, selectSessionsInRange, selectVisibleSessions } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatRange, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
@@ -23,9 +24,16 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { state } = useWorkTracker();
   const nowMs = useClock(60_000);
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const calendar = selectCalendarHistory(state);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(nowMs, calendar));
+  const [weekPinned, setWeekPinned] = useState(false);
   const [filter, setFilter] = useState<Filter>("WEEK");
+  useEffect(() => {
+    const next = resolveWeekCursor({ weekStart, nowMs, pinned: weekPinned, history: calendar });
+    if (next !== weekStart) setWeekStart(next);
+  }, [weekStart, nowMs, weekPinned, calendar]);
   const weekEnd = getWeekEnd(weekStart, calendar);
   const isCurrentWeek = weekStart >= getWeekStart(nowMs, calendar);
 
@@ -46,11 +54,33 @@ export default function HistoryScreen() {
     <ScreenContainer>
       <PageHeader title={t("history.title")} />
       <View style={styles.weekRow}>
-        <Pressable onPress={() => setWeekStart((w) => shiftWeek(w, -1, calendar))} accessibilityRole="button" accessibilityLabel={t("a11y.prevWeek")}>
+        <Pressable
+          onPress={() => {
+            setWeekPinned(true);
+            setWeekStart((w) => shiftWeek(w, -1, calendar));
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t("a11y.prevWeek")}
+        >
           <Ionicons name="chevron-back" size={22} color={TOKENS.colors.primary} />
         </Pressable>
         <Text style={[styles.weekText, { color: TOKENS.colors.text.primary }]}>{formatRange(weekStart, weekEnd)}</Text>
-        <Pressable disabled={isCurrentWeek} onPress={() => setWeekStart((w) => shiftWeek(w, 1, calendar))} accessibilityRole="button" accessibilityLabel={t("a11y.nextWeek")}>
+        <Pressable
+          disabled={isCurrentWeek}
+          onPress={() => {
+            const next = shiftWeek(weekStart, 1, calendar);
+            const current = getWeekStart(nowMs, calendar);
+            if (next >= current) {
+              setWeekPinned(false);
+              setWeekStart(current);
+            } else {
+              setWeekPinned(true);
+              setWeekStart(next);
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t("a11y.nextWeek")}
+        >
           <Ionicons name="chevron-forward" size={22} color={isCurrentWeek ? TOKENS.colors.text.muted : TOKENS.colors.primary} />
         </Pressable>
       </View>
@@ -84,11 +114,13 @@ export default function HistoryScreen() {
       </View>
 
       <FlatList
+        style={styles.listFlex}
         data={items}
         keyExtractor={(c) => String(c.session.id)}
         renderItem={({ item }) => <SessionListItem item={item} onPress={() => router.push(`/session/${item.session.id}`)} />}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("history.empty")} emptyIcon="calendar-outline" />}
         contentContainerStyle={styles.list}
+        refreshControl={refreshControl}
       />
     </ScreenContainer>
   );
@@ -101,5 +133,6 @@ const styles = StyleSheet.create({
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
   filters: { gap: TOKENS.spacing.sm, paddingBottom: TOKENS.spacing.md },
   chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
-  list: { paddingBottom: TOKENS.spacing["3xl"] },
+  listFlex: { flex: 1 },
+  list: { paddingBottom: TOKENS.spacing["3xl"], flexGrow: 1 },
 });

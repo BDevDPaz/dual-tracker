@@ -20,6 +20,7 @@ import type {
 } from "../../core/contracts";
 import { DEFAULT_EXIT_DEBOUNCE_MS, DEFAULT_SITE_RADIUS_METERS } from "../../constants/geolocation";
 import { DEFAULT_PAYROLL_POLICY_ID } from "../domain/payrollPolicies";
+import { markPersisted } from "../../core/refresh/dataRevision";
 import { FieldCryptoService } from "./FieldCryptoService";
 import { PersistenceService } from "./PersistenceService";
 import { KV_KEYS } from "./schema";
@@ -91,6 +92,7 @@ export const SettingsService = {
 
   async saveProfile(profile: PersonProfile): Promise<void> {
     await PersistenceService.setKv(KV_KEYS.PROFILE, profile);
+    markPersisted("settings");
   },
 
   async saveCompany(company: CompanyPolicy, database?: SQLite.SQLiteDatabase): Promise<void> {
@@ -100,10 +102,12 @@ export const SettingsService = {
       companyEmailSealed: (await FieldCryptoService.encrypt("settings.companyEmail", KV_KEYS.COMPANY, companyEmail)).stored,
     };
     await PersistenceService.setKv(KV_KEYS.COMPANY, stored, database);
+    markPersisted("settings");
   },
 
   async saveDevice(device: DevicePreferences): Promise<void> {
     await PersistenceService.setKv(KV_KEYS.DEVICE, device);
+    markPersisted("settings");
   },
 
   /**

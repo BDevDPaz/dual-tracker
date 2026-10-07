@@ -9,7 +9,8 @@
  * `queries` expone lecturas que no viven en el store (ledger de una sesión,
  * rastro, estado de nómina de un periodo, solape real para EditSessionModal).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { subscribeDataRevision, type DataScope } from "../refresh/dataRevision";
 import type {
   DualTrackerState,
   EvidencePack,
@@ -109,23 +110,88 @@ export function useClock(intervalMs = 1000, enabled = true): number {
   return nowMs;
 }
 
-/** Carga asíncrona simple para queries (estado loading / error / data). */
-export function useQuery<T>(loader: () => Promise<T>, deps: unknown[]): { data: T | null; loading: boolean; error: string | null; reload: () => void } {
+/**
+ * Carga asíncrona (loading / error / data).
+ * `scopes` limita la rehidratación automática: un BREADCRUMB (trace) no
+ * vuelve a pedir la nómina. Sin scopes, cualquier revisión recarga.
+ * La primera carga muestra loading. Cambiar el primer dep (id de sesión
+ * o inicio de periodo) vacía el dato. Una revisión de fondo, o un dep
+ * secundario (updatedAt, sesiones), conserva lo pintado y no hace
+ * setState tras unmount.
+ */
+export function useQuery<T>(
+  loader: () => Promise<T>,
+  deps: unknown[],
+  scopes?: readonly DataScope[],
+): { data: T | null; loading: boolean; error: string | null; reload: () => void } {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const soft = useRef(false);
+  const hard = useRef(false);
+  const seen = useRef(false);
+  const idRef = useRef(deps[0]);
+  const idChanged = useRef(false);
+  const marker = useRef<{ deps: unknown[]; changed: boolean }>({ deps, changed: false });
+  if (!Object.is(idRef.current, deps[0])) {
+    idRef.current = deps[0];
+    idChanged.current = true;
+  }
+  if (marker.current.deps.length !== deps.length || marker.current.deps.some((d, i) => !Object.is(d, deps[i]))) {
+    marker.current = { deps, changed: true };
+  }
+  const scopeKey = scopes ? [...scopes].sort().join(",") : "*";
+
+  useEffect(() => {
+    return subscribeDataRevision((_rev, changed) => {
+      if (scopeKey !== "*" && !changed.some((s) => scopeKey.split(",").includes(s))) return;
+      soft.current = true;
+      setTick((x) => x + 1);
+    });
+  }, [scopeKey]);
+
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    const depsChanged = marker.current.changed;
+    const identityChanged = idChanged.current;
+    const force = hard.current;
+    marker.current.changed = false;
+    idChanged.current = false;
+    hard.current = false;
+    // Revisión o cambio de deps secundarias (updatedAt, sesiones): conservar
+    // lo ya pintado. Cambiar de sesión/periodo sí vacía, para no mostrar
+    // el ledger de otra jornada.
+    const background = seen.current && !identityChanged && !force && (soft.current || depsChanged);
+    soft.current = false;
+    if (identityChanged) setData(null);
+    if (!background) setLoading(true);
     loader()
-      .then((d) => alive && (setData(d), setError(null)))
-      .catch((e: unknown) => alive && setError(String(e)))
-      .finally(() => alive && setLoading(false));
+      .then((d) => {
+        if (!alive) return;
+        setData(d);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(String(e));
+      })
+      .finally(() => {
+        if (!alive) return;
+        seen.current = true;
+        setLoading(false);
+      });
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
-  return { data, loading, error, reload: () => setTick((x) => x + 1) };
+  return {
+    data,
+    loading,
+    error,
+    reload: () => {
+      hard.current = true;
+      setTick((x) => x + 1);
+    },
+  };
 }

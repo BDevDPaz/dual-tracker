@@ -15,7 +15,7 @@ import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
-import { useClock, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import {
   selectAdmin,
   selectCalendarHistory,
@@ -47,6 +47,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(15_000);
+  const { refreshControl } = usePullToRefresh();
+  useAutoRefresh();
   const settings = selectSettings(state);
   const admin = selectAdmin(state);
   const unlocked = selectIsAdminUnlocked(state, nowMs);
@@ -110,7 +112,7 @@ export default function SettingsScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
         <PageHeader title={t("settings.title")} />
 
         <Section title={t("settings.profile")}>
