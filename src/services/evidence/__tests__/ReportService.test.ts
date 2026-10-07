@@ -3,6 +3,7 @@ import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import { makeEvidence, makeStatement } from "../../../../test/fixtures/payroll.fixture";
 import { COMPANY, makeClosedSession, MONDAY_8AM } from "../../../../test/fixtures/session.fixture";
+import { setLanguage } from "../../../i18n";
 import { DEFAULT_PROFILE } from "../../persistence/SettingsService";
 import { ReportService } from "../ReportService";
 
@@ -25,6 +26,20 @@ describe("ReportService", () => {
     expect(html).toContain('<div class="stat-num">6.00</div><div class="stat-desc">Regulares</div>');
     expect(html).toContain('<div class="stat-num">3.00</div><div class="stat-desc">Horas extra</div>');
     expect(ReportService.renderHtml("EMPLOYER_DOSSIER", input())).toContain("W2026-09-21-abcdef12");
+  });
+
+  test("el HTML sellado no cambia con el idioma de la UI y sigue en español", () => {
+    setLanguage("es");
+    const esHtml = ReportService.renderHtml("EMPLOYER_DOSSIER", input());
+    const esReceipt = ReportService.renderHtml("EMPLOYEE_RECEIPT", input());
+    setLanguage("en");
+    expect(ReportService.renderHtml("EMPLOYER_DOSSIER", input())).toBe(esHtml);
+    expect(ReportService.renderHtml("EMPLOYEE_RECEIPT", input())).toBe(esReceipt);
+    expect(esHtml).toContain("Expediente del empleador");
+    expect(esHtml).toContain("Regulares");
+    expect(esReceipt).toContain("Comprobante del empleado");
+    expect(esHtml).not.toContain("Employer dossier");
+    setLanguage("es");
   });
 
   test("renderPdf devuelve un nombre de archivo seguro con el packId", async () => {

@@ -28,7 +28,9 @@ npm run build:ios:d11           # perfil preview-d11, iOS (ad hoc)
 - **Variante D11**: `com.bdevdpaz.dualtracker.d11`, nombre «Dual Tracker D11», esquema `dualtracker-d11`.
 - **Versión visible**: `version` de `app.json` (hoy `0.1.0`). Se sube a mano al publicar.
 - **Número de build** (`versionCode` en Android, `buildNumber` en iOS): lo lleva EAS en el servidor (`"appVersionSource": "remote"` en `eas.json`).
-  - Por qué remoto y no local: la config es dinámica (`app.config.ts`) y EAS no puede reescribir un número local dentro de ella; con el remoto, `autoIncrement` de `production` funciona sin commits extra por cada build y sin conflictos entre Termux y otro equipo.
+  - Por qué remoto y no local: la config es dinámica (`app.config.ts`) y EAS no puede reescribir un número local dentro de ella; con el remoto, `autoIncrement` funciona sin commits extra por cada build y sin conflictos entre Termux y otro equipo.
+  - **`autoIncrement: true`** en `preview`, `preview-d11` y `production`. Cada APK o build de iOS de esos perfiles sale con un número distinto, así que Android no trata el APK nuevo como la misma compilación que el anterior. `preview-simulator` lo hereda de `preview` (`extends`). `development` no lo incrementa.
+  - El contador es el remoto del proyecto EAS (mismo `versionCode` / `buildNumber` para la app real). La variante D11 tiene otro identificador (`com.bdevdpaz.dualtracker.d11`) pero también pide incremento, así que cada APK de D11 queda distinguido.
   - Si el primer build pregunta con qué número empezar, usa `1` (no hay builds previos en tiendas).
   - Para consultarlo o fijarlo: `npx eas-cli@latest build:version:get` / `build:version:set`.
 - **`runtimeVersion`**: no se define porque la app **no usa `expo-updates`** (no hay actualizaciones OTA). Si algún día se añade, habrá que instalar `expo-updates`, fijar `runtimeVersion` (p. ej. `{ "policy": "appVersion" }`) y un `channel` por perfil.

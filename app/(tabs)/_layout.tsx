@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { TOKENS } from "../../src/constants/theme";
 import { useWorkTracker, useClock } from "../../src/core/hooks";
 import { selectSessionState, selectUiRequests } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -22,6 +22,7 @@ const TAB_ICONS: Record<string, [IconName, IconName]> = {
 
 export default function TabsLayout() {
   const { state } = useWorkTracker();
+  useLanguage();
   const nowMs = useClock(30_000);
   const exitPending = selectSessionState(state, nowMs) === "SALIDA" || selectUiRequests(state).openExitModal;
 
@@ -29,6 +30,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
+        // Las tabs siguen montadas. Sin congelarlas, un cambio de idioma
+        // repinta también las que no están enfocadas.
+        freezeOnBlur: false,
         sceneStyle: { backgroundColor: TOKENS.colors.background },
         tabBarActiveTintColor: TOKENS.colors.primary,
         tabBarInactiveTintColor: TOKENS.colors.text.muted,

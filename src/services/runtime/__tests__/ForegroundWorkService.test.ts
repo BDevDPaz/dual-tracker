@@ -1,7 +1,15 @@
 /** T5 — ForegroundWork: política start/stop por estado (no el servicio Android real). */
 import { BREADCRUMB_TASK_NAME } from "../../../constants/geolocation";
+import { setLanguage, t } from "../../../i18n";
 import { ForegroundWorkService } from "../ForegroundWorkService";
 import { LocationMock } from "../../../../test/runtimeHarness";
+
+function fgsBody(): string {
+  const opts = LocationMock.__state.locationUpdates.get(BREADCRUMB_TASK_NAME) as {
+    foregroundService?: { notificationBody?: string };
+  };
+  return opts?.foregroundService?.notificationBody ?? "";
+}
 
 describe("ForegroundWorkService", () => {
   test("shouldRun: solo con jornada abierta y no en pausa", () => {
@@ -15,6 +23,19 @@ describe("ForegroundWorkService", () => {
     expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toBe("running"); // idempotente
     expect(await ForegroundWorkService.sync("CERRADA", "BREADCRUMB")).toBe("stopped");
     expect(await ForegroundWorkService.isRunning()).toBe(false);
+  });
+
+  test("relabel reescribe la notificación del FGS; sin relabel el texto queda", async () => {
+    setLanguage("es");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toBe("running");
+    expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
+    setLanguage("en");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toBe("running");
+    expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { relabel: true })).toBe("running");
+    expect(fgsBody()).toBe("Shift in progress · zone monitoring active");
+    await ForegroundWorkService.stop();
+    setLanguage("es");
   });
 
   test("sin permiso de background no arranca (y no crashea)", async () => {

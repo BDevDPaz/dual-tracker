@@ -31,7 +31,7 @@ import { useTheme } from "./ThemeContext";
 import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
-import { t } from "../i18n";
+import { t, useLanguage } from "../i18n";
 import { useBlockingModalVisible } from "../components/feedback/blockingModals";
 
 const now = () => TimeAuthorityService.now();
@@ -56,6 +56,7 @@ const DEDUPE_THRESHOLD_MS = 2500;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
+  useLanguage();
   const insets = useSafeAreaInsets();
   const blockingVisible = useBlockingModalVisible();
   const [message, setMessage] = useState("");

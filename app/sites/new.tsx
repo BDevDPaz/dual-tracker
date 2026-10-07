@@ -57,7 +57,7 @@ export default function NewSiteScreen() {
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("sites.coords")}</Text>
         {saved ? (
           saved.targetLat !== null && saved.targetLon !== null ? (
-            <KeyValueRow label="lat, lon" value={`${saved.targetLat.toFixed(5)}, ${saved.targetLon.toFixed(5)}`} mono />
+            <KeyValueRow label={t("sites.latLon")} value={`${saved.targetLat.toFixed(5)}, ${saved.targetLon.toFixed(5)}`} mono />
           ) : (
             <Text style={{ color: TOKENS.colors.status.warning }}>{t("sites.coordsMissing")}</Text>
           )

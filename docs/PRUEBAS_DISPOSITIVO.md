@@ -324,6 +324,23 @@ Para cada caso y cada plataforma, rellena una fila:
 
 ---
 
+## Idioma (Español / English)
+
+La política de qué se traduce y qué queda sellado está en [IDIOMA.md](IDIOMA.md). En un Android real, con el APK de `preview`:
+
+1. Borra los datos de la app. Con el sistema en English la bienvenida sale en inglés; con el sistema en español, en español. Otro idioma del sistema cae a español.
+2. En Ajustes pulsa **English** (sin Guardar). Al momento cambian las cuatro pestañas, los títulos, Hoy, Historial, Reportes, pastillas («Not certifiable», «Validated»), Salud, modales y el texto de tirar para actualizar.
+3. Fechas en inglés (`Mon, Oct 5, 2026`) y rangos `Mon, Oct 5, 2026 – Sun, Oct 11, 2026`. Al volver a Español: `lun, 5 oct 2026 – dom, 11 oct 2026`. Los importes siguen `$12.50`.
+4. Cierra la app desde recientes y ábrela: sigue el idioma elegido.
+5. Con jornada abierta, la notificación persistente y, si sales del sitio, el aviso y sus botones están en ese idioma.
+6. El PDF de un expediente nuevo sigue en español, y uno ya compartido no cambia al cambiar el idioma.
+
+| Plataforma | Fecha | Modelo | SO | Build | Resultado | Notas |
+| --- | --- | --- | --- | --- | --- | --- |
+| Android | | | | | | |
+
+---
+
 ## Cierre
 
 | Plataforma | Todos los casos aprobados | Responsable | Fecha |

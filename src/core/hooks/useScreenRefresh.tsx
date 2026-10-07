@@ -13,7 +13,7 @@ import { RefreshControl, type RefreshControlProps } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TOKENS } from "../../constants/theme";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { refreshMirror } from "../../services/application/refreshMirror";
 import { PermissionsHealthService } from "../../services/runtime/PermissionsHealthService";
 import { useMotionPreference } from "../../components/ui/motion";
@@ -30,6 +30,7 @@ export function usePullToRefresh(options?: { safeArea?: "consumed" | "edge" }): 
   refreshing: boolean;
   refreshControl: ReactElement<RefreshControlProps>;
 } {
+  const language = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
   const insets = useSafeAreaInsets();
@@ -64,9 +65,9 @@ export function usePullToRefresh(options?: { safeArea?: "consumed" | "edge" }): 
       colors={[TOKENS.colors.primary]}
       progressBackgroundColor={TOKENS.colors.surface}
       progressViewOffset={progressViewOffset}
-      title={reduceMotion ? undefined : t("a11y.refreshing")}
+      title={reduceMotion ? undefined : t("a11y.refreshing", {}, language)}
       titleColor={TOKENS.colors.text.secondary}
-      accessibilityLabel={t("a11y.refresh")}
+      accessibilityLabel={t("a11y.refresh", {}, language)}
     />
   );
 

@@ -22,7 +22,12 @@ import type {
 } from "../../core/contracts";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 
-/** El expediente es un documento en español: sus fechas no siguen el idioma de la UI. */
+/**
+ * El expediente (PDF y HTML) se emite SIEMPRE en español, con fechas en es.
+ * No sigue el idioma de la UI: el archivo ya sellado tiene que ser idéntico
+ * si se regenerara, y dos teléfonos con distinto idioma producen el mismo
+ * documento para el mismo statement. Ver docs/IDIOMA.md.
+ */
 const ES: FormatOptions = { lang: "es" };
 
 export interface ReportInput {

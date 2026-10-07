@@ -12,7 +12,7 @@ import Animated, {
 
 import { TOKENS, FONT, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 type AppBrandTitleProps = {
@@ -21,6 +21,7 @@ type AppBrandTitleProps = {
 
 export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
   const { colors } = useTheme();
+  useLanguage();
   const reduceMotion = useMotionPreference();
   const subtitle = subtitleProp ?? t("app.brandSubtitle");
   const glowOpacity = useSharedValue(0.14);

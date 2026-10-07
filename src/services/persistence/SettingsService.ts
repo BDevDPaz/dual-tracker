@@ -19,6 +19,7 @@ import type {
   SettingsSnapshot,
 } from "../../core/contracts";
 import { DEFAULT_EXIT_DEBOUNCE_MS, DEFAULT_SITE_RADIUS_METERS } from "../../constants/geolocation";
+import { bootstrapLocaleTag, resolveInitialLanguage } from "../../i18n/locale";
 import { DEFAULT_PAYROLL_POLICY_ID } from "../domain/payrollPolicies";
 import { markPersisted } from "../../core/refresh/dataRevision";
 import { FieldCryptoService } from "./FieldCryptoService";
@@ -29,6 +30,8 @@ import { KV_KEYS } from "./schema";
 export const DEFAULT_PROFILE: PersonProfile = {
   employeeName: "",
   hourlyRate: 25.0,
+  // Fallback de producto. load() lo sustituye por el idioma del dispositivo
+  // cuando el perfil aún no se ha guardado (ver resolveInitialLanguage).
   language: "es",
   dailyReminderTime: "07:00",
   theme: "dark",
@@ -84,7 +87,11 @@ export const SettingsService = {
     }
 
     return {
-      profile: { ...DEFAULT_PROFILE, ...(profile ?? {}) },
+      profile: {
+        ...DEFAULT_PROFILE,
+        ...(profile ?? {}),
+        language: resolveInitialLanguage(profile?.language, bootstrapLocaleTag()),
+      },
       company,
       device: { ...DEFAULT_DEVICE_PREFS, ...(device ?? {}) },
     };

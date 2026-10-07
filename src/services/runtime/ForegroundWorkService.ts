@@ -34,8 +34,16 @@ export const ForegroundWorkService = {
     return Location.hasStartedLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => false);
   },
 
-  /** Sincroniza el servicio con el estado de la jornada. Idempotente. */
-  async sync(status: SessionRecordStatus | "NO_INICIADA", mode: TraceMode): Promise<"running" | "stopped"> {
+  /**
+   * Sincroniza el servicio con el estado de la jornada. Idempotente.
+   * `relabel` reinicia la notificación persistente para aplicar el idioma
+   * activo (el texto queda fijado al arrancar el FGS).
+   */
+  async sync(
+    status: SessionRecordStatus | "NO_INICIADA",
+    mode: TraceMode,
+    opts?: { relabel?: boolean },
+  ): Promise<"running" | "stopped"> {
     const profile = ForegroundWorkService.shouldRun(status) ? TraceRecorderService.profileFor(status, mode) : null;
     if (!profile) {
       await ForegroundWorkService.stop();
@@ -43,7 +51,7 @@ export const ForegroundWorkService = {
     }
     const key = `${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
     const running = await ForegroundWorkService.isRunning();
-    if (running && key === currentProfileKey) return "running";
+    if (running && key === currentProfileKey && !opts?.relabel) return "running";
     try {
       const bg = await Location.getBackgroundPermissionsAsync();
       if (bg.status !== "granted") {

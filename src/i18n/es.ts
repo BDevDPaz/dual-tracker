@@ -93,6 +93,9 @@ export const es = {
     employeeName: "Nombre del operario",
     hourlyRate: "Tarifa por hora",
     language: "Idioma",
+    /** Endónimos: se muestran igual en los dos idiomas. */
+    languageEs: "Español",
+    languageEn: "English",
     reminderTime: "Hora de recordatorio (HH:mm)",
     enter: "Entrar a Dual Tracker",
   },
@@ -151,6 +154,14 @@ export const es = {
       SOLO_GEOCERCA: "Solo geocerca",
       SIN_UBICACION: "Sin ubicación",
     },
+    values: {
+      running: "En curso",
+      stopped: "Detenido",
+      na: "No aplica",
+      unknown: "Sin comprobar",
+      restricted: "Restringida",
+      unrestricted: "Sin restricciones",
+    },
   },
   history: {
     title: "Historial",
@@ -197,6 +208,7 @@ export const es = {
     notes: "Notas (opcional)",
     radius: "Radio (m)",
     coords: "Coordenadas",
+    latLon: "lat, lon",
     coordsPending: "Se resolverán al guardar",
     coordsMissing: "Sin coordenadas: la geocerca no podrá iniciarse",
     lastVisit: "Última visita",
@@ -300,6 +312,11 @@ export const es = {
     legal: "Legal",
     disclosure: "Descargo de ubicación",
     retentionPolicy: "Política de retención",
+    policies: {
+      LEGACY_DAILY8_v1: "Heredada: horas extra a partir de 8 h por sesión",
+      CA_DAILY8_WEEKLY40_v1: "California: horas extra a partir de 8 h/día y 40 h/semana",
+      CA_DAILY8_WEEKLY40_v2: "California v2: horas extra a partir de 8 h por jornada y 40 h/semana (jornada del calendario; doble tiempo y 7.º día solo si se activan)",
+    },
   },
   conflict: {
     title: "Resolver conflicto",
@@ -385,6 +402,8 @@ export const es = {
     notePlaceholder: "Escribe la justificación",
   },
   notifications: {
+    channelDefault: "Dual Tracker",
+    channelForeground: "Jornada en curso",
     exitTitle: "Saliste del área",
     exitBody: "¿Terminaste tu jornada o vas a otro sitio?",
     actionStay: "Sigo trabajando",

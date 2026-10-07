@@ -4,9 +4,10 @@
  */
 import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 
 export default function SessionLayout() {
+  useLanguage();
   return (
     <Stack
       screenOptions={{

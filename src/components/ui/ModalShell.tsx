@@ -17,7 +17,7 @@ import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { ANIM_PRESETS } from "../../constants/animations";
 import { ICONS } from "../../constants/icons";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { BlockingModals } from "../feedback/blockingModals";
 import { Button, ButtonVariant } from "./Button";
 import { useMotionPreference } from "./motion";
@@ -78,6 +78,7 @@ export function ModalShell({
   testID,
 }: ModalShellProps) {
   const { colors } = useTheme();
+  useLanguage();
   const reduceMotion = useMotionPreference();
   const { glass, containerStyle } = useGlass();
   const blockingId = useId();

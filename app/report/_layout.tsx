@@ -1,9 +1,10 @@
 /** report/_layout.tsx — Stack de artefactos con header "Expediente". */
 import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 
 export default function ReportLayout() {
+  useLanguage();
   return (
     <Stack
       screenOptions={{

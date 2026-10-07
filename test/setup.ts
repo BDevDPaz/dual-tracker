@@ -78,4 +78,6 @@ afterEach(() => {
   // Ningún temporizador de debounce vivo entre casos (evita handles abiertos).
   GeofenceRuntimeService.__resetForTests();
   (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();
+  // Un test que deja el idioma en EN no puede teñir el siguiente.
+  (require("../src/i18n") as typeof import("../src/i18n")).setLanguage("es");
 });
