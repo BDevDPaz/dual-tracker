@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 24.11.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview-simulator": {
+      "extends": "preview",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview-d11": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "d11",
+        "EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE": "1"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

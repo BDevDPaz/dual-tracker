@@ -10,6 +10,7 @@
  *    llavero caído (D11).
  * Prohibido persistir la MK en SQLite, Settings, AsyncStorage, logs o el pack.
  */
+import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
@@ -32,8 +33,18 @@ let platformOverride: boolean | null = null;
 /**
  * Build de prueba D11 (spec §18): EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1 al
  * compilar simula un llavero caído. Nunca activar en builds de producción.
+ * Doble cerrojo (docs/BUILD.md): app.config.ts aborta si la bandera llega sin
+ * APP_VARIANT=d11, y aquí solo actúa si la config embebida es la variante d11
+ * (com.bdevdpaz.dualtracker.d11). En la app real la bandera se ignora.
  */
-const FORCED_FAILURE = process.env.EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE === "1";
+export function isForcedKeystoreFailure(flag: string | undefined, appVariant: unknown): boolean {
+  return flag === "1" && appVariant === "d11";
+}
+
+const FORCED_FAILURE = isForcedKeystoreFailure(
+  process.env.EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE,
+  Constants.expoConfig?.extra?.appVariant,
+);
 
 function guard(): void {
   if (failure) throw failure;

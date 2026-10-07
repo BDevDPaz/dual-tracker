@@ -16,13 +16,26 @@ La estructura sigue las dos propuestas del proyecto, que son la fuente de verdad
 
 ```bash
 npm install
-npx expo start          # Expo Go no sirve para geocerca/segundo plano: usar development build
+npx expo start          # abre el development build (expo-dev-client); Expo Go: --go, pero no sirve para geocerca/segundo plano
 npm run typecheck       # tsc --noEmit
 npm run lint            # expo lint (incluye la regla de imports prohibidos en app/)
 npx expo-doctor
 ```
 
-> La geocerca, la ubicación en segundo plano, el servicio en primer plano y las tareas en segundo plano necesitan un **development build** (`npx expo run:android` / `eas build --profile development`). En Expo Go funcionan de forma limitada o no funcionan.
+> La geocerca, la ubicación en segundo plano, el servicio en primer plano y las tareas en segundo plano necesitan un **development build** (`npx expo run:android` / `npm run build:android:dev`). En Expo Go funcionan de forma limitada o no funcionan.
+
+### Builds para equipos reales (EAS)
+
+`eas.json` define cuatro perfiles: `development` (dev client), `preview` (build de release interno: APK en Android, ad hoc en iOS; es el que se usa para la matriz D1–D15), `preview-d11` (variante aislada `com.bdevdpaz.dualtracker.d11` con el llavero forzado a fallar, solo para D11) y `production` (AAB / App Store, `autoIncrement`). Además, `preview-simulator` para el simulador de iOS.
+
+```bash
+npm run build:android:preview   # APK para instalar a mano en el Android
+npm run build:ios:preview       # ad hoc: requiere Apple Developer de pago y `eas device:create`
+npm run build:android:d11       # solo D11 (se instala al lado como «Dual Tracker D11»)
+npm run build:android:dev       # development build
+```
+
+Configuración única (`eas login`, `eas init`), instalación en Android y iPhone, variante D11 y su doble cerrojo: **[docs/BUILD.md](docs/BUILD.md)**. `app.config.ts` extiende `app.json` y solo cambia algo con `APP_VARIANT=d11`; sin esa variable la config es idéntica a `app.json`.
 
 No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por defecto e incluye el plugin de reanimated/worklets.
 
@@ -57,7 +70,8 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 - Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_v1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
 - Ya no queda ningún `test.failing`: el de cifrado de campos pasa desde C2 (spec FieldCrypto v1.3 §17 #3).
 - Estático (`src/core/__tests__/staticGuards.test.ts`): `FieldCryptoService` solo se importa desde `src/services/persistence/**` y `src/core/boot.ts`; `LoggingService` no recibe campos sensibles; Jest resuelve los subpaths `.js` de `@noble`.
-- Matriz de dispositivo D1–D15 (spec §18): checklist en `docs/PRUEBAS_DISPOSITIVO.md`.
+- Matriz de dispositivo D1–D15 (spec §18): checklist en `docs/PRUEBAS_DISPOSITIVO.md`; builds para ejecutarla en `docs/BUILD.md`.
+- Build (`src/core/__tests__/buildConfig.test.ts`): solo `preview-d11` fija `EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE` y siempre con `APP_VARIANT=d11`; `app.config.ts` rechaza la bandera en cualquier otra variante; `keyStore` solo la obedece en la variante d11.
 - `scripts/check-dates.ts` se mantiene para el camino **sin Intl** en Hermes real; su equivalente Node vive en `src/utils/__tests__/dateUtils.test.ts`.
 - Jest no sustituye la matriz de dispositivo: permisos reales, Foreground Service y geocerca en hardware siguen siendo prueba manual / Maestro.
 
@@ -110,7 +124,10 @@ dual-tracker/
 │   ├── context/                 ThemeContext, ToastContext
 │   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError
 ├── assets/images/               icon, splash, adaptive-icon, favicon (MARCADORES de posición: sustituir)
-├── app.json  package.json  tsconfig.json  eslint.config.js  expo-env.d.ts
+├── docs/                        PRUEBAS_DISPOSITIVO.md (matriz D1–D15), BUILD.md (EAS Build)
+├── app.json  app.config.ts      config base + variante de build (APP_VARIANT=d11)
+├── eas.json                     perfiles development / preview / preview-simulator / preview-d11 / production
+├── package.json  tsconfig.json  eslint.config.js  expo-env.d.ts
 ```
 
 ### Cómo se relacionan las capas

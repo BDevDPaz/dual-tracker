@@ -17,7 +17,12 @@
     "test:watch": "jest --watch --watchman=false",
     "test:domain": "jest --runInBand --watchman=false src/services/domain src/services/application src/services/evidence",
     "test:coverage": "jest --coverage --runInBand --watchman=false",
-    "gm": "npm run typecheck && npm run lint && npm run test:domain && npx expo-doctor"
+    "gm": "npm run typecheck && npm run lint && npm run test:domain && npx expo-doctor",
+    "build:android:dev": "npx eas-cli@latest build --profile development --platform android",
+    "build:android:preview": "npx eas-cli@latest build --profile preview --platform android",
+    "build:ios:preview": "npx eas-cli@latest build --profile preview --platform ios",
+    "build:android:d11": "npx eas-cli@latest build --profile preview-d11 --platform android",
+    "build:ios:d11": "npx eas-cli@latest build --profile preview-d11 --platform ios"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
@@ -34,6 +39,7 @@
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
+    "expo-dev-client": "~6.0.21",
     "expo-file-system": "~19.0.21",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",

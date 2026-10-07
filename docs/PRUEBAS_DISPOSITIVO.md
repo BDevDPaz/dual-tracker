@@ -4,7 +4,7 @@ Esta matriz es **obligatoria** antes de liberar el cifrado de campos. Jest (Node
 
 ## Requisitos
 
-- **Build de release** (Hermes activado). No sirve Expo Go ni un build de desarrollo.
+- **Build de release** (Hermes activado). No sirve Expo Go ni un build de desarrollo. Se obtiene con el perfil `preview` de EAS (`npm run build:android:preview` / `npm run build:ios:preview`); cómo compilar e instalar en Android y en iPhone: [BUILD.md](BUILD.md).
 - **Equipos**:
   - Al menos un Android real de gama baja con **Android 10 o superior**.
   - El **iPhone más antiguo que soporte la app**.
@@ -26,7 +26,7 @@ Esta matriz es **obligatoria** antes de liberar el cifrado de campos. Jest (Node
   SELECT id, intent, reason, payload_json FROM ledger_entries WHERE intent IN ('CERT_BLOCKER_ADDED','PACK_SHARED') ORDER BY id;
   SELECT cert_blockers_json FROM sessions WHERE cert_blockers_json IS NOT NULL;
   ```
-- **Build de prueba para D11**: compilar con la variable de entorno `EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1`, que hace fallar el llavero. **No usar nunca en producción.**
+- **Build de prueba para D11**: compilar con la variable de entorno `EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1`, que hace fallar el llavero. **No usar nunca en producción.** Se hace con el perfil `preview-d11` (`npm run build:android:d11` / `npm run build:ios:d11`), que instala una app aparte, «Dual Tracker D11» (`com.bdevdpaz.dualtracker.d11`); la config rechaza la bandera en cualquier otra variante. Ver [BUILD.md → Build de D11](BUILD.md#build-de-d11-llavero-forzado-a-fallar).
 
 ## Vector fijo (D1)
 
@@ -232,7 +232,7 @@ Para cada caso y cada plataforma, rellena una fila:
 
 ## D11 — Llavero forzado a fallar (Android + iOS)
 
-**Pasos** (build con `EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1`)
+**Pasos** (build con `EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1`: perfil `preview-d11`, app «Dual Tracker D11», paquete `com.bdevdpaz.dualtracker.d11`)
 1. **(a)** Jornada sin notas y sin rastro: iníciala y ciérrala.
 2. **(b)** Jornada con nota y con miga de pan: iníciala, añade una nota y camina para generar miga; luego ciérrala.
 3. Intenta añadir una nota a una jornada cerrada.
@@ -273,7 +273,7 @@ Para cada caso y cada plataforma, rellena una fila:
 ## D13 — Actualización desde 8df2b9a (Android + iOS)
 
 **Pasos**
-1. Instala el build de **8df2b9a** y crea datos: destinos, jornadas con notas y pausas, rastro y un pack.
+1. Instala el build de **8df2b9a** (firmado con el mismo keystore de EAS que el nuevo; ver [BUILD.md](BUILD.md#android-build-de-prueba-apk-e-instalación)) y crea datos: destinos, jornadas con notas y pausas, rastro y un pack.
 2. Actualiza al build nuevo **sin desinstalar** y abre la app.
 3. Extrae la base.
 
