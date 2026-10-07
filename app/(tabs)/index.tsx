@@ -39,6 +39,7 @@ import {
   selectSystemHealth,
   selectTodaySummary,
   selectUiRequests,
+  sessionSiteLabel,
   type HeroAction,
 } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
@@ -162,7 +163,11 @@ export default function TodayScreen() {
 
         <OperationalHeroCard
           ui={ui}
-          destination={target?.alias ?? (lastToday && sessionState === "CERRADA" ? selectSiteById(state, lastToday.siteId)?.alias ?? null : null)}
+          destination={
+            target?.alias ??
+            (lastToday && sessionState === "CERRADA" ? sessionSiteLabel(lastToday, state.sites.byId) || null : null)
+          }
+          onDestinationPress={target ? () => router.push(`/sites/${target.id}`) : undefined}
           timeString={formatDuration(selectActiveElapsedMs(state, nowMs))}
           earnings={formatCurrency(summary.grossEstimate)}
           uncertified={uncertified}

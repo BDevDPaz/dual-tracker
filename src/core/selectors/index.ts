@@ -20,6 +20,7 @@ import type {
 import { OPEN_SESSION_STATES } from "../contracts";
 import { DISCLOSURE_VERSION } from "../../i18n/legal";
 import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
+import { checkedInSiteIds, lastVisitAtMs } from "../../services/domain/siteVisits";
 import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
 // ---------------------------------------------------------------------------
@@ -104,10 +105,12 @@ export interface SessionStateUI {
 
 const UI_TABLE: Record<SessionState, Omit<SessionStateUI, "state" | "labelKey" | "subKey">> = {
   NO_INICIADA: { showTimer: false, tone: "neutral", primary: { labelKey: "cta.startDay", action: "OPEN_DAILY_SETUP_START" }, secondary: null, modal: "DAILY_SETUP_START" },
-  ESPERANDO: { showTimer: false, tone: "info", primary: { labelKey: "cta.cancelDay", action: "CANCEL_DAY" }, secondary: { labelKey: "cta.viewDestination", action: "VIEW_DESTINATION" }, modal: null },
+  // Secundario = confirmar llegada: el ENTER no fiable y "ya estoy dentro" no fichan solos.
+  ESPERANDO: { showTimer: false, tone: "info", primary: { labelKey: "cta.cancelDay", action: "CANCEL_DAY" }, secondary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, modal: null },
   ACTIVA: { showTimer: true, tone: "success", primary: { labelKey: "cta.closeDay", action: "OPEN_LUNCH_CLOSE" }, secondary: { labelKey: "cta.startLunch", action: "START_LUNCH" }, modal: "LUNCH_CLOSE" },
   PAUSADA: { showTimer: true, tone: "warning", primary: { labelKey: "cta.resume", action: "RESUME" }, secondary: { labelKey: "cta.finishDay", action: "OPEN_LUNCH_FINISH" }, modal: "LUNCH_SUPERVISOR" },
-  TRASLADO: { showTimer: true, tone: "info", primary: { labelKey: "cta.viewStatus", action: "VIEW_STATUS" }, secondary: { labelKey: "cta.cancelTransfer", action: "CANCEL_TRANSFER" }, modal: "DAILY_SETUP_TRANSIT" },
+  // Primario = llegué: con geocercas solapadas el SO no dispara ENTER si ya estás dentro.
+  TRASLADO: { showTimer: true, tone: "info", primary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, secondary: { labelKey: "cta.cancelTransfer", action: "CANCEL_TRANSFER" }, modal: "DAILY_SETUP_TRANSIT" },
   SALIDA: { showTimer: false, tone: "warning", primary: { labelKey: "cta.confirmExit", action: "OPEN_EXIT_MODAL" }, secondary: { labelKey: "cta.stayWorking", action: "STAY_WORKING" }, modal: "EXIT" },
   CERRADA: { showTimer: false, tone: "neutral", primary: { labelKey: "cta.reviewSession", action: "REVIEW_SESSION" }, secondary: { labelKey: "cta.newDay", action: "NEW_DAY" }, modal: null },
 };
@@ -123,6 +126,20 @@ export interface ComputedSession {
   session: SessionRecord;
   preview: SessionPayrollPreview | null;
   site: Site | null;
+  /** Cadena "Origen → Destino" (un solo alias si no hubo traslado). */
+  siteLabel: string;
+}
+
+/** La jornada pasó por este sitio (origen, llegada o destino del tramo abierto). */
+export function sessionVisitsSite(session: SessionRecord, siteId: number): boolean {
+  return checkedInSiteIds(session).includes(siteId);
+}
+
+/** Alias en orden de visita. Vacío si la jornada no tiene sitio. */
+export function sessionSiteLabel(session: SessionRecord, sitesById: Record<string, Site | undefined>): string {
+  const ids = checkedInSiteIds(session);
+  if (!ids.length) return "";
+  return ids.map((id) => sitesById[String(id)]?.alias || `#${id}`).join(" → ");
 }
 
 export const selectComputedSessions = (s: DualTrackerState, nowMs: number, list?: SessionRecord[]): ComputedSession[] => {
@@ -133,6 +150,7 @@ export const selectComputedSessions = (s: DualTrackerState, nowMs: number, list?
       ? null
       : PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, selectPolicyForSession(s, session)),
     site: session.siteId !== null ? s.sites.byId[String(session.siteId)] ?? null : null,
+    siteLabel: sessionSiteLabel(session, s.sites.byId),
   }));
 };
 
@@ -145,17 +163,22 @@ export interface DaySummary {
 
 export const selectTodaySummary = (s: DualTrackerState, nowMs: number): DaySummary => {
   const today = toDateString(nowMs);
-  const items = selectComputedSessions(s, nowMs).filter((c) => c.session.bookkeeping.dateString === today);
-  const visited = new Set<number>();
+  const active = selectActiveSession(s);
+  // La jornada abierta sigue en "hoy" aunque cruce la medianoche (su dateString es el del inicio).
+  const items = selectComputedSessions(s, nowMs).filter(
+    (c) => c.session.bookkeeping.dateString === today || c.session.id === active?.id,
+  );
+  const visited: number[] = [];
   items.forEach((c) => {
-    if (c.session.siteId !== null) visited.add(c.session.siteId);
-    c.session.transitSegments.forEach((t) => !t.cancelled && visited.add(t.toSiteId));
+    for (const id of checkedInSiteIds(c.session)) {
+      if (!visited.includes(id)) visited.push(id);
+    }
   });
   return {
     netMinutes: items.reduce((a, c) => a + (c.preview?.netMinutes ?? 0), 0),
     grossEstimate: Math.round(items.reduce((a, c) => a + (c.preview?.grossEstimate ?? 0), 0) * 100) / 100,
     certified: items.every((c) => isCertifiable(c.session)),
-    visitedSiteIds: [...visited],
+    visitedSiteIds: visited,
   };
 };
 
@@ -194,9 +217,9 @@ export function selectSiteLastVisitAtMs(s: DualTrackerState, siteId: number): nu
   let max: number | null = null;
   for (const id of s.sessions.order) {
     const session = s.sessions.byId[String(id)];
-    if (!session || session.bookkeeping.isDeleted || session.siteId !== siteId) continue;
-    const start = session.actualStartAtMs ?? session.declaredStartAtMs;
-    if (max === null || start > max) max = start;
+    if (!session || session.bookkeeping.isDeleted) continue;
+    const at = lastVisitAtMs(session, siteId);
+    if (at !== null && (max === null || at > max)) max = at;
   }
   return max;
 }

@@ -68,6 +68,7 @@ describe("sessionMachine", () => {
       const r = okNext(open, { type: "ARRIVAL_CONFIRMED" }, makeCtx({ nowMs: MONDAY_8AM + 20 * MIN }));
       expect(r.next.siteId).toBe(2);
       expect(r.next.transitSegments[0].endAtMs).toBe(MONDAY_8AM + 20 * MIN);
+      expect(r.next.transitSegments[0]).toMatchObject({ paid: true, rateMultiplier: 1, countsTowardOvertime: true });
     });
     test("ilegal desde ACTIVA", () => {
       expect(code(makeSession(), { type: "ARRIVAL_CONFIRMED" })).toBe("ILLEGAL_TRANSITION");
@@ -152,7 +153,37 @@ describe("sessionMachine", () => {
       const c = okNext(t, { type: "TRANSFER_CANCEL" }).next;
       expect(c.domainStatus).toBe("ACTIVA");
       expect(c.transitSegments[0].cancelled).toBe(true);
+      expect(c.transitSegments[0].paid).toBe(false);
     });
+  });
+
+  test("LUNCH_START desde SALIDA empieza en la primera salida y cancela la decisión", () => {
+    const open = makeSession({ domainStatus: "SALIDA", bookkeeping: { firstExitAtMs: MONDAY_8AM + 4 * HOUR, firstExitReliable: true } });
+    const r = okNext(open, { type: "LUNCH_START" }, makeCtx({ nowMs: MONDAY_8AM + 4 * HOUR + 10 * MIN }));
+    expect(r.next.domainStatus).toBe("PAUSADA");
+    expect(r.next.lunch.startAtMs).toBe(MONDAY_8AM + 4 * HOUR);
+    expect(r.next.bookkeeping.firstExitAtMs).toBeNull();
+    expect(r.effects.some((e) => e.type === "CANCEL_EXIT_DECISION")).toBe(true);
+    expect(code(makeSession({ domainStatus: "TRASLADO" }), { type: "LUNCH_START" })).toBe("ILLEGAL_TRANSITION");
+  });
+
+  test("MANUAL_PATCH recorta el tránsito que se sale del nuevo intervalo", () => {
+    const closed = makeClosedSession(MONDAY_8AM, 8, {
+      transitSegments: [makeSegment({ startAtMs: MONDAY_8AM + 6 * HOUR, endAtMs: MONDAY_8AM + 7 * HOUR })],
+    });
+    const end = MONDAY_8AM + 6 * HOUR + 30 * MIN;
+    const r = okNext(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: end, note: "corte" }, makeCtx(), closed);
+    expect(r.next.transitSegments[0]).toMatchObject({ endAtMs: end, clipped: true });
+    expect(r.ledgerExtra?.clippedTransits).toEqual([
+      expect.objectContaining({ id: "tr-1", after: { startAtMs: MONDAY_8AM + 6 * HOUR, endAtMs: end } }),
+    ]);
+    const dropped = okNext(
+      null,
+      { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + 2 * HOUR, note: "antes del trayecto" },
+      makeCtx(),
+      closed,
+    );
+    expect(dropped.next.transitSegments).toEqual([]);
   });
 
   describe("AUTO_CLOSE", () => {
