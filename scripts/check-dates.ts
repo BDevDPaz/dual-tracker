@@ -30,6 +30,8 @@ import {
   toDateString,
   toHHmm,
   atTimeOfDay,
+  atTimeOfDayAfter,
+  resolveSessionEditTimes,
   weekPeriodId,
   nextWorkdayBoundary,
   parsePeriodId,
@@ -90,6 +92,17 @@ eq("formatDateTime", formatDateTime(T), "sáb, 26 sep 2026 11:42 PM");
 eq("toHHmm", toHHmm(T), "23:42");
 eq("atTimeOfDay", atTimeOfDay(T, "08:15"), Date.UTC(2026, 8, 26, 15, 15));
 eq("atTimeOfDay invalid", atTimeOfDay(T, "25:00"), null);
+// Edición: HH:mm sin tocar no reconstruye (N6 solo si el usuario cambia un reloj).
+const SAME_MIN = Date.UTC(2026, 8, 21, 8, 56, 10);
+const sameMin = resolveSessionEditTimes(SAME_MIN, SAME_MIN + 30_000, "01:56", "01:56");
+eq("edit untouched same minute keeps ms", sameMin.end! - sameMin.start!, 30_000);
+eq("edit untouched same minute not next day", sameMin.nextDay, false);
+eq("edit untouched same minute not changed", sameMin.timesChanged, false);
+const rebuilt = atTimeOfDay(SAME_MIN, "01:56")!;
+eq("N6 equal clock is still +24h", atTimeOfDayAfter(rebuilt, "01:56"), rebuilt + 24 * 60 * 60 * 1000);
+const typedEqual = resolveSessionEditTimes(Date.UTC(2026, 8, 21, 15), Date.UTC(2026, 8, 22, 0), "09:00", "09:00");
+eq("edit typed equal clocks is next day", typedEqual.nextDay, true);
+eq("edit typed equal clocks is 24h", typedEqual.end! - typedEqual.start!, 24 * 60 * 60 * 1000);
 for (const bad of [NaN, null, undefined, 0, "Invalid Date", "garbage"]) {
   eq(`formatDate fallback ${String(bad)}`, formatDate(bad as never), DATE_FALLBACK);
   eq(`formatTime fallback ${String(bad)}`, formatTime(bad as never), DATE_FALLBACK);

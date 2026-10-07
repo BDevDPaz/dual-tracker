@@ -567,7 +567,12 @@ export const atTimeOfDay = (baseTs: number, hhmm: string): number | null => {
 /**
  * Hora de salida "HH:mm" relativa a una entrada (spec v1.3 §5.2 N6): si la
  * hora es ≤ a la de entrada, se toma como del día siguiente (jornadas
- * nocturnas). La duración es la diferencia real de epoch ms (DST incluido).
+ * nocturnas; igualdad de reloj = 24 h de pared). La duración es la diferencia
+ * real de epoch ms (DST incluido).
+ *
+ * No aplicar esto a los HH:mm prefijados de una sesión ya guardada: `toHHmm`
+ * tira los segundos y una sesión del mismo minuto parecería terminar al día
+ * siguiente. Para el modal de edición usar `resolveSessionEditTimes`.
  */
 export const atTimeOfDayAfter = (startTs: number, hhmm: string): number | null => {
   const sameDay = atTimeOfDay(startTs, hhmm);
@@ -577,4 +582,87 @@ export const atTimeOfDayAfter = (startTs: number, hhmm: string): number | null =
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm.trim())!;
   const next = new Date(Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate() + 1));
   return fromWallClock(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), Number(m[1]), Number(m[2]));
+};
+
+export interface SessionEditTimes {
+  /** Entrada resuelta, o null si el texto no es un HH:mm válido. */
+  start: number | null;
+  /** Salida resuelta. null si el campo está vacío o la hora no es válida. */
+  end: number | null;
+  invalidStart: boolean;
+  invalidEnd: boolean;
+  /** El usuario cambió al menos un HH:mm y el par resuelto no es el almacenado. */
+  timesChanged: boolean;
+  /** La salida cae en un día de calendario corporativo posterior al de la entrada. */
+  nextDay: boolean;
+}
+
+/**
+ * Horas del modal «Editar sesión».
+ *
+ * Decisión (spec v1.3 §5.2 N6, coherente con `atTimeOfDayAfter` y con el tope
+ * de 24 h de MANUAL_PATCH):
+ *
+ * - Si ningún texto HH:mm difiere del almacenado, se devuelven los epoch ms
+ *   originales (segundos incluidos). Una sesión de menos de un minuto no se
+ *   reinterpreta como turno de 24 h, y una edición que no toca las horas no
+ *   reescribe los tiempos. `timesChanged` queda en false: MANUAL_PATCH
+ *   rechazaría el parche con NO_CHANGE. La nota sola no es un ajuste de
+ *   horas; entra por ADD_NOTE.
+ * - Si el usuario cambia un reloj, la salida tecleada sigue N6: hora de
+ *   salida ≤ hora de entrada ⇒ día siguiente. Igualdad escrita a propósito
+ *   (los dos HH:mm quedan iguales habiendo cambiado al menos uno) es un
+ *   turno de 24 h de pared, no duración cero el mismo día. Duración cero no
+ *   se puede guardar (MANUAL_PATCH rechaza end ≤ start) y el modal ya lo
+ *   anuncia con «Termina al día siguiente». No hace falta un segundo control.
+ * - Si solo cambia la entrada y la salida guardada sigue siendo estrictamente
+ *   posterior, esa salida se conserva al milisegundo. Si ya no lo es, su
+ *   HH:mm se relee con N6 (día siguiente) y `nextDay` lo indica.
+ *
+ * Otros constructores de timestamp desde HH:mm no usan esta regla de «≤ ⇒
+ * día siguiente» sobre un valor prefijado: el almuerzo usa
+ * `wallMinutesOnOrAfter` (primer instante ≥ inicio) y el motor lo rechaza si
+ * cae fuera de la sesión; RESOLVE_SPLIT parte en un timestamp ya guardado;
+ * las pausas se registran en epoch ms, no se teclean como HH:mm.
+ */
+export const resolveSessionEditTimes = (
+  storedStartMs: number,
+  storedEndMs: number | null,
+  inTime: string,
+  outTime: string,
+): SessionEditTimes => {
+  const inText = (inTime ?? "").trim();
+  const outText = (outTime ?? "").trim();
+  const startDirty = inText !== toHHmm(storedStartMs);
+  const endDirty = outText !== (storedEndMs === null ? "" : toHHmm(storedEndMs));
+  const untouched = !startDirty && !endDirty;
+
+  const start = untouched || !startDirty ? storedStartMs : atTimeOfDay(storedStartMs, inText);
+  const invalidStart = inText !== "" && start === null;
+
+  let end: number | null;
+  let invalidEnd: boolean;
+  if (untouched) {
+    end = storedEndMs;
+    invalidEnd = false;
+  } else if (outText === "") {
+    end = null;
+    invalidEnd = false;
+  } else if (start === null || atTimeOfDay(storedStartMs, outText) === null) {
+    end = null;
+    invalidEnd = true;
+  } else if (!endDirty && storedEndMs !== null && storedEndMs > start) {
+    end = storedEndMs;
+    invalidEnd = false;
+  } else {
+    end = atTimeOfDayAfter(start, outText);
+    invalidEnd = end === null;
+  }
+
+  const startDay = start === null ? "" : toDateString(start);
+  const endDay = end === null ? "" : toDateString(end);
+  const nextDay = startDay !== "" && endDay !== "" && startDay !== endDay;
+  const timesChanged = !untouched && start !== null && !invalidEnd && (start !== storedStartMs || end !== storedEndMs);
+
+  return { start: invalidStart ? null : start, end, invalidStart, invalidEnd, timesChanged, nextDay };
 };

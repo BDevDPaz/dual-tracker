@@ -5,6 +5,7 @@
 import {
   DATE_FALLBACK,
   atTimeOfDay,
+  atTimeOfDayAfter,
   corporateOffsetMinutes,
   formatDate,
   formatDateTime,
@@ -17,6 +18,7 @@ import {
   pacificOffsetMinutes,
   parseTimestamp,
   parseWeekPeriodId,
+  resolveSessionEditTimes,
   shiftWeek,
   toDateString,
   toHHmm,
@@ -158,5 +160,106 @@ describe("dateUtils — idioma y reloj de los formateadores", () => {
   test("entradas inválidas siguen devolviendo el fallback en EN", () => {
     expect(formatDate(NaN, { lang: "en" })).toBe(DATE_FALLBACK);
     expect(formatTime("x", { clock: "24h" })).toBe(DATE_FALLBACK);
+  });
+});
+
+describe("resolveSessionEditTimes (edición, N6 solo si el usuario cambia un reloj)", () => {
+  // lun 21 sep 2026 01:56:10.000 PDT
+  const SAME_MIN_START = Date.UTC(2026, 8, 21, 8, 56, 10);
+  const SAME_MIN_END = SAME_MIN_START + 30_000;
+  const DAY = 24 * 60 * 60 * 1000;
+
+  test("HH:mm sin tocar conservan los ms: una sesión del mismo minuto no pasa a 24 h", () => {
+    const r = resolveSessionEditTimes(SAME_MIN_START, SAME_MIN_END, "01:56", "01:56");
+    expect(r).toMatchObject({
+      start: SAME_MIN_START,
+      end: SAME_MIN_END,
+      invalidStart: false,
+      invalidEnd: false,
+      timesChanged: false,
+      nextDay: false,
+    });
+    expect(r.end! - r.start!).toBe(30_000);
+    // El primitivo N6, aplicado a los HH:mm reconstruidos, sí saltaría un día.
+    const rebuilt = atTimeOfDay(SAME_MIN_START, "01:56")!;
+    expect(atTimeOfDayAfter(rebuilt, "01:56")).toBe(rebuilt + DAY);
+  });
+
+  test("HH:mm sin tocar no truncan segundos de una jornada normal", () => {
+    const start = Date.UTC(2026, 8, 21, 15, 0, 30); // 08:00:30 PDT
+    const end = Date.UTC(2026, 8, 22, 0, 0, 45); // 17:00:45 PDT
+    const r = resolveSessionEditTimes(start, end, toHHmm(start), toHHmm(end));
+    expect(r.start).toBe(start);
+    expect(r.end).toBe(end);
+    expect(r.timesChanged).toBe(false);
+    expect(r.nextDay).toBe(false);
+  });
+
+  test("turno de 24 h ya guardado (mismos HH:mm, día distinto) se conserva y se anuncia", () => {
+    const start = Date.UTC(2026, 8, 21, 8, 56, 0);
+    const end = start + DAY;
+    const r = resolveSessionEditTimes(start, end, "01:56", "01:56");
+    expect(r.start).toBe(start);
+    expect(r.end).toBe(end);
+    expect(r.timesChanged).toBe(false);
+    expect(r.nextDay).toBe(true);
+  });
+
+  test("cambiar solo la salida conserva los segundos de la entrada y no salta de día", () => {
+    const r = resolveSessionEditTimes(SAME_MIN_START, SAME_MIN_END, "01:56", "01:57");
+    expect(r.start).toBe(SAME_MIN_START);
+    expect(r.end).toBe(Date.UTC(2026, 8, 21, 8, 57, 0));
+    expect(r.timesChanged).toBe(true);
+    expect(r.nextDay).toBe(false);
+  });
+
+  test("cambiar solo la entrada conserva la salida si sigue siendo posterior", () => {
+    const start = Date.UTC(2026, 8, 21, 15, 0, 30);
+    const end = Date.UTC(2026, 8, 22, 0, 0, 45);
+    const r = resolveSessionEditTimes(start, end, "07:30", "17:00");
+    expect(r.start).toBe(Date.UTC(2026, 8, 21, 14, 30, 0));
+    expect(r.end).toBe(end);
+    expect(r.timesChanged).toBe(true);
+    expect(r.nextDay).toBe(false);
+  });
+
+  test("igualdad tecleada a propósito (N6): los dos relojes nuevos son un turno de 24 h", () => {
+    const start = Date.UTC(2026, 8, 21, 15, 15, 30); // 08:15:30
+    const end = Date.UTC(2026, 8, 22, 0, 0, 45); // 17:00:45
+    const r = resolveSessionEditTimes(start, end, "09:00", "09:00");
+    expect(r.timesChanged).toBe(true);
+    expect(r.nextDay).toBe(true);
+    expect(r.start).toBe(Date.UTC(2026, 8, 21, 16, 0, 0));
+    expect(r.end).toBe(Date.UTC(2026, 8, 22, 16, 0, 0));
+    expect(r.end! - r.start!).toBe(DAY);
+  });
+
+  test("poner la salida en el mismo HH:mm de la entrada, sin tocar la entrada, también es N6", () => {
+    const start = Date.UTC(2026, 8, 21, 15, 0, 30); // 08:00:30
+    const end = Date.UTC(2026, 8, 22, 0, 0, 45); // 17:00:45
+    const r = resolveSessionEditTimes(start, end, "08:00", "08:00");
+    expect(r.start).toBe(start);
+    expect(r.end).toBe(atTimeOfDayAfter(start, "08:00"));
+    expect(r.nextDay).toBe(true);
+    expect(r.timesChanged).toBe(true);
+    expect(r.end! - r.start!).toBe(DAY - 30_000);
+  });
+
+  test("mover la entrada por delante de la salida guardada relee esa salida con N6", () => {
+    const start = Date.UTC(2026, 8, 21, 15, 0, 0); // 08:00
+    const end = Date.UTC(2026, 8, 22, 0, 0, 0); // 17:00
+    const r = resolveSessionEditTimes(start, end, "18:00", "17:00");
+    expect(r.start).toBe(Date.UTC(2026, 8, 22, 1, 0, 0)); // lun 21 sep 18:00 PDT
+    expect(r.end).toBe(Date.UTC(2026, 8, 23, 0, 0, 0)); // mar 22 sep 17:00 PDT
+    expect(r.nextDay).toBe(true);
+    expect(r.timesChanged).toBe(true);
+  });
+
+  test("hora imposible no marca la sesión como cambiada", () => {
+    const r = resolveSessionEditTimes(SAME_MIN_START, SAME_MIN_END, "25:00", "01:56");
+    expect(r.invalidStart).toBe(true);
+    expect(r.start).toBeNull();
+    expect(r.timesChanged).toBe(false);
+    expect(r.nextDay).toBe(false);
   });
 });

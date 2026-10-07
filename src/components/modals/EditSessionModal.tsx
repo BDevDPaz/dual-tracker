@@ -7,14 +7,20 @@ import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { SessionRecord } from "../../core/contracts";
 import { t } from "../../i18n";
-import { atTimeOfDay, atTimeOfDayAfter, toHHmm } from "../../utils/dateUtils";
+import { resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
 
 /**
  * EditSessionModal — portado de GEOTrack (que traía horas de ejemplo en duro
  * "04:56 PM" y un chequeo "??" de datos corruptos simulados).
  *  - Precarga las horas reales de la sesión.
- *  - Nota OBLIGATORIA si cambian horas (regla requiresAuditNote de W Tracker;
- *    la valida también sessionMachine).
+ *  - Los HH:mm prefijados no se reconstruyen: si el usuario no los cambia,
+ *    se conservan los epoch ms (una sesión del mismo minuto no pasa a 24 h
+ *    y los segundos no se truncan). Ver resolveSessionEditTimes.
+ *  - Si cambia un reloj, salida ≤ entrada ⇒ día siguiente (spec v1.3 §5.2 N6),
+ *    igualdad tecleada incluida. El aviso «Termina al día siguiente» lo dice.
+ *  - Nota OBLIGATORIA si cambian horas (requiresAuditNote / sessionMachine).
+ *    Una nota sin cambio de HH:mm no habilita Guardar: MANUAL_PATCH rechaza
+ *    NO_CHANGE. La nota sola va por AddNoteModal (ADD_NOTE).
  *  - Banner de solape REAL vía PersistenceService.checkOverlap (inyectado como
  *    `checkOverlap`), no la regla demo "00:00" de W Tracker.
  */
@@ -44,13 +50,14 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
     }
   }, [visible, session, base]);
 
-  const start = session ? atTimeOfDay(base, inTime) : null;
-  // Salida ≤ entrada → día siguiente (spec v1.3 §5.2 N6). Tope de 24 h.
-  const end = session && outTime.trim() && start !== null ? atTimeOfDayAfter(start, outTime) : null;
-  const nextDay = start !== null && end !== null && atTimeOfDay(start, outTime) !== end;
-  const invalidStart = inTime.trim() !== "" && start === null;
-  const invalidEnd = outTime.trim() !== "" && end === null;
-  const changed = !!session && start !== null && (start !== base || end !== session.endAtMs);
+  // HH:mm sin tocar → ms almacenados. Relojes editados → N6 (≤ ⇒ día siguiente).
+  const resolved = session ? resolveSessionEditTimes(base, session.endAtMs, inTime, outTime) : null;
+  const start = resolved?.start ?? null;
+  const end = resolved?.end ?? null;
+  const nextDay = resolved?.nextDay ?? false;
+  const invalidStart = resolved?.invalidStart ?? false;
+  const invalidEnd = resolved?.invalidEnd ?? false;
+  const changed = resolved?.timesChanged ?? false;
 
   useEffect(() => {
     let alive = true;
@@ -87,11 +94,11 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
         </View>
       ) : null}
       <View style={styles.row}>
-        <Input label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" mask="HH:mm" error={invalidStart ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} />
-        <Input label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" error={invalidEnd ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} />
+        <Input label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" mask="HH:mm" error={invalidStart ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} testID="edit-start" />
+        <Input label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" error={invalidEnd ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} testID="edit-end" />
       </View>
       {nextDay ? <Text style={[styles.nextDay, { color: colors.text.secondary }]}>{t("modals.endsNextDay")}</Text> : null}
-      <Input label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} />
+      <Input label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} testID="edit-note" />
     </ModalShell>
   );
 }
