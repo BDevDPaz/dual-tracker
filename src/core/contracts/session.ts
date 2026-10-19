@@ -73,7 +73,22 @@ export type IntegrityReason =
   /** Jornada abierta con notas/rastro de una clave perdida tras restaurar (FieldCrypto §14). */
   | "FIELD_CRYPTO_KEY_LOST"
   /** Mitad de una sesión dividida con RESOLVE_SPLIT (spec v1.3 §5.4). */
-  | "SESSION_SPLIT";
+  | "SESSION_SPLIT"
+  /** Ubicación en uso denegada: bloquea VALIDADA. */
+  | "LOCATION_FOREGROUND_MISSING"
+  /** Servicios de ubicación del sistema apagados: bloquea VALIDADA. */
+  | "LOCATION_SERVICES_DISABLED"
+  /** Servicio en primer plano parado con jornada abierta: bloquea VALIDADA. */
+  | "FOREGROUND_SERVICE_STOPPED"
+  /**
+   * Jornada abierta sin heartbeat dentro del hueco y sin fix dentro del sitio.
+   * Queda en Revisar. No se cierra sola ni se inventan horas.
+   */
+  | "ORPHAN_SESSION"
+  /** El operario decidió seguir: la jornada sigue abierta, sin horas inventadas. */
+  | "ORPHAN_CONTINUED"
+  /** El operario confirmó la hora de fin, con nota. No es VALID. */
+  | "ORPHAN_END_CONFIRMED";
 
 /** Almuerzo (línea explícita de nómina, Propuesta §5.2). */
 export interface LunchRecord {

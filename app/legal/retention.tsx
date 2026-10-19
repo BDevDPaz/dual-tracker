@@ -2,8 +2,8 @@
  * legal/retention.tsx — Política de retención (Producto §5.17).
  * Explica cuánto se guarda la miga de pan y cuándo se expurga, según
  * CompanyPolicy.traceRetentionDays. Contenido servido por DualDisclosureService.
- * TODO(propuesta): la variante "fin de periodo exportado" aún no se aplica en
- * TraceRecorderService.purgeExpired (solo días).
+ * El expurgo exige las dos condiciones: periodo exportado y días cumplidos
+ * (docs/CONFIABILIDAD_TANDA1.md).
  */
 import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
 import { SAFE_EDGES, ScreenScroll } from "../../src/components/ui";

@@ -48,6 +48,10 @@ export const FORM_FIELDS = {
   practiceNote: [{ id: "note", kind: "text" }],
   conflictNote: [{ id: "note", multiline: true }],
   healthPin: [{ id: "pin", kind: "pin" }],
+  orphanReview: [
+    { id: "end", kind: "time" },
+    { id: "note", multiline: true },
+  ],
 } as const satisfies Record<string, readonly FieldSpec[]>;
 
 export type FormId = keyof typeof FORM_FIELDS;

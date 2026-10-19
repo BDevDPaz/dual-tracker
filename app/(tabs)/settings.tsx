@@ -25,11 +25,12 @@ import {
   selectHealth,
   selectIsAdminUnlocked,
   selectPendingCalendarChange,
+  selectRetentionStatus,
   selectSettings,
   selectSystemHealth,
 } from "../../src/core/selectors";
 import { legalFlags } from "../../src/utils/companyPolicy";
-import { calendarAt, formatDateTime } from "../../src/utils/dateUtils";
+import { calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
 import { getLanguage, t, tHealthValue } from "../../src/i18n";
 
 interface Draft {
@@ -56,6 +57,7 @@ export default function SettingsScreen() {
   const unlocked = selectIsAdminUnlocked(state, nowMs);
   const health = selectHealth(state);
   const sys = selectSystemHealth(state);
+  const retentionRows = selectRetentionStatus(state, nowMs);
 
   const initial = useMemo<Draft>(
     () => ({
@@ -220,6 +222,18 @@ export default function SettingsScreen() {
               <Button label={t("settings.lock")} variant="ghost" size="sm" iconName="lock-closed-outline" onPress={() => void emit({ type: "LOCK_ADMIN" })} />
             </Card>
           )}
+        </Section>
+
+        <Section title={t("settings.retentionStatus")}>
+          <Card style={styles.card}>
+            {retentionRows.length === 0 ? (
+              <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.retentionEmpty")}</Text>
+            ) : (
+              retentionRows.map((row) => (
+                <KeyValueRow key={row.periodStart} label={formatRange(row.periodStart, row.periodEnd)} value={t(`settings.retentionPhase.${row.phase}`)} />
+              ))
+            )}
+          </Card>
         </Section>
 
         <Section title={t("support.title")}>

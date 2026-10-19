@@ -26,7 +26,9 @@ import type {
 } from "../../core/contracts";
 import { BREADCRUMB_PROFILES } from "../../constants/geolocation";
 import { getDistanceFromLatLonInMeters, isValidCoordinate } from "../../utils/geoUtils";
+import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { PersistenceService } from "../persistence/PersistenceService";
+import { trailPointPhase } from "./retentionRules";
 import { TimeAuthorityService } from "./TimeAuthorityService";
 
 /** Muestra cruda que entrega el runtime (tarea BREADCRUMB). */
@@ -161,12 +163,38 @@ export const TraceRecorderService = {
   },
 
   /**
-   * Expurgo por retención (tarea INTEGRITY_SWEEP). Solo miga de pan y
-   * ACCURACY_DROP; ENTER/EXIT se conservan como evidencia de nómina.
-   * TODO(política): "o hasta exportación del periodo" — hoy solo se aplica el plazo en días.
+   * Expurgo de miga de pan y ACCURACY_DROP. ENTER/EXIT se conservan.
+   * Un punto sale solo si cada periodo sellado que lo cubre ya cumplió el
+   * mínimo de días desde su fin. Sin expediente, no se borra.
    */
   async purgeExpired(retentionDays: number): Promise<number> {
-    const cutoff = TimeAuthorityService.now() - retentionDays * 24 * 60 * 60 * 1000;
-    return PersistenceService.purgeBreadcrumbsBefore(cutoff);
+    const now = TimeAuthorityService.now();
+    const packs = (await PersistenceService.listPacks()).map((p) => ({
+      periodStart: p.manifest.periodStart,
+      periodEnd: p.manifest.periodEnd,
+    }));
+    const stamps = await PersistenceService.listTrailStamps();
+    const ids = stamps.filter((s) => trailPointPhase(s.timestampMs, packs, now, retentionDays) === "ELIGIBLE").map((s) => s.id);
+    if (!ids.length) return 0;
+    const deleted = await PersistenceService.deleteSpatialFactsByIds(ids);
+    if (deleted > 0) {
+      await PersistenceService.transaction(async (db) => {
+        await IntegrityLedgerService.append(
+          {
+            sessionId: null,
+            actor: "SYSTEM",
+            intent: "TRACE_PURGED",
+            fromState: null,
+            toState: null,
+            reason: "RETENTION",
+            timestampMs: now,
+            integrityClass: null,
+            data: { deleted, retentionDays },
+          },
+          db,
+        );
+      });
+    }
+    return deleted;
   },
 };

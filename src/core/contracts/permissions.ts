@@ -19,6 +19,11 @@ export interface SystemHealthSnapshot {
   /** Deriva de reloj medida por TimeAuthority (ms, valor absoluto). */
   clockDriftMs: number;
   clockDriftExceeded: boolean;
+  /**
+   * Hora de red: "online" si dos fuentes concordaron, "offline" si no se pudo
+   * medir, "unknown" si todavía no se intentó. No bloquea VALIDADA.
+   */
+  networkTime: "unknown" | "online" | "offline";
   /** Geocerca nativa registrada. */
   isMonitoring: boolean;
   /** Último hecho espacial persistido. */
@@ -72,4 +77,5 @@ export type HealthSensor = keyof Pick<
   | "clockDriftMs"
   | "isMonitoring"
   | "lastSpatialFactAt"
+  | "networkTime"
 >;

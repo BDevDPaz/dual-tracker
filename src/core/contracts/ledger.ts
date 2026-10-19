@@ -33,7 +33,11 @@ export type LedgerIntent =
   | "PAYROLL_POLICY_CHANGED"
   // FieldCrypto v1.3 §12 y §16.
   | "CERT_BLOCKER_ADDED"
-  | "PACK_SHARED";
+  | "PACK_SHARED"
+  /** Muestra de hora de red (deriva). No cierra la jornada. */
+  | "CLOCK_SAMPLED"
+  /** Expurgo de miga de pan tras exportar el periodo y cumplir la retención. */
+  | "TRACE_PURGED";
 
 export interface LedgerEntry {
   id: number;

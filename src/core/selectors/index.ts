@@ -34,6 +34,7 @@ import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
 import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
 import { computeSegmentMinutes } from "../../services/domain/segmentation";
 import { checkedInSiteIds, lastVisitAtMs } from "../../services/domain/siteVisits";
+import { retentionPhase, type RetentionPhase } from "../../services/evidence/retentionRules";
 import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
 /** Presentación de nómina para las pantallas (las rutas no importan services/). */
@@ -79,7 +80,15 @@ export const selectSessionState = (s: DualTrackerState, nowMs: number): SessionS
 };
 
 export const selectConflictSessions = (s: DualTrackerState): SessionRecord[] =>
-  selectVisibleSessions(s).filter((x) => x.integrityClass === "CONFLICT");
+  selectVisibleSessions(s).filter((x) => x.integrityClass === "CONFLICT" && x.bookkeeping.integrityReason !== "ORPHAN_SESSION");
+
+/** Jornadas en Revisar por abandono, o abiertas con deriva de reloj. */
+export function selectReviewSessions(s: DualTrackerState): SessionRecord[] {
+  return selectVisibleSessions(s).filter((x) => {
+    if (x.bookkeeping.integrityReason === "ORPHAN_SESSION") return true;
+    return OPEN_SESSION_STATES.includes(x.domainStatus) && x.bookkeeping.integrityReason === "CLOCK_DRIFT";
+  });
+}
 
 export const selectHasConflict = (s: DualTrackerState): boolean => selectConflictSessions(s).length > 0;
 
@@ -270,16 +279,51 @@ export const selectVisibleTrackingMode = (s: DualTrackerState): VisibleTrackingM
 
 export const selectSystemHealth = (s: DualTrackerState): SystemHealthView => {
   const h = s.health;
+  const open = selectActiveSession(s) !== null;
   const gpsOk = h.locationForeground === "granted" && h.locationServicesEnabled !== false;
   const backgroundOk = h.locationBackground === "granted";
+  const foregroundOk = !open || h.foregroundService !== "stopped";
   return {
     gpsOk,
     backgroundOk,
     traceMode: selectVisibleTrackingMode(s),
-    degraded: h.checkedAtMs !== null && (!gpsOk || !backgroundOk || h.clockDriftExceeded),
+    degraded: h.checkedAtMs !== null && (!gpsOk || !backgroundOk || !foregroundOk || h.clockDriftExceeded),
     checked: h.checkedAtMs !== null,
   };
 };
+
+export interface RetentionStatusRow {
+  periodStart: number;
+  periodEnd: number;
+  phase: RetentionPhase;
+  eligibleAtMs: number;
+}
+
+/** Estado de retención de las últimas semanas con jornada, expediente o la semana en curso. */
+export function selectRetentionStatus(s: DualTrackerState, nowMs: number): RetentionStatusRow[] {
+  const days = s.settings.company.traceRetentionDays;
+  const history = companyCalendar(s.settings.company);
+  const packs = selectPacks(s);
+  const weeks = new Map<number, { start: number; end: number }>();
+  const add = (ts: number) => {
+    const start = workweekStartAt(ts, history);
+    const end = workweekEndAt(ts, history);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+    weeks.set(start, { start, end });
+  };
+  for (const sess of selectVisibleSessions(s)) add(sess.actualStartAtMs ?? sess.declaredStartAtMs);
+  for (const pack of packs) add(pack.manifest.periodStart);
+  add(nowMs);
+  return [...weeks.values()]
+    .sort((a, b) => b.start - a.start)
+    .slice(0, 8)
+    .map((week) => {
+      const bounds = { periodStart: week.start, periodEnd: week.end };
+      const exported = packs.some((p) => p.manifest.periodStart === bounds.periodStart && p.manifest.periodEnd === bounds.periodEnd);
+      const status = retentionPhase(nowMs, days, bounds, exported);
+      return { periodStart: week.start, periodEnd: week.end, phase: status.phase, eligibleAtMs: status.eligibleAtMs };
+    });
+}
 
 // ---------------------------------------------------------------------------
 // Packs, feedback, admin, UI

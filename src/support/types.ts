@@ -76,6 +76,11 @@ export const FAQ_IDS = [
   "zeroRows",
   "practice",
   "offline",
+  "orphanShift",
+  "validSensors",
+  "clockDrift",
+  "packSignature",
+  "retentionBoth",
 ] as const;
 
 export type FaqId = (typeof FAQ_IDS)[number];

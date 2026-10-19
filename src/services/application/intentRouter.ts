@@ -89,6 +89,10 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
       return { type: "RESOLVE_MANUAL", sessionId: i.sessionId, note: i.note };
     case "RESOLVE_SPLIT":
       return { type: "RESOLVE_SPLIT", sessionId: i.sessionId, splitAtMs: i.splitAtMs, note: i.note };
+    case "CONTINUE_ORPHAN":
+      return { type: "CONTINUE_ORPHAN" };
+    case "CONFIRM_ORPHAN_END":
+      return { type: "CONFIRM_ORPHAN_END", endAtMs: i.endAtMs, note: i.note };
     default:
       return null;
   }

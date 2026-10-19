@@ -166,7 +166,9 @@ function ok(
   // Antes solo START_DAY aplicaba ctx.degradedReason y un CLOSE_DAY con el
   // reloj manipulado cerraba VALID. Las acciones sobre jornadas ya CERRADAS
   // (patch, resolve, delete) no se ven afectadas.
-  if (ctx.degradedReason && prev && OPEN.includes(prev.domainStatus)) {
+  // MARK_ORPHAN fija el motivo ORPHAN_SESSION a propósito: un sensor degradado
+  // no lo pisa. El resto de transiciones sí escalan si el entorno bloquea VALID.
+  if (ctx.degradedReason && prev && OPEN.includes(prev.domainStatus) && reason !== "ORPHAN_SESSION") {
     next = withIntegrity(next, "CONFLICT", ctx.degradedReason);
   }
   return {
@@ -629,6 +631,8 @@ export function transition(
     // ------------------------------------------------------------ CLOSE_DAY
     case "CLOSE_DAY": {
       if (!open) return reject("NO_OPEN_SESSION");
+      // La jornada huérfana no se cierra con la hora del reloj: el operario confirma el fin.
+      if (open.bookkeeping.integrityReason === "ORPHAN_SESSION") return reject("ILLEGAL_TRANSITION", "ORPHAN_REVIEW");
       if (open.domainStatus === "ESPERANDO") return reject("ILLEGAL_TRANSITION"); // usar CANCEL_DAY
       // "El tiempo mostrado es la primera salida, no la última."
       const endMs =
@@ -667,6 +671,8 @@ export function transition(
     case "AUTO_CLOSE": {
       if (!open) return reject("NO_OPEN_SESSION");
       if (ctx.actor === "USER") return reject("ILLEGAL_TRANSITION");
+      // Nunca cerrar sola una jornada en revisión por abandono (no se inventan horas).
+      if (open.bookkeeping.integrityReason === "ORPHAN_SESSION") return reject("ILLEGAL_TRANSITION", "ORPHAN_REVIEW");
       const b = open.bookkeeping;
 
       if (open.domainStatus === "ESPERANDO") {
@@ -829,6 +835,45 @@ export function transition(
       return out;
     }
 
+    // ------------------------------------------------------------ MARK_ORPHAN
+    case "MARK_ORPHAN": {
+      if (!open) return reject("NO_OPEN_SESSION");
+      if (open.bookkeeping.integrityReason === "ORPHAN_SESSION") return reject("ILLEGAL_TRANSITION", "ALREADY_ORPHAN");
+      const next: SessionRecord = {
+        ...open,
+        integrityClass: "CONFLICT",
+        bookkeeping: { ...open.bookkeeping, integrityReason: "ORPHAN_SESSION" },
+      };
+      return ok(open, next, ctx, "ORPHAN_SESSION", [], "ORPHAN_REVIEW");
+    }
+
+    case "CONTINUE_ORPHAN": {
+      if (!open) return reject("NO_OPEN_SESSION");
+      if (open.bookkeeping.integrityReason !== "ORPHAN_SESSION") return reject("NOT_ORPHAN");
+      const next: SessionRecord = {
+        ...open,
+        integrityClass: "AUTO",
+        bookkeeping: { ...open.bookkeeping, integrityReason: "ORPHAN_CONTINUED" },
+      };
+      return ok(open, next, ctx, "ORPHAN_CONTINUED", [], "ORPHAN_CONTINUED");
+    }
+
+    case "CONFIRM_ORPHAN_END": {
+      if (!open) return reject("NO_OPEN_SESSION");
+      if (open.bookkeeping.integrityReason !== "ORPHAN_SESSION") return reject("NOT_ORPHAN");
+      if (!(intent.note ?? "").trim()) return reject("NOTE_REQUIRED");
+      const start = open.actualStartAtMs ?? open.declaredStartAtMs;
+      const end = intent.endAtMs;
+      if (!Number.isFinite(end) || end < start || end > ctx.nowMs) return reject("INVALID_TIMES");
+      let next = closeRecord(open, end, ctx.company);
+      next = {
+        ...next,
+        integrityClass: "MANUAL",
+        bookkeeping: { ...next.bookkeeping, integrityReason: "ORPHAN_END_CONFIRMED", manualNote: intent.note.trim() },
+      };
+      return ok(open, next, ctx, "ORPHAN_END_CONFIRMED", [sync(next, null), { type: "CANCEL_EXIT_DECISION", sessionId: open.id }], "ORPHAN_END_CONFIRMED");
+    }
+
     // ------------------------------------------------------------ INTEGRITY_DEGRADE
     case "INTEGRITY_DEGRADE": {
       if (!open) return reject("NO_OPEN_SESSION");
@@ -842,7 +887,9 @@ export function transition(
             ? "LEDGER_BROKEN"
             : intent.cause === "FIELD_CRYPTO_KEY_LOST"
               ? "FIELD_CRYPTO_KEY_LOST"
-              : "PERMISSION_REVOKED";
+              : intent.cause === "LOCATION_FOREGROUND_MISSING" || intent.cause === "LOCATION_SERVICES_DISABLED" || intent.cause === "FOREGROUND_SERVICE_STOPPED"
+                ? "SENSOR_BLOCKS_VALID"
+                : "PERMISSION_REVOKED";
       return ok(open, next, ctx, `INTEGRITY_DEGRADED_${intent.cause}`, [], feedback);
     }
   }

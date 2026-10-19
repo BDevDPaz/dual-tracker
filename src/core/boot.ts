@@ -26,6 +26,7 @@ import { migratePayrollPolicyToV2 } from "../services/application/useCases/polic
 import { SessionEngineService } from "../services/domain/SessionEngineService";
 import { SiteRegistryService } from "../services/domain/SiteRegistryService";
 import { monitoredSiteId } from "../services/domain/siteVisits";
+import { degradeOpenSessionIfBlocked, observeClock } from "../services/evidence/clockSample";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../services/evidence/TraceRecorderService";
 import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
@@ -40,6 +41,7 @@ import { GeofenceRuntimeService } from "../services/runtime/GeofenceRuntimeServi
 import { NotificationService } from "../services/runtime/NotificationService";
 import { PermissionsHealthService } from "../services/runtime/PermissionsHealthService";
 import { SecurityService } from "../services/runtime/SecurityService";
+import { reviewAbandonedSession } from "../services/runtime/orphanSession";
 import { HEARTBEAT_GAP_MS, TaskOrchestratorService } from "../services/runtime/TaskOrchestratorService";
 
 let runtimeReady: Promise<void> | null = null;
@@ -145,12 +147,14 @@ async function onForeground(): Promise<void> {
   // un EXIT mientras la UI estaba suspendida. Si no, la deriva de reloj
   // actuaría sobre una sesión que ya no está abierta.
   await refreshMirror().catch(() => {});
+  await observeClock("FOREGROUND").catch(() => {});
   const drift = TimeAuthorityService.isDriftExceeded();
   if (drift && Store.getState().sessions.activeSessionId !== null) {
     await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: "CLOCK_DRIFT" }, "SYSTEM");
   }
   TimeAuthorityService.reanchor();
   await PermissionsHealthService.refresh().catch(() => {});
+  await degradeOpenSessionIfBlocked(await PersistenceService.getOpenSession()).catch(() => {});
   // Samsung puede soltar el registro al volver a primer plano. Si la firma no
   // cambió no se para y se vuelve a crear (eso disparaba ENTER+EXIT seguidos).
   const open = await PersistenceService.getOpenSession();
@@ -193,6 +197,8 @@ export function boot(): Promise<void> {
       if (osKill) FeedbackService.emit("OS_KILL_RECOVERED");
       if (open?.domainStatus === "SALIDA") StoreActions.uiRequest({ openExitModal: true });
 
+      // El hueco se mide antes de renovar el heartbeat. Si no hay fix dentro, Revisar.
+      if (open) await reviewAbandonedSession(open).catch(() => {});
       await TaskOrchestratorService.heartbeat();
       await NotificationService.init({
         intent: async (intent, sessionId) => {
@@ -217,6 +223,9 @@ export function boot(): Promise<void> {
       if (stillOpen) {
         await syncRuntimeFor(stillOpen, monitoredSiteId(stillOpen)).catch(() => {});
       }
+      await PermissionsHealthService.refresh().catch(() => {});
+      await observeClock("FOREGROUND").catch(() => {});
+      await degradeOpenSessionIfBlocked(await PersistenceService.getOpenSession()).catch(() => {});
       TaskOrchestratorService.startForegroundLoop(() => {
         onForeground().catch(() => {});
       });

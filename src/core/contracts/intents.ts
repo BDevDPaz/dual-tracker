@@ -59,9 +59,24 @@ export type SessionIntent =
   | { type: "RESOLVE_KEEP_GPS"; sessionId: number; note?: string | null }
   | { type: "RESOLVE_MANUAL"; sessionId: number; note: string }
   | { type: "RESOLVE_SPLIT"; sessionId: number; splitAtMs: number; note: string }
+  /** Vigilante: jornada huérfana → Revisar, sin cerrar. */
+  | { type: "MARK_ORPHAN" }
+  /** El operario sigue trabajando. No inventa hora de fin. */
+  | { type: "CONTINUE_ORPHAN" }
+  /** El operario confirma la hora de fin (obligatoria) y una nota. */
+  | { type: "CONFIRM_ORPHAN_END"; endAtMs: number; note: string }
   | {
       type: "INTEGRITY_DEGRADE";
-      cause: "BACKGROUND_PERMISSION_MISSING" | "CLOCK_DRIFT" | "MUTEX_FAILED" | "PROVIDER_LOSS" | "LEDGER_CHAIN_BROKEN" | "FIELD_CRYPTO_KEY_LOST";
+      cause:
+        | "BACKGROUND_PERMISSION_MISSING"
+        | "LOCATION_FOREGROUND_MISSING"
+        | "LOCATION_SERVICES_DISABLED"
+        | "FOREGROUND_SERVICE_STOPPED"
+        | "CLOCK_DRIFT"
+        | "MUTEX_FAILED"
+        | "PROVIDER_LOSS"
+        | "LEDGER_CHAIN_BROKEN"
+        | "FIELD_CRYPTO_KEY_LOST";
       detail?: string;
     };
 
@@ -108,7 +123,9 @@ export type IntentRejection =
   // spec v1.3 §5.4: RESOLVE_SPLIT.
   | "SPLIT_INSIDE_BREAK"
   // spec v1.3 §12: escritura de nota sin cifrado disponible.
-  | "FIELD_CRYPTO_UNAVAILABLE";
+  | "FIELD_CRYPTO_UNAVAILABLE"
+  /** Continuar o confirmar fin solo aplica a una jornada en revisión por abandono. */
+  | "NOT_ORPHAN";
 
 // ---------------------------------------------------------------------------
 // 2) ViewIntent
@@ -175,6 +192,8 @@ export type ViewIntent =
   | { type: "RESOLVE_KEEP_GPS"; sessionId: number; note?: string | null }
   | { type: "RESOLVE_MANUAL"; sessionId: number; note: string }
   | { type: "RESOLVE_SPLIT"; sessionId: number; splitAtMs: number; note: string }
+  | { type: "CONTINUE_ORPHAN" }
+  | { type: "CONFIRM_ORPHAN_END"; endAtMs: number; note: string }
   // Integridad del ledger (spec v1.3 §5.5)
   | { type: "ACKNOWLEDGE_LEDGER_BREAK"; pin: string; incident: import("./ledger").LedgerIncident }
   | { type: "EXPORT_LEDGER_INCIDENT" }
@@ -208,6 +227,8 @@ export const VIEW_TO_SESSION_INTENT: Partial<Record<ViewIntentType, SessionInten
   RESOLVE_KEEP_GPS: "RESOLVE_KEEP_GPS",
   RESOLVE_MANUAL: "RESOLVE_MANUAL",
   RESOLVE_SPLIT: "RESOLVE_SPLIT",
+  CONTINUE_ORPHAN: "CONTINUE_ORPHAN",
+  CONFIRM_ORPHAN_END: "CONFIRM_ORPHAN_END",
 };
 
 /** Resultado uniforme de emitir una intención. */

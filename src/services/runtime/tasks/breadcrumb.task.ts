@@ -8,11 +8,13 @@ import type { TaskManagerTaskBody } from "expo-task-manager";
 import * as Battery from "expo-battery";
 import { serializeError } from "../../../utils/serializeError";
 import { SiteRegistryService } from "../../domain/SiteRegistryService";
+import { observeClock } from "../../evidence/clockSample";
 import { TraceRecorderService } from "../../evidence/TraceRecorderService";
 import { LoggingService } from "../../persistence/LoggingService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { SettingsService } from "../../persistence/SettingsService";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
+import { reviewAbandonedSession } from "../orphanSession";
 
 export async function runBreadcrumbTask(
   body: TaskManagerTaskBody<{ locations: Location.LocationObject[] }>,
@@ -20,8 +22,10 @@ export async function runBreadcrumbTask(
 ): Promise<void> {
   if (body.error || !body.data?.locations?.length) return;
   try {
-    await heartbeat();
+    await observeClock("BREADCRUMB").catch(() => {});
     const session = await PersistenceService.getOpenSession();
+    if (session) await reviewAbandonedSession(session).catch(() => {});
+    await heartbeat();
     if (!session) return; // sin jornada no se graba nada (§5.4)
     const settings = await SettingsService.load();
     const site = session.siteId !== null ? await PersistenceService.getSite(session.siteId) : null;

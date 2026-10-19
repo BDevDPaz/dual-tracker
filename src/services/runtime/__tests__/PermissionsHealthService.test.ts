@@ -45,6 +45,12 @@ describe("PermissionsHealthService", () => {
     expect(PermissionsHealthService.blocksValid({ ...ok, locationBackground: "denied" })).toBe(true);
     expect(PermissionsHealthService.blocksValid({ ...ok, clockDriftExceeded: true })).toBe(true);
     expect(PermissionsHealthService.blocksValid({ ...ok, locationServicesEnabled: false })).toBe(true);
+    expect(PermissionsHealthService.blocksValid({ ...ok, locationForeground: "denied" })).toBe(true);
+    expect(PermissionsHealthService.blocksValid({ ...ok, notifications: "denied" })).toBe(false);
+    expect(PermissionsHealthService.blocksValid({ ...ok, batteryOptimization: "restricted" })).toBe(false);
+    expect(PermissionsHealthService.blocksValid({ ...ok, foregroundService: "stopped" })).toBe(false);
+    expect(PermissionsHealthService.blocksValid({ ...ok, foregroundService: "stopped" }, true)).toBe(true);
+    expect(PermissionsHealthService.blocksValid({ ...ok, networkTime: "offline" })).toBe(false);
   });
 
   test("request de background exige primero foreground", async () => {

@@ -42,8 +42,9 @@ No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por de
 ## Expediente: contentHash, idempotencia y verificación
 
 - **Manifiesto v2** (`manifestVersion: 2`, `PACK_MANIFEST_VERSION`): añade `contentHash` = SHA-256 (expo-crypto, `canonicalJson`: claves ordenadas, sin `undefined`, fechas en epoch ms, no finitos → `null`) del contenido del periodo: el `PayrollStatement` sin `packHash` + la evidencia de sesiones (asientos con `sessionId`, trazas, conflictos). Excluye lo volátil de cada sello: `packId`, `sealedAtMs`, `ledgerHeadHash`, `ledgerChainValid` (estado global de la cadena) y los asientos sin sesión (`PAYROLL_SEALED` de sellos previos). `packHash` sigue siendo el hash del manifiesto completo y ahora incluye `manifestVersion` y `contentHash`; `statementHash` no cambia.
-- **Manifiesto v3** (FieldCrypto v1.3 §15, `PACK_MANIFEST_VERSION = 3`): añade `sealWarnings: { code: "FIELD_CRYPTO_KEY_LOST"; sessionIds }[]` (vacío si no hay). Es contexto del dispositivo en el momento del sello: entra en `packHash` y **no** en `contentHash`, así que un resello tras perder la clave reutiliza el pack existente. `verify()` acepta v1, v2 y v3. El PDF y el detalle del pack muestran la advertencia.
-- **Verificación** (`EvidencePackService.verify(pack)`): recomputa `statementHash`, `evidenceHash`, `contentHash` y `packHash` y comprueba que `statement.packHash` coincide. Devuelve `{ valid, legacy, failures[] }`.
+- **Manifiesto v3** (FieldCrypto v1.3 §15): añade `sealWarnings: { code: "FIELD_CRYPTO_KEY_LOST"; sessionIds }[]` (vacío si no hay). Es contexto del dispositivo en el momento del sello: entra en `packHash` y **no** en `contentHash`, así que un resello tras perder la clave reutiliza el pack existente. El PDF y el detalle del pack muestran la advertencia.
+- **Manifiesto v4** (`PACK_MANIFEST_VERSION = 4`): misma semántica de `packHash` y `contentHash` que v3, más una firma Ed25519 del cuerpo canónico (`{ ...cuerpoDePackHash, packHash }`). La firma no entra en ninguno de los dos hashes. Lleva `algorithm`, `keyId` y la clave pública. Sin llavero el sello sigue y añade `PACK_UNSIGNED` (eso sí entra en `packHash`). Los packs v1–v3, y un v4 sin firma, verifican como `unsigned-v1`. Cómo comprueba el empleador: `docs/CONFIABILIDAD_TANDA1.md`.
+- **Verificación** (`EvidencePackService.verify(pack)`): recomputa `statementHash`, `evidenceHash`, `contentHash` y `packHash` y comprueba que `statement.packHash` coincide. En v4 con firma, comprueba Ed25519. Devuelve `{ valid, legacy, scheme, failures[] }`.
 - **Packs legados** (v1, sin `manifestVersion` ni `contentHash`): se verifican con el formato antiguo de `packHash` y sin comprobación de contenido (`legacy: true`). A un v2 no se le puede "degradar" a legado quitándole campos: su `packHash` deja de cuadrar. Un pack legado nunca se reutiliza.
 - **Idempotencia**: sellar un periodo cuyo `contentHash` coincide con el del pack más reciente del mismo periodo devuelve ese pack (`reused: true`) sin `packId`, PDFs ni asiento nuevos; el router emite `PACK_REUSED` ("El expediente ya estaba sellado con este mismo contenido; se reutilizó."). No existe revocación de packs en el modelo actual, así que "no revocado" = cualquiera (TODO si se añade).
 - **Reemisión explícita** (`reissue: true` en `EvidencePackService.seal` / `SEAL_PACK`): única forma de obtener dos packs distintos con contenido idéntico (PDF perdido, reenvío formal). Queda auditada en el ledger como `PACK_REISSUED` con `reissueOf`. Se prefirió a "sellar en otro contexto" porque es intencional, visible en el ledger y no depende de efectos colaterales.
@@ -125,7 +126,7 @@ dual-tracker/
 │   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError
 ├── assets/images/               icon, splash, adaptive-icon, favicon, notification (marca A y D)
 ├── assets/brand/                SVG fuente A y D; se regeneran con scripts/brand/build.py
-├── docs/                        PRUEBAS_DISPOSITIVO.md (matriz D1–D15), BUILD.md (EAS Build)
+├── docs/                        PRUEBAS_DISPOSITIVO.md, BUILD.md, SOPORTE.md, CONFIABILIDAD_TANDA1.md
 ├── app.json  app.config.ts      config base + variante de build (APP_VARIANT=d11)
 ├── eas.json                     perfiles development / preview / preview-simulator / preview-d11 / production
 ├── package.json  tsconfig.json  eslint.config.js  expo-env.d.ts
@@ -159,7 +160,7 @@ Reglas que se cumplen en el código:
 - **Tiempo canónico.** Todo timestamp de nómina o auditoría sale de `TimeAuthorityService.now()`.
 - **Evidencia antes que conveniencia.** Una edición manual guarda los tiempos originales (`bookkeeping.original`), pasa la sesión a MANUAL y deja asiento en el ledger encadenado por hash.
 - **Estados de pantalla obligatorios** (`loading / empty / degraded / conflict / ready`). Se resuelven con `ScreenStatusBanner`.
-- **Copy en i18n.** Las rutas no llevan strings legales en duro. El descargo y la retención los sirve `DualDisclosureService` (`src/i18n/legal.ts`, versión `2026-09-v1`).
+- **Copy en i18n.** Las rutas no llevan strings legales en duro. El descargo y la retención los sirve `DualDisclosureService` (`src/i18n/legal.ts`, versión `2026-10-v2`).
 
 ---
 
@@ -324,27 +325,32 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 
 ---
 
+## Hecho en la tanda 1 de confiabilidad
+
+Detalle y checklist de teléfono: `docs/CONFIABILIDAD_TANDA1.md`.
+
+- Jornada huérfana: hueco de heartbeat sin fix dentro del sitio → Revisar (`ORPHAN_SESSION`). No se cierra sola ni se inventan horas.
+- Sensores que bloquean VALIDADA: ubicación, servicio en primer plano y reloj. El resto solo avisa (`src/core/healthPolicy.ts`).
+- Hora de red: dos cabeceras HTTPS `Date` con acuerdo. Sin red no bloquea. También en geocerca, miga y vigilante.
+- Firma Ed25519 del manifiesto v4. Los packs anteriores siguen válidos como `unsigned-v1`.
+- Retención: se expurga solo si el periodo está exportado y pasaron los días mínimos. Las dos condiciones.
+- Traducción inglesa: completa (`en.ts` tiene la misma forma que `es.ts`; la paridad la vigila Jest).
+
 ## TODO (no especificado en las propuestas ni en el código previo)
 
 Se marcan en el código como `TODO(propuesta)`:
 
-- **Sesión y ledger**
-  - Criterio de sesión huérfana o abandonada del watchdog.
-- **Seguridad y cifrado**
+- **Seguridad**
   - Cifrado de campos: implementado (spec FieldCrypto v1.3). Pendiente fuera de Jest: la matriz de dispositivo D1–D15 (`docs/PRUEBAS_DISPOSITIVO.md`).
   - Aprovisionamiento del PIN admin por el empleador (hoy lo fija el primer usuario del dispositivo).
-- **Evidencia y retención**
-  - Firma del manifiesto JSON del pack (hoy va sin firmar, solo con hashes).
-  - Retención "hasta fin de periodo exportado": solo se aplica la retención por días.
-
+- **Evidencia**
   - Destino remoto de `OfflineQueueService` (portal del empleador): la cola existe, el envío no.
+  - No hay revocación de packs en el modelo actual.
+  - Efecto de nómina de un tramo cancelado, y el orden relativo AUTO frente a otras severidades de integridad.
 - **Plataforma**
   - Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico.
-  - Deriva de reloj: solo se mide en primer plano (no hay fuente de hora de red definida).
   - Cambio significativo de ubicación en iOS como respaldo de la geocerca.
 - **Vistas**
-  - Qué sensores de `system/health` bloquean VALIDADA más allá de ubicación, FGS y reloj.
   - Selector de "rango" libre en Reportes (hoy: semana actual o anterior).
   - Vista de mapa en `session/[id]/trace`.
-  - Traducción inglesa completa (`en.ts` es parcial).
 - **Valores provisionales** (constantes en `src/constants/*`): perfiles de miga de pan, escalones de bloqueo del PIN, `destinationLimit = 20`, hueco de heartbeat de 45 min y ventana de decisión de salida.

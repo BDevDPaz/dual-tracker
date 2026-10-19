@@ -17,15 +17,30 @@ export interface EvidenceSummary {
 /**
  * Versión del formato de manifiesto.
  *  - 1 (legado, sin campo): packHash = SHA-256 del manifiesto canónico sin contentHash.
- *  - 2: añade `contentHash` (hash de contenido estable entre sellos) y lo
- *    incluye en packHash, de modo que alterar el contenido rompe ambos.
+ *  - 2: añade `contentHash` y lo incluye en packHash.
+ *  - 3: añade `sealWarnings` (entra en packHash, no en contentHash).
+ *  - 4: misma semántica de hashes que v3, más firma Ed25519 del cuerpo canónico.
+ *    La firma NO entra en packHash ni en contentHash.
  */
-export const PACK_MANIFEST_VERSION = 3;
+export const PACK_MANIFEST_VERSION = 4;
 
-/** FieldCrypto §15: contexto del dispositivo al sellar (entra en packHash, NO en contentHash). */
+/** Contexto del dispositivo al sellar (entra en packHash, NO en contentHash). */
 export interface SealWarning {
-  code: "FIELD_CRYPTO_KEY_LOST";
+  code: "FIELD_CRYPTO_KEY_LOST" | "PACK_UNSIGNED";
   sessionIds: number[];
+}
+
+/**
+ * Firma Ed25519 del manifiesto canónico (cuerpo de packHash + packHash).
+ * No entra en packHash. Los packs anteriores, sin este bloque, son unsigned-v1.
+ */
+export interface PackSignature {
+  algorithm: "Ed25519";
+  keyId: string;
+  /** Clave pública de 32 bytes, base64url. */
+  publicKey: string;
+  /** Firma detached de 64 bytes, base64url. */
+  value: string;
 }
 
 export interface PackManifest {
@@ -49,8 +64,10 @@ export interface PackManifest {
   /** SHA-256 del manifiesto canónico (incluye contentHash en v2): identifica ESTE sello. */
   packHash: string;
   certified: boolean;
-  /** v3: advertencias del sello (vacío si no hay). Ausente en v1/v2. */
+  /** v3+: advertencias del sello (vacío si no hay). Ausente en v1/v2. */
   sealWarnings?: SealWarning[];
+  /** v4: firma del dispositivo. Ausente = unsigned-v1 (packs anteriores siguen siendo válidos). */
+  signature?: PackSignature;
   files: { role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER" | "MANIFEST_JSON"; name: string }[];
 }
 

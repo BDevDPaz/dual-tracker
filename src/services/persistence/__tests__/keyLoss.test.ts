@@ -5,6 +5,7 @@
  */
 import * as SecureStore from "expo-secure-store";
 import type { EvidencePack, SessionRecord, SpatialFact } from "../../../core/contracts";
+import { PACK_MANIFEST_VERSION } from "../../../core/contracts";
 import { Store } from "../../../core/store";
 import { getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
 import { refreshFieldCryptoHealth } from "../../application/useCases/fieldCryptoHealth";
@@ -55,7 +56,7 @@ describe("C6 — pérdida de clave (§14)", () => {
     time.set(MONDAY_8AM + 2 * WEEK);
     const sealed = await EvidencePackService.seal(p1);
     if (!sealed.ok) throw new Error(String(sealed.code));
-    expect(sealed.data.manifest.manifestVersion).toBe(3);
+    expect(sealed.data.manifest.manifestVersion).toBe(PACK_MANIFEST_VERSION);
     expect(sealed.data.manifest.sealWarnings).toEqual([]);
     const before1 = await previewPayroll(p1.periodStart, p1.periodEnd);
     const before2 = await previewPayroll(p2.periodStart, p2.periodEnd);
@@ -130,7 +131,7 @@ describe("C6 — pérdida de clave (§14)", () => {
     expect((await EvidencePackService.verify(v3)).valid).toBe(true);
     // Manipular sealWarnings rompe packHash, no contentHash.
     const tampered: EvidencePack = { ...v3, manifest: { ...v3.manifest, sealWarnings: [{ code: "FIELD_CRYPTO_KEY_LOST", sessionIds: [1] }] } };
-    expect((await EvidencePackService.verify(tampered)).failures).toEqual(["PACK_HASH"]);
+    expect((await EvidencePackService.verify(tampered)).failures.sort()).toEqual(["PACK_HASH", "SIGNATURE"]);
     // v2 y v1 (legado) con sus propios packHash: se reconstruyen con el formato antiguo.
     const { createHash } = jest.requireActual<typeof import("crypto")>("crypto");
     const canon = (v: unknown): string =>
@@ -149,8 +150,8 @@ describe("C6 — pérdida de clave (§14)", () => {
     // statementHash se calcula con packHash: null, así que sigue valiendo.
     const r2 = await EvidencePackService.verify(v2);
     const r1 = await EvidencePackService.verify(v1);
-    expect(r2).toEqual({ valid: true, legacy: false, failures: [] });
-    expect(r1).toEqual({ valid: true, legacy: true, failures: [] });
+    expect(r2).toEqual({ valid: true, legacy: false, scheme: "unsigned-v1", failures: [] });
+    expect(r1).toEqual({ valid: true, legacy: true, scheme: "unsigned-v1", failures: [] });
   });
 
   test("la jornada ABIERTA afectada pasa a CONFLICT con FIELD_CRYPTO_KEY_LOST (idempotente)", async () => {

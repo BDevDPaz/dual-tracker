@@ -41,6 +41,10 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   OS_KILL_RECOVERED: { kind: "dialog", tone: "warning", es: { title: "Sesión recuperada", message: "El sistema cerró la app. Tu jornada se restauró y el corte quedó anotado." }, en: { title: "Session recovered", message: "The system closed the app. Your shift was restored and the gap was noted." } },
   PERMISSION_REVOKED: { kind: "dialog", tone: "error", es: { title: "Permiso necesario", message: "Sin ubicación en segundo plano la jornada no puede certificarse." }, en: { title: "Permission needed", message: "Without background location the shift cannot be certified." } },
   CLOCK_DRIFT: { kind: "dialog", tone: "warning", es: { title: "Reloj del teléfono alterado", message: "La hora del dispositivo cambió. La sesión queda para revisión." }, en: { title: "Device clock changed", message: "The device time changed. The session is flagged for review." } },
+  ORPHAN_REVIEW: { kind: "dialog", tone: "warning", es: { title: "Jornada por revisar", message: "No hubo señal ni una lectura dentro del sitio. Confirma la hora de fin o sigue trabajando. No se inventan horas." }, en: { title: "Shift needs review", message: "There was no signal and no reading inside the site. Confirm the end time or keep working. Hours are not invented." } },
+  ORPHAN_CONTINUED: { kind: "toast", tone: "info", es: { title: "Sigues en jornada", message: "La revisión quedó anotada. Las horas siguen desde el inicio real." }, en: { title: "Shift continues", message: "The review was noted. Hours still start from the real start." } },
+  ORPHAN_END_CONFIRMED: { kind: "toast", tone: "success", es: { title: "Fin confirmado", message: "La hora que indicaste quedó registrada con tu nota." }, en: { title: "End confirmed", message: "The time you entered was recorded with your note." } },
+  SENSOR_BLOCKS_VALID: { kind: "dialog", tone: "warning", es: { title: "No se puede validar", message: "Falta la ubicación, el servicio en primer plano o el reloj está alterado. La jornada queda para revisión." }, en: { title: "Cannot validate", message: "Location, the foreground service, or the clock is not in order. The shift is flagged for review." } },
   SITE_SAVED: { kind: "toast", tone: "success", es: { title: "Destino guardado", message: "" }, en: { title: "Site saved", message: "" } },
   SITE_ARCHIVED: { kind: "toast", tone: "info", es: { title: "Destino archivado", message: "El historial se conserva." }, en: { title: "Site archived", message: "History is kept." } },
   PACK_SEALED: { kind: "toast", tone: "success", es: { title: "Expediente sellado", message: "Código {hash}" }, en: { title: "Pack sealed", message: "Code {hash}" } },
@@ -123,6 +127,7 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     SPLIT_INSIDE_BREAK: "El corte no puede caer dentro del almuerzo ni de una pausa.",
     // FieldCrypto v1.3 §12 (microcopy exacta).
     FIELD_CRYPTO_UNAVAILABLE: "No se puede guardar la nota: el cifrado no está disponible en este dispositivo. Inténtalo cuando el aviso de cifrado desaparezca.",
+    NOT_ORPHAN: "Esta jornada no está en revisión por abandono.",
   },
   en: {
     NO_OPEN_SESSION: "There is no open shift.",
@@ -170,5 +175,6 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     LUNCH_START_REQUIRED: "This shift crosses into another workday. Enter the time lunch started.",
     SPLIT_INSIDE_BREAK: "The split cannot fall during lunch or a break.",
     FIELD_CRYPTO_UNAVAILABLE: "The note cannot be saved: encryption is not available on this device. Try again when the encryption notice is gone.",
+    NOT_ORPHAN: "This shift is not in review for abandonment.",
   },
 };

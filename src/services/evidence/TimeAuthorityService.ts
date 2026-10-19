@@ -26,10 +26,31 @@ let monoAnchor = monotonicNow();
 let lastReferenceOffsetMs: number | null = null;
 
 /**
- * URL opcional para leer la cabecera HTTP `Date` como referencia.
- * TODO: la propuesta no define servidor de referencia; se deja desactivado.
+ * Dos orígenes HTTPS conocidos. La deriva de red solo cuenta si los dos
+ * responden y concuerdan (cabecera Date, resolución de 1 s). Sin red no se
+ * bloquea VALIDADA por este camino.
  */
+export const TRUSTED_TIME_HOSTS = ["https://www.google.com/generate_204", "https://www.cloudflare.com/cdn-cgi/trace"] as const;
+
+/** Acuerdo máximo entre las dos fuentes (cabecera HTTP Date + ida y vuelta). */
+export const TIME_SOURCE_AGREEMENT_MS = 5_000;
+
+/** URL opcional de una sola fuente (pruebas y configuración manual). */
 let referenceUrl: string | null = null;
+let trustedHosts: readonly string[] = TRUSTED_TIME_HOSTS;
+/** true solo tras una muestra de red que respondió. Offline no bloquea. */
+let lastSampleOnline = false;
+
+type HeaderResponse = { headers: { get(name: string): string | null } };
+let fetchImpl: (url: string) => Promise<HeaderResponse> = async (url) => fetch(url, { method: "HEAD" });
+
+export interface NetworkTimeSample {
+  /** Desfase dispositivo − referencia, ms. null si no hubo acuerdo o no hubo red. */
+  driftMs: number | null;
+  agreed: boolean;
+  offline: boolean;
+  hosts: { host: string; driftMs: number | null }[];
+}
 
 export const TimeAuthorityService = {
   /** Timestamp canónico en ms. */
@@ -71,45 +92,119 @@ export const TimeAuthorityService = {
     return wallElapsed - monoElapsed;
   },
 
-  /** Deriva máxima conocida (local o contra referencia), valor absoluto. */
+  /** Deriva máxima que puede bloquear: local, o de red solo si la última muestra llegó. */
   currentDriftMs(): number {
     const local = Math.abs(TimeAuthorityService.measureLocalDriftMs());
-    const ref = lastReferenceOffsetMs === null ? 0 : Math.abs(lastReferenceOffsetMs);
+    const ref = lastSampleOnline && lastReferenceOffsetMs !== null ? Math.abs(lastReferenceOffsetMs) : 0;
     return Math.max(local, ref);
   },
 
-  /** true si la deriva supera el umbral → el evento se etiqueta CLOCK_DRIFT. */
+  /**
+   * true si la deriva local, o la de red con la última muestra en línea,
+   * supera el umbral. Estar sin red no marca deriva.
+   */
   isDriftExceeded(): boolean {
-    return TimeAuthorityService.currentDriftMs() > CLOCK_DRIFT_THRESHOLD_MS;
+    if (Math.abs(TimeAuthorityService.measureLocalDriftMs()) > CLOCK_DRIFT_THRESHOLD_MS) return true;
+    return lastSampleOnline && lastReferenceOffsetMs !== null && Math.abs(lastReferenceOffsetMs) > CLOCK_DRIFT_THRESHOLD_MS;
+  },
+
+  /** Última muestra de red llegó (las dos fuentes concordaron, o la URL única respondió). */
+  isNetworkSampleOnline(): boolean {
+    return lastSampleOnline;
   },
 
   configureReference(url: string | null): void {
     referenceUrl = url;
   },
 
+  /** Sustituye los dos hosts de confianza (pruebas). null restaura los de producción. */
+  configureTrustedHosts(hosts: readonly string[] | null): void {
+    trustedHosts = hosts && hosts.length >= 2 ? hosts : TRUSTED_TIME_HOSTS;
+  },
+
   /**
    * Compara el reloj del dispositivo contra la cabecera `Date` de una URL.
    * Devuelve el desfase en ms (dispositivo − referencia) o null si no hay red
    * o no hay URL configurada. Resolución de 1 s (cabecera HTTP).
+   * Un fallo deja la muestra fuera de línea: no bloquea por la red.
    */
   async checkReferenceTime(): Promise<number | null> {
     if (!referenceUrl) return null;
-    try {
-      const before = Date.now();
-      const res = await fetch(referenceUrl, { method: "HEAD" });
-      const after = Date.now();
-      const header = res.headers.get("date");
-      if (!header) return null;
-      // Hermes no garantiza Date.parse de RFC 1123: parser central.
-      const refMs = parseTimestamp(header);
-      if (refMs === null) return null;
-      const deviceMid = before + (after - before) / 2;
-      lastReferenceOffsetMs = deviceMid - refMs;
-      return lastReferenceOffsetMs;
-    } catch {
+    const sample = await readHostDrift(referenceUrl);
+    if (sample === null) {
+      lastSampleOnline = false;
       return null;
     }
+    lastSampleOnline = true;
+    lastReferenceOffsetMs = sample;
+    return sample;
+  },
+
+  /**
+   * Dos hosts. Solo hay deriva de red si ambos responden y concuerdan.
+   * Offline, desacuerdo o una sola respuesta: no se actualiza el desfase que
+   * bloquea y `offline` o `agreed: false` lo dicen.
+   */
+  async sampleTrustedTime(): Promise<NetworkTimeSample> {
+    const hosts = trustedHosts.slice(0, 2);
+    const drifts = await Promise.all(hosts.map(async (host) => ({ host, driftMs: await readHostDrift(host) })));
+    const ok = drifts.filter((d): d is { host: string; driftMs: number } => d.driftMs !== null);
+    if (ok.length < 2) {
+      lastSampleOnline = false;
+      return { driftMs: null, agreed: false, offline: ok.length === 0, hosts: drifts };
+    }
+    const delta = Math.abs(ok[0].driftMs - ok[1].driftMs);
+    if (delta > TIME_SOURCE_AGREEMENT_MS) {
+      lastSampleOnline = false;
+      return { driftMs: null, agreed: false, offline: false, hosts: drifts };
+    }
+    const driftMs = Math.round((ok[0].driftMs + ok[1].driftMs) / 2);
+    lastSampleOnline = true;
+    lastReferenceOffsetMs = driftMs;
+    return { driftMs, agreed: true, offline: false, hosts: drifts };
+  },
+
+  /** Solo tests: sin red y sin desfase de referencia. */
+  __resetForTests(): void {
+    referenceUrl = null;
+    trustedHosts = TRUSTED_TIME_HOSTS;
+    lastReferenceOffsetMs = null;
+    lastSampleOnline = false;
+    fetchImpl = async () => {
+      throw new Error("offline");
+    };
+  },
+
+  /** Solo tests: sustituye el fetch de las cabeceras Date. */
+  __setFetch(fn: ((url: string) => Promise<HeaderResponse>) | null): void {
+    fetchImpl = fn ?? (async (url) => fetch(url, { method: "HEAD" }));
   },
 };
+
+const HOST_TIMEOUT_MS = 4_000;
+
+async function readHostDrift(url: string): Promise<number | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const before = Date.now();
+    const res = await Promise.race([
+      fetchImpl(url),
+      new Promise<HeaderResponse>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timeout")), HOST_TIMEOUT_MS);
+      }),
+    ]);
+    const after = Date.now();
+    const header = res.headers.get("date") ?? res.headers.get("Date");
+    if (!header) return null;
+    const refMs = parseTimestamp(header);
+    if (refMs === null) return null;
+    const deviceMid = before + (after - before) / 2;
+    return deviceMid - refMs;
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export type TimeAuthority = typeof TimeAuthorityService;

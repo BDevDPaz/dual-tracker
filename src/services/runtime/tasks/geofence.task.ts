@@ -6,9 +6,12 @@
 import type * as Location from "expo-location";
 import type { TaskManagerTaskBody } from "expo-task-manager";
 import { serializeError } from "../../../utils/serializeError";
+import { observeClock } from "../../evidence/clockSample";
 import { LoggingService } from "../../persistence/LoggingService";
 import { appendGeofenceDiag } from "../geofenceDiag";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
+import { touchHeartbeat } from "../heartbeat";
+import { reviewAbandonedSession } from "../orphanSession";
 
 interface GeofenceTaskData {
   eventType: Location.GeofencingEventType;
@@ -27,6 +30,9 @@ export async function runGeofenceTask(body: TaskManagerTaskBody<GeofenceTaskData
     return;
   }
   try {
+    await observeClock("GEOFENCE").catch(() => {});
+    await reviewAbandonedSession().catch(() => {});
+    await touchHeartbeat();
     await GeofenceRuntimeService.handleGeofenceEvent(data.eventType, data.region);
   } catch (error) {
     LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "fallo en tarea de geocerca", serializeError(error));

@@ -5,7 +5,7 @@
  * TODO(legal): revisión por asesoría antes de publicar. El contenido sigue los
  * bloques exigidos en la Propuesta de Producto §5.4 y la Técnica §5.11.
  */
-export const DISCLOSURE_VERSION = "2026-09-v1";
+export const DISCLOSURE_VERSION = "2026-10-v2";
 
 export interface LegalBlock {
   key: string;
@@ -44,7 +44,7 @@ const DISCLOSURE: Record<"es" | "en", LegalContent> = {
       {
         key: "retention",
         title: "Retención",
-        body: "Los puntos de rastro se conservan durante el plazo que fije la política de la empresa (por defecto 90 días) o hasta exportar el periodo de nómina. Los eventos de entrada/salida forman parte del expediente de nómina.",
+        body: "Los puntos de rastro se expurgan solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina.",
       },
       {
         key: "recipients",
@@ -81,7 +81,7 @@ const DISCLOSURE: Record<"es" | "en", LegalContent> = {
       {
         key: "retention",
         title: "Retention",
-        body: "Trail points are kept for the period set by company policy (90 days by default) or until the payroll period is exported. Entry/exit events are part of the payroll record.",
+        body: "Trail points are purged only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record.",
       },
       {
         key: "recipients",
@@ -108,7 +108,7 @@ export function getRetentionContent(language: "es" | "en", retentionDays: number
       title: "Retention policy",
       acceptLabel: "",
       blocks: [
-        { key: "trail", title: "Trail points", body: `Kept for ${retentionDays} days or until the payroll period that contains them is exported, whichever the company policy sets. Then they are purged automatically.` },
+        { key: "trail", title: "Trail points", body: `Purged only after the payroll period that contains them has been exported and ${retentionDays} days have passed since that period ended. Both conditions. An unexported period is never purged.` },
         { key: "evidence", title: "Payroll evidence", body: "Entry/exit events, ledger entries and sealed packs are kept as payroll evidence and are not purged with the trail." },
       ],
     };
@@ -118,7 +118,7 @@ export function getRetentionContent(language: "es" | "en", retentionDays: number
     title: "Política de retención",
     acceptLabel: "",
     blocks: [
-      { key: "trail", title: "Miga de pan", body: `Se conserva ${retentionDays} días o hasta exportar el periodo de nómina que la contiene, según fije la política de la empresa. Después se expurga automáticamente (tarea INTEGRITY_SWEEP).` },
+      { key: "trail", title: "Miga de pan", body: `Se expurga solo si el periodo de nómina que la contiene ya se exportó y, además, pasaron ${retentionDays} días desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra.` },
       { key: "evidence", title: "Evidencia de nómina", body: "Los eventos de entrada/salida, los asientos del ledger y los expedientes sellados se conservan como evidencia de nómina y no se expurgan con el rastro." },
     ],
   };
