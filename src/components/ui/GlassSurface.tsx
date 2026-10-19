@@ -1,6 +1,6 @@
 /**
- * Cristal ("Luxury Glass"): expo-blur (tinte oscuro) + relleno blanco 12 % +
- * filo dorado de 1 px rgba(212,175,55,0.18). Se usa en el hero y en ModalShell.
+ * Cristal: expo-blur (tinte oscuro) + relleno blanco 12 % + filo neutro de 1 px.
+ * El oro no decora el cristal. Se usa en el hero y en ModalShell.
  * Caída a surfaceElevated sólido cuando:
  *  - el desenfoque no está disponible (Android: expo-blur sin el método
  *    experimental solo pinta un velo, así que se prefiere el sólido), o

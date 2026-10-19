@@ -10,12 +10,13 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, Card, Chip, Input, PageHeader, SAFE_EDGES, ScreenScroll, Section, StatusPill } from "../../src/components/ui";
+import { Button, Card, Chip, Input, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, StatusPill } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
@@ -51,6 +52,7 @@ interface Draft {
 
 export default function SettingsScreen() {
   useLanguage();
+  const { colors } = useTheme();
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(15_000);
@@ -162,33 +164,44 @@ export default function SettingsScreen() {
     <ScreenScroll
       edges={SAFE_EDGES.tab}
       refreshControl={refreshControl}
-      footer={dirty ? <Button label={t("common.save")} isLoading={busy} onPress={() => void onSave()} /> : null}
+      footer={dirty ? <PrimaryButton label={t("common.save")} isLoading={busy} onPress={() => void onSave()} /> : null}
     >
-        <PageHeader title={t("settings.title")} helpScreen="settings" />
+        <PageHeader title={t("settings.title")} helpScreen="settings" showHealth />
 
         <Section title={t("settings.profile")}>
           <Input {...profileChain.props("name")} label={t("onboarding.employeeName")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} />
           <LanguageSwitch />
+          <Pressable
+            onPress={() => void emit({ type: "SAVE_SETTINGS", patch: { profile: { highContrast: settings.profile.highContrast !== true } } })}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: settings.profile.highContrast === true }}
+            accessibilityLabel={t("settings.highContrast")}
+            style={styles.statusRow}
+          >
+            <Text style={{ color: colors.text.primary }}>{t("settings.highContrast")}</Text>
+            <StatusPill tone={settings.profile.highContrast ? "success" : "neutral"} label={t(settings.profile.highContrast ? "settings.highContrastOn" : "settings.highContrastOff")} />
+          </Pressable>
+          <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.highContrastHint")}</Text>
           <Input {...profileChain.props("reminder")} label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
         </Section>
 
         <Section title={t("settings.monitoring")}>
           <Card style={styles.card}>
             <View style={styles.statusRow}>
-              <Text style={{ color: TOKENS.colors.text.primary }}>{t("health.gps")}</Text>
+              <Text style={{ color: colors.text.primary }}>{t("health.gps")}</Text>
               <StatusPill tone={permTone(sys.gpsOk)} label={t(`permission.${health.locationForeground}`)} />
             </View>
             <View style={styles.statusRow}>
-              <Text style={{ color: TOKENS.colors.text.primary }}>{t("health.background")}</Text>
+              <Text style={{ color: colors.text.primary }}>{t("health.background")}</Text>
               <StatusPill tone={permTone(sys.backgroundOk)} label={t(`permission.${health.locationBackground}`)} />
             </View>
             <View style={styles.statusRow}>
-              <Text style={{ color: TOKENS.colors.text.primary }}>{t("health.sensors.foregroundService")}</Text>
+              <Text style={{ color: colors.text.primary }}>{t("health.sensors.foregroundService")}</Text>
               <StatusPill tone={health.foregroundService === "running" ? "success" : "neutral"} label={tHealthValue(health.foregroundService)} />
             </View>
             <View style={styles.statusRow}>
-              <Text style={{ color: TOKENS.colors.text.primary }}>{t("settings.traceMode")}</Text>
-              <Text style={{ color: TOKENS.colors.text.secondary }}>{t(`settings.traceModes.${settings.company.traceMode}`)}</Text>
+              <Text style={{ color: colors.text.primary }}>{t("settings.traceMode")}</Text>
+              <Text style={{ color: colors.text.secondary }}>{t(`settings.traceModes.${settings.company.traceMode}`)}</Text>
             </View>
             <Button label={t("settings.openHealth")} variant="secondary" size="sm" onPress={() => router.push("/system/health")} />
             <Button label={t("settings.openOsSettings")} variant="ghost" size="sm" onPress={() => void emit({ type: "OPEN_OS_SETTINGS", target: "APP" })} />
@@ -203,14 +216,14 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title={t("settings.admin")}>
-          <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>
+          <Text style={[styles.hint, { color: colors.text.secondary }]}>
             {admin.pinOrigin === "EMPLOYER" ? t("settings.pinEmployer") : t("settings.pinLocal")}
           </Text>
           {!unlocked ? (
             <Card style={styles.card}>
               <View style={styles.statusRow}>
-                <Ionicons name="lock-closed-outline" size={ICON.md} color={TOKENS.colors.text.secondary} />
-                <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>
+                <Ionicons name="lock-closed-outline" size={ICON.md} color={colors.text.secondary} />
+                <Text style={[styles.hint, { color: colors.text.secondary }]}>
                   {admin.hasPin ? t("settings.adminLocked") : t("settings.adminSetup", { min: PIN_MIN_LENGTH })}
                 </Text>
               </View>
@@ -228,7 +241,7 @@ export default function SettingsScreen() {
               <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} />
               <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
               <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} />
-              <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
+              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
               <View style={styles.row}>
                 {queries.payrollPolicies().map((p) => {
                   const key = `settings.policies.${p.id}`;
@@ -238,7 +251,7 @@ export default function SettingsScreen() {
                   );
                 })}
               </View>
-              <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.traceMode")}</Text>
+              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.traceMode")}</Text>
               <View style={styles.row}>
                 {(["PERIMETER", "BREADCRUMB"] as const).map((m) => (
                   <Chip key={m} label={t(`settings.traceModes.${m}`)} selected={draft.traceMode === m} onPress={() => set("traceMode", m)} />
@@ -247,7 +260,7 @@ export default function SettingsScreen() {
               <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} />
               <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} />
               <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
-              <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.portalOn")}</Text>
+              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalOn")}</Text>
               <View style={styles.row}>
                 <Chip label={t("settings.portalOff")} selected={!draft.portalEnabled} onPress={() => set("portalEnabled", false)} />
                 <Chip label={t("settings.portalOn")} selected={draft.portalEnabled} onPress={() => set("portalEnabled", true)} />
@@ -257,15 +270,15 @@ export default function SettingsScreen() {
             </Card>
           )}
           <Card style={styles.card}>
-            <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("settings.provisionHint")}</Text>
+            <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.provisionHint")}</Text>
             <Input {...provisionChain.props("code")} label={t("settings.provisionCode")} value={code} onChangeText={setCode} autoCapitalize="none" autoCorrect={false} />
             <Button label={t("settings.provisionSubmit")} disabled={!code.trim() || busy} isLoading={busy} onPress={() => void onProvision()} />
           </Card>
           <Card style={styles.card}>
-            <Text style={[styles.hint, { color: TOKENS.colors.text.primary }]}>{portalLabel}</Text>
-            <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.portalQueue")}</Text>
+            <Text style={[styles.hint, { color: colors.text.primary }]}>{portalLabel}</Text>
+            <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalQueue")}</Text>
             {(queue.data ?? []).length === 0 ? (
-              <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.queueEmpty")}</Text>
+              <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.queueEmpty")}</Text>
             ) : (
               (queue.data ?? []).map((item) => (
                 <KeyValueRow key={item.id} label={item.packId} value={t(`settings.queue.${item.status}`)} />
@@ -277,7 +290,7 @@ export default function SettingsScreen() {
         <Section title={t("settings.retentionStatus")}>
           <Card style={styles.card}>
             {retentionRows.length === 0 ? (
-              <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.retentionEmpty")}</Text>
+              <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.retentionEmpty")}</Text>
             ) : (
               retentionRows.map((row) => (
                 <KeyValueRow key={row.periodStart} label={formatRange(row.periodStart, row.periodEnd)} value={t(`settings.retentionPhase.${row.phase}`)} />
@@ -288,8 +301,8 @@ export default function SettingsScreen() {
 
         <Section title={t("support.title")}>
           <Card style={styles.card}>
-            <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("support.blurb")}</Text>
-            <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{currentVersionLine()}</Text>
+            <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("support.blurb")}</Text>
+            <Text style={[styles.hint, { color: colors.text.muted }]}>{currentVersionLine()}</Text>
             <Button label={t("support.open")} variant="secondary" size="sm" onPress={() => router.push("/support")} />
           </Card>
         </Section>
@@ -313,6 +326,7 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${St
  * semana en curso) y se puede anular antes de entrar en vigor.
  */
 function WorkCalendarBlock() {
+  const { colors } = useTheme();
   const { state, emit } = useWorkTracker();
   const nowMs = useClock(60_000);
   const current = calendarAt(nowMs, selectCalendarHistory(state));
@@ -339,14 +353,14 @@ function WorkCalendarBlock() {
 
   return (
     <View style={styles.calendar}>
-      <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.title")}</Text>
+      <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.calendar.title")}</Text>
       <KeyValueRow
         label={t("settings.calendar.current")}
         value={`${hhmm(current.workdayStartMinutes)} · ${t(`settings.calendar.days.${current.workweekStartDay}`)}`}
       />
       {pending ? (
         <>
-          <Text style={[styles.hint, { color: TOKENS.colors.status.warning }]}>
+          <Text style={[styles.hint, { color: colors.status.warning }]}>
             {t("settings.calendar.pending", {
               start: hhmm(pending.workdayStartMinutes),
               day: t(`settings.calendar.days.${pending.workweekStartDay}`),
@@ -358,13 +372,13 @@ function WorkCalendarBlock() {
       ) : (
         <>
           <Input {...calendarChain.props("start")} label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" mask="HH:mm" />
-          <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.weekStart")}</Text>
+          <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.calendar.weekStart")}</Text>
           <View style={styles.row}>
             {WEEKDAYS.map((d) => (
               <Chip key={d} label={t(`settings.calendar.days.${d}`)} selected={day === d} onPress={() => setDay(d)} />
             ))}
           </View>
-          <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.calendar.hint")}</Text>
+          <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.calendar.hint")}</Text>
           <Button
             label={t("settings.calendar.schedule")}
             size="sm"
@@ -374,7 +388,7 @@ function WorkCalendarBlock() {
           />
         </>
       )}
-      <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.transitionThreshold")}</Text>
+      <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.calendar.transitionThreshold")}</Text>
       <View style={styles.row}>
         {(["FULL", "PRORATED"] as const).map((v) => (
           <Chip
@@ -387,7 +401,7 @@ function WorkCalendarBlock() {
       </View>
       {(["caDoubleTime", "caSeventhDay"] as const).map((flag) => (
         <Fragment key={flag}>
-          <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t(`settings.calendar.${flag}`)}</Text>
+          <Text style={[styles.label, { color: colors.text.secondary }]}>{t(`settings.calendar.${flag}`)}</Text>
           <View style={styles.row}>
             {([false, true] as const).map((v) => (
               <Chip
@@ -400,16 +414,17 @@ function WorkCalendarBlock() {
           </View>
         </Fragment>
       ))}
-      <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.legalReview")}</Text>
+      <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.legalReview")}</Text>
     </View>
   );
 }
 
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="link" style={styles.statusRow}>
-      <Text style={{ color: TOKENS.colors.text.primary }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} />
+      <Text style={{ color: colors.text.primary }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} />
     </Pressable>
   );
 }

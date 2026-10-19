@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: TOKENS.spacing.sm,
     paddingVertical: TOKENS.spacing.xs,
-    borderRadius: TOKENS.radius.round,
+    borderRadius: TOKENS.radius.pill,
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   text: {
     ...FONT.label,
-    ...font("800"),
+    ...font("600"),
     letterSpacing: 0.5,
   },
 });

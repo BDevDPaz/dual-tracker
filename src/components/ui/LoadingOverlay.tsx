@@ -121,7 +121,7 @@ export function LoadingOverlay({
               { color: colors.text.secondary },
               isReconnecting && {
                 color: colors.status.warning,
-                ...font("700"),
+                ...font("600"),
               },
             ]}
           >

@@ -16,6 +16,7 @@ import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
 import { sensorBlocksValid } from "../../src/core/healthPolicy";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
@@ -33,6 +34,7 @@ interface Row {
 
 export default function HealthScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { state, emit } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
   useAutoRefresh();
@@ -94,7 +96,7 @@ export default function HealthScreen() {
         hasSplitRow={false}
         hasZeroOmitted={false}
       />
-      <Text style={[styles.mode, { color: sys.degraded ? TOKENS.colors.status.warning : TOKENS.colors.status.success }]}>
+      <Text style={[styles.mode, { color: sys.degraded ? colors.status.warning : colors.status.success }]}>
         {t(`health.modes.${sys.traceMode}`)}
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}
       </Text>
@@ -111,15 +113,15 @@ export default function HealthScreen() {
       <Section title={t("health.review.title")}>
         <Card style={styles.card}>
           {reviews.length === 0 ? (
-            <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.review.empty")}</Text>
+            <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.review.empty")}</Text>
           ) : (
             reviews.map((session) => {
               const reasonKey = `reviewReasons.${session.bookkeeping.integrityReason}`;
               const reason = t(reasonKey);
               return (
                 <Pressable key={session.id} onPress={() => router.push(`/session/${session.id}`)} accessibilityRole="button">
-                  <Text style={[styles.label, { color: TOKENS.colors.text.primary }]}>{formatDateTime(session.actualStartAtMs ?? session.declaredStartAtMs)}</Text>
-                  <Text style={[styles.hint, { color: TOKENS.colors.status.warning }]}>{reason === reasonKey ? session.bookkeeping.integrityReason : reason}</Text>
+                  <Text style={[styles.label, { color: colors.text.primary }]}>{formatDateTime(session.actualStartAtMs ?? session.declaredStartAtMs)}</Text>
+                  <Text style={[styles.hint, { color: colors.status.warning }]}>{reason === reasonKey ? session.bookkeeping.integrityReason : reason}</Text>
                 </Pressable>
               );
             })
@@ -128,23 +130,23 @@ export default function HealthScreen() {
       </Section>
       <Section title={t("health.diag.title")}>
         <Card style={styles.card}>
-          <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("health.diag.hint")}</Text>
+          <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("health.diag.hint")}</Text>
           {diag.length === 0 ? (
-            <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.diag.empty")}</Text>
+            <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.diag.empty")}</Text>
           ) : (
             diag.map((event, index) => {
               const reason = diagReason(event.reason);
               return (
                 <View key={`${event.atMs}-${index}`} style={styles.diagRow}>
-                  <Text style={[styles.label, { color: TOKENS.colors.text.primary }]}>
+                  <Text style={[styles.label, { color: colors.text.primary }]}>
                     {formatTime(event.atMs)} · {t(`health.diag.kinds.${event.kind}`)}
                   </Text>
-                  <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>
+                  <Text style={[styles.hint, { color: colors.text.secondary }]}>
                     {event.region ? t("health.diag.region", { id: event.region }) : t("health.diag.noRegion")}
                     {" · "}
                     {event.accuracyM === null ? t("health.diag.accuracyUnknown") : t("health.diag.accuracy", { m: Math.round(event.accuracyM) })}
                   </Text>
-                  <Text style={[styles.hint, { color: event.accepted ? TOKENS.colors.status.success : TOKENS.colors.status.warning }]}>
+                  <Text style={[styles.hint, { color: event.accepted ? colors.status.success : colors.status.warning }]}>
                     {event.accepted ? t("health.diag.accepted") : t("health.diag.rejected")}
                     {reason ? ` · ${reason}` : ""}
                   </Text>
@@ -165,25 +167,25 @@ export default function HealthScreen() {
                   <Button label={t("health.ledger.acknowledge")} disabled={busy || pin.length < PIN_MIN_LENGTH} isLoading={busy} onPress={() => void acknowledge()} />
                 </>
               ) : (
-                <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("settings.adminSetup", { min: PIN_MIN_LENGTH })}</Text>
+                <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.adminSetup", { min: PIN_MIN_LENGTH })}</Text>
               )}
             </>
           ) : ledger.acknowledgedBreaks > 0 ? (
-            <Text style={[styles.hint, { color: TOKENS.colors.status.warning }]}>{t("health.ledger.acknowledged")}</Text>
+            <Text style={[styles.hint, { color: colors.status.warning }]}>{t("health.ledger.acknowledged")}</Text>
           ) : (
-            <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("health.ledger.ok")}</Text>
+            <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("health.ledger.ok")}</Text>
           )}
           {ledger.broken || ledger.acknowledgedBreaks > 0 ? (
             <>
               <Button label={t("health.ledger.export")} variant="secondary" size="sm" disabled={busy} onPress={() => void emit({ type: "EXPORT_LEDGER_INCIDENT" })} />
-              <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.ledger.exportHint")}</Text>
+              <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.ledger.exportHint")}</Text>
             </>
           ) : null}
         </Card>
       </Section>
       <Section title={t("fieldCrypto.sectionTitle")}>
         <Card style={styles.card}>
-          <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t(`fieldCrypto.status.${crypto.status}`)}</Text>
+          <Text style={[styles.hint, { color: colors.text.secondary }]}>{t(`fieldCrypto.status.${crypto.status}`)}</Text>
           {!crypto.platformSupported ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.web")} /> : null}
           {crypto.status === "UNAVAILABLE" ? (
             <ScreenStatusBanner status="degraded" message={`${t("fieldCrypto.unavailableTitle")} — ${t("fieldCrypto.unavailableBody")}`} />
@@ -200,7 +202,7 @@ export default function HealthScreen() {
         </Card>
       </Section>
       {h.checkedAtMs ? (
-        <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
+        <Text style={[styles.caption, { color: colors.text.muted }]}>
           {formatDateTime(h.checkedAtMs)}
         </Text>
       ) : null}

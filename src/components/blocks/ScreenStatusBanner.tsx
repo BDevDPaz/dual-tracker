@@ -1,9 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT, ICON } from "../../constants/theme";
+import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { ScreenStatus } from "../../core/contracts";
+import { Banner } from "../ui/Banner";
 import { EmptyState } from "../ui/EmptyState";
+import { Skeleton } from "../ui/Skeleton";
 
 /**
  * Estados de pantalla obligatorios (Producto §4): loading, empty, degraded,
@@ -14,42 +17,28 @@ import { EmptyState } from "../ui/EmptyState";
 interface Props {
   status: ScreenStatus;
   message?: string;
+  /** Segunda línea editorial del vacío. */
+  emptyDescription?: string;
   onPress?: () => void;
   emptyIcon?: React.ComponentProps<typeof Ionicons>["name"];
 }
 
-export function ScreenStatusBanner({ status, message, onPress, emptyIcon }: Props) {
+export function ScreenStatusBanner({ status, message, emptyDescription, onPress, emptyIcon }: Props) {
+  const { colors } = useTheme();
   if (status === "ready") return null;
   if (status === "loading") {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={TOKENS.colors.primary} />
-        {message ? <Text style={[styles.loadingText, { color: TOKENS.colors.text.secondary }]}>{message}</Text> : null}
+        <Skeleton />
+        {message ? <Text style={[styles.loadingText, { color: colors.text.secondary }]}>{message}</Text> : null}
       </View>
     );
   }
-  if (status === "empty") return <EmptyState title={message ?? ""} icon={emptyIcon} />;
-  const color = status === "conflict" ? TOKENS.colors.status.danger : TOKENS.colors.status.warning;
-  const bg = status === "conflict" ? TOKENS.colors.statusBg.danger : TOKENS.colors.statusBg.warning;
-  const body = (
-    <View style={[styles.banner, { borderColor: color, backgroundColor: bg }]}>
-      <Ionicons name={status === "conflict" ? "alert-circle-outline" : "warning-outline"} size={ICON.md} color={color} />
-      <Text style={[styles.bannerText, { color }]}>{message}</Text>
-      {onPress ? <Ionicons name="chevron-forward" size={ICON.sm} color={color} /> : null}
-    </View>
-  );
-  return onPress ? (
-    <Pressable onPress={onPress} accessibilityRole="button">
-      {body}
-    </Pressable>
-  ) : (
-    body
-  );
+  if (status === "empty") return <EmptyState title={message ?? ""} description={emptyDescription} icon={emptyIcon} />;
+  return <Banner tone={status === "conflict" ? "danger" : "warning"} message={message ?? ""} onPress={onPress} />;
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: TOKENS.spacing.xl },
+  center: { alignItems: "center", justifyContent: "center", padding: TOKENS.spacing.xl },
   loadingText: { ...FONT.caption, marginTop: TOKENS.spacing.md },
-  banner: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
-  bannerText: { ...FONT.caption, flex: 1 },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
 
@@ -15,16 +16,17 @@ interface Props {
 
 export function HealthRow({ label, value, ok, blocksValid, onRepair }: Props) {
   useLanguage();
-  const color = ok ? TOKENS.colors.status.success : TOKENS.colors.status.warning;
+  const { colors } = useTheme();
+  const color = ok ? colors.status.success : colors.status.warning;
   return (
-    <View style={[styles.row, { borderColor: TOKENS.colors.border }]}>
+    <View style={[styles.row, { borderColor: colors.border }]}>
       <View style={styles.texts}>
-        <Text style={[styles.label, { color: TOKENS.colors.text.primary }]}>{label}</Text>
+        <Text style={[styles.label, { color: colors.text.primary }]}>{label}</Text>
         <Text style={[styles.value, { color }]}>{value}</Text>
-        <Text style={[styles.impact, { color: blocksValid ? TOKENS.colors.status.warning : TOKENS.colors.text.muted }]}>
+        <Text style={[styles.impact, { color: blocksValid ? colors.status.warning : colors.text.muted }]}>
           {blocksValid ? t("health.impactBlocking") : t("health.impactWarning")}
         </Text>
-        {!ok && blocksValid ? <Text style={[styles.impact, { color: TOKENS.colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
+        {!ok && blocksValid ? <Text style={[styles.impact, { color: colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
       </View>
       {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" onPress={onRepair} /> : null}
     </View>

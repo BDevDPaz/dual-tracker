@@ -4,17 +4,17 @@
  */
 import { Stack } from "expo-router";
 import { stackHeaderOptions } from "../../src/components/ui/navigation";
-import { HelpButton } from "../../src/components/support/HelpButton";
+import { HeaderActions } from "../../src/components/support/HelpButton";
+import { useTheme } from "../../src/context/ThemeContext";
 import { t, useLanguage } from "../../src/i18n";
 
 export default function SessionLayout() {
   useLanguage();
+  const { colors } = useTheme();
   return (
-    <Stack
-      screenOptions={stackHeaderOptions()}
-    >
-      <Stack.Screen name="[id]" options={{ title: t("session.title"), headerRight: () => <HelpButton screen="session" /> }} />
-      <Stack.Screen name="[id]/trace" options={{ title: t("trace.title"), headerRight: () => <HelpButton screen="trace" /> }} />
+    <Stack screenOptions={stackHeaderOptions(colors)}>
+      <Stack.Screen name="[id]" options={{ title: t("session.title"), headerRight: () => <HeaderActions screen="session" /> }} />
+      <Stack.Screen name="[id]/trace" options={{ title: t("trace.title"), headerRight: () => <HeaderActions screen="trace" /> }} />
     </Stack>
   );
 }

@@ -19,8 +19,6 @@ import {
   Montserrat_400Regular,
   Montserrat_500Medium,
   Montserrat_600SemiBold,
-  Montserrat_700Bold,
-  Montserrat_800ExtraBold,
 } from "@expo-google-fonts/montserrat";
 import { ThemeProvider } from "../src/context/ThemeContext";
 import { ToastProvider } from "../src/context/ToastContext";
@@ -48,8 +46,6 @@ export default function RootLayout() {
     Montserrat_400Regular,
     Montserrat_500Medium,
     Montserrat_600SemiBold,
-    Montserrat_700Bold,
-    Montserrat_800ExtraBold,
   });
 
   // No se pinta copy hasta que el perfil (o el idioma del teléfono, si aún

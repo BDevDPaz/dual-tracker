@@ -4,10 +4,12 @@
  * pendiente (estado SALIDA: salida detectada), para que el operario no
  * navegue fuera sin decidir. sceneStyle obsidian.
  */
+import { View } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TOKENS, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useWorkTracker, useClock } from "../../src/core/hooks";
 import { selectSessionState, selectUiRequests } from "../../src/core/selectors";
 import { t, useLanguage } from "../../src/i18n";
@@ -23,10 +25,13 @@ const TAB_ICONS: Record<string, [IconName, IconName]> = {
 
 export default function TabsLayout() {
   const { state } = useWorkTracker();
+  const { colors } = useTheme();
   useLanguage();
   const insets = useSafeAreaInsets();
   const nowMs = useClock(30_000);
-  const exitPending = selectSessionState(state, nowMs) === "SALIDA" || selectUiRequests(state).openExitModal;
+  const sessionState = selectSessionState(state, nowMs);
+  const shiftActive = sessionState !== "NO_INICIADA" && sessionState !== "CERRADA";
+  const exitPending = sessionState === "SALIDA" || selectUiRequests(state).openExitModal;
 
   return (
     <Tabs
@@ -35,20 +40,38 @@ export default function TabsLayout() {
         // Las tabs siguen montadas. Sin congelarlas, un cambio de idioma
         // repinta también las que no están enfocadas.
         freezeOnBlur: false,
-        sceneStyle: { backgroundColor: TOKENS.colors.background },
-        tabBarActiveTintColor: TOKENS.colors.primary,
-        tabBarInactiveTintColor: TOKENS.colors.text.muted,
+        sceneStyle: { backgroundColor: colors.background },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.text.muted,
         tabBarHideOnKeyboard: true,
         tabBarStyle: exitPending
           ? { display: "none" }
           : {
-              backgroundColor: TOKENS.colors.surface,
-              borderTopColor: TOKENS.colors.border,
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
               minHeight: TOKENS.layout.minTouchTarget + insets.bottom,
             },
         tabBarIcon: ({ focused, color }) => {
           const [on, off] = TAB_ICONS[route.name] ?? ["ellipse", "ellipse-outline"];
-          return <Ionicons name={focused ? on : off} size={ICON.xl} color={color} />;
+          return (
+            <View>
+              <Ionicons name={focused ? on : off} size={ICON.xl} color={color} />
+              {route.name === "index" && shiftActive ? (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    width: TOKENS.layout.dot,
+                    height: TOKENS.layout.dot,
+                    borderRadius: TOKENS.radius.pill,
+                    backgroundColor: colors.primary,
+                  }}
+                  accessibilityElementsHidden
+                />
+              ) : null}
+            </View>
+          );
         },
       })}
     >

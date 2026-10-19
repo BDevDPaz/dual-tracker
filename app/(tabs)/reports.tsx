@@ -5,14 +5,15 @@
  * que mezcle semanas: el sello sigue siendo de una semana.
  */
 import { useMemo, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Button, Card, Chip, DocumentPreviewWidget, Input, LoadingOverlay, PageHeader, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
+import { Button, Card, Chip, DocumentPreviewWidget, ExportStatusCard, Input, LoadingOverlay, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, VmacSheet } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import type { EvidencePack, PayrollStatement } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
@@ -51,6 +52,8 @@ const PRESET_KEY: Record<RangePreset, string> = {
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const [vmac, setVmac] = useState(false);
   const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(60_000);
   const { refreshControl } = usePullToRefresh();
@@ -126,7 +129,7 @@ export default function ReportsScreen() {
     const res = await emit({ type: "SEAL_PACK", periodStart: start, periodEnd: end, allowUncertified });
     setSealing(false);
     const pack = res.ok ? (res.data as EvidencePack | undefined) : undefined;
-    if (pack) router.push(`/report/pack/${pack.id}`);
+    if (pack) router.push({ pathname: "/report/pack/[packId]", params: { packId: pack.id, sealed: "1" } });
   };
 
   const closedCount = combined?.sessionIds.length ?? 0;
@@ -155,8 +158,21 @@ export default function ReportsScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenScroll edges={SAFE_EDGES.tab} refreshControl={refreshControl}>
-        <PageHeader title={t("reports.title")} subtitle={subtitle} helpScreen="reports" />
+      <ScreenScroll
+        edges={SAFE_EDGES.tab}
+        refreshControl={refreshControl}
+        footer={
+          single && anchor && !weeks[0]?.statement.integrityRollup.hasConflict && canSealWeek(anchor.statement) ? (
+            <PrimaryButton
+              label={t("reports.generate")}
+              iconName="shield-checkmark-outline"
+              isLoading={sealing}
+              onPress={() => void seal(anchor.start, anchor.end, false)}
+            />
+          ) : undefined
+        }
+      >
+        <PageHeader title={t("reports.title")} subtitle={subtitle} helpScreen="reports" showHealth />
         <ScreenTips
           screen="reports"
           sessionState={null}
@@ -181,7 +197,7 @@ export default function ReportsScreen() {
         {!single && weeks.length > 1 ? <ScreenStatusBanner status="degraded" message={t("reports.weekMath")} /> : null}
 
         {status !== "ready" ? (
-          <ScreenStatusBanner status={status} message={status === "empty" ? t("reports.empty") : t("common.loading")} emptyIcon="document-outline" />
+          <ScreenStatusBanner status={status} message={status === "empty" ? t("reports.empty") : t("common.loading")} emptyDescription={status === "empty" ? t("reports.emptyBody") : undefined} emptyIcon="document-outline" />
         ) : null}
 
         {status === "ready" && combined && closedCount === 0 && !customError ? (
@@ -195,19 +211,33 @@ export default function ReportsScreen() {
 
         {combined && shown && !customError ? (
           <Card style={styles.card}>
-            <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t(single ? "reports.rollup" : "reports.combined")}</Text>
+            <Text style={[styles.label, { color: colors.text.secondary }]}>{t(single ? "reports.rollup" : "reports.combined")}</Text>
             <KeyValueRow label={t("reports.regular")} value={`${formatUiDecimal(shown.regular)} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.overtime")} value={`${formatUiDecimal(shown.overtime)} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.transit")} value={`${formatUiDecimal(shown.transit)} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.lunch")} value={`${combined.lunchMinutes} ${t("common.minutes")}`} />
             <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
             {single ? (
-              <KeyValueRow
-                label={t("reports.integrity")}
-                value={`V ${combined.integrityRollup.byClass.VALID} · M ${combined.integrityRollup.byClass.MANUAL} · A ${combined.integrityRollup.byClass.AUTO} · C ${combined.integrityRollup.byClass.CONFLICT}`}
-              />
+              <>
+                <KeyValueRow
+                  label={t("reports.integrity")}
+                  value={`V ${combined.integrityRollup.byClass.VALID} · M ${combined.integrityRollup.byClass.MANUAL} · A ${combined.integrityRollup.byClass.AUTO} · C ${combined.integrityRollup.byClass.CONFLICT}`}
+                />
+                <Pressable onPress={() => setVmac(true)} accessibilityRole="button" accessibilityLabel={t("vmac.open")}>
+                  <Text style={[styles.label, { color: colors.text.secondary }]}>{t("vmac.mark")}</Text>
+                </Pressable>
+              </>
             ) : null}
           </Card>
+        ) : null}
+
+        {single ? (
+          <ExportStatusCard
+            sealed={!!fresh?.latestPackId}
+            matches={!!fresh?.latestPackId && fresh.matches !== false}
+            early={!!(fresh?.latestPackId && fresh.sealedBeforePeriodEnd)}
+            pendingExport={!!backup.next}
+          />
         ) : null}
 
         {weeks.map((week) => {
@@ -242,9 +272,9 @@ export default function ReportsScreen() {
                   <Button label={t("reports.goToConflict")} variant="secondary" onPress={() => router.push("/system/conflict")} />
                   <Button label={t("reports.exportUncertified")} variant="ghost" disabled={!canSealWeek(week.statement)} onPress={() => void seal(week.start, week.end, true)} />
                 </View>
-              ) : (
+              ) : single ? null : (
                 <Button
-                  label={single ? t("reports.generate") : t("reports.sealWeek")}
+                  label={t("reports.sealWeek")}
                   iconName="shield-checkmark-outline"
                   disabled={!canSealWeek(week.statement)}
                   onPress={() => void seal(week.start, week.end, false)}
@@ -295,6 +325,7 @@ export default function ReportsScreen() {
 
         {backup.next ? <BackupAdviceCard busy={exporting} onExport={() => void exportNext()} /> : null}
       </ScreenScroll>
+      <VmacSheet visible={vmac} onClose={() => setVmac(false)} />
       <LoadingOverlay visible={sealing} message={t("reports.generating")} />
     </View>
   );

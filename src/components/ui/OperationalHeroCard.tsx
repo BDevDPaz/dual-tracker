@@ -39,6 +39,8 @@ interface OperationalHeroCardProps {
    * del ScrollView). true solo si se usa fuera de un contenedor con padding.
    */
   inset?: boolean;
+  /** La acción primaria vive en el pie fijo de la pantalla. */
+  pinPrimary?: boolean;
 }
 
 export const OperationalHeroCard = React.memo(function OperationalHeroCard({
@@ -53,6 +55,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   nextAction = null,
   onDestinationPress,
   inset = false,
+  pinPrimary = false,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
   useLanguage();
@@ -124,12 +127,16 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
           <View style={styles.spacer} />
         )}
 
+        {!pinPrimary || (ui.secondary && onSecondaryAction) ? (
         <View style={[styles.actionRow, narrow && styles.actionColumn]} testID="hero-actions">
-          <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={narrow ? styles.fullButton : styles.flexButton} />
+          {pinPrimary ? null : (
+            <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={narrow ? styles.fullButton : styles.flexButton} />
+          )}
           {ui.secondary && onSecondaryAction ? (
             <Button label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={narrow ? styles.fullButton : styles.flexButton} />
           ) : null}
         </View>
+        ) : null}
       </View>
     </Animated.View>
   );

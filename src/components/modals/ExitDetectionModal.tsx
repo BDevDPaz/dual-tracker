@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
-import { Button } from "../ui/Button";
+import { SelectableCard } from "../ui/SelectableCard";
 import { ICONS } from "../../constants/icons";
 import { TOKENS } from "../../constants/theme";
 import { t, useLanguage } from "../../i18n";
@@ -42,10 +42,10 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
       testID="exit-detection-modal"
     >
       <View style={styles.grid}>
-        <Button label={t("modals.exitStay")} variant="primary" onPress={onStay} isLoading={busy} style={styles.btn} />
-        <Button label={t("modals.exitLunch")} variant="secondary" onPress={onLunch} disabled={busy} style={styles.btn} iconName={ICONS.domain.lunch} />
-        <Button label={t("modals.exitTransfer")} variant="secondary" onPress={onTransfer} disabled={busy} style={styles.btn} iconName={ICONS.domain.transit} />
-        <Button label={t("modals.exitClose")} variant="danger" onPress={onCloseDay} disabled={busy} style={styles.btn} iconName="stop-circle-outline" />
+        <SelectableCard role="button" label={t("modals.exitStay")} selected onPress={onStay} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitLunch")} onPress={onLunch} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitTransfer")} onPress={onTransfer} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitClose")} onPress={onCloseDay} disabled={busy} />
       </View>
     </ModalShell>
   );
@@ -53,5 +53,4 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
 
 const styles = StyleSheet.create({
   grid: { gap: TOKENS.spacing.sm },
-  btn: { width: "100%" },
 });

@@ -1,15 +1,15 @@
-import { FONT, TOKENS } from "../../constants/theme";
+import { FONT, TOKENS, type ThemeColors } from "../../constants/theme";
 
-/** Cabecera de pila compartida: mismo fondo, tipo y alineación en sesión, destinos, reportes, soporte, sistema y legal. */
-export function stackHeaderOptions() {
+/** Cabecera de pila: título grande, tinta (no oro) y fondo del tema activo. */
+export function stackHeaderOptions(colors: ThemeColors = TOKENS.colors) {
   return {
     headerShown: true as const,
     freezeOnBlur: false,
     headerShadowVisible: false,
     headerTitleAlign: "center" as const,
-    headerStyle: { backgroundColor: TOKENS.colors.background },
-    headerTintColor: TOKENS.colors.primary,
-    headerTitleStyle: { ...FONT.bodyStrong, color: TOKENS.colors.text.primary },
-    contentStyle: { backgroundColor: TOKENS.colors.background },
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.text.primary,
+    headerTitleStyle: { ...FONT.h2, color: colors.text.primary },
+    contentStyle: { backgroundColor: colors.background },
   };
 }

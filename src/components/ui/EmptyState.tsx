@@ -32,7 +32,7 @@ export function EmptyState({
       <View style={styles.iconWrapper}>
         <Ionicons
           name={icon as any}
-          size={ICON.hero}
+          size={ICON.empty}
           color={colors.text.muted}
         />
       </View>
@@ -73,12 +73,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   title: {
-    ...FONT.h3,
+    ...FONT.h2,
     textAlign: "center",
   },
   description: {
     ...FONT.body,
     textAlign: "center",
-    marginTop: TOKENS.spacing.xs,
+    marginTop: TOKENS.spacing.sm,
+    maxWidth: 320,
   },
 });

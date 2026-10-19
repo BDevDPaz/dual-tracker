@@ -44,7 +44,7 @@ exports[`useResponsive instantánea del ritmo en teléfono estrecho y en tablet 
   <Text
     testID="pad"
   >
-    24
+    20
   </Text>
   <Text
     testID="max"

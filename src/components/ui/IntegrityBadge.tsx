@@ -63,10 +63,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: TOKENS.spacing.sm,
     paddingVertical: TOKENS.spacing.xs,
-    borderRadius: TOKENS.radius.xs,
+    borderRadius: TOKENS.radius.pill,
     borderWidth: TOKENS.layout.hairline,
     alignSelf: "flex-start",
   },
   icon: { marginRight: TOKENS.spacing.xs },
-  text: { ...FONT.label, ...font("800"), letterSpacing: 0.5 },
+  text: { ...FONT.label, ...font("600"), letterSpacing: 0.5 },
 });

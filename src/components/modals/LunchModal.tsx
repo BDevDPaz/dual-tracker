@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
+import { SelectableCard } from "../ui/SelectableCard";
 import { Input } from "../ui/Input";
 import { useFormFocusChain } from "../ui/formChain";
 import { FORM_FIELDS } from "../ui/formFields";
@@ -83,22 +84,14 @@ export function LunchModal(props: LunchModalProps) {
     >
       <View style={styles.optionsGrid} testID="lunch-options">
         {OPTIONS.map((min) => (
-          <Pressable
+          <SelectableCard
             key={min}
-            onPress={() => setSelected(min)}
-            style={[
-              styles.optionPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              selected === min && { backgroundColor: colors.statusBg.primary, borderColor: colors.primary },
-            ]}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: selected === min }}
+            label={min === 0 ? t("modals.lunchNo") : `${min} ${t("common.minutes")}`}
             accessibilityLabel={`${min} ${t("common.minutes")}`}
-          >
-            <Text style={[styles.optionText, { color: colors.text.secondary }, selected === min && { color: colors.primary }]}>
-              {min === 0 ? t("modals.lunchNo") : `${min} ${t("common.minutes")}`}
-            </Text>
-          </Pressable>
+            selected={selected === min}
+            onPress={() => setSelected(min)}
+            style={styles.optionPill}
+          />
         ))}
       </View>
       {needsStart ? (
@@ -123,7 +116,6 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radius.md,
     borderWidth: TOKENS.layout.hairline,
   },
-  optionText: { ...FONT.bodyStrong },
   startRow: { marginTop: TOKENS.spacing.md, gap: TOKENS.spacing.xs },
   hint: { ...FONT.caption },
 });

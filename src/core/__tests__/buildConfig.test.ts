@@ -184,19 +184,19 @@ describe("app.config.ts — variantes", () => {
     };
     expect(base.icon).toBe("./assets/images/icon.png");
     expect(png(base.icon!)).toEqual({ w: 1024, h: 1024 });
-    expect(base.splash).toMatchObject({ image: "./assets/images/splash.png", backgroundColor: "#0A0A0C", resizeMode: "contain" });
+    expect(base.splash).toMatchObject({ image: "./assets/images/splash.png", backgroundColor: "#050505", resizeMode: "contain" });
     expect(png(base.splash!.image!)).toEqual({ w: 1284, h: 1284 });
     expect(base.android?.adaptiveIcon).toMatchObject({
       foregroundImage: "./assets/images/adaptive-icon.png",
       monochromeImage: "./assets/images/adaptive-monochrome.png",
-      backgroundColor: "#0A0A0C",
+      backgroundColor: "#050505",
     });
     expect(png(base.android!.adaptiveIcon!.foregroundImage!)).toEqual({ w: 1024, h: 1024 });
     expect(png(base.android!.adaptiveIcon!.monochromeImage!)).toEqual({ w: 1024, h: 1024 });
     expect(base.web?.favicon).toBe("./assets/images/favicon.png");
     expect(png(base.web!.favicon!)).toEqual({ w: 48, h: 48 });
     const notif = (base.plugins ?? []).find((p) => Array.isArray(p) && p[0] === "expo-notifications") as [string, { icon: string; color: string }];
-    expect(notif[1]).toMatchObject({ icon: "./assets/images/notification-icon.png", color: "#D4AF37" });
+    expect(notif[1]).toMatchObject({ icon: "./assets/images/notification-icon.png", color: "#C5A059" });
     expect(png(notif[1].icon)).toEqual({ w: 96, h: 96 });
     for (const rel of ["assets/brand/A/icon.svg", "assets/brand/A/adaptive-foreground.svg", "assets/brand/A/monochrome.svg", "assets/brand/D/icon.svg", "assets/brand/D/adaptive-foreground.svg", "assets/brand/D/monochrome.svg"]) {
       expect(fs.existsSync(path.join(ROOT, rel))).toBe(true);

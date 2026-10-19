@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { ComputedSession, PeriodSessionRow } from "../../core/selectors";
 import { t, useLanguage } from "../../i18n";
 import { formatCurrency, formatDate, formatTime, formatUiDecimal } from "../../utils/dateUtils";
@@ -27,6 +28,7 @@ export function SessionListItem({
   hoursText?: string;
 }) {
   const language = useLanguage();
+  const { colors } = useTheme();
   const s = item.session;
   const start = slice?.displayStartMs ?? s.actualStartAtMs ?? s.declaredStartAtMs;
   const end = slice ? slice.displayEndMs : s.endAtMs;
@@ -40,27 +42,27 @@ export function SessionListItem({
   const reasonLabel = t(reasonKey);
   const reason = reasonLabel === reasonKey ? "" : reasonLabel;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={[styles.row, { borderColor: TOKENS.colors.border }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={[styles.row, { borderColor: colors.border }]}>
       <View style={styles.main}>
-        <Text style={[styles.date, { color: TOKENS.colors.text.secondary }]}>{formatDate(start)}</Text>
-        <Text style={[styles.site, { color: conflict ? TOKENS.colors.status.warning : TOKENS.colors.text.primary }]} numberOfLines={1}>
+        <Text style={[styles.date, { color: colors.text.secondary }]}>{formatDate(start)}</Text>
+        <Text style={[styles.site, { color: conflict ? colors.status.warning : colors.text.primary }]} numberOfLines={1}>
           {item.siteLabel || item.site?.alias || t("today.noDestination")}
         </Text>
-        <Text style={[styles.range, { color: TOKENS.colors.text.secondary }]}>
+        <Text style={[styles.range, { color: colors.text.secondary }]}>
           {formatTime(start)} – {end != null ? formatTime(end) : "…"}
         </Text>
         {slice?.continuesFromMs != null ? (
-          <Text style={[styles.range, { color: TOKENS.colors.text.muted }]}>{t("history.continuesFrom", { date: formatDate(slice.continuesFromMs) })}</Text>
+          <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.continuesFrom", { date: formatDate(slice.continuesFromMs) })}</Text>
         ) : null}
         {slice?.continuesUntilMs != null ? (
-          <Text style={[styles.range, { color: TOKENS.colors.text.muted }]}>{t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}</Text>
+          <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}</Text>
         ) : null}
-        {zero ? <Text style={[styles.range, { color: TOKENS.colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
-        {reason ? <Text style={[styles.range, { color: TOKENS.colors.status.warning }]}>{reason}</Text> : null}
+        {zero ? <Text style={[styles.range, { color: colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
+        {reason ? <Text style={[styles.range, { color: colors.status.warning }]}>{reason}</Text> : null}
       </View>
       <View style={styles.side}>
-        <Text style={[styles.hours, { color: TOKENS.colors.text.primary }]}>{hours}</Text>
-        <Text style={[styles.amount, { color: TOKENS.colors.primary }]}>
+        <Text style={[styles.hours, { color: colors.text.primary }]}>{hours}</Text>
+        <Text style={[styles.amount, { color: colors.primary }]}>
           {slice?.grossCents != null ? formatCents(slice.grossCents) : gross == null ? "—" : formatCurrency(gross)}
         </Text>
         <IntegrityBadge integrity={s.integrityClass} blocked={(s.bookkeeping.certificationBlockers ?? []).length > 0} />
@@ -77,5 +79,5 @@ const styles = StyleSheet.create({
   site: { ...FONT.bodyStrong, marginTop: TOKENS.spacing.xxs },
   range: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
   hours: { ...FONT.figure },
-  amount: { ...FONT.caption, ...FONT.tabularNums },
+  amount: { ...FONT.figure },
 });

@@ -8,10 +8,11 @@ import { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Card, Chip, PageHeader, SAFE_EDGES, ScreenContainer } from "../../src/components/ui";
+import { Card, Chip, PageHeader, SAFE_EDGES, ScreenContainer, SummaryCard, VmacSheet } from "../../src/components/ui";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { resolveWeekCursor } from "../../src/core/refresh/weekCursor";
 import {
@@ -35,6 +36,8 @@ const FILTERS: Filter[] = ["ALL", "WEEK", "MANUAL", "AUTO", "CONFLICT"];
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const [vmac, setVmac] = useState(false);
   const { state } = useWorkTracker();
   const nowMs = useClock(60_000);
   const { refreshControl } = usePullToRefresh();
@@ -83,7 +86,7 @@ export default function HistoryScreen() {
 
   return (
     <ScreenContainer edges={SAFE_EDGES.tab}>
-      <PageHeader title={t("history.title")} helpScreen="history" />
+      <PageHeader title={t("history.title")} helpScreen="history" showHealth />
       <ScreenTips
         screen="history"
         sessionState={null}
@@ -103,9 +106,9 @@ export default function HistoryScreen() {
           accessibilityLabel={t("a11y.prevWeek")}
           style={styles.weekHit}
         >
-          <Ionicons name="chevron-back" size={ICON.xl} color={TOKENS.colors.primary} />
+          <Ionicons name="chevron-back" size={ICON.xl} color={colors.text.primary} />
         </Pressable>
-        <Text style={[styles.weekText, { color: TOKENS.colors.text.primary }]}>{formatRange(weekStart, weekEnd)}</Text>
+        <Text style={[styles.weekText, { color: colors.text.primary }]}>{formatRange(weekStart, weekEnd)}</Text>
         <Pressable
           disabled={isCurrentWeek}
           onPress={() => {
@@ -123,7 +126,7 @@ export default function HistoryScreen() {
           accessibilityLabel={t("a11y.nextWeek")}
           style={styles.weekHit}
         >
-          <Ionicons name="chevron-forward" size={ICON.xl} color={isCurrentWeek ? TOKENS.colors.text.muted : TOKENS.colors.primary} />
+          <Ionicons name="chevron-forward" size={ICON.xl} color={isCurrentWeek ? colors.text.muted : colors.text.primary} />
         </Pressable>
       </View>
 
@@ -141,15 +144,22 @@ export default function HistoryScreen() {
         />
       ) : null}
 
+      <SummaryCard
+        hoursLabel={t("today.netHours")}
+        hours={`${formatUiDecimal(weekHours)} ${t("common.hours")}`}
+        moneyLabel={t("today.estimate")}
+        money={formatCents(weekGrossCents)}
+      />
       <Card style={styles.rollup}>
-        <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("history.weeklyRollup")}</Text>
-        <KeyValueRow label={t("today.netHours")} value={`${formatUiDecimal(weekHours)} ${t("common.hours")}`} />
-        <KeyValueRow label={t("today.estimate")} value={formatCents(weekGrossCents)} emphasis />
+        <Text style={[styles.label, { color: colors.text.secondary }]}>{t("history.weeklyRollup")}</Text>
         <KeyValueRow label={t("history.manualCount")} value={String(counts.MANUAL)} />
         <KeyValueRow label={t("history.conflictCount")} value={String(counts.CONFLICT)} />
       </Card>
 
       <View>
+        <Pressable onPress={() => setVmac(true)} accessibilityRole="button" accessibilityLabel={t("vmac.open")} style={styles.vmac}>
+          <Text style={[styles.vmacText, { color: colors.text.secondary }]}>{t("vmac.mark")}</Text>
+        </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {FILTERS.map((f) => (
             <Chip key={f} label={t(`history.filters.${f}`)} selected={filter === f} onPress={() => setFilter(f)} />
@@ -164,10 +174,11 @@ export default function HistoryScreen() {
         renderItem={({ item }) => (
           <SessionListItem item={item.item} slice={item.slice} hoursText={item.hoursText} onPress={() => router.push(`/session/${item.item.session.id}`)} />
         )}
-        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("history.empty")} emptyIcon="calendar-outline" />}
+        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("history.empty")} emptyDescription={t("history.emptyBody")} emptyIcon="calendar-outline" />}
         contentContainerStyle={styles.list}
         refreshControl={refreshControl}
       />
+      <VmacSheet visible={vmac} onClose={() => setVmac(false)} />
     </ScreenContainer>
   );
 }
@@ -179,6 +190,8 @@ const styles = StyleSheet.create({
   rollup: { padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
   filters: { gap: TOKENS.spacing.sm, paddingBottom: TOKENS.spacing.md },
+  vmac: { minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
+  vmacText: { ...FONT.label },
   listFlex: { flex: 1 },
   list: { paddingBottom: TOKENS.spacing["3xl"], flexGrow: 1 },
 });

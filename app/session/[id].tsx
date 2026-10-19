@@ -11,12 +11,13 @@ import { useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrivalMark } from "../../src/components/brand/ArrivalMark";
-import { Button, Card, EmptyState, IntegrityBadge, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, ledgerToTimeline } from "../../src/components/ui";
-import { HelpButton } from "../../src/components/support/HelpButton";
+import { Button, Card, EmptyState, IntegrityBadge, PrimaryButton, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, VmacSheet, ledgerToTimeline } from "../../src/components/ui";
+import { HeaderActions } from "../../src/components/support/HelpButton";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
 import { KeyValueRow, OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import type { LedgerEntry } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
@@ -41,6 +42,8 @@ function ledgerLabel(e: LedgerEntry): string {
 
 export default function SessionDetailScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const [vmac, setVmac] = useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessionId = Number(id);
   const { state, emit, queries } = useWorkTracker();
@@ -100,13 +103,13 @@ export default function SessionDetailScreen() {
       footer={
         !deleted ? (
           <View style={styles.footer}>
-            <Button label={t("common.edit")} variant="secondary" style={styles.flex} onPress={() => setModal("EDIT")} />
+            <PrimaryButton label={t("common.edit")} style={styles.flex} onPress={() => setModal("EDIT")} />
             <Button label={t("common.delete")} variant="danger" style={styles.flex} disabled={session.domainStatus !== "CERRADA"} onPress={() => setModal("DELETE")} />
           </View>
         ) : null
       }
     >
-      <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HelpButton screen="session" /> }} />
+      <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HeaderActions screen="session" /> }} />
         <ScreenTips screen="session" sessionState={session.domainStatus} siteCount={0} batteryRestricted={false} provisionalSeal={false} hasSplitRow={false} hasZeroOmitted={false} />
         {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
         {session.bookkeeping.integrityReason === "ORPHAN_SESSION" && !deleted ? (
@@ -122,19 +125,20 @@ export default function SessionDetailScreen() {
         ) : null}
 
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: TOKENS.colors.text.primary }]} numberOfLines={2}>
+          <Text style={[styles.title, { color: colors.text.primary }]} numberOfLines={2}>
             {computed.siteLabel || computed.site?.alias || t("today.noDestination")}
           </Text>
           <IntegrityBadge integrity={session.integrityClass} blocked={cert.blocked} />
         </View>
-        {cert.blocked ? <Text style={[styles.caption, { color: TOKENS.colors.status.warning }]}>{t("integrity.blockedDetail")}</Text> : null}
+        <Button label={t("vmac.mark")} size="sm" variant="ghost" onPress={() => setVmac(true)} accessibilityLabel={t("vmac.open")} />
+        {cert.blocked ? <Text style={[styles.caption, { color: colors.status.warning }]}>{t("integrity.blockedDetail")}</Text> : null}
         <View style={styles.stateLine}>
           {session.domainStatus === "ACTIVA" ? <ArrivalMark size={ICON.lg} decorative /> : null}
-          <Text style={[styles.caption, styles.stateCaption, { color: TOKENS.colors.text.secondary }]}>
+          <Text style={[styles.caption, styles.stateCaption, FONT.tabularNums, { color: colors.text.secondary }]}>
             {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
           </Text>
         </View>
-        {zeroDuration ? <Text style={[styles.caption, { color: TOKENS.colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
+        {zeroDuration ? <Text style={[styles.caption, { color: colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
 
         <Card style={styles.card}>
           <KeyValueRow
@@ -156,7 +160,7 @@ export default function SessionDetailScreen() {
 
         <Section title={t("session.lines")}>
           <Card style={styles.card}>
-            {lines.loading ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.loading")}</Text> : null}
+            {lines.loading ? <Text style={{ color: colors.text.muted }}>{t("common.loading")}</Text> : null}
             {lineRows.map((l, i) => (
               <KeyValueRow
                 key={`${l.dateString}-${l.kind}-${i}`}
@@ -164,8 +168,8 @@ export default function SessionDetailScreen() {
                 value={formatCurrency(l.amount)}
               />
             ))}
-            {!lines.loading && lineRows.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
-            <Text style={[styles.policy, { color: TOKENS.colors.text.muted }]}>
+            {!lines.loading && lineRows.length === 0 ? <Text style={{ color: colors.text.muted }}>{t("common.noData")}</Text> : null}
+            <Text style={[styles.policy, { color: colors.text.muted }]}>
               {t("session.policy")}: {session.policyId}
             </Text>
           </Card>
@@ -178,14 +182,14 @@ export default function SessionDetailScreen() {
         />
 
         <Card style={styles.card}>
-          <Text style={[styles.caption, { color: TOKENS.colors.text.primary }]}>
+          <Text style={[styles.caption, { color: colors.text.primary }]}>
             {hasTrace ? t("session.spatialTrace") : hasEnter ? t("session.spatialValidated") : t("session.spatialNone")}
           </Text>
           <Button label={t("session.viewTrace")} size="sm" variant="secondary" iconName="map-outline" onPress={() => router.push(`/session/${session.id}/trace`)} />
         </Card>
 
         <Section title={t("session.notes")}>
-          <Text style={{ color: session.bookkeeping.manualNote ? TOKENS.colors.text.primary : TOKENS.colors.text.muted }}>
+          <Text style={{ color: session.bookkeeping.manualNote ? colors.text.primary : colors.text.muted }}>
             {cert.unreadable.includes("note") ? t("fieldCrypto.unreadableNote") : note || t("session.noNotes")}
           </Text>
           {!deleted ? <Button label={t("session.addNote")} size="sm" variant="ghost" onPress={() => setModal("NOTE")} /> : null}
@@ -201,6 +205,7 @@ export default function SessionDetailScreen() {
         onSave={(p) => void run({ type: "PATCH_SESSION", sessionId: session.id, declaredStartAtMs: p.declaredStartAtMs, endAtMs: p.endAtMs, note: p.note })}
       />
       <DeleteSessionModal visible={modal === "DELETE"} busy={busy} onCancel={() => setModal(null)} onConfirm={() => void run({ type: "DELETE_SESSION", sessionId: session.id })} />
+      <VmacSheet visible={vmac} onClose={() => setVmac(false)} />
       <AddNoteModal
         visible={modal === "NOTE"}
         title={t("modals.noteTitle")}

@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs><mask id="mD" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><rect width="1024" height="1024" fill="#fff"/>
 <path d="M432,428 L488,484 L596,376" fill="none" stroke="#000" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
-<path d="M 354.4,526.2 A 190 190 0 1 1 669.6,526.2 L 512,760 Z" fill="#D4AF37" stroke="#D4AF37" stroke-width="24" stroke-linejoin="round" mask="url(#mD)"/>
-<path d="M432,812 L592,812" stroke="#A1A1AA" stroke-width="40" stroke-linecap="round"/></svg>
+<path d="M 354.4,526.2 A 190 190 0 1 1 669.6,526.2 L 512,760 Z" fill="#C5A059" stroke="#C5A059" stroke-width="24" stroke-linejoin="round" mask="url(#mD)"/>
+<path d="M432,812 L592,812" stroke="#A0A0A0" stroke-width="40" stroke-linecap="round"/></svg>

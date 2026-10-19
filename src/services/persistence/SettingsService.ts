@@ -42,6 +42,7 @@ export const DEFAULT_PROFILE: PersonProfile = {
   language: "es",
   dailyReminderTime: "07:00",
   theme: "dark",
+  highContrast: false,
 };
 
 export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
@@ -155,6 +156,9 @@ export const SettingsService = {
     if (portalUrl.trim() && !portalParsed.ok) return { ok: false, code: "PORTAL_URL_INVALID" };
     if (next.company.employerPortalEnabled === true && !portalParsed.ok) return { ok: false, code: "PORTAL_URL_INVALID" };
     if (next.profile.theme !== undefined && !["system", "dark", "light"].includes(next.profile.theme)) {
+      return { ok: false, code: "INVALID_VALUE" };
+    }
+    if (next.profile.highContrast !== undefined && typeof next.profile.highContrast !== "boolean") {
       return { ok: false, code: "INVALID_VALUE" };
     }
 

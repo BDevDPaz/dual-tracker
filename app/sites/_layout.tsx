@@ -2,13 +2,15 @@
 import { Stack } from "expo-router";
 import { stackHeaderOptions } from "../../src/components/ui/navigation";
 import { HelpButton } from "../../src/components/support/HelpButton";
+import { useTheme } from "../../src/context/ThemeContext";
 import { t, useLanguage } from "../../src/i18n";
 
 export default function SitesLayout() {
   useLanguage();
+  const { colors } = useTheme();
   return (
     <Stack
-      screenOptions={stackHeaderOptions()}
+      screenOptions={stackHeaderOptions(colors)}
     >
       <Stack.Screen name="index" options={{ title: t("sites.title"), headerRight: () => <HelpButton screen="sites" /> }} />
       <Stack.Screen name="new" options={{ title: t("sites.newSite"), headerRight: () => <HelpButton screen="siteNew" /> }} />

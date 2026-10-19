@@ -4,9 +4,10 @@
  * sellado, archivos incluidos, sesiones incluidas y compartir PDF empleado /
  * empleador. Sin "regenerar con otras reglas": un pack sellado no muta.
  */
-import { Text, StyleSheet } from "react-native";
+import { useState } from "react";
+import { Text, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../../src/components/ui";
+import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
@@ -16,7 +17,8 @@ import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../.
 
 export default function PackScreen() {
   const router = useRouter();
-  const { packId } = useLocalSearchParams<{ packId: string }>();
+  const { packId, sealed } = useLocalSearchParams<{ packId: string; sealed?: string }>();
+  const [showSeal, setShowSeal] = useState(sealed === "1");
   const id = String(packId ?? "");
   const { state, emit, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
@@ -45,6 +47,8 @@ export default function PackScreen() {
   const shared = selectPackShared(state, pack.id);
 
   return (
+    <View style={styles.root}>
+    <SealAnimation visible={showSeal} onDone={() => setShowSeal(false)} />
     <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
       {!m.certified ? <ScreenStatusBanner status="conflict" message={t("report.uncertified")} /> : null}
       {m.sealedAtMs <= m.periodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
@@ -88,10 +92,12 @@ export default function PackScreen() {
       <Button label={t("reports.shareEmployee")} iconName="share-outline" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: pack.id })} />
       <Button label={t("reports.shareEmployer")} variant="secondary" iconName="briefcase-outline" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: pack.id })} />
     </ScreenScroll>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.xs },
   label: { ...FONT.label },
   hash: { ...FONT.caption, fontFamily: "monospace" },

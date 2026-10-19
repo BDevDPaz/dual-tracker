@@ -2,7 +2,7 @@
 import React from "react";
 import { Text } from "react-native";
 import { render, screen } from "@testing-library/react-native";
-import { COLORS, PALETTE_LIGHT, TOKENS } from "../../constants/theme";
+import { COLORS, CONTRAST_COLORS, PALETTE_LIGHT, TOKENS } from "../../constants/theme";
 import { ThemeProvider, resolveScheme, themeFor, useTheme } from "../ThemeContext";
 
 function Probe() {
@@ -43,8 +43,18 @@ describe("ThemeContext", () => {
     expect(themeFor("light").tokens.colors).toBe(COLORS.light);
   });
 
+  test("alto contraste aclara texto y bordes y conserva el oro", () => {
+    const theme = themeFor("dark", null, true);
+    expect(theme.highContrast).toBe(true);
+    expect(theme.scheme).toBe("dark");
+    expect(theme.colors.background).toBe(CONTRAST_COLORS.background);
+    expect(theme.colors.primary).toBe("#C5A059");
+    expect(theme.colors.text.primary).toBe("#FFFFFF");
+    expect(theme.colors.border).toBe("#FFFFFF");
+  });
+
   test("fondos de estado son rgba fijos por tono (no `${color}15`)", () => {
     for (const v of Object.values(COLORS.dark.statusBg)) expect(v).toMatch(/^rgba\(\d+, \d+, \d+, 0\.12\)$/);
-    expect(COLORS.dark.focusRing).toBe("rgba(212, 175, 55, 0.4)");
+    expect(COLORS.dark.focusRing).toBe("rgba(197, 160, 89, 0.4)");
   });
 });
