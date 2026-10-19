@@ -1,7 +1,7 @@
 {
   "name": "dual-tracker",
   "author": "BDevDPaz",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "0.1.0",
   "private": true,
   "scripts": {

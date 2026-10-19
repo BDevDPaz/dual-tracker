@@ -33,6 +33,23 @@ export interface SystemHealthSnapshot {
   };
   /** FieldCrypto v1.3 §11: reflejo del estado del cifrado de campos. */
   fieldCrypto: FieldCryptoHealth;
+  /**
+   * Últimos eventos de geocerca para Salud. Sin coordenadas: la región es el
+   * identificador SESSION_n_SITE_n, no lat/lon.
+   */
+  geofenceDiag: GeofenceDiagEvent[];
+}
+
+export type GeofenceDiagKind = "ENTER" | "EXIT" | "SAMPLE" | "REGISTER" | "ERROR";
+
+export interface GeofenceDiagEvent {
+  atMs: number;
+  kind: GeofenceDiagKind;
+  region: string | null;
+  siteId: number | null;
+  accuracyM: number | null;
+  accepted: boolean;
+  reason: string | null;
 }
 
 export interface FieldCryptoHealth {

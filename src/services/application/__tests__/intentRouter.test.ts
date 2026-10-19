@@ -4,6 +4,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
+import { Platform } from "react-native";
 import type { SessionIntent } from "../../../core/contracts";
 import { Store } from "../../../core/store";
 import { SessionEngineService } from "../../domain/SessionEngineService";
@@ -11,6 +12,7 @@ import { EvidencePackService } from "../../evidence/EvidencePackService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { GEOFENCE_TASK_NAME } from "../../../constants/geolocation";
 import { GeofenceRuntimeService } from "../../runtime/GeofenceRuntimeService";
+import { osGeofenceRadius } from "../../runtime/geofencePolicy";
 import { routeIntent } from "../intentRouter";
 import { LocationMock } from "../../../../test/runtimeHarness";
 import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
@@ -158,7 +160,8 @@ describe("intentRouter", () => {
     const r = await routeIntent({ type: "UPSERT_SITE", site: { id: siteA, alias: site.alias, address: site.address, clientName: site.clientName, radiusM: 80 } });
     expect(r.ok).toBe(true);
     const regions = LocationMock.__state.geofences.get(GEOFENCE_TASK_NAME) as { radius: number }[];
-    expect(regions?.[0]?.radius).toBe(80);
+    // En Android el SO no baja de 100 m; la decisión de fichar sigue usando el radio lógico (80).
+    expect(regions?.[0]?.radius).toBe(osGeofenceRadius(80, Platform.OS));
   });
 
   test("OPEN_TRACE es navegación pura: no despacha", async () => {

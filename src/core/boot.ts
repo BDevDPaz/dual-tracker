@@ -146,6 +146,13 @@ async function onForeground(): Promise<void> {
   }
   TimeAuthorityService.reanchor();
   await PermissionsHealthService.refresh().catch(() => {});
+  // Samsung puede soltar el registro al volver a primer plano. Si la firma no
+  // cambió no se para y se vuelve a crear (eso disparaba ENTER+EXIT seguidos).
+  const open = await PersistenceService.getOpenSession();
+  if (open) {
+    const siteId = monitoredSiteId(open);
+    if (siteId !== null) await GeofenceRuntimeService.startMonitoring(open.id, siteId).catch(() => {});
+  }
   await GeofenceRuntimeService.checkPendingExit().catch(() => {});
 }
 

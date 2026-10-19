@@ -62,6 +62,7 @@ export const PermissionsHealthService = {
         snapshot.batteryOptimization = "unknown";
       }
     } else snapshot.batteryOptimization = "n/a";
+    snapshot.geofenceDiag = await GeofenceRuntimeService.recentDiagnostics();
     snapshot.clockDriftMs = TimeAuthorityService.currentDriftMs();
     snapshot.clockDriftExceeded = TimeAuthorityService.isDriftExceeded();
     snapshot.lastSpatialFactAt = await PersistenceService.lastSpatialFactAt().catch(() => prev.lastSpatialFactAt);
