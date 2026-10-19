@@ -1,6 +1,7 @@
 /**
- * THEME TOKENS - Luxury Glass Dark
- * Sistema de diseño endurecido para Dual Tracker (heredado de GEOTrack Trial and Trace).
+ * THEME TOKENS — Obsidian premium.
+ * Fondo #050505–#0A0A0A, tarjetas #121212–#161616, oro #C5A059 solo en
+ * acciones primarias, selección y dinero. Montserrat 400/500/600.
  */
 
 import { Platform } from "react-native";
@@ -11,18 +12,37 @@ export type ThemePreference = "system" | "dark" | "light";
 
 /** Paleta oscura (por defecto, userInterfaceStyle "dark"). */
 export const PALETTE_DARK = {
-  obsidian: "#0A0A0C", // Fondo principal
-  graphite: "#121214", // Fondos secundarios (ej. inputs, pills)
-  carbonMist: "#1C1C1F", // Capas de elevación (ej. tarjetas, modales)
-  steelLine: "#2A2A2E", // Bordes y divisores estructurales
+  obsidian: "#050505", // Fondo
+  graphite: "#121212", // Tarjetas
+  carbonMist: "#161616", // Tarjetas elevadas
+  steelLine: "#1F1F1F", // Borde 1 px
   textPrimary: "#FFFFFF",
-  textSecondary: "#A1A1AA",
-  textMuted: "#52525B",
-  mutedGold: "#D4AF37", // Acento principal
-  successGreen: "#27AE60",
-  amberWarning: "#F2994A",
-  deepRed: "#EB5757",
-  slateBlue: "#546E7A",
+  textSecondary: "#A0A0A0", // Metadatos
+  textMuted: "#8A8A8A",
+  mutedGold: "#C5A059", // Solo acción primaria, selección y dinero
+  successGreen: "#146C43", // Esmeralda oscura
+  amberWarning: "#C4841D", // Ámbar contenido
+  deepRed: "#8E2424",
+  slateBlue: "#7D8C96",
+};
+
+/**
+ * Alto contraste: mismo oro, texto y bordes más claros sobre negro.
+ * No sustituye a theme (system | dark | light); es una capa aparte.
+ */
+export const PALETTE_CONTRAST: typeof PALETTE_DARK = {
+  obsidian: "#000000",
+  graphite: "#0A0A0A",
+  carbonMist: "#121212",
+  steelLine: "#FFFFFF",
+  textPrimary: "#FFFFFF",
+  textSecondary: "#F2F2F2",
+  textMuted: "#D0D0D0",
+  mutedGold: "#C5A059",
+  successGreen: "#3DDC97",
+  amberWarning: "#FFC14D",
+  deepRed: "#FF6B6B",
+  slateBlue: "#9AD7FF",
 };
 
 /** Paleta clara ("papel"): preparada y cableada en primitivas; el selector sigue oculto. */
@@ -85,10 +105,10 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
     /** Anillo de foco de Input: primario al 40 %. */
     focusRing: withAlpha(p.mutedGold, 0.4),
     overlay: scheme === "dark" ? "rgba(0, 0, 0, 0.6)" : "rgba(26, 23, 20, 0.35)",
-    /** Cristal (hero y modales): relleno blanco 12 % + filo dorado 1 px. */
+    /** Cristal (hero y modales): relleno blanco 12 % + filo neutro 1 px. El oro no decora. */
     glass: {
       fill: scheme === "dark" ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.55)",
-      hairline: "rgba(212, 175, 55, 0.18)",
+      hairline: scheme === "dark" ? "rgba(255, 255, 255, 0.16)" : "rgba(26, 23, 20, 0.16)",
       blurTint: scheme === "dark" ? ("dark" as const) : ("light" as const),
     },
     /** "Papel" de la vista previa del reporte (igual en ambos esquemas: es un documento). */
@@ -112,6 +132,9 @@ export const COLORS: Record<ColorScheme, ThemeColors> = {
   dark: buildColors(PALETTE_DARK, "dark"),
   light: buildColors(PALETTE_LIGHT, "light"),
 };
+
+/** Capa de alto contraste (esquema de barra de estado sigue siendo oscuro). */
+export const CONTRAST_COLORS: ThemeColors = buildColors(PALETTE_CONTRAST, "dark");
 
 /**
  * Anchos de referencia (dp). compact ≈ teléfonos 320–359; regular ≈ 360–599
@@ -156,6 +179,8 @@ export const ICON = {
   xl: 24,
   xxl: 28,
   hero: 48,
+  /** Icono editorial del estado vacío. */
+  empty: 56,
 } as const;
 
 export const TOKENS = {
@@ -163,11 +188,11 @@ export const TOKENS = {
   colors: COLORS.dark,
   spacing: {
     zero: 0,
-    /** Ritmo mínimo entre metadatos apilados (2 dp). */
-    xxs: 2,
-    xs: 4,
+    /** Medio paso de la escala de 8. */
+    xxs: 4,
+    xs: 8,
     sm: 8,
-    md: 12,
+    md: 16,
     lg: 16,
     xl: 24,
     "2xl": 32,
@@ -180,23 +205,33 @@ export const TOKENS = {
     hairline: 2,
     xs: 4,
     sm: 8,
+    /** Banner. */
     md: 12,
+    /** Botón. */
+    button: 14,
+    /** Tarjeta. */
     lg: 16,
     xl: 24,
     "2xl": 32,
+    /** Pastillas. */
+    pill: 999,
     round: 9999,
   },
   layout: {
     /** Teléfono normal, plegable y tablet. */
-    screenPadding: 24,
-    /** Teléfono estrecho (< 360 dp): un paso menos de la escala. */
+    screenPadding: 20,
+    /** Teléfono estrecho (< 360 dp): un paso de la escala de 8. */
     screenPaddingCompact: 16,
-    sectionGap: 32,
+    sectionGap: 24,
     cardPadding: 16,
     /** Objetivo táctil mínimo (48 dp). Botones, chips, iconos de cierre y filas pulsables. */
     minTouchTarget: 48,
-    buttonMd: 56,
-    buttonLg: 64,
+    /** Acción primaria. */
+    buttonPrimary: 52,
+    buttonMd: 52,
+    buttonLg: 56,
+    /** Punto de jornada activa en la pestaña Hoy. */
+    dot: 8,
     inputMin: 48,
     textArea: 96,
     textAreaLg: 128,
@@ -268,15 +303,13 @@ export const SPACING = {
   xxl: TOKENS.spacing["2xl"],
 };
 
-export type FontWeight = "400" | "500" | "600" | "700" | "800";
+export type FontWeight = "400" | "500" | "600";
 
 /** Familias de @expo-google-fonts/montserrat cargadas con useFonts en app/_layout.tsx. */
 export const FONT_FAMILY: Record<FontWeight, string> = {
   "400": "Montserrat_400Regular",
   "500": "Montserrat_500Medium",
   "600": "Montserrat_600SemiBold",
-  "700": "Montserrat_700Bold",
-  "800": "Montserrat_800ExtraBold",
 };
 
 /**
@@ -292,32 +325,37 @@ export function font(weight: FontWeight): { fontFamily: string; fontWeight?: Fon
 const TABULAR_NUMS = ["tabular-nums"] as ["tabular-nums"];
 
 export const FONT = {
-  h1: { fontSize: 32, lineHeight: 38, letterSpacing: -0.5, ...font("800") },
-  h2: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3, ...font("700") },
-  h3: { fontSize: 18, lineHeight: 24, ...font("600") },
-  display: { fontSize: 30, lineHeight: 36, letterSpacing: -0.4, ...font("800") },
-  /** Temporizador e importe grande del hero. */
-  metric: { fontSize: 36, lineHeight: 44, ...font("700"), fontVariant: TABULAR_NUMS },
-  metricCompact: { fontSize: 28, lineHeight: 34, ...font("700"), fontVariant: TABULAR_NUMS },
-  bodyStrong: { fontSize: 16, lineHeight: 22, ...font("600") },
-  body: { fontSize: 16, lineHeight: 22, ...font("400") },
-  bodySmall: { fontSize: 14, lineHeight: 20, ...font("400") },
-  caption: { fontSize: 13, lineHeight: 18, ...font("500") },
-  micro: { fontSize: 12, lineHeight: 16, ...font("500") },
-  label: { fontSize: 11, lineHeight: 14, letterSpacing: 1, ...font("700") },
-  button: { fontSize: 16, lineHeight: 22, ...font("600") },
+  /** Títulos de pantalla, 26–28, interlineado 1.4–1.5, peso 600. */
+  h1: { fontSize: 28, lineHeight: 42, letterSpacing: -0.4, ...font("600") },
+  h2: { fontSize: 26, lineHeight: 38, letterSpacing: -0.3, ...font("600") },
+  h3: { fontSize: 18, lineHeight: 26, ...font("600") },
+  display: { fontSize: 28, lineHeight: 42, letterSpacing: -0.4, ...font("600") },
+  /** Cifras grandes (22–28) de tiempo y dinero. */
+  metric: { fontSize: 28, lineHeight: 40, ...font("600"), fontVariant: TABULAR_NUMS },
+  metricCompact: { fontSize: 22, lineHeight: 32, ...font("600"), fontVariant: TABULAR_NUMS },
+  bodyStrong: { fontSize: 16, lineHeight: 24, ...font("600") },
+  body: { fontSize: 16, lineHeight: 24, ...font("400") },
+  bodySmall: { fontSize: 14, lineHeight: 21, ...font("400") },
+  /** Metadatos 13–14. */
+  caption: { fontSize: 13, lineHeight: 19, ...font("500") },
+  micro: { fontSize: 13, lineHeight: 19, ...font("500") },
+  label: { fontSize: 13, lineHeight: 19, letterSpacing: 0.6, ...font("600") },
+  button: { fontSize: 16, lineHeight: 24, ...font("600") },
   buttonSm: { fontSize: 14, lineHeight: 20, ...font("600") },
-  buttonLg: { fontSize: 18, lineHeight: 24, ...font("600") },
-  /** Cifras de horas e importes en listas (14, negrita, ancho fijo). */
-  figure: { fontSize: 14, lineHeight: 20, ...font("700"), fontVariant: TABULAR_NUMS },
-  /** Miniatura del comprobante (documento, no UI de chrome). */
-  paperKicker: { fontSize: 9, lineHeight: 12, letterSpacing: 1, ...font("800") },
-  paperLabel: { fontSize: 11, lineHeight: 14, ...font("700") },
-  paperValue: { fontSize: 12, lineHeight: 16, ...font("700") },
+  buttonLg: { fontSize: 16, lineHeight: 24, ...font("600") },
+  /** Horas e importes en listas (22, tabular). */
+  figure: { fontSize: 22, lineHeight: 32, ...font("600"), fontVariant: TABULAR_NUMS },
+  /**
+   * Miniatura del comprobante en pantalla. El PDF no usa estas familias:
+   * el HTML del recibo vive en reportTemplates y no se toca aquí.
+   */
+  paperKicker: { fontSize: 9, lineHeight: 12, letterSpacing: 1, ...font("600") },
+  paperLabel: { fontSize: 11, lineHeight: 14, ...font("600") },
+  paperValue: { fontSize: 12, lineHeight: 16, ...font("600") },
   paperLine: { fontSize: 11, lineHeight: 14, ...font("600") },
-  paperTotal: { fontSize: 18, lineHeight: 22, letterSpacing: -0.5, ...font("800"), fontVariant: TABULAR_NUMS },
+  paperTotal: { fontSize: 18, lineHeight: 22, letterSpacing: -0.5, ...font("600"), fontVariant: TABULAR_NUMS },
   paperHash: { fontSize: 14, lineHeight: 18, letterSpacing: 0.5, ...font("500") },
-  /** Cifras de ancho fijo (temporizador del hero, importes): no "bailan" al avanzar. */
-  tabular: { ...font("700"), fontVariant: TABULAR_NUMS },
+  /** Cifras de ancho fijo (temporizador, importes): no "bailan" al avanzar. */
+  tabular: { ...font("600"), fontVariant: TABULAR_NUMS },
   tabularNums: { fontVariant: TABULAR_NUMS },
 };

@@ -13,6 +13,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withSequence,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -22,7 +24,7 @@ import { haptics, useMotionPreference } from "./motion";
 
 import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { INTERACTION } from "../../constants/animations";
+import { DURATIONS, INTERACTION } from "../../constants/animations";
 
 export type ButtonVariant =
   "primary" | "secondary" | "danger" | "ghost" | "success";
@@ -38,6 +40,22 @@ interface ButtonProps extends Omit<PressableProps, "style"> {
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Check breve al confirmar una acción primaria. El onPress no espera. */
+function ConfirmCheck({ color }: { color: string }) {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.8);
+  React.useEffect(() => {
+    opacity.value = withSequence(withTiming(1, { duration: 100 }), withTiming(0, { duration: 120 }));
+    scale.value = withTiming(1, { duration: DURATIONS.transition });
+  }, [opacity, scale]);
+  const animated = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View pointerEvents="none" style={[styles.check, animated]}>
+      <Ionicons name="checkmark" size={ICON.xl} color={color} />
+    </Animated.View>
+  );
+}
 
 export const Button = React.memo(function Button({
   label,
@@ -55,6 +73,7 @@ export const Button = React.memo(function Button({
   const { colors } = useTheme();
   const reduceMotion = useMotionPreference();
   const scale = useSharedValue(1);
+  const [tick, setTick] = React.useState(0);
   const isDisabled = disabled || isLoading;
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -97,8 +116,8 @@ export const Button = React.memo(function Button({
 
     if (variant === "danger") {
       haptics.notify(Haptics.NotificationFeedbackType.Warning, reduceMotion);
-    } else if (variant === "primary" || variant === "success") {
-      haptics.impact(Haptics.ImpactFeedbackStyle.Medium, reduceMotion);
+    } else if ((variant === "primary" || variant === "success") && !reduceMotion) {
+      setTick((n) => n + 1);
     }
 
     if (onPress) {
@@ -211,13 +230,15 @@ export const Button = React.memo(function Button({
           <Text style={[styles.label, sizeStyles.label, { color: variantStyles.textColor }]}>{label}</Text>
         </View>
       )}
+      {tick > 0 && !reduceMotion ? <ConfirmCheck key={tick} color={variantStyles.textColor} /> : null}
     </AnimatedPressable>
   );
 });
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: TOKENS.radius.md,
+    borderRadius: TOKENS.radius.button,
+    overflow: "hidden",
     borderWidth: TOKENS.layout.hairline,
     justifyContent: "center",
     alignItems: "center",
@@ -238,4 +259,14 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: INTERACTION.disabledOpacity,
   },
+  check: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
+
+/** Acción primaria: 52 dp, radio 14, háptico ligero y check al pulsar. */
+export function PrimaryButton(props: ButtonProps) {
+  return <Button variant="primary" size="md" {...props} />;
+}

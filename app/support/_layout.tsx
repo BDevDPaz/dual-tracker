@@ -3,13 +3,15 @@ import { Stack } from "expo-router";
 import { BrandHeaderTitle } from "../../src/components/brand/BrandHeaderTitle";
 import { stackHeaderOptions } from "../../src/components/ui/navigation";
 import { HelpButton } from "../../src/components/support/HelpButton";
+import { useTheme } from "../../src/context/ThemeContext";
 import { t, useLanguage } from "../../src/i18n";
 
 export default function SupportLayout() {
   useLanguage();
+  const { colors } = useTheme();
   return (
     <Stack
-      screenOptions={stackHeaderOptions()}
+      screenOptions={stackHeaderOptions(colors)}
     >
       <Stack.Screen
         name="index"

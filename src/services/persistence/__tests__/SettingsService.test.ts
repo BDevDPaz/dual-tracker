@@ -65,6 +65,9 @@ describe("SettingsService", () => {
     const r = await SettingsService.applyPatch(cur, { profile: { theme: "light" } }, { adminUnlocked: false });
     expect(r.ok).toBe(true);
     expect((await SettingsService.load()).profile.theme).toBe("light");
+    const contrast = await SettingsService.applyPatch(cur, { profile: { highContrast: true } }, { adminUnlocked: false });
+    expect(contrast.ok && contrast.next.profile.highContrast).toBe(true);
+    expect((await SettingsService.load()).profile.highContrast).toBe(true);
     expect(
       await SettingsService.applyPatch(cur, { profile: { theme: "sepia" as never } }, { adminUnlocked: false }),
     ).toEqual({ ok: false, code: "INVALID_VALUE" });

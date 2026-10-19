@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
 
@@ -16,13 +17,14 @@ interface Props {
 
 export function BackupAdviceCard({ onExport, busy }: Props) {
   useLanguage();
+  const { colors } = useTheme();
   return (
     <View
       accessibilityRole="summary"
-      style={[styles.card, { borderColor: TOKENS.colors.status.warning, backgroundColor: TOKENS.colors.surface }]}
+      style={[styles.card, { borderColor: colors.status.warning, backgroundColor: colors.surface }]}
     >
-      <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("backup.title")}</Text>
-      <Text style={[styles.body, { color: TOKENS.colors.text.secondary }]}>{t("backup.advice")}</Text>
+      <Text style={[styles.title, { color: colors.text.primary }]}>{t("backup.title")}</Text>
+      <Text style={[styles.body, { color: colors.text.secondary }]}>{t("backup.advice")}</Text>
       {onExport ? <Button label={t("backup.export")} size="sm" iconName="cloud-upload-outline" isLoading={busy} disabled={busy} onPress={onExport} /> : null}
     </View>
   );

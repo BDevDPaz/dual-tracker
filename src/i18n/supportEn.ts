@@ -48,6 +48,7 @@ export const supportEn: typeof supportEs = {
   practice: {
     title: "Practice mode",
     banner: "Practice mode",
+    watermark: "PRACTICE",
     exit: "Exit practice mode",
     enter: "Enter practice mode",
     reset: "Reset the demo",

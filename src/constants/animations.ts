@@ -12,11 +12,15 @@ import {
  */
 
 export const DURATIONS = {
-  fast: 150,
-  normal: 300,
+  /** Movimiento reducido: fundido corto, sin deslizamientos. */
+  reduced: 150,
+  fast: 200,
+  /** Transiciones de pantalla y hoja: 200–250 ms. */
+  transition: 220,
+  normal: 240,
   slow: 500,
   toast: 3500,
-  toastTransition: 250,
+  toastTransition: 240,
 };
 
 export const EASINGS = {
@@ -41,10 +45,10 @@ export const getSpringConfig = (): WithSpringConfig => ({
  */
 export const ANIM_PRESETS = {
   // Transición para modales
-  modalEnter: SlideInDown.springify().damping(20).stiffness(150),
+  modalEnter: SlideInDown.duration(DURATIONS.transition).easing(EASINGS.emphasized),
 
   // Transición para entradas de pantalla
-  screenEntry: FadeInDown.duration(DURATIONS.normal).easing(EASINGS.decelerate),
+  screenEntry: FadeInDown.duration(DURATIONS.transition).easing(EASINGS.decelerate),
 
   // Transición para elementos de lista
   listItem: FadeInDown.duration(DURATIONS.fast).easing(EASINGS.standard),
@@ -53,10 +57,10 @@ export const ANIM_PRESETS = {
   overlayEnter: FadeIn.duration(DURATIONS.fast),
 
   // Movimiento reducido: fundido corto de 150 ms en lugar de deslizamientos/resortes
-  reducedFade: FadeIn.duration(DURATIONS.fast),
+  reducedFade: FadeIn.duration(DURATIONS.reduced),
 
   // Transición de layout automática
-  layout: Layout.duration(DURATIONS.normal),
+  layout: Layout.duration(DURATIONS.transition),
 };
 
 /**

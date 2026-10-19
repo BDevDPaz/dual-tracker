@@ -11,6 +11,7 @@ import { Chip, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TracePlane, type TraceSiteMark } from "../../../src/components/trace/TracePlane";
 import { TOKENS, FONT, ICON } from "../../../src/constants/theme";
+import { useTheme } from "../../../src/context/ThemeContext";
 import type { SpatialFact } from "../../../src/core/contracts";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectSessionById, selectSiteById } from "../../../src/core/selectors";
@@ -21,6 +22,7 @@ type Layer = "PERIMETER" | "BREADCRUMB";
 
 export default function TraceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { colors } = useTheme();
   const sessionId = Number(id);
   const { state, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh();
@@ -68,7 +70,7 @@ export default function TraceScreen() {
   return (
     <ScreenContainer edges={SAFE_EDGES.stack}>
       {unreadable ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableTrace")} /> : null}
-      <Text style={[styles.offline, { color: TOKENS.colors.text.secondary }]}>{t("trace.offline")}</Text>
+      <Text style={[styles.offline, { color: colors.text.secondary }]}>{t("trace.offline")}</Text>
       {mapGaps.some((g) => g.kind === "retention") ? <ScreenStatusBanner status="degraded" message={t("trace.retentionGap")} /> : null}
       {mapGaps.some((g) => g.kind === "recording") ? <ScreenStatusBanner status="degraded" message={t("trace.recordingGap")} /> : null}
       {mapFacts.length > 0 || siteMarks.length > 0 ? <TracePlane facts={mapFacts} sites={siteMarks} gaps={mapGaps} /> : null}
@@ -91,19 +93,19 @@ export default function TraceScreen() {
         refreshControl={refreshControl}
         contentContainerStyle={styles.listContent}
         keyExtractor={(f, i) => String(f.id ?? `${f.timestampMs}-${i}`)}
-        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("trace.empty")} emptyIcon="navigate-circle-outline" />}
+        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("trace.empty")} emptyDescription={t("trace.emptyBody")} emptyIcon="navigate-circle-outline" />}
         renderItem={({ item }) => {
           const bad = isUnreliable(item);
-          const color = bad ? TOKENS.colors.status.warning : TOKENS.colors.text.primary;
+          const color = bad ? colors.status.warning : colors.text.primary;
           return (
-            <View style={[styles.row, { borderColor: TOKENS.colors.border }]}>
+            <View style={[styles.row, { borderColor: colors.border }]}>
               <Ionicons name={item.type === "BREADCRUMB" ? "ellipse" : item.type === "ENTER" ? "enter-outline" : item.type === "EXIT" ? "exit-outline" : "alert-circle-outline"} size={ICON.sm} color={color} />
               <View style={styles.flex}>
                 <Text style={[styles.type, { color }]}>
                   {item.type} · {formatTime(item.timestampMs)}
                   {bad ? ` · ${t("trace.unreliable")}` : ""}
                 </Text>
-                <Text style={[styles.meta, { color: TOKENS.colors.text.secondary }]}>
+                <Text style={[styles.meta, { color: colors.text.secondary }]}>
                   {item.lat !== null && item.lon !== null ? `${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}` : "—"} · {t("trace.accuracy")}:{" "}
                   {item.accuracyM !== null ? `±${Math.round(item.accuracyM)} m` : "—"}
                 </Text>

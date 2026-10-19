@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { Button, Card, Input, IntegrityBadge, SAFE_EDGES, ScreenScroll, StatusPill } from "../../src/components/ui";
+import { Button, Card, Input, IntegrityBadge, PracticeWatermark, SAFE_EDGES, ScreenScroll, SealAnimation, StatusPill } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { ScreenStatusBanner, KeyValueRow } from "../../src/components/blocks";
@@ -25,6 +25,7 @@ export default function PracticeScreen() {
   const [asking, setAsking] = useState<null | "edit" | "forgot">(null);
   const [error, setError] = useState<PracticeCode | null>(null);
   const [statement, setStatement] = useState(false);
+  const [sealFlash, setSealFlash] = useState(false);
 
   useEffect(() => {
     void enter();
@@ -48,6 +49,7 @@ export default function PracticeScreen() {
       setError(null);
       setAsking(null);
       setNote("");
+      if (action.type === "SEAL") setSealFlash(true);
     }
   };
   const noteChain = useFormFocusChain(FORM_FIELDS.practiceNote, {
@@ -169,6 +171,8 @@ export default function PracticeScreen() {
 
         <Button label={t("support.practice.exit")} variant="danger" onPress={leave} />
       </ScreenScroll>
+      <PracticeWatermark />
+      <SealAnimation visible={sealFlash} onDone={() => setSealFlash(false)} />
     </View>
   );
 }

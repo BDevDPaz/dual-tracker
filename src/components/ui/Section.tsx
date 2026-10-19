@@ -29,7 +29,7 @@ export function Section({ title, children, style, inset = false }: SectionProps)
 const styles = StyleSheet.create({
   inset: { paddingHorizontal: TOKENS.layout.screenPadding },
   sectionBlock: {
-    marginTop: TOKENS.spacing.xl,
+    marginTop: TOKENS.spacing.zero,
     paddingHorizontal: 0,
   },
   sectionTitle: {

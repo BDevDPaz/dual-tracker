@@ -14,7 +14,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <title>Dual Tracker</title>
         <ScrollViewStyleReset />
-        <style dangerouslySetInnerHTML={{ __html: "body{background-color:#0A0A0C;}" }} />
+        <style dangerouslySetInnerHTML={{ __html: "body{background-color:#050505;}" }} />
       </head>
       <body>{children}</body>
     </html>

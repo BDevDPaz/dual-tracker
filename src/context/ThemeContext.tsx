@@ -3,14 +3,13 @@
  * La preferencia se persiste en settings.profile.theme (system | dark | light);
  * por defecto "dark" (app.json fija userInterfaceStyle "dark").
  *
- * Estado del modo claro: la paleta clara y el cableado existen en las
- * primitivas (src/components/ui, src/components/modals, ToastContext), pero las
- * pantallas de app/ todavía pintan con TOKENS (oscuro estático). Por eso NO hay
- * selector de tema en la UI: exponerlo daría pantallas mitad claras.
+ * Alto contraste (profile.highContrast) sustituye la paleta sin cambiar
+ * system | dark | light. El selector claro sigue oculto: varias pantallas
+ * aún pintan con TOKENS (oscuro estático).
  */
 import React, { createContext, useContext, useMemo } from "react";
 import { useColorScheme } from "react-native";
-import { COLORS, TOKENS, type ColorScheme, type ThemeColors, type ThemePreference } from "../constants/theme";
+import { COLORS, CONTRAST_COLORS, TOKENS, type ColorScheme, type ThemeColors, type ThemePreference } from "../constants/theme";
 import { Store } from "../core/store";
 
 export interface ThemeContextType {
@@ -18,6 +17,7 @@ export interface ThemeContextType {
   colors: ThemeColors;
   tokens: typeof TOKENS;
   preference: ThemePreference;
+  highContrast: boolean;
 }
 
 export function resolveScheme(preference: ThemePreference, system: string | null | undefined): ColorScheme {
@@ -25,10 +25,10 @@ export function resolveScheme(preference: ThemePreference, system: string | null
   return preference;
 }
 
-export function themeFor(preference: ThemePreference, system?: string | null): ThemeContextType {
-  const scheme = resolveScheme(preference, system);
-  const colors = COLORS[scheme];
-  return { scheme, colors, tokens: { ...TOKENS, colors }, preference };
+export function themeFor(preference: ThemePreference, system?: string | null, highContrast = false): ThemeContextType {
+  const scheme = highContrast ? "dark" : resolveScheme(preference, system);
+  const colors = highContrast ? CONTRAST_COLORS : COLORS[scheme];
+  return { scheme, colors, tokens: { ...TOKENS, colors }, preference, highContrast };
 }
 
 /** Sin proveedor (tests de componentes, previsualizaciones) → oscuro por defecto. */
@@ -41,23 +41,21 @@ interface ThemeProviderProps {
   preference?: ThemePreference;
 }
 
-function useStoredPreference(): ThemePreference {
-  const [pref, setPref] = React.useState<ThemePreference>(() => Store.getState().settings.profile.theme ?? "dark");
-  React.useEffect(
-    () =>
-      Store.subscribe(() => {
-        setPref(Store.getState().settings.profile.theme ?? "dark");
-      }),
-    [],
-  );
-  return pref;
+function useStoredVisual(): { preference: ThemePreference; highContrast: boolean } {
+  const read = () => {
+    const profile = Store.getState().settings.profile;
+    return { preference: profile.theme ?? "dark", highContrast: profile.highContrast === true };
+  };
+  const [visual, setVisual] = React.useState(read);
+  React.useEffect(() => Store.subscribe(() => setVisual(read())), []);
+  return visual;
 }
 
 export function ThemeProvider({ children, preference }: ThemeProviderProps) {
-  const stored = useStoredPreference();
+  const stored = useStoredVisual();
   const system = useColorScheme();
-  const pref = preference ?? stored;
-  const value = useMemo(() => themeFor(pref, system), [pref, system]);
+  const pref = preference ?? stored.preference;
+  const value = useMemo(() => themeFor(pref, system, stored.highContrast), [pref, system, stored.highContrast]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

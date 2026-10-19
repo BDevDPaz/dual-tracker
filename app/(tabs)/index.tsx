@@ -13,6 +13,7 @@ import {
   DailySummaryBlock,
   OperationalHeroCard,
   PageHeader,
+  PrimaryButton,
   SAFE_EDGES,
   ScreenScroll,
   SystemHealthBlock,
@@ -22,6 +23,7 @@ import { DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/compo
 import { OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import {
@@ -52,6 +54,7 @@ type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "L
 
 export default function TodayScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { state, emit } = useWorkTracker();
   const nowMs = useClock(1000);
   const { refreshControl } = usePullToRefresh();
@@ -136,13 +139,19 @@ export default function TodayScreen() {
   const uncertified = health.degraded || (!!active && active.integrityClass !== "VALID") || !summary.certified;
 
   return (
-    <ScreenScroll edges={SAFE_EDGES.tab} refreshControl={refreshControl}>
-        <PageHeader
-          title={t("app.name")}
-          subtitle={formatDate(nowMs)}
-          helpScreen="today"
-          rightAction={{ icon: "pulse-outline", onPress: () => router.push("/system/health"), accessibilityLabel: t("health.title") }}
+    <ScreenScroll
+      edges={SAFE_EDGES.tab}
+      refreshControl={refreshControl}
+      footer={
+        <PrimaryButton
+          label={t(ui.primary.labelKey)}
+          variant={sessionState === "ACTIVA" || sessionState === "SALIDA" ? "danger" : "primary"}
+          onPress={() => onHeroAction(ui.primary.action)}
+          isLoading={busy}
         />
+      }
+    >
+        <PageHeader title={t("app.name")} subtitle={formatDate(nowMs)} helpScreen="today" showHealth />
         <ScreenTips
           screen="today"
           sessionState={sessionState}
@@ -199,6 +208,7 @@ export default function TodayScreen() {
               : null
           }
           busy={busy}
+          pinPrimary
           onPrimaryAction={() => onHeroAction(ui.primary.action)}
           onSecondaryAction={ui.secondary ? () => onHeroAction(ui.secondary!.action) : undefined}
         />
@@ -219,7 +229,7 @@ export default function TodayScreen() {
 
         {visited.length > 1 ? (
           <View style={styles.visited}>
-            <Text style={[styles.sectionLabel, { color: TOKENS.colors.text.secondary }]}>{t("today.visitedToday")}</Text>
+            <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>{t("today.visitedToday")}</Text>
             <View style={styles.chips}>
               {visited.map((s) => (
                 <Chip key={s!.id} label={s!.alias} />
@@ -229,7 +239,7 @@ export default function TodayScreen() {
         ) : null}
 
         <Pressable onPress={() => router.push("/sites")} accessibilityRole="link" style={styles.footerLink}>
-          <Text style={[styles.link, { color: TOKENS.colors.primary }]}>{t("cta.manageSites")}</Text>
+          <Text style={[styles.link, { color: colors.text.primary }]}>{t("cta.manageSites")}</Text>
         </Pressable>
 
       <DailySetupModal

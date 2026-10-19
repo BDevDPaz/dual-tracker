@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
+import { SelectableCard } from "../ui/SelectableCard";
 import { Input } from "../ui/Input";
 import { useFormFocusChain } from "../ui/formChain";
 import { FORM_FIELDS } from "../ui/formFields";
@@ -104,19 +105,13 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
       {!quick ? (
         <View style={styles.list}>
           {options.map((s) => (
-            <Pressable
+            <SelectableCard
               key={s.id}
+              label={s.alias}
+              description={`${s.clientName ? `${s.clientName} · ` : ""}${s.address}`}
+              selected={selected === s.id}
               onPress={() => setSelected(s.id)}
-              style={[styles.siteRow, { backgroundColor: colors.surface, borderColor: selected === s.id ? colors.primary : colors.border }]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: selected === s.id }}
-            >
-              <Text style={[styles.siteAlias, { color: colors.text.primary }]}>{s.alias}</Text>
-              <Text style={[styles.siteAddr, { color: colors.text.secondary }]} numberOfLines={2}>
-                {s.clientName ? `${s.clientName} · ` : ""}
-                {s.address}
-              </Text>
-            </Pressable>
+            />
           ))}
           {options.length === 0 ? <Text style={[styles.siteAddr, { color: colors.text.muted }]}>{t("sites.empty")}</Text> : null}
         </View>
@@ -136,7 +131,5 @@ const styles = StyleSheet.create({
   tab: { flex: 1, minHeight: TOKENS.layout.minTouchTarget, paddingVertical: TOKENS.spacing.sm, borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, alignItems: "center", justifyContent: "center" },
   tabText: { ...FONT.label },
   list: { gap: TOKENS.spacing.sm },
-  siteRow: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md },
-  siteAlias: { ...FONT.bodyStrong },
   siteAddr: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
 });

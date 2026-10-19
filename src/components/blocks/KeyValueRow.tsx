@@ -1,13 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 /** Fila etiqueta/valor para desgloses (sesión, estado de nómina, pack). */
 export function KeyValueRow({ label, value, emphasis = false, mono = false }: { label: string; value: string; emphasis?: boolean; mono?: boolean }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{label}</Text>
-      <Text selectable style={[styles.value, { color: emphasis ? TOKENS.colors.primary : TOKENS.colors.text.primary }, mono && styles.mono]}>
+      <Text style={[styles.label, { color: colors.text.secondary }]}>{label}</Text>
+      <Text selectable style={[styles.value, { color: emphasis ? colors.primary : colors.text.primary }, mono && styles.mono]}>
         {value}
       </Text>
     </View>

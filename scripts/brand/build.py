@@ -7,7 +7,7 @@ Escribe los SVG en assets/brand/ y los PNG que consume app.json.
   python3 -m pip install resvg-py pillow
   python3 scripts/brand/build.py
 
-El splash nativo es la marca A centrada sobre obsidian #0A0A0C. No hay variante
+El splash nativo es la marca A centrada sobre obsidian #050505. No hay variante
 clara: app.json fija userInterfaceStyle en "dark" y el splash del sistema no
 cambia con la paleta de JS.
 """
@@ -31,12 +31,12 @@ ROOT = Path(__file__).resolve().parents[2]
 BRAND = ROOT / "assets" / "brand"
 IMAGES = ROOT / "assets" / "images"
 
-OBSIDIAN = (0x0A, 0x0A, 0x0C, 255)
-GOLD = "#D4AF37"
+OBSIDIAN = (0x05, 0x05, 0x05, 255)
+GOLD = "#C5A059"
 WHITE = "#FFFFFF"
-SECONDARY = "#A1A1AA"
-CARBON = "#1C1C1F"
-OBS = "#0A0A0C"
+SECONDARY = "#A0A0A0"
+CARBON = "#161616"
+OBS = "#050505"
 
 
 def pin(cx: float, cy: float, r: float, tipy: float) -> str:

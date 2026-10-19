@@ -1,7 +1,9 @@
 import React from "react";
 import { Pressable, Text, StyleSheet, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { FONT, TOKENS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { haptics, useMotionPreference } from "./motion";
 
 interface ChipProps {
   label: string;
@@ -14,6 +16,7 @@ interface ChipProps {
 /** Pastilla de opción o etiqueta. Mínimo 48 dp; el texto largo hace salto, no se recorta. */
 export function Chip({ label, selected = false, onPress, testID, accessibilityLabel }: ChipProps) {
   const { colors } = useTheme();
+  const reduceMotion = useMotionPreference();
   const palette = {
     borderColor: selected ? colors.primary : colors.border,
     backgroundColor: selected ? colors.statusBg.primary : "transparent",
@@ -29,7 +32,10 @@ export function Chip({ label, selected = false, onPress, testID, accessibilityLa
   return (
     <Pressable
       testID={testID}
-      onPress={onPress}
+      onPress={() => {
+        haptics.impact(Haptics.ImpactFeedbackStyle.Light, reduceMotion);
+        onPress?.();
+      }}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel ?? label}
@@ -46,7 +52,7 @@ const styles = StyleSheet.create({
     minWidth: TOKENS.layout.minTouchTarget,
     paddingVertical: TOKENS.spacing.sm,
     paddingHorizontal: TOKENS.spacing.md,
-    borderRadius: TOKENS.radius.round,
+    borderRadius: TOKENS.radius.pill,
     borderWidth: TOKENS.layout.hairline,
     alignItems: "center",
     justifyContent: "center",

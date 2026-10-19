@@ -24,6 +24,8 @@ interface PageHeaderProps {
   };
   /** Abre la guía de esta pantalla. */
   helpScreen?: ScreenId;
+  /** Icono de salud operativa junto a la ayuda. */
+  showHealth?: boolean;
   style?: ViewStyle;
   /** Etiqueta accesible del botón atrás (por defecto t("a11y.back")). */
   backLabel?: string;
@@ -41,6 +43,7 @@ export function PageHeader({
   onBack,
   rightAction,
   helpScreen,
+  showHealth = false,
   style,
   inset = false,
   backLabel,
@@ -86,9 +89,23 @@ export function PageHeader({
           </Text>
         </View>
 
-        {helpScreen || rightAction ? (
+        {helpScreen || showHealth || rightAction ? (
           <View style={styles.actions}>
             {helpScreen ? <HelpButton screen={helpScreen} /> : null}
+            {showHealth ? (
+              <Pressable
+                onPress={() => {
+                  haptics.impact(Haptics.ImpactFeedbackStyle.Light, reduceMotion);
+                  router.push("/system/health");
+                }}
+                style={[styles.rightAction, styles.hit]}
+                hitSlop={TOKENS.spacing.md}
+                accessibilityLabel={t("a11y.openHealth")}
+                accessibilityRole="button"
+              >
+                <Ionicons name="pulse-outline" size={ICON.xl} color={colors.text.primary} />
+              </Pressable>
+            ) : null}
             {rightAction ? (
               <Pressable
                 onPress={rightAction.onPress}

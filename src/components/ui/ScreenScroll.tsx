@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
     paddingTop: TOKENS.spacing.lg,
-    gap: TOKENS.spacing.md,
+    gap: TOKENS.layout.sectionGap,
   },
   footer: {
     borderTopWidth: TOKENS.layout.hairline,

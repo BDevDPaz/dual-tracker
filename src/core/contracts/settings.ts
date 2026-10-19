@@ -17,6 +17,11 @@ export interface PersonProfile {
    * la UI hasta que todas las pantallas lean useTheme() (ver ThemeContext.tsx).
    */
   theme?: "system" | "dark" | "light";
+  /**
+   * Alto contraste (Ajustes). Ausente = apagado. No cambia la nómina ni el tema
+   * system | dark | light: solo la paleta que pinta ThemeContext.
+   */
+  highContrast?: boolean;
 }
 
 /**

@@ -46,6 +46,7 @@ export const supportEs = {
   practice: {
     title: "Modo práctica",
     banner: "Modo práctica",
+    watermark: "PRÁCTICA",
     exit: "Salir del modo práctica",
     enter: "Entrar al modo práctica",
     reset: "Reiniciar la demostración",
