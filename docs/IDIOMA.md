@@ -50,7 +50,7 @@ Un modal que ya está abierto (salida, almuerzo, nota, diálogo de aviso) recalc
 
 La coma decimal es solo de la interfaz (`formatLocaleNumber` / `formatUiDecimal`). `formatCurrency`, `formatCents`, `formatHundredths` y `displayStatement` siguen con punto: el PDF y la nómina no cambian. Las horas en pantalla no pasan a 24 h ni a «a. m.»: los dos idiomas usan AM/PM.
 
-Los tipos de línea del estado de nómina (`REGULAR`, `OVERTIME_DAILY`, …) se muestran con `tLineKind` (Regulares, Horas extra, Doble tiempo, Tránsito, Almuerzo). El código del asiento no se reescribe.
+Los tipos de línea del estado de nómina (`REGULAR`, `OVERTIME_DAILY`, …) se muestran con `tLineKind` (Regulares, Horas extra, Doble tiempo, Tránsito, Almuerzo). En inglés el traslado y esa línea se llaman **Travel** (Start travel, Traveling, Paid travel). El código del asiento no se reescribe.
 
 ## Notificaciones
 

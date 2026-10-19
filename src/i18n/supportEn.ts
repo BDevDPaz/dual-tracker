@@ -34,7 +34,7 @@ export const supportEn: typeof supportEs = {
     dismiss: "Got it, don't show again",
     reset: "Show the tips again",
     resetDone: "Tips will show again at the right moment",
-    transferSameSession: "Heading to another site? Use Start transfer and Confirm arrival on the same shift so the drive is paid.",
+    transferSameSession: "Heading to another site? Use Start travel and Confirm arrival on the same shift so the drive is paid.",
     confirmArrivalInside: "If you are already inside the site, the phone sometimes does not notify you. Tap Confirm arrival.",
     lunch: "Start lunch pauses the trace. When you close, choose how many minutes to deduct.",
     provisionalSeal: "This pack was sealed before the week ended. It is not the final close: if hours change, generate another. The earlier seal is not rewritten.",
@@ -121,18 +121,18 @@ export const supportEn: typeof supportEs = {
       },
     },
     transfer: {
-      title: "Transfer and several sites",
+      title: "Travel and several sites",
       s0: {
         title: "The same shift",
-        body: "Heading to another site? Do not tap New shift. When you leave, choose Start transfer and the other site. The drive stays on the same shift so it is paid.",
+        body: "Heading to another site? Do not tap New shift. When you leave, choose Start travel and the other site. The drive stays on the same shift so it is paid.",
       },
       s1: {
         title: "Confirm arrival",
-        body: "When you arrive, tap Confirm arrival or let the geofence clock you in. Cancel transfer does not create a transit line.",
+        body: "When you arrive, tap Confirm arrival or let the geofence clock you in. Cancel travel does not create a travel line.",
       },
       s2: {
         title: "Several sites",
-        body: "You can transfer again on the same session. The geofence watches the current site, not all of them at once. The drive from home, before the first arrival, is not a transfer and is not paid.",
+        body: "You can travel again on the same session. The geofence watches the current site, not all of them at once. The drive from home, before the first arrival, is not paid travel.",
       },
     },
     lunch: {
@@ -228,7 +228,7 @@ export const supportEn: typeof supportEs = {
       title: "What each state means",
       s0: {
         title: "The shift",
-        body: "Off duty, Waiting for arrival, On site, At lunch, In transfer, Exit detected, and Shift closed are the machine. Only one shift can be open.",
+        body: "Off duty, Waiting for arrival, On site, At lunch, Traveling, Exit detected, and Shift closed are the machine. Only one shift can be open.",
       },
       s1: {
         title: "Integrity",
@@ -243,9 +243,9 @@ export const supportEn: typeof supportEs = {
   screens: {
     today: {
       title: "Today",
-      intro: "Today is the shift control: start, arrive, lunch, transfer, and close. The timer and the site come from the real state.",
-      s0: { title: "The large action", body: "The main button follows the state. Off duty it is Start shift. In transfer it is Confirm arrival." },
-      s1: { title: "Do not open another shift", body: "If you are going to another site, use Start transfer on the same shift. New shift is for when the previous one is already closed." },
+      intro: "Today is the shift control: start, arrive, lunch, travel, and close. The timer and the site come from the real state.",
+      s0: { title: "The large action", body: "The main button follows the state. Off duty it is Start shift. While traveling it is Confirm arrival." },
+      s1: { title: "Do not open another shift", body: "If you are going to another site, use Start travel on the same shift. New shift is for when the previous one is already closed." },
     },
     history: {
       title: "History",
@@ -269,7 +269,7 @@ export const supportEn: typeof supportEs = {
       title: "Session",
       intro: "The session shows what you declared, what the zone confirmed, the integrity, the lines, and the notes.",
       s0: { title: "Edit", body: "Edit asks for a note if you change the hours. The previous times stay on record." },
-      s1: { title: "Activity", body: "The timeline comes from the log, not from a fixed list. Each step (arrival, transfer, close) is an entry." },
+      s1: { title: "Activity", body: "The timeline comes from the log, not from a fixed list. Each step (arrival, travel, close) is an entry." },
     },
     trace: {
       title: "Trace",
@@ -281,7 +281,7 @@ export const supportEn: typeof supportEs = {
       title: "Job sites",
       intro: "Job sites are the places with a geofence. Creating one does not start watching: watching starts when you start the shift.",
       s0: { title: "New site", body: "New site asks for a name and address. Without a resolved point there is no geofence and arrival will be manual." },
-      s1: { title: "Several sites", body: "You can keep several. On a transfer you pick the next one; the geofence watches one at a time." },
+      s1: { title: "Several sites", body: "You can keep several. When you travel you pick the next one; the geofence watches one at a time." },
     },
     siteNew: {
       title: "New site",
@@ -323,7 +323,7 @@ export const supportEn: typeof supportEs = {
       title: "Welcome",
       intro: "Dual Tracker separates your time and the shift trace. The trace exists only while a shift is open.",
       s0: { title: "Continue", body: "There is no way to skip setup. The next step is the location disclosure." },
-      s1: { title: "What it is for", body: "Hours, lunch, transfers, and the pack are built from what you clock, not from a hidden calculation." },
+      s1: { title: "What it is for", body: "Hours, lunch, travel, and the pack are built from what you clock, not from a hidden calculation." },
     },
     onboardingDisclosure: {
       title: "Disclosure",
@@ -375,7 +375,7 @@ export const supportEn: typeof supportEs = {
     },
     practice: {
       title: "Practice mode",
-      intro: "Here you can start, arrive, transfer, take lunch, close, add a note, and seal without writing your records.",
+      intro: "Here you can start, arrive, travel, take lunch, close, add a note, and seal without writing your records.",
       s0: { title: "The banner", body: "While you see Practice mode, what you tap stays in the demo." },
       s1: { title: "Exit", body: "Exit clears the demo and you return to your real shifts, exactly as they were." },
     },
@@ -383,11 +383,11 @@ export const supportEn: typeof supportEs = {
   faq: {
     commute: {
       q: "Is the drive from home paid?",
-      a: "No. Time from home to the first site is not a transfer. Paid transit is what you declare, on the same shift, between two sites: Start transfer and then Confirm arrival.",
+      a: "No. Time from home to the first site is not paid. Paid travel is what you declare, on the same shift, between two sites: Start travel and then Confirm arrival.",
     },
     sameSession: {
       q: "Why not start a new shift when I drive to another job?",
-      a: "Because the drive is paid only inside the shift that is already open. Start transfer and Confirm arrival keep both sites and the drive on the same session.",
+      a: "Because the drive is paid only inside the shift that is already open. Start travel and Confirm arrival keep both sites and the drive on the same session.",
     },
     alwaysAllow: {
       q: "What is Allow all the time?",
@@ -411,7 +411,7 @@ export const supportEn: typeof supportEs = {
     },
     notifications: {
       q: "What are the notifications for?",
-      a: "They announce that you left the site, with buttons to stay, close, or transfer, plus the morning reminder. Without them you may not notice an exit.",
+      a: "They announce that you left the site, with buttons to stay, close, or travel, plus the morning reminder. Without them you may not notice an exit.",
     },
     language: {
       q: "Does the language change the guides and the PDFs?",
@@ -461,15 +461,15 @@ export const supportEn: typeof supportEs = {
     },
     notifications: {
       title: "Exit alerts are not arriving",
-      body: "In Health, Notifications must be Granted. On a Samsung, also check that the app's notifications are not silenced. Without that permission the stay, close, and transfer buttons do not appear.",
+      body: "In Health, Notifications must be Granted. On a Samsung, also check that the app's notifications are not silenced. Without that permission the stay, close, and travel buttons do not appear.",
     },
     language: {
       title: "The language did not change in a guide",
       body: "In Support, or in Settings, tap Español or English. The guide you are reading changes at once. If a PDF you already shared is still in Spanish, that is expected: the sealed file is not regenerated.",
     },
     commute: {
-      title: "The drive from home did not show up as transit",
-      body: "That is how the app works: that leg is not paid. For the drive between two jobs to count, it has to be a transfer on the same shift, with arrival confirmed at the second site.",
+      title: "The drive from home did not show up as paid travel",
+      body: "That is how the app works: that leg is not paid. For the drive between two jobs to count, it has to be paid travel on the same shift, with arrival confirmed at the second site.",
     },
   },
   glossary: {
@@ -479,7 +479,7 @@ export const supportEn: typeof supportEs = {
       ESPERANDO: "Waiting for arrival: the shift is open and the geofence is watching the site. It is not on-site time yet.",
       ACTIVA: "On site: you arrived, by hand or by geofence. Time at the site is running.",
       PAUSADA: "At lunch: a break with no trace. Resume returns to On site.",
-      TRASLADO: "In transfer: you are going to another site inside the same shift. Confirm arrival closes the leg.",
+      TRASLADO: "Traveling: you are going to another site inside the same shift. Confirm arrival closes the leg.",
       SALIDA: "Exit detected: the system saw you leave and is waiting for your decision. The time that counts is the first exit.",
       CERRADA: "Shift closed: time is no longer running. You can review it or start another.",
     },
