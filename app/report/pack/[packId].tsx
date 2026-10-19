@@ -10,9 +10,9 @@ import { Button, Card, EmptyState, Section } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectPackById, selectPackShared } from "../../../src/core/selectors";
+import { selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
-import { formatCurrency, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
+import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
 
 export default function PackScreen() {
   const router = useRouter();
@@ -41,6 +41,7 @@ export default function PackScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
       {!m.certified ? <ScreenStatusBanner status="conflict" message={t("report.uncertified")} /> : null}
+      {m.sealedAtMs <= m.periodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
       {m.sealWarnings?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.sealWarning")} /> : null}
       <Card style={styles.card}>
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("report.hash")}</Text>
@@ -64,13 +65,17 @@ export default function PackScreen() {
       </Section>
 
       <Section title={`${t("report.sessions")} (${m.sessionIds.length})`}>
-        {(sessions.data ?? []).map((s) => (
-          <KeyValueRow
-            key={s.id}
-            label={`#${s.id} · ${s.bookkeeping.dateString}`}
-            value={t(`integrity.${s.integrityClass}`)}
-          />
-        ))}
+        {(sessions.data ?? []).map((s) => {
+          const slice = selectSessionPortion(state, m.policyId, m.periodStart, m.periodEnd, s, m.sealedAtMs);
+          const when = slice ? formatDate(slice.displayStartMs) : s.bookkeeping.dateString;
+          const cont =
+            slice?.continuesFromMs != null
+              ? ` · ${t("history.continuesFrom", { date: formatDate(slice.continuesFromMs) })}`
+              : slice?.continuesUntilMs != null
+                ? ` · ${t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}`
+                : "";
+          return <KeyValueRow key={s.id} label={`#${s.id} · ${when}${cont}`} value={t(`integrity.${s.integrityClass}`)} />;
+        })}
       </Section>
 
       {!shared ? <BackupAdviceCard /> : null}

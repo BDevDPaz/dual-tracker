@@ -13,9 +13,20 @@ import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/comp
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { resolveWeekCursor } from "../../src/core/refresh/weekCursor";
-import { selectCalendarHistory, selectComputedSessions, selectHasConflict, selectRollup, selectSessionsInRange, selectVisibleSessions } from "../../src/core/selectors";
+import {
+  allocateDisplayHundredths,
+  formatCents,
+  formatHundredths,
+  selectCalendarHistory,
+  selectComputedSessions,
+  selectHasConflict,
+  selectPeriodSessionRows,
+  selectVisibleSessions,
+  type ComputedSession,
+  type PeriodSessionRow,
+} from "../../src/core/selectors";
 import { t } from "../../src/i18n";
-import { formatCurrency, formatRange, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
+import { formatRange, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
 
 type Filter = "ALL" | "WEEK" | "MANUAL" | "AUTO" | "CONFLICT";
 const FILTERS: Filter[] = ["ALL", "WEEK", "MANUAL", "AUTO", "CONFLICT"];
@@ -37,18 +48,36 @@ export default function HistoryScreen() {
   const weekEnd = getWeekEnd(weekStart, calendar);
   const isCurrentWeek = weekStart >= getWeekStart(nowMs, calendar);
 
-  const weekItems = useMemo(
-    () => selectComputedSessions(state, nowMs, selectSessionsInRange(state, weekStart, weekEnd)),
+  const weekRows = useMemo(
+    () => selectPeriodSessionRows(state, weekStart, weekEnd, nowMs),
     [state, nowMs, weekStart, weekEnd],
   );
-  const rollup = selectRollup(weekItems);
+  const computedById = useMemo(() => {
+    const map = new Map(selectComputedSessions(state, nowMs).map((c) => [c.session.id, c]));
+    return map;
+  }, [state, nowMs]);
+  const weekHundredths = allocateDisplayHundredths(weekRows.map((r) => r.netMinutes ?? 0));
+  const hoursById = new Map(weekRows.map((r, i) => [r.session.id, `${formatHundredths(weekHundredths[i] ?? 0)} ${t("common.hours")}`]));
+  const weekHours = formatHundredths(weekHundredths.reduce((a, b) => a + b, 0));
+  const weekGrossCents = weekRows.reduce((a, r) => a + (r.grossCents ?? 0), 0);
+  const counts = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
+  weekRows.forEach((r) => {
+    counts[r.session.integrityClass] += 1;
+  });
 
   // Interpretación: "Todo" = historial completo; el resto se acota a la semana seleccionada.
-  const items = useMemo(() => {
-    if (filter === "ALL") return selectComputedSessions(state, nowMs, selectVisibleSessions(state));
-    if (filter === "WEEK") return weekItems;
-    return weekItems.filter((c) => c.session.integrityClass === filter);
-  }, [filter, state, nowMs, weekItems]);
+  type HistoryRow = { key: string; item: ComputedSession; slice?: PeriodSessionRow; hoursText?: string };
+  const items: HistoryRow[] =
+    filter === "ALL"
+      ? selectComputedSessions(state, nowMs, selectVisibleSessions(state)).map((item) => ({
+          key: String(item.session.id),
+          item,
+        }))
+      : (filter === "WEEK" ? weekRows : weekRows.filter((c) => c.session.integrityClass === filter)).flatMap((slice) => {
+          const item = computedById.get(slice.session.id);
+          if (!item) return [];
+          return [{ key: String(slice.session.id), item, slice, hoursText: hoursById.get(slice.session.id) }];
+        });
 
   return (
     <ScreenContainer>
@@ -91,10 +120,10 @@ export default function HistoryScreen() {
 
       <Card style={styles.rollup}>
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("history.weeklyRollup")}</Text>
-        <KeyValueRow label={t("today.netHours")} value={`${(rollup.netMinutes / 60).toFixed(2)} ${t("common.hours")}`} />
-        <KeyValueRow label={t("today.estimate")} value={formatCurrency(rollup.grossEstimate)} emphasis />
-        <KeyValueRow label={t("history.manualCount")} value={String(rollup.byClass.MANUAL)} />
-        <KeyValueRow label={t("history.conflictCount")} value={String(rollup.byClass.CONFLICT)} />
+        <KeyValueRow label={t("today.netHours")} value={`${weekHours} ${t("common.hours")}`} />
+        <KeyValueRow label={t("today.estimate")} value={formatCents(weekGrossCents)} emphasis />
+        <KeyValueRow label={t("history.manualCount")} value={String(counts.MANUAL)} />
+        <KeyValueRow label={t("history.conflictCount")} value={String(counts.CONFLICT)} />
       </Card>
 
       <View>
@@ -116,8 +145,10 @@ export default function HistoryScreen() {
       <FlatList
         style={styles.listFlex}
         data={items}
-        keyExtractor={(c) => String(c.session.id)}
-        renderItem={({ item }) => <SessionListItem item={item} onPress={() => router.push(`/session/${item.session.id}`)} />}
+        keyExtractor={(c) => c.key}
+        renderItem={({ item }) => (
+          <SessionListItem item={item.item} slice={item.slice} hoursText={item.hoursText} onPress={() => router.push(`/session/${item.item.session.id}`)} />
+        )}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("history.empty")} emptyIcon="calendar-outline" />}
         contentContainerStyle={styles.list}
         refreshControl={refreshControl}

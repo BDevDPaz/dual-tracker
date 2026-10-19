@@ -14,10 +14,20 @@ import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } fr
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { EvidencePack } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectBackupAdvice, selectCalendarHistory, selectComputedSessions, selectPacks, selectSessionsInRange, selectSettings } from "../../src/core/selectors";
+import {
+  allocateDisplayHundredths,
+  displayStatement,
+  formatHundredths,
+  selectBackupAdvice,
+  selectCalendarHistory,
+  selectComputedSessions,
+  selectPacks,
+  selectPeriodSessionRows,
+  selectSettings,
+} from "../../src/core/selectors";
 import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
-import { formatCurrency, formatDate, formatRange, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
+import { formatDate, formatRange, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
 
 type Period = "CURRENT" | "PREVIOUS";
 
@@ -37,10 +47,19 @@ export default function ReportsScreen() {
 
   const sessionsVersion = state.sessions;
   const statement = useQuery(() => queries.previewPeriod(periodStart, periodEnd), [periodStart, periodEnd, sessionsVersion], ["sessions", "settings"]);
-  const items = useMemo(
-    () => selectComputedSessions(state, nowMs, selectSessionsInRange(state, periodStart, periodEnd)),
-    [state, nowMs, periodStart, periodEnd],
-  );
+  const freshness = useQuery(() => queries.sealFreshness(periodStart, periodEnd), [periodStart, periodEnd, sessionsVersion, state.packs], ["sessions", "packs", "ledger"]);
+  const rows = useMemo(() => selectPeriodSessionRows(state, periodStart, periodEnd, nowMs), [state, nowMs, periodStart, periodEnd]);
+  const computedById = useMemo(() => new Map(selectComputedSessions(state, nowMs).map((c) => [c.session.id, c])), [state, nowMs]);
+  const shown = statement.data ? displayStatement(statement.data) : null;
+  const hoursById = new Map((shown?.rows ?? []).map((r) => [r.sessionId, `${r.hours} ${t("common.hours")}`]));
+  const openHundredths = allocateDisplayHundredths(rows.filter((r) => !hoursById.has(r.session.id)).map((r) => r.netMinutes ?? 0));
+  let openCursor = 0;
+  const rowHours = new Map<number, string>();
+  for (const r of rows) {
+    const sealed = hoursById.get(r.session.id);
+    if (sealed) rowHours.set(r.session.id, sealed);
+    else rowHours.set(r.session.id, `${formatHundredths(openHundredths[openCursor++] ?? 0)} ${t("common.hours")}`);
+  }
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === periodStart);
   const latestPack = packs.reduce<EvidencePack | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null);
   const { showToast } = useToast();
@@ -66,9 +85,10 @@ export default function ReportsScreen() {
 
   // Solo las jornadas CERRADAS entran al statement/expediente (PayrollEngine).
   const closedCount = st?.sessionIds.length ?? 0;
-  const openCount = items.filter((c) => c.session.domainStatus !== "CERRADA" && !c.session.bookkeeping.cancelled).length;
+  const openCount = rows.filter((c) => c.session.domainStatus !== "CERRADA" && !c.session.bookkeeping.cancelled).length;
   const periodId = weekPeriodId(periodStart, calendar);
-  const status = statement.loading && !st ? "loading" : items.length === 0 ? "empty" : "ready";
+  const status = statement.loading && !st ? "loading" : rows.length === 0 ? "empty" : "ready";
+  const fresh = freshness.data;
   const canSeal = !!periodId && closedCount > 0 && !sealing;
 
   return (
@@ -101,15 +121,17 @@ export default function ReportsScreen() {
         {status === "ready" && st && closedCount > 0 && openCount > 0 ? (
           <ScreenStatusBanner status="degraded" message={t("reports.openExcluded")} />
         ) : null}
+        {fresh?.latestPackId && fresh.sealedBeforePeriodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
+        {fresh?.latestPackId && !fresh.matches ? <ScreenStatusBanner status="degraded" message={t("reports.packStale")} /> : null}
 
-        {st ? (
+        {st && shown ? (
           <Card style={styles.card}>
             <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("reports.rollup")}</Text>
-            <KeyValueRow label={t("reports.regular")} value={`${st.regularHours.toFixed(2)} ${t("common.hours")}`} />
-            <KeyValueRow label={t("reports.overtime")} value={`${st.overtimeHours.toFixed(2)} ${t("common.hours")}`} />
-            <KeyValueRow label={t("reports.transit")} value={`${st.transitHours.toFixed(2)} ${t("common.hours")}`} />
+            <KeyValueRow label={t("reports.regular")} value={`${shown.regular} ${t("common.hours")}`} />
+            <KeyValueRow label={t("reports.overtime")} value={`${shown.overtime} ${t("common.hours")}`} />
+            <KeyValueRow label={t("reports.transit")} value={`${shown.transit} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.lunch")} value={`${st.lunchMinutes} ${t("common.minutes")}`} />
-            <KeyValueRow label={t("reports.total")} value={formatCurrency(st.grossEstimate)} emphasis />
+            <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
             <KeyValueRow
               label={t("reports.integrity")}
               value={`V ${st.integrityRollup.byClass.VALID} · M ${st.integrityRollup.byClass.MANUAL} · A ${st.integrityRollup.byClass.AUTO} · C ${st.integrityRollup.byClass.CONFLICT}`}
@@ -122,26 +144,36 @@ export default function ReportsScreen() {
           </Card>
         ) : null}
 
-        {items.length > 0 ? (
+        {rows.length > 0 ? (
           <Section title={t("history.title")}>
-            {items.map((c) => (
-              <SessionListItem key={c.session.id} item={c} onPress={() => router.push(`/session/${c.session.id}`)} />
-            ))}
+            {rows.map((slice) => {
+              const item = computedById.get(slice.session.id);
+              if (!item) return null;
+              return (
+                <SessionListItem
+                  key={slice.session.id}
+                  item={item}
+                  slice={slice}
+                  hoursText={rowHours.get(slice.session.id)}
+                  onPress={() => router.push(`/session/${slice.session.id}`)}
+                />
+              );
+            })}
           </Section>
         ) : null}
 
-        {st && closedCount > 0 ? (
+        {st && shown && closedCount > 0 ? (
           <DocumentPreviewWidget
             employeeName={settings.profile.employeeName}
             dateRange={formatRange(periodStart, periodEnd)}
-            totalHours={`${(st.regularHours + st.overtimeHours + st.transitHours).toFixed(2)} ${t("common.hours")}`}
-            totalEarnings={formatCurrency(st.grossEstimate)}
+            totalHours={`${shown.worked} ${t("common.hours")}`}
+            totalEarnings={shown.gross}
             companyName={settings.company.employerName}
             certified={!hasConflict}
             lines={[
-              { label: t("reports.regular"), value: `${st.regularHours.toFixed(2)} ${t("common.hours")}` },
-              { label: t("reports.overtime"), value: `${st.overtimeHours.toFixed(2)} ${t("common.hours")}` },
-              { label: t("reports.transit"), value: `${st.transitHours.toFixed(2)} ${t("common.hours")}` },
+              { label: t("reports.regular"), value: `${shown.regular} ${t("common.hours")}` },
+              { label: t("reports.overtime"), value: `${shown.overtime} ${t("common.hours")}` },
+              { label: t("reports.transit"), value: `${shown.transit} ${t("common.hours")}` },
             ]}
             packHash={latestPack?.manifest.packHash ?? null}
             onHashCopied={(tail) => showToast(t("report.hashCopied", { hash: tail }), "success")}

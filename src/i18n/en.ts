@@ -173,6 +173,9 @@ export const en: Dictionary = {
     conflictCount: "Needs review",
     filters: { ALL: "All", WEEK: "This week", MANUAL: "Adjusted", AUTO: "Auto close", CONFLICT: "Needs review" },
     empty: "No shifts in this period yet",
+    continuesFrom: "continues from {date}",
+    continuesUntil: "continues on {date}",
+    zeroDuration: "Zero duration: not paid. Kept for the audit trail; you can delete it and the deletion stays on record.",
   },
   session: {
     title: "Session",
@@ -249,6 +252,8 @@ export const en: Dictionary = {
     noClosed: "No closed shifts in this period. The pack is generated from closed shifts.",
     openExcluded: "An open shift is not included until you close it.",
     packs: "Sealed packs",
+    packEarly: "This pack was sealed before the week ended. It is not the final close: if you add shifts or correct one that crosses midnight, generate it again. The earlier seal is not rewritten.",
+    packStale: "This period no longer matches the sealed pack (hours or evidence). Generate it again for a new code; the earlier pack stays on record.",
   },
   report: {
     header: "Evidence pack",

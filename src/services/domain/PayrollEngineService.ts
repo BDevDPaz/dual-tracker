@@ -33,13 +33,14 @@ import type {
 } from "../../core/contracts";
 import { companyCalendar, legalFlags } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
+import { moneyCents } from "./payrollDisplay";
 import { computeSegmentMinutes, sessionEndMs } from "./segmentation";
 import { getPayrollPolicy } from "./payrollPolicies";
 import { TransitPolicyService } from "./TransitPolicyService";
 
 const MS_PER_MIN = 60000;
-const round2 = (n: number) => Math.round(n * 100) / 100;
-const money = (minutes: number, rate: number) => round2((minutes / 60) * rate);
+/** Dólares de una línea: centavos enteros half-up, no `(minutos/60)*tarifa` en float. */
+const money = (minutes: number, rate: number) => moneyCents(minutes, rate) / 100;
 
 /** Desglose de minutos de una sesión (sin reparto de OT). */
 export interface SessionMinutes {
@@ -432,6 +433,7 @@ export const PayrollEngineService = {
     const rules = p6Rules(policy, actx);
     const appliedRules = [...(rules.doubleAfter !== null ? ["CA_DOUBLE_TIME_12H"] : []), ...(rules.seventh ? ["CA_SEVENTH_DAY"] : [])];
     const lines = items.flatMap((it, i) => buildLines(it, alloc[i], input.rates));
+    const grossCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
 
     const sumMin = (kinds: PayrollLine["kind"][]) =>
       lines.filter((l) => kinds.includes(l.kind)).reduce((acc, l) => acc + l.minutes, 0);
@@ -459,7 +461,7 @@ export const PayrollEngineService = {
       overtimeHours: (otDailyMin + otWeeklyMin + otDoubleMin) / 60,
       transitHours: transitMin / 60,
       lunchMinutes: lunchMin,
-      grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),
+      grossEstimate: grossCents / 100,
       integrityRollup: rollupIntegrity(closed, { ledgerSegmented }),
       policyId: policy.id,
       packHash: null,
@@ -499,6 +501,7 @@ export const PayrollEngineService = {
     const flags = legalFlags(company);
     const a = allocate(items, { ...policy, weeklyOvertimeAfterMinutes: null, seventhDayRule: null }, { history, caDoubleTime: flags.caDoubleTime });
     const lines = items.flatMap((it, i) => buildLines(it, a[i], rates));
+    const previewCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
     const sum = (f: (x: AllocItem) => number) => items.reduce((acc, x) => acc + f(x), 0);
     return {
       sessionId: session.id,
@@ -507,7 +510,7 @@ export const PayrollEngineService = {
       overtimeDailyMinutes: a.reduce((acc, x) => acc + x.otDaily + x.otDouble, 0),
       transitMinutes: sum((x) => x.transitPaidMinutes),
       lunchMinutes: sum((x) => x.lunchMinutes),
-      grossEstimate: round2(lines.reduce((acc, l) => acc + l.amount, 0)),
+      grossEstimate: previewCents / 100,
       certified: isCertifiable(session),
       policyId: policy.id,
     };

@@ -11,7 +11,9 @@ import { canonicalJson } from "../../../utils/canonicalJson";
 import { routeIntent } from "../../application/intentRouter";
 import { EvidencePackService, computeContentHash } from "../EvidencePackService";
 import { sha256Hex } from "../HashChain";
-import { HOUR } from "../../../../test/fixtures/session.fixture";
+import { COMPANY, HOUR } from "../../../../test/fixtures/session.fixture";
+import { CA_DAILY8_WEEKLY40_V2 } from "../../domain/payrollPolicies";
+import { SettingsService } from "../../persistence/SettingsService";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 
@@ -157,6 +159,51 @@ describe("EvidencePackService", () => {
     const sealed = (await PersistenceService.listLedger()).filter((e) => e.intent === "PAYROLL_SEALED");
     expect(sealed).toHaveLength(1);
     expect(sealed[0].payloadJson).toContain(pack.manifest.packHash);
+  });
+
+  test("semana cruzada: el segundo pack incluye el check-in y un parche posterior no reutiliza el sello", async () => {
+    const { siteA } = await seedWorld();
+    await SettingsService.saveCompany({ ...COMPANY, overtimePolicyId: CA_DAILY8_WEEKLY40_V2.id });
+    const start = Date.UTC(2026, 8, 28, 5); // dom 27 sep 2026 22:00 PDT
+    time.set(start);
+    const session = await startAndArrive(siteA, 0);
+    time.travel(4 * HOUR);
+    await mustDispatch({ type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 0 });
+    const w1 = { periodStart: getWeekStart(start), periodEnd: getWeekEnd(start) };
+    const w2 = { periodStart: getWeekStart(time.now()), periodEnd: getWeekEnd(time.now()) };
+    expect(w2.periodStart).toBeGreaterThan(w1.periodEnd);
+
+    const a = await seal(w1);
+    const b = await seal(w2);
+    expect(a.statement.regularHours).toBe(2);
+    expect(b.statement.regularHours).toBe(2);
+    const early = (await PersistenceService.listLedger({ sessionId: session.id })).filter((e) => e.timestampMs < w2.periodStart);
+    expect(early.length).toBeGreaterThan(0);
+    const hashed = new Set(b.evidence.ledgerHashes.map((h) => h.id));
+    for (const e of early) expect(hashed.has(e.id)).toBe(true);
+
+    const fresh2 = await EvidencePackService.describeFreshness(w2.periodStart, w2.periodEnd);
+    expect(fresh2.matches).toBe(true);
+    expect(fresh2.sealedBeforePeriodEnd).toBe(true);
+    const fresh1 = await EvidencePackService.describeFreshness(w1.periodStart, w1.periodEnd);
+    expect(fresh1.matches).toBe(true);
+    expect(fresh1.sealedBeforePeriodEnd).toBe(false);
+
+    await mustDispatch({
+      type: "MANUAL_PATCH",
+      sessionId: session.id,
+      declaredStartAtMs: start,
+      endAtMs: start + 5 * HOUR,
+      note: "corrección",
+    });
+    const again = await EvidencePackService.seal(w2);
+    expect(again.ok && again.reused).toBe(false);
+    if (!again.ok) return;
+    expect(again.data.statement.regularHours).toBe(3);
+    expect(again.data.manifest.contentHash).not.toBe(b.manifest.contentHash);
+    expect(await EvidencePackService.verify(a)).toMatchObject({ valid: true });
+    expect(await EvidencePackService.verify(b)).toMatchObject({ valid: true });
+    expect((await EvidencePackService.describeFreshness(w1.periodStart, w1.periodEnd)).matches).toBe(false);
   });
 
   test("compartir: empleado por Sharing, empleador por correo; pack inexistente → PACK_NOT_FOUND", async () => {

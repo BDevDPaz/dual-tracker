@@ -162,6 +162,46 @@ async function latestPackForPeriod(periodStart: number, periodEnd: number): Prom
   return packs[0] ?? null;
 }
 
+/** Contenido que sellaría el periodo ahora, sin escribir ni generar PDF. */
+async function assemblePeriod(input: { periodStart: number; periodEnd: number }): Promise<
+  | { ok: false; code: SealRejection | string; detail?: string }
+  | { ok: true; statement: PayrollStatement; evidence: EvidenceSummary; contentHash: string; included: SessionRecord[] }
+> {
+  const settings = await SettingsService.load();
+  const nowMs = TimeAuthorityService.now();
+  const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
+  const sessions = await PersistenceService.listSessions({ from: input.periodStart, to: input.periodEnd, overlapping: true });
+  const policyId = (await PersistenceService.packPolicyForPeriod(input.periodStart, input.periodEnd)) ?? settings.company.overtimePolicyId;
+  const statement = PayrollEngineService.buildStatement({
+    segmentedLedgerTimestamps,
+    periodStart: input.periodStart,
+    periodEnd: input.periodEnd,
+    sessions,
+    rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
+    company: settings.company,
+    policyId,
+    nowMs,
+  });
+  if (statement.sessionIds.length === 0) {
+    return { ok: false, code: statement.warnings.includes("OPEN_SESSION_EXCLUDED") ? "PERIOD_ONLY_OPEN" : "EMPTY_PERIOD" };
+  }
+  const included = sessions.filter((s) => statement.sessionIds.includes(s.id));
+  const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
+  const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
+  const contentHash = await computeContentHash(statement, evidence);
+  return { ok: true, statement, evidence, contentHash, included };
+}
+
+export interface SealFreshness {
+  latestPackId: string | null;
+  /** null si hoy no hay jornadas cerradas que sellar. */
+  liveContentHash: string | null;
+  /** true si no hay pack, o el último tiene el mismo contentHash que el cálculo actual. */
+  matches: boolean;
+  /** El último pack se selló antes de que terminara el periodo (no es el cierre). */
+  sealedBeforePeriodEnd: boolean;
+}
+
 export const EvidencePackService = {
   /**
    * Sella el periodo. Con CONFLICT en el periodo exige `allowUncertified`
@@ -175,6 +215,29 @@ export const EvidencePackService = {
    * (reemisión explícita, p. ej. PDF perdido o reenvío formal); queda en el
    * ledger como PACK_REISSUED con referencia al pack anterior.
    */
+  /**
+   * Compara el último pack del periodo con el cálculo de ahora. No escribe.
+   * Un pack sellado antes de que cierre la semana sigue siendo válido, pero
+   * no es el cierre: si la jornada que cruza el límite se edita, el contentHash
+   * cambia y hace falta otro sello (el anterior no se regenera).
+   */
+  async describeFreshness(periodStart: number, periodEnd: number): Promise<SealFreshness> {
+    const latest = await latestPackForPeriod(periodStart, periodEnd);
+    const sealedBeforePeriodEnd = !!latest && latest.manifest.sealedAtMs <= periodEnd;
+    const base = { latestPackId: latest?.id ?? null, sealedBeforePeriodEnd };
+    if (!isValidRange(periodStart, periodEnd)) return { ...base, liveContentHash: null, matches: !latest };
+    try {
+      const assembled = await assemblePeriod({ periodStart, periodEnd });
+      if (!assembled.ok) return { ...base, liveContentHash: null, matches: !latest };
+      const live = assembled.contentHash;
+      const matches = !latest || (latest.manifest.contentHash != null && latest.manifest.contentHash === live);
+      return { ...base, liveContentHash: live, matches };
+    } catch (error) {
+      LoggingService.log("NARANJA", "PAYROLL", "WARN", "No se pudo comparar el expediente", serializeError(error));
+      return { ...base, liveContentHash: null, matches: false };
+    }
+  },
+
   async seal(input: { periodStart: number; periodEnd: number; allowUncertified?: boolean; reissue?: boolean }): Promise<SealResult> {
     // Periodo no finito (antes: NaN por dayjs tz en Hermes) → mensaje claro, no "No encontrado".
     if (!isValidRange(input.periodStart, input.periodEnd) || !periodIdAt(input.periodStart)) {
@@ -187,33 +250,13 @@ export const EvidencePackService = {
       const chain = await IntegrityLedgerService.verify();
       if (!chain.valid) await IntegrityLedgerService.recordIncident(chain, nowMs);
       const ledgerIncident = await IntegrityLedgerService.getIncident();
-      const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
-      const sessions = await PersistenceService.listSessions({ from: input.periodStart, to: input.periodEnd, overlapping: true });
       // Política por periodo (spec v1.3 §5.2 N3): un resello/reemisión de un periodo
       // sellado con v1 recalcula con v1; los no sellados usan la vigente.
-      const policyId = (await PersistenceService.packPolicyForPeriod(input.periodStart, input.periodEnd)) ?? settings.company.overtimePolicyId;
-      const statement = PayrollEngineService.buildStatement({
-        segmentedLedgerTimestamps,
-        periodStart: input.periodStart,
-        periodEnd: input.periodEnd,
-        sessions,
-        rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
-        company: settings.company,
-        policyId,
-        nowMs,
-      });
-      if (statement.sessionIds.length === 0) {
-        // Solo cuentan jornadas CERRADAS: distinguir "hay una abierta" de "no hay nada".
-        return { ok: false, code: statement.warnings.includes("OPEN_SESSION_EXCLUDED") ? "PERIOD_ONLY_OPEN" : "EMPTY_PERIOD" };
-      }
+      const assembled = await assemblePeriod(input);
+      if (!assembled.ok) return assembled;
+      const { statement, evidence, contentHash, included } = assembled;
       if (statement.integrityRollup.hasConflict && !input.allowUncertified) return { ok: false, code: "PERIOD_HAS_CONFLICT" };
       if (!statement.integrityRollup.certified && !input.allowUncertified) return { ok: false, code: "PERIOD_NOT_CERTIFIABLE" };
-
-      const included = sessions.filter((s) => statement.sessionIds.includes(s.id));
-      const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
-      const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
-
-      const contentHash = await computeContentHash(statement, evidence);
       const previous = await latestPackForPeriod(input.periodStart, input.periodEnd);
       if (previous && previous.manifest.contentHash === contentHash && !input.reissue) {
         LoggingService.log("AZUL", "PAYROLL", "INFO", "Expediente reutilizado: mismo contenido", { packId: previous.id, contentHash });

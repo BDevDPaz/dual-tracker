@@ -19,9 +19,25 @@ import type {
 } from "../contracts";
 import { OPEN_SESSION_STATES } from "../contracts";
 import { DISCLOSURE_VERSION } from "../../i18n/legal";
+import {
+  allocateDisplayHundredths,
+  displayStatement,
+  formatCents,
+  formatHundredths,
+  formatSiteName,
+  minutesToHundredths,
+  moneyCents,
+  trimDisplayNote,
+} from "../../services/domain/payrollDisplay";
 import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
+import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
+import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
+import { computeSegmentMinutes } from "../../services/domain/segmentation";
 import { checkedInSiteIds, lastVisitAtMs } from "../../services/domain/siteVisits";
 import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
+
+/** Presentación de nómina para las pantallas (las rutas no importan services/). */
+export { allocateDisplayHundredths, displayStatement, formatCents, formatHundredths, minutesToHundredths, moneyCents, trimDisplayNote };
 
 // ---------------------------------------------------------------------------
 // Gate (Producto §5.1)
@@ -135,11 +151,12 @@ export function sessionVisitsSite(session: SessionRecord, siteId: number): boole
   return checkedInSiteIds(session).includes(siteId);
 }
 
-/** Alias en orden de visita. Vacío si la jornada no tiene sitio. */
+/** Alias en orden de visita. Si no hay alias, la dirección. Vacío si la jornada no tiene sitio. */
 export function sessionSiteLabel(session: SessionRecord, sitesById: Record<string, Site | undefined>): string {
+  const label = (id: number) => formatSiteName(sitesById[String(id)]).primary || `#${id}`;
   const ids = checkedInSiteIds(session);
-  if (!ids.length) return "";
-  return ids.map((id) => sitesById[String(id)]?.alias || `#${id}`).join(" → ");
+  if (!ids.length) return session.siteId != null ? label(session.siteId) : "";
+  return ids.map(label).join(" → ");
 }
 
 export const selectComputedSessions = (s: DualTrackerState, nowMs: number, list?: SessionRecord[]): ComputedSession[] => {
@@ -267,6 +284,148 @@ export const selectSystemHealth = (s: DualTrackerState): SystemHealthView => {
 // ---------------------------------------------------------------------------
 // Packs, feedback, admin, UI
 // ---------------------------------------------------------------------------
+/**
+ * Jornadas que aportan tiempo a un periodo, con el reloj de ESA porción.
+ * Con la política v2, una jornada que cruza la medianoche del domingo aparece
+ * en las dos semanas: cada una con su tramo, no con el horario completo.
+ * Los minutos y el importe de las cerradas salen del statement (mismo motor
+ * que el PDF). Las abiertas muestran solo los minutos del tramo.
+ */
+export interface PeriodSessionRow {
+  session: SessionRecord;
+  site: Site | null;
+  siteLabel: string;
+  displayStartMs: number;
+  displayEndMs: number | null;
+  continuesFromMs: number | null;
+  continuesUntilMs: number | null;
+  netMinutes: number | null;
+  grossEstimate: number | null;
+  /** Centavos enteros del tramo. null si no hay importe (cancelada, o abierta partida). */
+  grossCents: number | null;
+  zeroDuration: boolean;
+}
+
+/** Porción visible de una jornada dentro de un periodo. null si la política no parte por jornada o la jornada no cae ahí. */
+export function selectSessionPortion(
+  s: DualTrackerState,
+  policyId: string,
+  periodStart: number,
+  periodEnd: number,
+  session: SessionRecord,
+  nowMs: number,
+): PeriodSlice | null {
+  if (getPayrollPolicy(policyId).segmentation !== "WORKDAY") return null;
+  return periodSliceOf(session, periodStart, periodEnd, companyCalendar(s.settings.company), nowMs);
+}
+
+export function selectPeriodSessionRows(s: DualTrackerState, periodStart: number, periodEnd: number, nowMs: number): PeriodSessionRow[] {
+  const history = companyCalendar(s.settings.company);
+  const packs = selectPacks(s).map((p) => ({
+    periodStart: p.manifest.periodStart,
+    periodEnd: p.manifest.periodEnd,
+    policyId: p.statement.policyId,
+    createdAtMs: p.createdAtMs,
+  }));
+  const policyId = policyForPeriod(packs, periodStart, periodEnd, s.settings.company.overtimePolicyId);
+  const split = getPayrollPolicy(policyId).segmentation === "WORKDAY";
+  const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
+  const visible = selectVisibleSessions(s);
+  const statement = PayrollEngineService.buildStatement({
+    periodStart,
+    periodEnd,
+    sessions: visible,
+    rates,
+    company: s.settings.company,
+    policyId,
+    nowMs,
+  });
+  const pay = new Map<number, { minutes: number; cents: number }>();
+  for (const id of statement.sessionIds) pay.set(id, { minutes: 0, cents: 0 });
+  for (const line of statement.lines) {
+    const row = pay.get(line.sessionId);
+    if (!row) continue;
+    if (!line.kind.endsWith("DEDUCTION")) row.minutes += line.minutes;
+    row.cents += moneyCents(line.minutes, line.rate);
+  }
+  const siteOf = (session: SessionRecord) => (session.siteId !== null ? s.sites.byId[String(session.siteId)] ?? null : null);
+  const make = (
+    session: SessionRecord,
+    displayStartMs: number,
+    displayEndMs: number | null,
+    continuesFromMs: number | null,
+    continuesUntilMs: number | null,
+    netMinutes: number | null,
+    grossEstimate: number | null,
+    grossCents: number | null,
+    zeroDuration: boolean,
+  ): PeriodSessionRow => ({
+    session,
+    site: siteOf(session),
+    siteLabel: sessionSiteLabel(session, s.sites.byId),
+    displayStartMs,
+    displayEndMs,
+    continuesFromMs,
+    continuesUntilMs,
+    netMinutes,
+    grossEstimate,
+    grossCents,
+    zeroDuration,
+  });
+  const rows: PeriodSessionRow[] = [];
+  for (const session of visible) {
+    const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+    if (session.bookkeeping.cancelled) {
+      if (start < periodStart || start > periodEnd) continue;
+      rows.push(make(session, start, session.endAtMs, null, null, null, null, null, false));
+      continue;
+    }
+    if (!split) {
+      if (start < periodStart || start > periodEnd) continue;
+      const closedPay = pay.get(session.id);
+      const preview =
+        closedPay || session.domainStatus === "CERRADA"
+          ? null
+          : PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, policyId);
+      rows.push(
+        make(
+          session,
+          start,
+          session.endAtMs,
+          null,
+          null,
+          closedPay ? closedPay.minutes : preview?.netMinutes ?? null,
+          closedPay ? closedPay.cents / 100 : preview?.grossEstimate ?? null,
+          closedPay ? closedPay.cents : null,
+          session.endAtMs != null && isZeroDuration(start, session.endAtMs),
+        ),
+      );
+      continue;
+    }
+    const slice = periodSliceOf(session, periodStart, periodEnd, history, nowMs);
+    if (!slice) continue;
+    const closedPay = pay.get(session.id);
+    let net: number | null = closedPay ? closedPay.minutes : null;
+    let gross: number | null = closedPay ? closedPay.cents / 100 : null;
+    let grossCents: number | null = closedPay ? closedPay.cents : null;
+    if (!closedPay && session.domainStatus !== "CERRADA") {
+      const segs = computeSegmentMinutes(session, s.settings.company, nowMs, history) ?? [];
+      net = segs
+        .filter((x) => x.segment.startMs >= periodStart && x.segment.startMs <= periodEnd)
+        .reduce((a, x) => a + x.workMinutes + x.transitPaidMinutes, 0);
+      const whole = slice.continuesFromMs == null && slice.continuesUntilMs == null;
+      const preview = whole ? PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, policyId) : null;
+      gross = preview?.grossEstimate ?? null;
+      grossCents = null;
+    }
+    rows.push(
+      make(session, slice.displayStartMs, slice.displayEndMs, slice.continuesFromMs, slice.continuesUntilMs, net, gross, grossCents, slice.zeroDuration),
+    );
+  }
+  rows.sort((a, b) => a.displayStartMs - b.displayStartMs || a.session.id - b.session.id);
+  return rows;
+}
+
 export const selectPacks = (s: DualTrackerState): EvidencePack[] =>
   s.packs.order.map((id) => s.packs.byId[id]).filter((p): p is EvidencePack => !!p);
 export const selectPackById = (s: DualTrackerState, id: string): EvidencePack | null => s.packs.byId[id] ?? null;
