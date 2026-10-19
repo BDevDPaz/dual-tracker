@@ -21,7 +21,8 @@ export const supportEs = {
     practice: "Practicar este flujo",
   },
   about: {
-    line: "Versión {version} · compilación {build} · guía {content}",
+    line: "Versión {version} ({channel}) · build {build}",
+    linePlain: "Versión {version} · build {build}",
   },
   export: {
     action: "Compartir diagnóstico",

@@ -9,7 +9,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { ExpoConfig } from "expo/config";
-import { applyVariant, D11_FLAG } from "../../../app.config";
+import { applyVariant, D11_FLAG, RELEASE_CHANNEL_ENV } from "../../../app.config";
+import { APP_VERSION } from "../../constants/app";
 import { isForcedKeystoreFailure } from "../../services/persistence/keyStore";
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -18,7 +19,12 @@ const readJson = (f: string) => JSON.parse(fs.readFileSync(path.join(ROOT, f), "
 type Profile = { extends?: string; env?: Record<string, string>; [k: string]: unknown };
 const eas = readJson("eas.json") as { cli: Record<string, string>; build: Record<string, Profile>; submit?: unknown };
 const base = (readJson("app.json") as { expo: ExpoConfig }).expo;
-const pkg = readJson("package.json") as { scripts: Record<string, string>; dependencies: Record<string, string>; devDependencies: Record<string, string> };
+const pkg = readJson("package.json") as {
+  version: string;
+  scripts: Record<string, string>;
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+};
 
 /** Resuelve `extends` como EAS: el env del hijo se fusiona sobre el del padre. */
 function resolveEnv(name: string, seen: string[] = []): Record<string, string> {
@@ -69,6 +75,37 @@ describe("eas.json — perfiles", () => {
     const env = resolveEnv(name);
     expect(env[D11_FLAG]).toBeUndefined();
     expect(env.APP_VARIANT).toBeUndefined();
+  });
+
+  test("la versión publicada es 1.0.0 y el versionCode no se fija en el repo", () => {
+    expect(base.version).toBe("1.0.0");
+    expect(pkg.version).toBe("1.0.0");
+    expect(APP_VERSION).toBe("1.0.0");
+    expect(base.android?.versionCode).toBeUndefined();
+    expect(base.ios?.buildNumber).toBeUndefined();
+    expect(eas.cli.appVersionSource).toBe("remote");
+  });
+
+  test("preview expone el canal RC1; development y production no", () => {
+    expect(resolveEnv("preview")[RELEASE_CHANNEL_ENV]).toBe("RC1");
+    expect(resolveEnv("preview-simulator")[RELEASE_CHANNEL_ENV]).toBe("RC1");
+    expect(resolveEnv("preview-d11")[RELEASE_CHANNEL_ENV]).toBe("RC1");
+    expect(resolveEnv("development")[RELEASE_CHANNEL_ENV]).toBeUndefined();
+    expect(resolveEnv("production")[RELEASE_CHANNEL_ENV]).toBeUndefined();
+
+    const preview = applyVariant(clone(base), resolveEnv("preview"));
+    expect(preview.version).toBe("1.0.0");
+    expect(preview.extra?.releaseChannel).toBe("RC1");
+    expect(preview.android?.package).toBe("com.bdevdpaz.dualtracker");
+    expect(preview.android?.versionCode).toBeUndefined();
+
+    const d11 = applyVariant(clone(base), resolveEnv("preview-d11"));
+    expect(d11.extra?.releaseChannel).toBe("RC1");
+    expect(d11.extra?.appVariant).toBe("d11");
+    expect(d11.android?.package).toBe("com.bdevdpaz.dualtracker.d11");
+
+    expect(applyVariant(clone(base), resolveEnv("production")).extra?.releaseChannel).toBeUndefined();
+    expect(applyVariant(clone(base), { [RELEASE_CHANNEL_ENV]: "  " })).toEqual(base);
   });
 
   test("todo perfil con la bandera es variante d11 y nunca es de tienda ni dev client", () => {

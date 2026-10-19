@@ -7,7 +7,7 @@ import { APP_VERSION } from "../../../constants/app";
 import type { IntentResult } from "../../../core/contracts";
 import { Store } from "../../../core/store";
 import { buildSupportDiagnostic, diagnosticIsSafe } from "../../../support/diagnostic";
-import { readBuildLabel } from "../../../support/buildLabel";
+import { readBuildLabel, readReleaseChannel } from "../../../support/buildLabel";
 import { dismissedTipIds } from "../../../support/tips";
 import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
 import { ReportService } from "../../evidence/ReportService";
@@ -18,6 +18,7 @@ export async function exportSupportDiagnostic(): Promise<IntentResult<{ uri: str
   const doc = buildSupportDiagnostic({
     nowMs: TimeAuthorityService.now(),
     appVersion: APP_VERSION,
+    releaseChannel: readReleaseChannel(),
     build: readBuildLabel(),
     settings: state.settings,
     health: state.health,

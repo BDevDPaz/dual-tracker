@@ -4,13 +4,18 @@
  */
 import type { GeofenceDiagEvent, SettingsSnapshot, SystemHealthSnapshot } from "../core/contracts";
 import { SUPPORT_CONTENT_VERSION } from "./contentVersion";
+import { formatVersionLine } from "./versionLine";
 
 export interface SupportDiagnostic {
   kind: "dual-tracker.support-diagnostic.v1";
   contentVersion: string;
   exportedAtMs: number;
   appVersion: string;
+  /** Vacío fuera del perfil preview. En RC1 es "RC1". */
+  releaseChannel: string;
   build: string;
+  /** Misma frase que Ajustes / Soporte, en el idioma del perfil. */
+  versionLine: string;
   settings: {
     language: "es" | "en";
     dailyReminderTime: string;
@@ -122,18 +127,27 @@ function diagRow(event: GeofenceDiagEvent): SupportDiagnostic["geofenceDiag"][nu
 export function buildSupportDiagnostic(input: {
   nowMs: number;
   appVersion: string;
+  releaseChannel: string;
   build: string;
   settings: SettingsSnapshot;
   health: SystemHealthSnapshot;
   tipsDismissed: readonly string[];
 }): SupportDiagnostic {
   const calendar = input.settings.company.calendarHistory?.[0];
+  const releaseChannel = input.releaseChannel.trim();
   const doc: SupportDiagnostic = {
     kind: "dual-tracker.support-diagnostic.v1",
     contentVersion: SUPPORT_CONTENT_VERSION,
     exportedAtMs: input.nowMs,
     appVersion: input.appVersion,
+    releaseChannel,
     build: input.build,
+    versionLine: formatVersionLine({
+      version: input.appVersion,
+      build: input.build,
+      channel: releaseChannel,
+      lang: input.settings.profile.language,
+    }),
     settings: {
       language: input.settings.profile.language,
       dailyReminderTime: input.settings.profile.dailyReminderTime,

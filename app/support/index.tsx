@@ -8,15 +8,13 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Card, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
-import { APP_VERSION } from "../../src/constants/app";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
 import { useToast } from "../../src/context/ToastContext";
 import { t, useLanguage } from "../../src/i18n";
 import { FAQ_IDS, FLOW_IDS, INTEGRITY_IDS, MACHINE_STATE_IDS, SCREEN_IDS, TROUBLE_IDS } from "../../src/support/catalog";
-import { SUPPORT_CONTENT_VERSION } from "../../src/support/contentVersion";
-import { readBuildLabel } from "../../src/support/buildLabel";
 import { resetTips } from "../../src/support/tips";
+import { currentVersionLine } from "../../src/support/versionLine";
 
 export default function SupportIndexScreen() {
   useLanguage();
@@ -104,7 +102,7 @@ export default function SupportIndexScreen() {
       <Button label={t("support.tips.reset")} variant="secondary" onPress={() => void onResetTips()} />
       <Button label={t("support.export.action")} variant="secondary" isLoading={busy} onPress={() => void share()} />
       <Text style={[styles.about, { color: TOKENS.colors.text.muted }]}>
-        {t("support.about.line", { version: APP_VERSION, build: readBuildLabel(), content: SUPPORT_CONTENT_VERSION })}
+        {currentVersionLine()}
       </Text>
     </ScreenScroll>
   );

@@ -4,9 +4,15 @@
  * app.json sigue siendo la base estática (ahí escribe `eas init` el projectId).
  * Este archivo solo la ajusta según APP_VARIANT, que fija cada perfil de eas.json:
  *
- *  - Sin APP_VARIANT → la config sale idéntica a app.json
- *    (com.bdevdpaz.dualtracker, «Dual Tracker»). Perfiles development,
- *    preview y production.
+ *  - Sin APP_VARIANT → mismos ids, nombre y version que app.json
+ *    (com.bdevdpaz.dualtracker, «Dual Tracker», 1.0.0). Perfiles development,
+ *    preview y production. Este archivo no pisa `version` ni escribe
+ *    versionCode: el número de build lo lleva EAS (`appVersionSource: remote`,
+ *    autoIncrement). El último preview fue versionCode 3; el siguiente tiene
+ *    que ser mayor.
+ *  - EXPO_PUBLIC_RELEASE_CHANNEL (perfil preview, hoy RC1) se copia a
+ *    extra.releaseChannel. development y production no lo fijan. preview-d11
+ *    y preview-simulator lo heredan de preview.
  *  - APP_VARIANT=d11 → build de prueba D11 (docs/PRUEBAS_DISPOSITIVO.md):
  *    llavero forzado a fallar con EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE=1.
  *    Paquete / bundle `com.bdevdpaz.dualtracker.d11`, nombre «Dual Tracker D11»
@@ -22,9 +28,23 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 
 export const D11_FLAG = "EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE";
 export const D11_VARIANT = "d11";
+/** Canal visible (Ajustes / Soporte). Lo fija el perfil preview de eas.json. */
+export const RELEASE_CHANNEL_ENV = "EXPO_PUBLIC_RELEASE_CHANNEL";
 const D11_SUFFIX = ".d11";
 
 type Env = Record<string, string | undefined>;
+
+/** Etiqueta de canal pedida por el entorno, o undefined si no hay. */
+export function releaseChannelFromEnv(env: Env): string | undefined {
+  const raw = env[RELEASE_CHANNEL_ENV]?.trim() || env.RELEASE_CHANNEL?.trim() || "";
+  return raw || undefined;
+}
+
+function withReleaseChannel(config: ExpoConfig, env: Env): ExpoConfig {
+  const releaseChannel = releaseChannelFromEnv(env);
+  if (!releaseChannel) return config;
+  return { ...config, extra: { ...config.extra, releaseChannel } };
+}
 
 /** Aplica la variante pedida en `env` a la config base (app.json). */
 export function applyVariant(config: ExpoConfig, env: Env): ExpoConfig {
@@ -40,7 +60,7 @@ export function applyVariant(config: ExpoConfig, env: Env): ExpoConfig {
         "Nunca en development, preview ni production: quita la variable del entorno o de eas.json.",
     );
   }
-  if (variant !== D11_VARIANT) return config;
+  if (variant !== D11_VARIANT) return withReleaseChannel(config, env);
 
   if (flag !== "1") {
     throw new Error(`APP_VARIANT=${D11_VARIANT} exige ${D11_FLAG}=1 (usa el perfil preview-d11 de eas.json).`);
@@ -49,15 +69,18 @@ export function applyVariant(config: ExpoConfig, env: Env): ExpoConfig {
   const bundleId = config.ios?.bundleIdentifier;
   if (!pkg || !bundleId) throw new Error("app.json debe definir android.package e ios.bundleIdentifier.");
 
-  return {
-    ...config,
-    name: `${config.name} D11`,
-    scheme: `${String(config.scheme ?? "dualtracker")}-d11`,
-    ios: { ...config.ios, bundleIdentifier: `${bundleId}${D11_SUFFIX}` },
-    android: { ...config.android, package: `${pkg}${D11_SUFFIX}` },
-    // La lee keyStore.ts en tiempo de ejecución: la bandera solo actúa en esta variante.
-    extra: { ...config.extra, appVariant: D11_VARIANT },
-  };
+  return withReleaseChannel(
+    {
+      ...config,
+      name: `${config.name} D11`,
+      scheme: `${String(config.scheme ?? "dualtracker")}-d11`,
+      ios: { ...config.ios, bundleIdentifier: `${bundleId}${D11_SUFFIX}` },
+      android: { ...config.android, package: `${pkg}${D11_SUFFIX}` },
+      // La lee keyStore.ts en tiempo de ejecución: la bandera solo actúa en esta variante.
+      extra: { ...config.extra, appVariant: D11_VARIANT },
+    },
+    env,
+  );
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => applyVariant(config as ExpoConfig, process.env);

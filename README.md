@@ -35,7 +35,7 @@ npm run build:android:d11       # solo D11 (se instala al lado como «Dual Track
 npm run build:android:dev       # development build
 ```
 
-Configuración única (`eas login`, `eas init`), instalación en Android y iPhone, variante D11 y su doble cerrojo: **[docs/BUILD.md](docs/BUILD.md)**. `app.config.ts` extiende `app.json` y solo cambia algo con `APP_VARIANT=d11`; sin esa variable la config es idéntica a `app.json`.
+Configuración única (`eas login`, `eas init`), instalación en Android y iPhone, variante D11 y su doble cerrojo: **[docs/BUILD.md](docs/BUILD.md)**. `app.config.ts` extiende `app.json` (versión **1.0.0**). Sin `APP_VARIANT` no cambia ids ni nombre; el perfil `preview` añade `extra.releaseChannel` = `RC1`. Historial: [CHANGELOG.md](CHANGELOG.md). Plan de teléfono de la candidata: [docs/PRUEBAS_RC1.md](docs/PRUEBAS_RC1.md).
 
 No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por defecto e incluye el plugin de reanimated/worklets.
 
@@ -355,6 +355,9 @@ Se marcan en el código como `TODO(propuesta)`:
 - **Evidencia**
   - No hay revocación de packs en el modelo actual.
   - Efecto de nómina de un tramo cancelado, y el orden relativo AUTO frente a otras severidades de integridad.
-- **Plataforma**
-  - Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico.
+- **Plataforma** (post-1.0)
   - Cambio significativo de ubicación en iOS como respaldo de la geocerca.
+
+## No aplica
+
+- Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico. No aplica: las versiones anteriores nunca se publicaron.

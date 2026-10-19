@@ -26,13 +26,14 @@ npm run build:ios:d11           # perfil preview-d11, iOS (ad hoc)
 
 - **Paquete Android / bundle iOS** (app real): `com.bdevdpaz.dualtracker` (ya estaban en `app.json` y no se tocan).
 - **Variante D11**: `com.bdevdpaz.dualtracker.d11`, nombre «Dual Tracker D11», esquema `dualtracker-d11`.
-- **Versión visible**: `version` de `app.json` (hoy `0.1.0`). Se sube a mano al publicar.
-- **Número de build** (`versionCode` en Android, `buildNumber` en iOS): lo lleva EAS en el servidor (`"appVersionSource": "remote"` en `eas.json`).
+- **Versión visible**: `version` de `app.json`, `version` de `package.json` y `APP_VERSION` (`src/constants/app.ts`). La candidata RC1 es **1.0.0**. Se sube a mano al publicar. `app.config.ts` no la pisa.
+- **Canal**: el perfil `preview` define `EXPO_PUBLIC_RELEASE_CHANNEL=RC1`. `app.config.ts` lo copia a `extra.releaseChannel`. `preview-d11` y `preview-simulator` lo heredan (`extends`). `development` y `production` no lo fijan. En Ajustes y en Soporte, con ese APK, se lee `Versión 1.0.0 (RC1) · build N` (inglés: `Version 1.0.0 (RC1) · build N`). El diagnóstico trae la misma frase en `versionLine` y el canal en `releaseChannel`.
+- **Número de build** (`versionCode` en Android, `buildNumber` en iOS): lo lleva EAS en el servidor (`"appVersionSource": "remote"` en `eas.json`). No hay `versionCode` ni `buildNumber` en `app.json`.
   - Por qué remoto y no local: la config es dinámica (`app.config.ts`) y EAS no puede reescribir un número local dentro de ella; con el remoto, `autoIncrement` funciona sin commits extra por cada build y sin conflictos entre Termux y otro equipo.
   - **`autoIncrement: true`** en `preview`, `preview-d11` y `production`. Cada APK o build de iOS de esos perfiles sale con un número distinto, así que Android no trata el APK nuevo como la misma compilación que el anterior. `preview-simulator` lo hereda de `preview` (`extends`). `development` no lo incrementa.
   - El contador es el remoto del proyecto EAS (mismo `versionCode` / `buildNumber` para la app real). La variante D11 tiene otro identificador (`com.bdevdpaz.dualtracker.d11`) pero también pide incremento, así que cada APK de D11 queda distinguido.
-  - Si el primer build pregunta con qué número empezar, usa `1` (no hay builds previos en tiendas).
-  - Para consultarlo o fijarlo: `npx eas-cli@latest build:version:get` / `build:version:set`.
+  - El último preview de la app real fue **versionCode 3**. El siguiente `preview` tiene que salir en **4 o mayor**. No reinicies el contador remoto.
+  - Para consultarlo: `npx eas-cli@latest build:version:get`. No hace falta `build:version:set` para RC1: `autoIncrement` sigue desde 3.
 - **`runtimeVersion`**: no se define porque la app **no usa `expo-updates`** (no hay actualizaciones OTA). Si algún día se añade, habrá que instalar `expo-updates`, fijar `runtimeVersion` (p. ej. `{ "policy": "appVersion" }`) y un `channel` por perfil.
 - **`owner`**: `bdevdpaz` (en `app.json`). Tiene que coincidir con el usuario u organización de Expo con el que hagas `eas login`; si tu usuario de Expo es otro, cambia `owner` antes de `eas init`.
 
