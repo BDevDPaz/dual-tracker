@@ -27,14 +27,14 @@ export function Card({
       case "outline":
         return {
           backgroundColor: "transparent",
-          borderWidth: 1,
+          borderWidth: TOKENS.layout.hairline,
           borderColor: colors.border,
         };
       case "elevated":
       default:
         return {
           backgroundColor: colors.surfaceElevated,
-          borderWidth: 1,
+          borderWidth: TOKENS.layout.hairline,
           borderColor: colors.border,
         };
     }

@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { TOKENS, FONT, font, type ThemeColors } from "../../constants/theme";
+import { TOKENS, FONT, ICON, font, type ThemeColors } from "../../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
@@ -46,7 +46,7 @@ export function StatusPill({ tone, label }: StatusPillProps) {
   const { color, bg } = toneColors(colors, tone);
   return (
     <View style={[styles.pill, { backgroundColor: bg }]} accessibilityRole="text" accessibilityLabel={label}>
-      <Ionicons name={PILL_GLYPH[tone]} size={12} color={color} testID={`status-pill-glyph-${tone}`} />
+      <Ionicons name={PILL_GLYPH[tone]} size={ICON.xs} color={color} testID={`status-pill-glyph-${tone}`} />
       <Text style={[styles.text, { color }]}>{label.toUpperCase()}</Text>
     </View>
   );
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: TOKENS.spacing.sm,
   },
   text: {
     ...FONT.label,

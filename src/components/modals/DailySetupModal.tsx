@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
+import { useFormFocusChain } from "../ui/formChain";
+import { FORM_FIELDS } from "../ui/formFields";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
@@ -61,6 +63,12 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
   };
 
   const canConfirm = quick ? address.trim().length > 0 : selected !== null;
+  const chain = useFormFocusChain(FORM_FIELDS.dailySetup, {
+    canSubmit: canConfirm && !busy && !creating,
+    onSubmit: () => {
+      confirm().catch(() => setCreating(false));
+    },
+  });
 
   return (
     <ModalShell
@@ -104,7 +112,7 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
               accessibilityState={{ selected: selected === s.id }}
             >
               <Text style={[styles.siteAlias, { color: colors.text.primary }]}>{s.alias}</Text>
-              <Text style={[styles.siteAddr, { color: colors.text.secondary }]} numberOfLines={1}>
+              <Text style={[styles.siteAddr, { color: colors.text.secondary }]} numberOfLines={2}>
                 {s.clientName ? `${s.clientName} · ` : ""}
                 {s.address}
               </Text>
@@ -114,9 +122,9 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
         </View>
       ) : (
         <View>
-          <Input label={t("sites.address")} icon="map-outline" value={address} onChangeText={setAddress} autoFocus />
-          <Input label={t("sites.alias")} icon={ICONS.domain.location} value={alias} onChangeText={setAlias} />
-          <Input label={t("sites.client")} icon="business-outline" value={client} onChangeText={setClient} />
+          <Input {...chain.props("address")} label={t("sites.address")} icon="map-outline" value={address} onChangeText={setAddress} autoFocus />
+          <Input {...chain.props("alias")} label={t("sites.alias")} icon={ICONS.domain.location} value={alias} onChangeText={setAlias} />
+          <Input {...chain.props("client")} label={t("sites.client")} icon="business-outline" value={client} onChangeText={setClient} />
         </View>
       )}
     </ModalShell>
@@ -125,10 +133,10 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
 
 const styles = StyleSheet.create({
   tabs: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
-  tab: { flex: 1, paddingVertical: TOKENS.spacing.sm, borderWidth: 1, borderRadius: TOKENS.radius.md, alignItems: "center" },
+  tab: { flex: 1, minHeight: TOKENS.layout.minTouchTarget, paddingVertical: TOKENS.spacing.sm, borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, alignItems: "center", justifyContent: "center" },
   tabText: { ...FONT.label },
   list: { gap: TOKENS.spacing.sm },
-  siteRow: { borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md },
+  siteRow: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md },
   siteAlias: { ...FONT.bodyStrong },
-  siteAddr: { ...FONT.caption, marginTop: 2 },
+  siteAddr: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
 });

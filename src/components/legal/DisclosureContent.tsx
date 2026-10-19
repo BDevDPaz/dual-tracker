@@ -25,8 +25,8 @@ export function DisclosureContent({ content }: { content: LegalContent }) {
 
 const styles = StyleSheet.create({
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
-  block: { borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md },
+  block: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md },
   blockTitle: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
-  body: { ...FONT.body, fontSize: 14, lineHeight: 20 },
+  body: { ...FONT.bodySmall },
   version: { ...FONT.caption, textAlign: "right", marginTop: TOKENS.spacing.sm },
 });

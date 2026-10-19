@@ -10,7 +10,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
-import { TOKENS, FONT, font } from "../../constants/theme";
+import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
@@ -155,36 +155,32 @@ const styles = StyleSheet.create({
   },
   accentGlow: {
     position: "absolute",
-    left: -4,
-    top: 7,
-    width: 44,
-    height: 26,
+    left: -TOKENS.spacing.xs,
+    top: TOKENS.spacing.sm,
+    width: TOKENS.layout.brandGlowWidth,
+    height: TOKENS.layout.brandGlowHeight,
     borderRadius: TOKENS.radius.md,
   },
   title: {
-    fontSize: 30,
-    ...font("800"),
-    letterSpacing: -0.4,
+    ...FONT.display,
   },
   titleAccent: {},
   titleMain: {},
   subtitle: {
-    ...FONT.caption,
-    marginTop: 4,
-    fontSize: 11,
-    ...font("700"),
+    ...FONT.label,
+    marginTop: TOKENS.spacing.xs,
     letterSpacing: 2,
   },
   lineTrack: {
-    marginTop: 10,
-    height: 2,
-    width: 120,
-    borderRadius: 2,
+    marginTop: TOKENS.spacing.md,
+    height: TOKENS.radius.hairline,
+    width: TOKENS.layout.brandLine,
+    borderRadius: TOKENS.radius.hairline,
     overflow: "hidden",
   },
   lineAccent: {
-    height: 2,
+    height: TOKENS.radius.hairline,
     width: "100%",
-    borderRadius: 2,
+    borderRadius: TOKENS.radius.hairline,
   },
 });

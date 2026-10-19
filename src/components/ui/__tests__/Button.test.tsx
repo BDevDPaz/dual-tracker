@@ -6,10 +6,12 @@ import { TOKENS } from "../../../constants/theme";
 import { Button } from "../Button";
 
 describe("Button", () => {
-  test("size=sm mide al menos minTouchTarget (44)", () => {
+  test("size=sm mide al menos minTouchTarget (48) y no capa la escala de fuente", () => {
     render(<Button label="Ir" size="sm" testID="b" />);
-    const style = StyleSheet.flatten(screen.getByTestId("b").props.style) as { height: number };
-    expect(style.height).toBeGreaterThanOrEqual(TOKENS.layout.minTouchTarget);
+    const node = screen.getByTestId("b");
+    const style = StyleSheet.flatten(node.props.style) as { minHeight: number };
+    expect(style.minHeight).toBeGreaterThanOrEqual(TOKENS.layout.minTouchTarget);
+    expect(node.props.maxFontSizeMultiplier).toBeUndefined();
   });
 
   test("danger usa colors.onDanger para el texto", () => {

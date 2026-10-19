@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { formatUiDecimal } from "../../utils/dateUtils";
@@ -39,7 +39,7 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
         <View style={styles.metricHeader}>
           <Ionicons
             name="time-outline"
-            size={16}
+            size={ICON.sm}
             color={colors.text.secondary}
           />
           <Text
@@ -67,7 +67,7 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
         <View style={styles.metricHeader}>
           <Ionicons
             name="cash-outline"
-            size={16}
+            size={ICON.sm}
             color={colors.primary}
           />
           <Text
@@ -93,11 +93,11 @@ const styles = StyleSheet.create({
   block: {
     flexDirection: "row",
     marginHorizontal: 0,
-    padding: 18,
+    padding: TOKENS.spacing.lg,
     borderRadius: TOKENS.radius.lg,
     marginBottom: TOKENS.spacing.xl,
     alignItems: "center",
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
   },
   metricZone: {
     flex: 1,
@@ -106,20 +106,18 @@ const styles = StyleSheet.create({
   metricHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
+    gap: TOKENS.spacing.sm,
+    marginBottom: TOKENS.spacing.xs,
   },
   metricLabel: {
     ...FONT.label,
   },
   metricValue: {
-    ...FONT.h3,
-    ...FONT.tabular,
-    fontSize: 24,
-    lineHeight: 30,
+    ...FONT.h2,
+    ...FONT.tabularNums,
   },
   divider: {
     width: 1,
-    height: 40,
+    height: TOKENS.layout.metricRule,
   },
 });

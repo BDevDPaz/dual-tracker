@@ -29,9 +29,9 @@ export function HealthRow({ label, value, ok, blocksValid, onRepair }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: TOKENS.spacing.md, borderBottomWidth: 1 },
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: TOKENS.spacing.md, borderBottomWidth: TOKENS.layout.hairline },
   texts: { flex: 1 },
   label: { ...FONT.bodyStrong },
-  value: { ...FONT.caption, marginTop: 2 },
-  impact: { ...FONT.caption, marginTop: 2 },
+  value: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
+  impact: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
 });

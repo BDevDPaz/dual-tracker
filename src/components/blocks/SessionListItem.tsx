@@ -66,12 +66,12 @@ export function SessionListItem({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", paddingVertical: TOKENS.spacing.md, borderBottomWidth: 1, gap: TOKENS.spacing.md },
+  row: { flexDirection: "row", paddingVertical: TOKENS.spacing.md, borderBottomWidth: TOKENS.layout.hairline, gap: TOKENS.spacing.md },
   main: { flex: 1 },
-  side: { alignItems: "flex-end", gap: 4 },
+  side: { alignItems: "flex-end", gap: TOKENS.spacing.xs },
   date: { ...FONT.caption },
-  site: { ...FONT.bodyStrong, marginTop: 2 },
-  range: { ...FONT.caption, marginTop: 2 },
-  hours: { ...FONT.bodyStrong, fontSize: 14 },
-  amount: { ...FONT.caption },
+  site: { ...FONT.bodyStrong, marginTop: TOKENS.spacing.xxs },
+  range: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
+  hours: { ...FONT.figure },
+  amount: { ...FONT.caption, ...FONT.tabularNums },
 });

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, cancelAnimation, Easing, FadeIn, FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { SystemHealthView } from "../../core/selectors";
 import { ICONS } from "../../constants/icons";
@@ -55,10 +55,10 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   ] as const;
 
   const content = (
-    <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: 1, borderColor: warn }]}>
+    <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: TOKENS.layout.hairline, borderColor: warn }]}>
       <View style={styles.titleRow}>
         <Text style={[styles.title, { color: colors.text.primary }]}>{t("health.title").toUpperCase()}</Text>
-        {onPress ? <Ionicons name="chevron-forward" size={16} color={health.degraded ? warn : colors.text.secondary} /> : null}
+        {onPress ? <Ionicons name="chevron-forward" size={ICON.sm} color={health.degraded ? warn : colors.text.secondary} /> : null}
       </View>
       {rows.map((r) => (
         <View key={r.label} style={styles.row}>
@@ -66,7 +66,7 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
             style={[styles.dot, { backgroundColor: r.color }, r.pulse ? animatedDotStyle : null]}
             testID={r.pulse ? "health-dot-pulsing" : undefined}
           />
-          <Ionicons name={r.icon} size={16} color={r.color} style={styles.icon} />
+          <Ionicons name={r.icon} size={ICON.sm} color={r.color} style={styles.icon} />
           <Text style={[styles.text, { color: colors.text.secondary }]}>{r.label}</Text>
           <Text style={[styles.status, { color: r.color }]}>{r.status}</Text>
         </View>
@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
   title: { ...FONT.label, letterSpacing: 1 },
   row: { flexDirection: "row", alignItems: "center", marginBottom: TOKENS.spacing.sm },
-  dot: { width: 8, height: 8, borderRadius: 4, marginRight: TOKENS.spacing.sm },
+  dot: { width: TOKENS.spacing.sm, height: TOKENS.spacing.sm, borderRadius: TOKENS.radius.xs, marginRight: TOKENS.spacing.sm },
   icon: { marginRight: TOKENS.spacing.sm },
-  text: { ...FONT.body, fontSize: 14, flex: 1 },
+  text: { ...FONT.bodySmall, flex: 1 },
   status: { ...FONT.caption },
   impact: { ...FONT.caption, marginTop: TOKENS.spacing.xs },
 });

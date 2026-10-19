@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { useMotionPreference } from "./motion";
 import { ANIM_PRESETS } from "../../constants/animations";
@@ -32,7 +32,7 @@ export function EmptyState({
       <View style={styles.iconWrapper}>
         <Ionicons
           name={icon as any}
-          size={48}
+          size={ICON.hero}
           color={colors.text.muted}
         />
       </View>

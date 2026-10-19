@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { haptics, useMotionPreference } from "./motion";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
+import { useResponsive } from "./responsive";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
 import { t, useLanguage } from "../../i18n";
@@ -46,6 +47,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   const { colors } = useTheme();
   useLanguage();
+  const { isCompact } = useResponsive();
   const router = useRouter();
   const reduceMotion = useMotionPreference();
 
@@ -65,23 +67,21 @@ export function PageHeader({
         {showBack && (
           <Pressable
             onPress={handleBack}
-            style={styles.backButton}
-            hitSlop={12}
+            style={[styles.backButton, styles.hit]}
+            hitSlop={TOKENS.spacing.md}
             accessibilityLabel={backLabel ?? t("a11y.back")}
             accessibilityRole="button"
           >
             <Ionicons
               name={ICONS.actions.back as any}
-              size={28}
+              size={ICON.xxl}
               color={colors.text.primary}
             />
           </Pressable>
         )}
 
         <View style={styles.titleContainer}>
-          <Text
-            style={[styles.headerTitle, { color: colors.text.primary }]}
-          >
+          <Text style={[isCompact ? styles.headerTitleCompact : styles.headerTitle, { color: colors.text.primary }]}>
             {title}
           </Text>
         </View>
@@ -92,12 +92,12 @@ export function PageHeader({
             {rightAction ? (
               <Pressable
                 onPress={rightAction.onPress}
-                style={styles.rightAction}
-                hitSlop={12}
+                style={[styles.rightAction, styles.hit]}
+                hitSlop={TOKENS.spacing.md}
                 accessibilityLabel={rightAction.accessibilityLabel}
                 accessibilityRole="button"
               >
-                <Ionicons name={rightAction.icon as any} size={24} color={colors.text.primary} />
+                <Ionicons name={rightAction.icon as any} size={ICON.xl} color={colors.text.primary} />
               </Pressable>
             ) : null}
           </View>
@@ -136,8 +136,17 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
   },
+  hit: {
+    minWidth: TOKENS.layout.minTouchTarget,
+    minHeight: TOKENS.layout.minTouchTarget,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerTitle: {
     ...FONT.h1,
+  },
+  headerTitleCompact: {
+    ...FONT.h2,
   },
   headerSubtitle: {
     ...FONT.caption,

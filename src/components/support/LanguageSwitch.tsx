@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { Chip } from "../ui/Chip";
 import { useWorkTracker } from "../../core/hooks";
 import { selectSettings } from "../../core/selectors";
 import { setLanguage as setActiveLanguage, t, useLanguage } from "../../i18n";
@@ -23,19 +24,13 @@ export function LanguageSwitch() {
       <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("onboarding.language")}</Text>
       <View style={styles.row}>
         {(["es", "en"] as const).map((code) => (
-          <Pressable
+          <Chip
             key={code}
-            onPress={() => void onLanguage(code)}
             testID={`language-${code}`}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: language === code }}
-            accessibilityLabel={t(code === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
-            style={[styles.chip, { borderColor: language === code ? TOKENS.colors.primary : TOKENS.colors.border }]}
-          >
-            <Text style={{ color: language === code ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>
-              {t(code === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
-            </Text>
-          </Pressable>
+            label={t(code === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
+            selected={language === code}
+            onPress={() => void onLanguage(code)}
+          />
         ))}
       </View>
     </View>
@@ -46,5 +41,4 @@ const styles = StyleSheet.create({
   wrap: { gap: TOKENS.spacing.xs },
   label: { ...FONT.label },
   row: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm },
-  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
 });

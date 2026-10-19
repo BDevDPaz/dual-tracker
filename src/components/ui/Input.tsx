@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
+import { useKeyboardScroll } from "./keyboard";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { isValidHHmm, maskHHmm } from "../../utils/hhmm";
@@ -36,7 +37,8 @@ interface InputProps extends TextInputProps {
   invalidMessage?: string;
 }
 
-export function Input({
+export const Input = React.forwardRef<TextInput, InputProps>(function Input(
+  {
   label,
   error,
   hint,
@@ -51,16 +53,26 @@ export function Input({
   onBlur,
   value,
   ...props
-}: InputProps) {
+}: InputProps,
+  ref,
+) {
   const { colors } = useTheme();
   useLanguage();
+  const keyboardScroll = useKeyboardScroll();
+  const innerRef = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [touched, setTouched] = useState(false);
 
   const handleChange = (text: string) => onChangeText?.(mask === "HH:mm" ? maskHHmm(text) : text);
+  const setRefs = (node: TextInput | null) => {
+    innerRef.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) ref.current = node;
+  };
   const handleFocus: NonNullable<TextInputProps["onFocus"]> = (e) => {
     setFocused(true);
+    keyboardScroll?.scrollToNode(innerRef.current);
     onFocus?.(e);
   };
   const handleBlur: NonNullable<TextInputProps["onBlur"]> = (e) => {
@@ -89,11 +101,12 @@ export function Input({
           styles.inputWrapper,
           { backgroundColor: colors.surface, borderColor },
           // Anillo de foco: primario al 40 % (outline no desplaza el layout).
-          focused && { outlineColor: shownError ? colors.status.danger : colors.focusRing, outlineWidth: 3, outlineStyle: "solid", outlineOffset: 0 },
+          focused && { outlineColor: shownError ? colors.status.danger : colors.focusRing, outlineWidth: TOKENS.layout.focusOutline, outlineStyle: "solid", outlineOffset: 0 },
         ]}
       >
-        {icon ? <Ionicons name={icon as any} size={18} color={colors.text.muted} style={styles.icon} /> : null}
+        {icon ? <Ionicons name={icon as any} size={ICON.md} color={colors.text.muted} style={styles.icon} /> : null}
         <TextInput
+          ref={setRefs}
           style={[styles.input, { color: colors.text.primary }, mask === "HH:mm" && styles.mono, style]}
           placeholderTextColor={colors.text.muted}
           value={value}
@@ -109,12 +122,12 @@ export function Input({
         {secureToggle ? (
           <Pressable
             onPress={() => setRevealed((r) => !r)}
-            hitSlop={12}
+            hitSlop={TOKENS.spacing.md}
             style={styles.toggle}
             accessibilityRole="button"
             accessibilityLabel={revealed ? t("a11y.hideSecret") : t("a11y.showSecret")}
           >
-            <Ionicons name={revealed ? "eye-off-outline" : "eye-outline"} size={20} color={colors.text.secondary} />
+            <Ionicons name={revealed ? "eye-off-outline" : "eye-outline"} size={ICON.lg} color={colors.text.secondary} />
           </Pressable>
         ) : null}
       </View>
@@ -128,7 +141,7 @@ export function Input({
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -138,15 +151,15 @@ const styles = StyleSheet.create({
   label: {
     ...FONT.label,
     marginBottom: TOKENS.spacing.xs,
-    marginLeft: 4,
+    marginLeft: TOKENS.spacing.xs,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: TOKENS.radius.md,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
     paddingHorizontal: TOKENS.spacing.md,
-    minHeight: 52,
+    minHeight: TOKENS.layout.inputMin,
   },
   icon: {
     marginRight: TOKENS.spacing.sm,
@@ -170,11 +183,11 @@ const styles = StyleSheet.create({
   errorText: {
     ...FONT.caption,
     marginTop: TOKENS.spacing.xs,
-    marginLeft: 4,
+    marginLeft: TOKENS.spacing.xs,
   },
   hintText: {
     ...FONT.caption,
     marginTop: TOKENS.spacing.xs,
-    marginLeft: 4,
+    marginLeft: TOKENS.spacing.xs,
   },
 });

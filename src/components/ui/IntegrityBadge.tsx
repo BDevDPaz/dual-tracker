@@ -3,7 +3,7 @@ import { Text, StyleSheet } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
-import { TOKENS, FONT, font, type ThemeColors } from "../../constants/theme";
+import { TOKENS, FONT, ICON, font, type ThemeColors } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
 import type { IntegrityClass } from "../../core/contracts";
@@ -51,7 +51,7 @@ export function IntegrityBadge({ integrity, blocked = false }: IntegrityBadgePro
       style={[styles.badge, { borderColor: config.color, backgroundColor: config.bg }]}
       accessibilityLabel={t("integrity.a11yLabel", { label })}
     >
-      <Ionicons name={config.icon as React.ComponentProps<typeof Ionicons>["name"]} size={12} color={config.color} style={styles.icon} />
+      <Ionicons name={config.icon as React.ComponentProps<typeof Ionicons>["name"]} size={ICON.xs} color={config.color} style={styles.icon} />
       <Text style={[styles.text, { color: config.color }]}>{label.toUpperCase()}</Text>
     </Animated.View>
   );
@@ -62,11 +62,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: TOKENS.spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: TOKENS.spacing.xs,
     borderRadius: TOKENS.radius.xs,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
     alignSelf: "flex-start",
   },
-  icon: { marginRight: 4 },
+  icon: { marginRight: TOKENS.spacing.xs },
   text: { ...FONT.label, ...font("800"), letterSpacing: 0.5 },
 });

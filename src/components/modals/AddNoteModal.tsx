@@ -2,7 +2,10 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
+import { useFormFocusChain } from "../ui/formChain";
+import { FORM_FIELDS } from "../ui/formFields";
 import { ICONS } from "../../constants/icons";
+import { TOKENS } from "../../constants/theme";
 import { t, useLanguage } from "../../i18n";
 
 /**
@@ -23,6 +26,10 @@ export function AddNoteModal({ visible, title, busy = false, onCancel, onSave }:
   useEffect(() => {
     if (visible) setNote("");
   }, [visible]);
+  const chain = useFormFocusChain(FORM_FIELDS.addNote, {
+    canSubmit: note.trim().length > 0 && !busy,
+    onSubmit: () => onSave(note.trim()),
+  });
 
   return (
     <ModalShell
@@ -33,11 +40,11 @@ export function AddNoteModal({ visible, title, busy = false, onCancel, onSave }:
       primaryAction={{ label: t("common.save"), onPress: () => onSave(note.trim()), disabled: !note.trim(), loading: busy }}
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
     >
-      <Input placeholder={t("modals.notePlaceholder")} value={note} onChangeText={setNote} multiline numberOfLines={4} style={styles.textArea} autoFocus />
+      <Input {...chain.props("note")} placeholder={t("modals.notePlaceholder")} value={note} onChangeText={setNote} multiline numberOfLines={4} style={styles.textArea} autoFocus />
     </ModalShell>
   );
 }
 
 const styles = StyleSheet.create({
-  textArea: { height: 120, textAlignVertical: "top" },
+  textArea: { height: TOKENS.layout.textAreaLg, textAlignVertical: "top" },
 });
