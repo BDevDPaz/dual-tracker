@@ -1,6 +1,6 @@
 # Interfaz premium
 
-Restyle visual de Dual Tracker. No cambia la nómina, el registro de integridad, los hashes ni el PDF del comprobante. El recibo en papel es una fase posterior: `src/services/evidence/reportTemplates.ts` se deja como está.
+Restyle visual de Dual Tracker. No cambia la nómina, el registro de integridad ni los hashes. El PDF de los sellos nuevos es otra versión de documento: `docs/COMPROBANTES_PREMIUM.md`. Un expediente ya sellado se queda como estaba.
 
 Probar en español y en inglés, con la fuente del sistema en 1.0 y en 1.3, en un teléfono Android (referencia: Galaxy S22+). El objetivo táctil mínimo sigue siendo 48 dp.
 
@@ -17,4 +17,4 @@ Probar en español y en inglés, con la fuente del sistema en 1.0 y en 1.3, en u
 - **P11.** Un háptico ligero al pulsar una acción primaria o una selección. Al confirmar, un check breve. Con «reducir movimiento» no hay bucle de esqueleto, ni deslizamiento de hoja, ni háptico.
 - **P12.** Modo práctica: marca de agua «PRÁCTICA» (en inglés, «PRACTICE») que no tapa los botones. Sellar la demostración muestra el mismo sello. Salir no deja datos en Hoy.
 - **P13.** Cambiar el idioma en Ajustes o en la práctica repinta títulos, hoja V·M·A·C, contraste y marca de agua.
-- **P14.** Un expediente ya generado se abre igual: el PDF y el código de verificación no cambian de contenido por este restyle.
+- **P14.** Un expediente ya generado se abre igual: el PDF y el código de verificación no cambian de contenido por este restyle. Los sellos posteriores usan el comprobante de `docs/COMPROBANTES_PREMIUM.md`.

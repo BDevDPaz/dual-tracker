@@ -5,9 +5,9 @@
  * empleador. Sin "regenerar con otras reglas": un pack sellado no muta.
  */
 import { useState } from "react";
-import { Text, StyleSheet, View } from "react-native";
+import { Pressable, Text, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section } from "../../../src/components/ui";
+import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section, StatusPill } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
@@ -19,6 +19,8 @@ export default function PackScreen() {
   const router = useRouter();
   const { packId, sealed } = useLocalSearchParams<{ packId: string; sealed?: string }>();
   const [showSeal, setShowSeal] = useState(sealed === "1");
+  const [annexLedger, setAnnexLedger] = useState(false);
+  const [annexEnterExit, setAnnexEnterExit] = useState(false);
   const id = String(packId ?? "");
   const { state, emit, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
@@ -45,6 +47,8 @@ export default function PackScreen() {
   }
   const m = pack.manifest;
   const shared = selectPackShared(state, pack.id);
+  const premium = (m.documentVersion ?? 1) >= 2;
+  const annex = premium ? { annexLedger, annexEnterExit } : {};
 
   return (
     <View style={styles.root}>
@@ -88,9 +92,36 @@ export default function PackScreen() {
         })}
       </Section>
 
+      {premium ? (
+        <Section title={t("report.annexTitle")}>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: annexLedger }}
+            accessibilityLabel={t("report.annexLedger")}
+            onPress={() => setAnnexLedger((v) => !v)}
+            style={styles.switchRow}
+          >
+            <Text style={{ color: TOKENS.colors.text.primary }}>{t("report.annexLedger")}</Text>
+            <StatusPill tone={annexLedger ? "success" : "neutral"} label={t(annexLedger ? "settings.highContrastOn" : "settings.highContrastOff")} />
+          </Pressable>
+          <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.annexLedgerHint")}</Text>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: annexEnterExit }}
+            accessibilityLabel={t("report.annexEnterExit")}
+            onPress={() => setAnnexEnterExit((v) => !v)}
+            style={styles.switchRow}
+          >
+            <Text style={{ color: TOKENS.colors.text.primary }}>{t("report.annexEnterExit")}</Text>
+            <StatusPill tone={annexEnterExit ? "success" : "neutral"} label={t(annexEnterExit ? "settings.highContrastOn" : "settings.highContrastOff")} />
+          </Pressable>
+          <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.annexEnterExitHint")}</Text>
+        </Section>
+      ) : null}
+
       {!shared ? <BackupAdviceCard /> : null}
-      <Button label={t("reports.shareEmployee")} iconName="share-outline" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: pack.id })} />
-      <Button label={t("reports.shareEmployer")} variant="secondary" iconName="briefcase-outline" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: pack.id })} />
+      <Button label={t("reports.shareEmployee")} iconName="share-outline" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: pack.id, ...annex })} />
+      <Button label={t("reports.shareEmployer")} variant="secondary" iconName="briefcase-outline" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: pack.id, ...annex })} />
     </ScreenScroll>
     </View>
   );
@@ -102,4 +133,5 @@ const styles = StyleSheet.create({
   label: { ...FONT.label },
   hash: { ...FONT.caption, fontFamily: "monospace" },
   caption: { ...FONT.caption },
+  switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, paddingVertical: TOKENS.spacing.xs },
 });

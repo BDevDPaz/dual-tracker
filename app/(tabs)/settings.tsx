@@ -182,6 +182,20 @@ export default function SettingsScreen() {
             <StatusPill tone={settings.profile.highContrast ? "success" : "neutral"} label={t(settings.profile.highContrast ? "settings.highContrastOn" : "settings.highContrastOff")} />
           </Pressable>
           <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.highContrastHint")}</Text>
+          <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.comprobanteTheme")}</Text>
+          <View style={styles.row}>
+            <Chip
+              label={t("settings.comprobanteLight")}
+              selected={settings.profile.comprobanteTheme !== "dark"}
+              onPress={() => void emit({ type: "SAVE_SETTINGS", patch: { profile: { comprobanteTheme: "light" } } })}
+            />
+            <Chip
+              label={t("settings.comprobanteDark")}
+              selected={settings.profile.comprobanteTheme === "dark"}
+              onPress={() => void emit({ type: "SAVE_SETTINGS", patch: { profile: { comprobanteTheme: "dark" } } })}
+            />
+          </View>
+          <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.comprobanteThemeHint")}</Text>
           <Input {...profileChain.props("reminder")} label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
         </Section>
 

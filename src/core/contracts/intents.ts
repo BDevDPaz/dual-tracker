@@ -170,8 +170,8 @@ export type ViewIntent =
       /** Reemisión explícita: pack nuevo aunque el contenido sea idéntico al último sello. */
       reissue?: boolean;
     }
-  | { type: "SHARE_EMPLOYEE"; packId: string }
-  | { type: "SHARE_EMPLOYER"; packId: string }
+  | { type: "SHARE_EMPLOYEE"; packId: string; annexLedger?: boolean; annexEnterExit?: boolean }
+  | { type: "SHARE_EMPLOYER"; packId: string; annexLedger?: boolean; annexEnterExit?: boolean }
   /** FieldCrypto v1.3 §16: "Exportar expediente" → SEAL_PACK si falta y luego compartir (empleado). */
   | { type: "EXPORT_PACK"; periodStart: number; periodEnd: number }
   // Ajustes

@@ -24,6 +24,17 @@ export interface EvidenceSummary {
  */
 export const PACK_MANIFEST_VERSION = 4;
 
+/**
+ * Versión de la plantilla del PDF. No entra en packHash ni en contentHash:
+ * es presentación. Los packs ya sellados no traen el campo (se leen como v1,
+ * la plantilla heredada). Los sellos nuevos escriben v2.
+ *  - ausente o 1: HTML heredado, siempre en español.
+ *  - 2: comprobante premium (claro por defecto, es/en al sellar).
+ */
+export const DOCUMENT_VERSION = 2;
+
+export type DocumentTheme = "light" | "dark";
+
 /** Contexto del dispositivo al sellar (entra en packHash, NO en contentHash). */
 export interface SealWarning {
   code: "FIELD_CRYPTO_KEY_LOST" | "PACK_UNSIGNED";
@@ -68,6 +79,15 @@ export interface PackManifest {
   sealWarnings?: SealWarning[];
   /** v4: firma del dispositivo. Ausente = unsigned-v1 (packs anteriores siguen siendo válidos). */
   signature?: PackSignature;
+  /**
+   * Plantilla del PDF (DOCUMENT_VERSION). Ausente en packs ya sellados.
+   * No entra en packHash ni en contentHash.
+   */
+  documentVersion?: number;
+  /** Tema con el que se pintó el PDF al sellar. Ausente = claro. Fuera del hash. */
+  documentTheme?: DocumentTheme;
+  /** Idioma con el que se pintó el PDF al sellar. Ausente = es. Fuera del hash. */
+  documentLocale?: "es" | "en";
   files: { role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER" | "MANIFEST_JSON"; name: string }[];
 }
 

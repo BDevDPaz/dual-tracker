@@ -14,7 +14,8 @@
  */
 import * as Crypto from "expo-crypto";
 import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, SealWarning, SessionRecord } from "../../core/contracts";
-import { PACK_MANIFEST_VERSION } from "../../core/contracts";
+import type { ReportAnnexOptions } from "./reportTemplates";
+import { DOCUMENT_VERSION, PACK_MANIFEST_VERSION } from "../../core/contracts";
 import { cryptoHealthSnapshot } from "../persistence/cryptoMigrations";
 import { StoreActions } from "../../core/store";
 import { canonicalJson } from "../../utils/canonicalJson";
@@ -107,7 +108,8 @@ export async function computeContentHash(statement: PayrollStatement, evidence: 
 /**
  * Cuerpo que entra en packHash. La firma y `files` quedan fuera: packHash no
  * cambia de significado al firmar. v1 sin versión ni contentHash; v2 añade
- * ambos; v3+ añade sealWarnings.
+ * ambos; v3+ añade sealWarnings. `documentVersion`, `documentTheme` y
+ * `documentLocale` no entran: son la plantilla del PDF, no el sello.
  */
 export function packHashBody(m: Omit<PackManifest, "packHash" | "files" | "signature">): Record<string, unknown> {
   const base = {
@@ -215,6 +217,58 @@ export interface SealFreshness {
   sealedBeforePeriodEnd: boolean;
 }
 
+function wantsAnnex(pack: EvidencePack, annex?: ReportAnnexOptions): boolean {
+  return (pack.manifest.documentVersion ?? 1) >= DOCUMENT_VERSION && !!(annex?.ledger || annex?.enterExit);
+}
+
+/**
+ * URI que se comparte. Con anexos y documento v2 se pinta una copia en caché.
+ * El PDF sellado en documents/packs no se reescribe. Un pack anterior (sin
+ * documentVersion, o menor que v2) se comparte tal cual, aunque pidan anexos.
+ */
+async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER", annex?: ReportAnnexOptions): Promise<string | null> {
+  const stored = role === "EMPLOYEE_RECEIPT" ? pack.employeePdfUri : pack.employerPdfUri;
+  if (!wantsAnnex(pack, annex)) return stored;
+  const settings = await SettingsService.load();
+  const sessions = await EvidencePackService.sessionsOf(pack);
+  const sites = await PersistenceService.listSites({ includeArchived: true });
+  const ids = new Set(pack.evidence.ledgerHashes.map((h) => h.id));
+  const ledger = annex?.ledger
+    ? (await PersistenceService.listLedger())
+        .filter((e) => ids.has(e.id))
+        .sort((a, b) => a.id - b.id)
+        .map(({ id, sessionId, timestampMs, actor, intent, fromState, toState, reason, integrityClass, hash, prevHash }) => ({
+          id,
+          sessionId,
+          timestampMs,
+          actor,
+          intent,
+          fromState,
+          toState,
+          reason,
+          integrityClass,
+          hash,
+          prevHash,
+        }))
+    : undefined;
+  const rendered = await ReportService.renderPdf(
+    role,
+    {
+      statement: pack.statement,
+      evidence: pack.evidence,
+      manifest: pack.manifest,
+      sessions,
+      sites,
+      profile: settings.profile,
+      company: settings.company,
+      annex,
+      ledger,
+    },
+    { destination: "cache" },
+  );
+  return rendered.uri;
+}
+
 export const EvidencePackService = {
   /**
    * Sella el periodo. Con CONFLICT en el periodo exige `allowUncertified`
@@ -319,6 +373,9 @@ export const EvidencePackService = {
         certified,
         sealWarnings,
         ...(signature ? { signature } : {}),
+        documentVersion: DOCUMENT_VERSION,
+        documentTheme: settings.profile.comprobanteTheme === "dark" ? "dark" : "light",
+        documentLocale: settings.profile.language === "en" ? "en" : "es",
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
@@ -410,19 +467,22 @@ export const EvidencePackService = {
     return PersistenceService.listPacks();
   },
 
-  async shareEmployee(packId: string): Promise<IntentResult> {
+  async shareEmployee(packId: string, annex?: ReportAnnexOptions): Promise<IntentResult> {
     const pack = await PersistenceService.getPack(packId);
     if (!pack?.employeePdfUri) return { ok: false, code: "PACK_NOT_FOUND" };
-    if (!(await ReportService.share(pack.employeePdfUri))) return { ok: false, code: "SHARE_UNAVAILABLE" };
+    const uri = await exportPdf(pack, "EMPLOYEE_RECEIPT", annex);
+    if (!uri || !(await ReportService.share(uri))) return { ok: false, code: "SHARE_UNAVAILABLE" };
     await recordShared(packId, "EMPLOYEE");
     return { ok: true };
   },
 
-  async shareEmployer(packId: string): Promise<IntentResult> {
+  async shareEmployer(packId: string, annex?: ReportAnnexOptions): Promise<IntentResult> {
     const pack = await PersistenceService.getPack(packId);
     if (!pack?.employerPdfUri) return { ok: false, code: "PACK_NOT_FOUND" };
     const settings = await SettingsService.load();
-    const uris = [pack.employerPdfUri, pack.manifestUri].filter((u): u is string => !!u);
+    const pdf = await exportPdf(pack, "EMPLOYER_DOSSIER", annex);
+    if (!pdf) return { ok: false, code: "SHARE_UNAVAILABLE" };
+    const uris = [pdf, pack.manifestUri].filter((u): u is string => !!u);
     const sent = await ReportService.email(uris, settings.company.companyEmail, settings.profile.employeeName, packId);
     if (!sent) return { ok: false, code: "SHARE_UNAVAILABLE" };
     await recordShared(packId, "EMPLOYER");

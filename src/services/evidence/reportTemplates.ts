@@ -21,6 +21,7 @@ import type {
   Site,
 } from "../../core/contracts";
 import { t } from "../../i18n";
+import { renderPremiumDocument } from "./reportPremium";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatSiteName, noteToHtml } from "../domain/payrollDisplay";
@@ -29,21 +30,64 @@ import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { checkedInSiteIds } from "../domain/siteVisits";
 
 /**
- * El expediente (PDF y HTML) se emite SIEMPRE en español, con fechas en es.
- * No sigue el idioma de la UI: el archivo ya sellado tiene que ser idéntico
- * si se regenerara, y dos teléfonos con distinto idioma producen el mismo
- * documento para el mismo statement. Ver docs/IDIOMA.md.
+ * La plantilla heredada (sin documentVersion, o v1) se emite SIEMPRE en
+ * español. El documento v2 usa documentLocale / documentTheme, congelados al
+ * sellar y fuera del hash. Ver docs/COMPROBANTES_PREMIUM.md y docs/IDIOMA.md.
  */
 const ES: FormatOptions = { lang: "es" };
+
+/** Anexos que se eligen al compartir. No forman parte del sello. */
+export interface ReportAnnexOptions {
+  ledger?: boolean;
+  enterExit?: boolean;
+}
+
+/** Fila de bitácora ya recortada: sin payloadJson, para no pintar coordenadas. */
+export interface ForensicLedgerRow {
+  id: number;
+  sessionId: number | null;
+  timestampMs: number;
+  actor: string;
+  intent: string;
+  fromState: string | null;
+  toState: string | null;
+  reason: string;
+  integrityClass: string | null;
+  hash: string;
+  prevHash: string;
+}
 
 export interface ReportInput {
   statement: PayrollStatement;
   evidence: EvidenceSummary;
-  manifest: Pick<PackManifest, "packId" | "packHash" | "sealedAtMs" | "certified" | "policyId" | "sealWarnings">;
+  manifest: Pick<
+    PackManifest,
+    | "packId"
+    | "packHash"
+    | "sealedAtMs"
+    | "certified"
+    | "policyId"
+    | "sealWarnings"
+    | "signature"
+    | "manifestVersion"
+    | "documentVersion"
+    | "documentTheme"
+    | "documentLocale"
+  >;
   sessions: SessionRecord[];
   sites: Site[];
   profile: PersonProfile;
   company: CompanyPolicy;
+  /** Solo documento v2. El sello guardado no los incluye. */
+  annex?: ReportAnnexOptions;
+  /** Marca de agua PRÁCTICA. El sello real no la pone. */
+  practice?: boolean;
+  /** Asientos ya filtrados al expediente. Solo si annex.ledger. */
+  ledger?: ForensicLedgerRow[];
+}
+
+export function isPremiumDocument(input: ReportInput): boolean {
+  return (input.manifest.documentVersion ?? 1) >= 2;
 }
 
 const INTEGRITY_LABEL: Record<SessionRecord["integrityClass"], string> = {
@@ -233,6 +277,7 @@ function sealWarningBlock(input: ReportInput): string {
 
 /** Comprobante del empleado: resumen legible, sin rastro. Las filas de 0 min no se listan. */
 export function renderEmployeeReceipt(input: ReportInput): string {
+  if (isPremiumDocument(input)) return renderPremiumDocument(input, "EMPLOYEE_RECEIPT");
   const rows = sessionRows(input, true);
   return `<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${BASE_CSS}</style></head><body>
     ${header("Dual Tracker", "Comprobante del empleado", input)}
@@ -248,6 +293,7 @@ export function renderEmployeeReceipt(input: ReportInput): string {
 
 /** Expediente del empleador: líneas, integridad, ledger y resumen de traza. */
 export function renderEmployerDossier(input: ReportInput): string {
+  if (isPremiumDocument(input)) return renderPremiumDocument(input, "EMPLOYER_DOSSIER");
   const ev = input.evidence;
   const traces = ev.traces
     .map(
