@@ -9,6 +9,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
@@ -35,6 +36,7 @@ export default function OnboardingDisclosureScreen() {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
+        <HelpButton screen="onboardingDisclosure" />
         <DisclosureContent content={content} />
       </ScrollView>
       <View style={[styles.footer, { borderColor: TOKENS.colors.border }]}>

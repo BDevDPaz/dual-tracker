@@ -4,6 +4,7 @@
  */
 import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { t, useLanguage } from "../../src/i18n";
 
 export default function SystemLayout() {
@@ -18,8 +19,8 @@ export default function SystemLayout() {
         contentStyle: { backgroundColor: TOKENS.colors.background },
       }}
     >
-      <Stack.Screen name="health" options={{ title: t("health.title") }} />
-      <Stack.Screen name="conflict" options={{ title: t("conflict.title"), gestureEnabled: false }} />
+      <Stack.Screen name="health" options={{ title: t("health.title"), headerRight: () => <HelpButton screen="health" /> }} />
+      <Stack.Screen name="conflict" options={{ title: t("conflict.title"), gestureEnabled: false, headerRight: () => <HelpButton screen="conflict" /> }} />
     </Stack>
   );
 }

@@ -6,6 +6,7 @@
  * Los textos legales viven en legal.ts; el microcopy de avisos en microcopy.ts.
  */
 import type { Dictionary } from "./es";
+import { supportEn } from "./supportEn";
 
 export const en: Dictionary = {
   app: {
@@ -508,4 +509,5 @@ export const en: Dictionary = {
     degraded: "Degraded mode",
     conflict: "Some data needs review",
   },
+  support: supportEn,
 };

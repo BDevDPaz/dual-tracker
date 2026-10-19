@@ -136,7 +136,7 @@ export default function SettingsScreen() {
   return (
     <ScreenContainer noPadding>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
-        <PageHeader title={t("settings.title")} />
+        <PageHeader title={t("settings.title")} helpScreen="settings" />
 
         <Section title={t("settings.profile")}>
           <Input label={t("onboarding.employeeName")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} />
@@ -230,6 +230,13 @@ export default function SettingsScreen() {
               <Button label={t("settings.lock")} variant="ghost" size="sm" iconName="lock-closed-outline" onPress={() => void emit({ type: "LOCK_ADMIN" })} />
             </Card>
           )}
+        </Section>
+
+        <Section title={t("support.title")}>
+          <Card style={styles.card}>
+            <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("support.blurb")}</Text>
+            <Button label={t("support.open")} variant="secondary" size="sm" onPress={() => router.push("/support")} />
+          </Card>
         </Section>
 
         <Section title={t("settings.legal")}>

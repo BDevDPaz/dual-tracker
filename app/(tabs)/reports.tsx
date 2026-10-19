@@ -11,6 +11,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Card, DocumentPreviewWidget, LoadingOverlay, PageHeader, ScreenContainer, Section } from "../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
+import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { EvidencePack } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
@@ -94,7 +95,16 @@ export default function ReportsScreen() {
   return (
     <ScreenContainer noPadding>
       <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
-        <PageHeader title={t("reports.title")} subtitle={formatRange(periodStart, periodEnd)} />
+        <PageHeader title={t("reports.title")} subtitle={formatRange(periodStart, periodEnd)} helpScreen="reports" />
+        <ScreenTips
+          screen="reports"
+          sessionState={null}
+          siteCount={0}
+          batteryRestricted={false}
+          provisionalSeal={!!(fresh?.latestPackId && fresh.sealedBeforePeriodEnd)}
+          hasSplitRow={rows.some((r) => r.continuesFromMs != null || r.continuesUntilMs != null)}
+          hasZeroOmitted={rows.some((r) => r.zeroDuration)}
+        />
         <View style={styles.periods}>
           {(["CURRENT", "PREVIOUS"] as const).map((p) => (
             <Pressable

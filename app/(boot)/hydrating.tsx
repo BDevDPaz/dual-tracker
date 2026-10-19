@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { AppBrandTitle, Button } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectBootError, selectIsHydrated } from "../../src/core/selectors";
@@ -27,6 +28,9 @@ export default function HydratingScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: TOKENS.colors.background }]}>
+      <View style={styles.help}>
+        <HelpButton screen="boot" />
+      </View>
       <AppBrandTitle />
       {bootError ? (
         <>
@@ -45,6 +49,7 @@ export default function HydratingScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: "center", justifyContent: "center", padding: TOKENS.spacing.xl, gap: TOKENS.spacing.lg },
+  help: { position: "absolute", top: TOKENS.spacing.lg, right: TOKENS.spacing.lg },
   spinner: { marginTop: TOKENS.spacing.xl },
   status: { ...FONT.caption, textAlign: "center" },
 });

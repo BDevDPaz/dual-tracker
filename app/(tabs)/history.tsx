@@ -9,6 +9,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-n
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, PageHeader, ScreenContainer } from "../../src/components/ui";
+import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
@@ -81,7 +82,16 @@ export default function HistoryScreen() {
 
   return (
     <ScreenContainer>
-      <PageHeader title={t("history.title")} />
+      <PageHeader title={t("history.title")} helpScreen="history" />
+      <ScreenTips
+        screen="history"
+        sessionState={null}
+        siteCount={0}
+        batteryRestricted={false}
+        provisionalSeal={false}
+        hasSplitRow={weekRows.some((r) => r.continuesFromMs != null || r.continuesUntilMs != null)}
+        hasZeroOmitted={weekRows.some((r) => r.zeroDuration)}
+      />
       <View style={styles.weekRow}>
         <Pressable
           onPress={() => {

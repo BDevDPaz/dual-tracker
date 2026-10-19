@@ -3,6 +3,8 @@
  * utils/i18n.ts de GEOTrack/LEDTracker. Las rutas NO contienen copy en duro:
  * todo sale de aquí vía t("clave").
  */
+import { supportEs } from "./supportEs";
+
 export const es = {
   app: {
     name: "Dual Tracker",
@@ -508,6 +510,7 @@ export const es = {
     degraded: "Modo degradado",
     conflict: "Hay datos por revisar",
   },
+  support: supportEs,
 };
 
 type Widen<T> = T extends string ? string : { [K in keyof T]: Widen<T[K]> };

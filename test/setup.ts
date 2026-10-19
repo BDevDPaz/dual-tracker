@@ -65,6 +65,9 @@ beforeEach(async () => {
   (require("../src/components/feedback/blockingModals") as typeof import("../src/components/feedback/blockingModals")).BlockingModals.__reset();
   for (const m of RESETTABLE) (require(m) as { __reset?: () => void }).__reset?.();
   await (require("expo-sqlite") as typeof import("./mocks/expo-sqlite")).__resetAll(CREATE_TABLES_SQL);
+  await (require("../src/support/memory") as typeof import("../src/support/memory")).__resetSupportMemoryForTests();
+  await (require("../src/support/tips") as typeof import("../src/support/tips")).__resetTipsForTests();
+  await (require("../src/support/practice") as typeof import("../src/support/practice")).__resetPracticeForTests();
 
   const testPath = expect.getState().testPath ?? "";
   if (!/LoggingService/.test(testPath)) {

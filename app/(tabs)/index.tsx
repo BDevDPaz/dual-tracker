@@ -18,6 +18,7 @@ import {
 } from "../../src/components/ui";
 import { DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
 import { ScreenStatusBanner } from "../../src/components/blocks";
+import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
@@ -138,7 +139,17 @@ export default function TodayScreen() {
         <PageHeader
           title={t("app.name")}
           subtitle={formatDate(nowMs)}
+          helpScreen="today"
           rightAction={{ icon: "pulse-outline", onPress: () => router.push("/system/health"), accessibilityLabel: t("health.title") }}
+        />
+        <ScreenTips
+          screen="today"
+          sessionState={sessionState}
+          siteCount={sites.length}
+          batteryRestricted={healthRaw.batteryOptimization === "restricted"}
+          provisionalSeal={false}
+          hasSplitRow={false}
+          hasZeroOmitted={false}
         />
 
         {hasConflict ? (

@@ -8,6 +8,8 @@ import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
 import { t, useLanguage } from "../../i18n";
+import { HelpButton } from "../support/HelpButton";
+import type { ScreenId } from "../../support/types";
 
 interface PageHeaderProps {
   title: string;
@@ -19,6 +21,8 @@ interface PageHeaderProps {
     onPress: () => void;
     accessibilityLabel: string;
   };
+  /** Abre la guía de esta pantalla. */
+  helpScreen?: ScreenId;
   style?: ViewStyle;
   /** Etiqueta accesible del botón atrás (por defecto t("a11y.back")). */
   backLabel?: string;
@@ -35,6 +39,7 @@ export function PageHeader({
   showBack = false,
   onBack,
   rightAction,
+  helpScreen,
   style,
   inset = false,
   backLabel,
@@ -81,21 +86,22 @@ export function PageHeader({
           </Text>
         </View>
 
-        {rightAction && (
-          <Pressable
-            onPress={rightAction.onPress}
-            style={styles.rightAction}
-            hitSlop={12}
-            accessibilityLabel={rightAction.accessibilityLabel}
-            accessibilityRole="button"
-          >
-            <Ionicons
-              name={rightAction.icon as any}
-              size={24}
-              color={colors.text.primary}
-            />
-          </Pressable>
-        )}
+        {helpScreen || rightAction ? (
+          <View style={styles.actions}>
+            {helpScreen ? <HelpButton screen={helpScreen} /> : null}
+            {rightAction ? (
+              <Pressable
+                onPress={rightAction.onPress}
+                style={styles.rightAction}
+                hitSlop={12}
+                accessibilityLabel={rightAction.accessibilityLabel}
+                accessibilityRole="button"
+              >
+                <Ionicons name={rightAction.icon as any} size={24} color={colors.text.primary} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {subtitle ? (
@@ -137,6 +143,7 @@ const styles = StyleSheet.create({
     ...FONT.caption,
     marginTop: TOKENS.spacing.xs,
   },
+  actions: { flexDirection: "row", alignItems: "center" },
   rightAction: {
     marginRight: -TOKENS.spacing.xs,
   },
