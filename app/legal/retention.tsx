@@ -5,21 +5,16 @@
  * TODO(propuesta): la variante "fin de periodo exportado" aún no se aplica en
  * TraceRecorderService.purgeExpired (solo días).
  */
-import { ScrollView, StyleSheet } from "react-native";
 import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
-import { TOKENS } from "../../src/constants/theme";
+import { SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
 import { useWorkTracker } from "../../src/core/hooks";
 import { getLanguage } from "../../src/i18n";
 
 export default function LegalRetentionScreen() {
   const { state, queries } = useWorkTracker();
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScreenScroll edges={SAFE_EDGES.stack} keyboard={false}>
       <DisclosureContent content={queries.retention(getLanguage(), state.settings.company.traceRetentionDays)} />
-    </ScrollView>
+    </ScreenScroll>
   );
 }
-
-const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.xl },
-});

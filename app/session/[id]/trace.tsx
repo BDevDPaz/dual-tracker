@@ -8,12 +8,12 @@
  * dependencias de los linajes); hoy se presenta como lista.
  */
 import { useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, Text, StyleSheet, FlatList } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ScreenContainer } from "../../../src/components/ui";
+import { Chip, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
-import { TOKENS, FONT } from "../../../src/constants/theme";
+import { TOKENS, FONT, ICON } from "../../../src/constants/theme";
 import type { SpatialFact } from "../../../src/core/contracts";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectSessionById, selectSiteById } from "../../../src/core/selectors";
@@ -43,24 +43,25 @@ export default function TraceScreen() {
   // FieldCrypto §14: coordenadas de una clave perdida → texto de ilegible (nunca ciphertext).
   const unreadable = all.some((f) => f.unreadable);
 
-  if (facts.loading && !facts.data) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
+  if (facts.loading && !facts.data) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer edges={SAFE_EDGES.stack}>
       {unreadable ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableTrace")} /> : null}
       <View style={styles.layers}>
         {(["PERIMETER", "BREADCRUMB"] as const).map((l) => (
-          <Pressable
+          <Chip
             key={l}
+            label={t(l === "PERIMETER" ? "trace.layerPerimeter" : "trace.layerBreadcrumb")}
+            selected={layers[l]}
             onPress={() => setLayers((s) => ({ ...s, [l]: !s[l] }))}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: layers[l] }}
-            style={[styles.chip, { borderColor: layers[l] ? TOKENS.colors.primary : TOKENS.colors.border }]}
-          >
-            <Text style={{ color: layers[l] ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>
-              {t(l === "PERIMETER" ? "trace.layerPerimeter" : "trace.layerBreadcrumb")}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
       {crumbs.length > 1 ? (
@@ -78,7 +79,7 @@ export default function TraceScreen() {
           const color = bad ? TOKENS.colors.status.warning : TOKENS.colors.text.primary;
           return (
             <View style={[styles.row, { borderColor: TOKENS.colors.border }]}>
-              <Ionicons name={item.type === "BREADCRUMB" ? "ellipse" : item.type === "ENTER" ? "enter-outline" : item.type === "EXIT" ? "exit-outline" : "alert-circle-outline"} size={16} color={color} />
+              <Ionicons name={item.type === "BREADCRUMB" ? "ellipse" : item.type === "ENTER" ? "enter-outline" : item.type === "EXIT" ? "exit-outline" : "alert-circle-outline"} size={ICON.sm} color={color} />
               <View style={styles.flex}>
                 <Text style={[styles.type, { color }]}>
                   {item.type} · {formatTime(item.timestampMs)}
@@ -101,9 +102,8 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: { flexGrow: 1 },
   layers: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
-  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
-  row: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.md, paddingVertical: TOKENS.spacing.sm, borderBottomWidth: 1 },
+  row: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.md, paddingVertical: TOKENS.spacing.sm, borderBottomWidth: TOKENS.layout.hairline },
   flex: { flex: 1 },
-  type: { ...FONT.bodyStrong, fontSize: 14 },
-  meta: { ...FONT.caption, marginTop: 2 },
+  type: { ...FONT.bodySmall },
+  meta: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
 });

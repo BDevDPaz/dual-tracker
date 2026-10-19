@@ -3,9 +3,11 @@
  * `dt.practice.v1`). Esta pantalla no emite intenciones de jornada.
  */
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { Button, Card, Input, IntegrityBadge, StatusPill } from "../../src/components/ui";
+import { Button, Card, Input, IntegrityBadge, SAFE_EDGES, ScreenScroll, StatusPill } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { ScreenStatusBanner, KeyValueRow } from "../../src/components/blocks";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
@@ -48,6 +50,13 @@ export default function PracticeScreen() {
       setNote("");
     }
   };
+  const noteChain = useFormFocusChain(FORM_FIELDS.practiceNote, {
+    canSubmit: asking !== null,
+    onSubmit: () => {
+      if (!asking) return;
+      void run(asking === "edit" ? { type: "EDIT_NOTE", note } : { type: "FORGOT_CLOCK", note });
+    },
+  });
 
   const leave = () => {
     router.back();
@@ -56,7 +65,7 @@ export default function PracticeScreen() {
   return (
     <View style={styles.root}>
       <ScreenStatusBanner status="degraded" message={t("support.practice.banner")} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScroll edges={SAFE_EDGES.stack}>
         <LanguageSwitch />
         <Text style={[styles.note, { color: TOKENS.colors.text.secondary }]}>{t("support.practice.isolated")}</Text>
         <Card style={styles.card}>
@@ -72,7 +81,7 @@ export default function PracticeScreen() {
 
         {asking ? (
           <Card style={styles.card}>
-            <Input label={t("support.practice.noteLabel")} value={note} onChangeText={setNote} />
+            <Input {...noteChain.props("note")} label={t("support.practice.noteLabel")} value={note} onChangeText={setNote} />
             <Button
               label={t("common.confirm")}
               onPress={() => void run(asking === "edit" ? { type: "EDIT_NOTE", note } : { type: "FORGOT_CLOCK", note })}
@@ -159,14 +168,13 @@ export default function PracticeScreen() {
         ) : null}
 
         <Button label={t("support.practice.exit")} variant="danger" onPress={leave} />
-      </ScrollView>
+      </ScreenScroll>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: TOKENS.colors.background },
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingBottom: 48, gap: TOKENS.spacing.md },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   actions: { gap: TOKENS.spacing.sm },
   site: { ...FONT.h3 },

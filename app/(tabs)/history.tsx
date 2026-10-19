@@ -8,10 +8,10 @@ import { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Card, PageHeader, ScreenContainer } from "../../src/components/ui";
+import { Card, Chip, PageHeader, SAFE_EDGES, ScreenContainer } from "../../src/components/ui";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
-import { TOKENS, FONT } from "../../src/constants/theme";
+import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { resolveWeekCursor } from "../../src/core/refresh/weekCursor";
 import {
@@ -81,7 +81,7 @@ export default function HistoryScreen() {
         });
 
   return (
-    <ScreenContainer>
+    <ScreenContainer edges={SAFE_EDGES.tab}>
       <PageHeader title={t("history.title")} helpScreen="history" />
       <ScreenTips
         screen="history"
@@ -100,8 +100,9 @@ export default function HistoryScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel={t("a11y.prevWeek")}
+          style={styles.weekHit}
         >
-          <Ionicons name="chevron-back" size={22} color={TOKENS.colors.primary} />
+          <Ionicons name="chevron-back" size={ICON.xl} color={TOKENS.colors.primary} />
         </Pressable>
         <Text style={[styles.weekText, { color: TOKENS.colors.text.primary }]}>{formatRange(weekStart, weekEnd)}</Text>
         <Pressable
@@ -119,8 +120,9 @@ export default function HistoryScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel={t("a11y.nextWeek")}
+          style={styles.weekHit}
         >
-          <Ionicons name="chevron-forward" size={22} color={isCurrentWeek ? TOKENS.colors.text.muted : TOKENS.colors.primary} />
+          <Ionicons name="chevron-forward" size={ICON.xl} color={isCurrentWeek ? TOKENS.colors.text.muted : TOKENS.colors.primary} />
         </Pressable>
       </View>
 
@@ -139,15 +141,7 @@ export default function HistoryScreen() {
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {FILTERS.map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setFilter(f)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: filter === f }}
-              style={[styles.chip, { borderColor: filter === f ? TOKENS.colors.primary : TOKENS.colors.border }]}
-            >
-              <Text style={{ color: filter === f ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>{t(`history.filters.${f}`)}</Text>
-            </Pressable>
+            <Chip key={f} label={t(`history.filters.${f}`)} selected={filter === f} onPress={() => setFilter(f)} />
           ))}
         </ScrollView>
       </View>
@@ -168,12 +162,12 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  weekHit: { minWidth: TOKENS.layout.minTouchTarget, minHeight: TOKENS.layout.minTouchTarget, alignItems: "center", justifyContent: "center" },
   weekRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: TOKENS.spacing.md },
-  weekText: { ...FONT.bodyStrong },
+  weekText: { ...FONT.bodyStrong, flex: 1, textAlign: "center" },
   rollup: { padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
   filters: { gap: TOKENS.spacing.sm, paddingBottom: TOKENS.spacing.md },
-  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
   listFlex: { flex: 1 },
   list: { paddingBottom: TOKENS.spacing["3xl"], flexGrow: 1 },
 });

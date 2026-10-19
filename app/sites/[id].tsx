@@ -4,9 +4,11 @@
  * Archivar no borra historial. Intenciones: UPSERT_SITE, ARCHIVE_SITE.
  */
 import { useState } from "react";
-import { Text, StyleSheet, ScrollView } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, Input, ScreenContainer, Section } from "../../src/components/ui";
+import { Button, Card, EmptyState, Input, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
@@ -26,11 +28,36 @@ export default function SiteDetailScreen() {
   const site = Number.isFinite(siteId) ? selectSiteById(state, siteId) : null;
   const [radius, setRadius] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const storedRadius = site?.radiusM ?? state.settings.company.defaultRadiusM;
+  const radiusValue = radius ?? String(storedRadius);
+  const radiusNum = Math.round(Number(radius));
+  const radiusDirty = site != null && radius !== null && radiusNum !== storedRadius;
 
-  if (!selectIsHydrated(state)) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
+  const saveRadius = async () => {
+    if (!site) return;
+    setBusy(true);
+    const res = await emit({
+      type: "UPSERT_SITE",
+      site: { id: site.id, alias: site.alias, address: site.address, clientName: site.clientName, notes: site.notes, radiusM: Math.round(Number(radius)) },
+    });
+    setBusy(false);
+    if (res.ok) setRadius(null);
+  };
+  const chain = useFormFocusChain(FORM_FIELDS.siteRadius, {
+    canSubmit: radiusDirty && radiusNum > 0 && !busy,
+    onSubmit: () => void saveRadius(),
+  });
+
+  if (!selectIsHydrated(state)) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
+  }
   if (!site) {
     return (
-      <ScreenContainer>
+      <ScreenContainer edges={SAFE_EDGES.stack}>
         <EmptyState title={t("sites.notFound")} icon="location-outline" />
         <Button label={t("common.back")} onPress={() => router.back()} />
       </ScreenContainer>
@@ -43,18 +70,6 @@ export default function SiteDetailScreen() {
     selectVisibleSessions(state).filter((s) => sessionVisitsSite(s, site.id)),
   );
   const lastVisit = selectSiteLastVisitAtMs(state, site.id);
-  const radiusValue = radius ?? String(site.radiusM ?? state.settings.company.defaultRadiusM);
-  const radiusDirty = radius !== null && Math.round(Number(radius)) !== (site.radiusM ?? state.settings.company.defaultRadiusM);
-
-  const saveRadius = async () => {
-    setBusy(true);
-    const res = await emit({
-      type: "UPSERT_SITE",
-      site: { id: site.id, alias: site.alias, address: site.address, clientName: site.clientName, notes: site.notes, radiusM: Math.round(Number(radius)) },
-    });
-    setBusy(false);
-    if (res.ok) setRadius(null);
-  };
 
   const archive = async () => {
     setBusy(true);
@@ -64,9 +79,8 @@ export default function SiteDetailScreen() {
   };
 
   return (
-    <ScreenContainer noPadding>
+    <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
       <Stack.Screen options={{ title: site.alias || t("sites.title"), headerRight: () => <HelpButton screen="siteEdit" /> }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
         {!site.active ? <ScreenStatusBanner status="degraded" message={t("sites.archived")} /> : null}
         {site.unreadableFields?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableSite")} /> : null}
         <Card style={styles.card}>
@@ -83,7 +97,7 @@ export default function SiteDetailScreen() {
 
         {site.active ? (
           <Card style={styles.card}>
-            <Input label={t("sites.radius")} value={radiusValue} onChangeText={setRadius} keyboardType="number-pad" />
+            <Input {...chain.props("radius")} label={t("sites.radius")} value={radiusValue} onChangeText={setRadius} />
             {radiusDirty ? <Button label={t("common.save")} size="sm" isLoading={busy} onPress={() => void saveRadius()} /> : null}
           </Card>
         ) : null}
@@ -96,12 +110,10 @@ export default function SiteDetailScreen() {
         </Section>
 
         {site.active ? <Button label={t("sites.archive")} variant="danger" disabled={busy} onPress={() => void archive()} /> : null}
-      </ScrollView>
-    </ScreenContainer>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.xs },
 });

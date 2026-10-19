@@ -9,9 +9,11 @@
  * RESOLVE_SPLIT divide la jornada en dos (spec v1.3 §5.4).
  */
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
-import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell } from "../../src/components/ui";
+import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
@@ -41,20 +43,20 @@ export default function ConflictScreen() {
 
   if (!hasConflicts) {
     return (
-      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+      <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
         <EmptyState title={t("conflict.none")} icon="checkmark-circle-outline" />
         <Button label={t("common.close")} onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))} />
-      </ScrollView>
+      </ScreenScroll>
     );
   }
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
+      <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
         {views.map((v) => (
           <ConflictCard key={v.session.id} view={v} onOpenSession={() => router.push(`/session/${v.session.id}`)} />
         ))}
-      </ScrollView>
+      </ScreenScroll>
       <ModalShell
         visible={blockedNotice}
         title={t("conflict.title")}
@@ -71,6 +73,7 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
   const { emit } = useWorkTracker();
   const [note, setNote] = useState(view.session.bookkeeping.manualNote ?? "");
   const [busy, setBusy] = useState(false);
+  const chain = useFormFocusChain(FORM_FIELDS.conflictNote);
   const range = (r: { startAtMs: number; endAtMs: number | null } | null) =>
     r ? `${formatTime(r.startAtMs)} – ${r.endAtMs ? formatTime(r.endAtMs) : "…"}` : "—";
 
@@ -95,7 +98,7 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
       <KeyValueRow label={t("conflict.payrollImpact")} value={view.payrollImpact !== null ? formatCurrency(view.payrollImpact) : "—"} emphasis />
       <Button label={t("cta.reviewSession")} size="sm" variant="ghost" onPress={onOpenSession} />
 
-      <Input placeholder={t("conflict.notePlaceholder")} value={note} onChangeText={setNote} multiline />
+      <Input {...chain.props("note")} placeholder={t("conflict.notePlaceholder")} value={note} onChangeText={setNote} multiline />
       <Button label={t("conflict.keepGps")} disabled={busy || !view.factA} onPress={() => void run({ type: "RESOLVE_KEEP_GPS", sessionId: view.session.id, note: note.trim() || null })} />
       <Button
         label={t("conflict.acceptManual")}
@@ -118,7 +121,6 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm },
   title: { ...FONT.bodyStrong, flex: 1 },

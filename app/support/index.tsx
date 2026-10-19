@@ -3,13 +3,13 @@
  * estados, práctica, versión y diagnóstico. Todo el texto sale de t().
  */
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, Card, Section } from "../../src/components/ui";
+import { Button, Card, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { APP_VERSION } from "../../src/constants/app";
-import { TOKENS, FONT } from "../../src/constants/theme";
+import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
 import { useToast } from "../../src/context/ToastContext";
 import { t, useLanguage } from "../../src/i18n";
@@ -42,7 +42,7 @@ export default function SupportIndexScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScreenScroll edges={SAFE_EDGES.stack}>
       <LanguageSwitch />
       <Text style={[styles.blurb, { color: TOKENS.colors.text.secondary }]}>{t("support.blurb")}</Text>
 
@@ -106,7 +106,7 @@ export default function SupportIndexScreen() {
       <Text style={[styles.about, { color: TOKENS.colors.text.muted }]}>
         {t("support.about.line", { version: APP_VERSION, build: readBuildLabel(), content: SUPPORT_CONTENT_VERSION })}
       </Text>
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
@@ -114,18 +114,17 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="link" style={styles.link}>
       <Text style={[styles.linkText, { color: TOKENS.colors.text.primary }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={TOKENS.colors.text.muted} />
+      <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: 48 },
   blurb: { ...FONT.body },
   card: { padding: TOKENS.spacing.md, gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
   question: { ...FONT.bodyStrong },
   answer: { ...FONT.body },
-  gloss: { gap: 2, marginBottom: TOKENS.spacing.sm },
+  gloss: { gap: TOKENS.spacing.xxs, marginBottom: TOKENS.spacing.sm },
   link: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: TOKENS.spacing.sm },
   linkText: { ...FONT.body, flex: 1 },
   about: { ...FONT.caption, textAlign: "center" },

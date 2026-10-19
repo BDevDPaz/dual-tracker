@@ -12,6 +12,7 @@ import { Button } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { PermissionCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useResponsive } from "../../src/components/ui/responsive";
 import type { OsSettingsTarget, PermissionKey } from "../../src/core/contracts";
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectHealth } from "../../src/core/selectors";
@@ -36,9 +37,10 @@ export default function PermissionsScreen() {
   };
 
   const bgDegraded = health.locationBackground === "denied" || health.locationBackground === "blocked";
+  const { screenPadding } = useResponsive();
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
       <HelpButton screen="permissions" />
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.permissionsTitle")}</Text>
       {CARDS.map((c, i) => {
@@ -63,6 +65,6 @@ export default function PermissionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.xl },
+  content: { flexGrow: 1, gap: TOKENS.spacing.md },
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
 });

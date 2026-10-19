@@ -7,9 +7,9 @@
  * o exportar con sello "No certificado" visible.
  */
 import { useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Button, Card, DocumentPreviewWidget, LoadingOverlay, PageHeader, ScreenContainer, Section } from "../../src/components/ui";
+import { Button, Card, Chip, DocumentPreviewWidget, LoadingOverlay, PageHeader, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
@@ -93,8 +93,8 @@ export default function ReportsScreen() {
   const canSeal = !!periodId && closedCount > 0 && !sealing;
 
   return (
-    <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+    <View style={styles.root}>
+      <ScreenScroll edges={SAFE_EDGES.tab} refreshControl={refreshControl}>
         <PageHeader title={t("reports.title")} subtitle={formatRange(periodStart, periodEnd)} helpScreen="reports" />
         <ScreenTips
           screen="reports"
@@ -107,17 +107,7 @@ export default function ReportsScreen() {
         />
         <View style={styles.periods}>
           {(["CURRENT", "PREVIOUS"] as const).map((p) => (
-            <Pressable
-              key={p}
-              onPress={() => setPeriod(p)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: period === p }}
-              style={[styles.chip, { borderColor: period === p ? TOKENS.colors.primary : TOKENS.colors.border }]}
-            >
-              <Text style={{ color: period === p ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>
-                {t(p === "CURRENT" ? "reports.periodCurrent" : "reports.periodPrevious")}
-              </Text>
-            </Pressable>
+            <Chip key={p} label={t(p === "CURRENT" ? "reports.periodCurrent" : "reports.periodPrevious")} selected={period === p} onPress={() => setPeriod(p)} />
           ))}
         </View>
 
@@ -222,16 +212,15 @@ export default function ReportsScreen() {
         ) : null}
 
         {backup.next ? <BackupAdviceCard busy={exporting} onExport={() => void exportNext()} /> : null}
-      </ScrollView>
+      </ScreenScroll>
       <LoadingOverlay visible={sealing} message={t("reports.generating")} />
-    </ScreenContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
+  root: { flex: 1 },
   periods: { flexDirection: "row", gap: TOKENS.spacing.sm },
-  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
   card: { padding: TOKENS.spacing.lg },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
   link: { ...FONT.bodyStrong, marginTop: TOKENS.spacing.sm },

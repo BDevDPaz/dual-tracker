@@ -4,9 +4,9 @@
  * policyId y advertencias. Sustituye al widget mock DocumentPreviewWidget
  * como pantalla completa. periodId = "W<YYYY-MM-DD>" (lunes ISO).
  */
-import { Text, StyleSheet, ScrollView } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, ScreenContainer, Section } from "../../src/components/ui";
+import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
@@ -32,21 +32,33 @@ export default function PeriodStatementScreen() {
 
   if (!range) {
     return (
-      <ScreenContainer>
+      <ScreenContainer edges={SAFE_EDGES.stack}>
         <EmptyState title={t("report.invalidPeriod")} icon="document-outline" />
         <Button label={t("common.back")} onPress={() => router.back()} />
       </ScreenContainer>
     );
   }
   const st = statement.data;
-  if (statement.loading && !st) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
-  if (!st) return <ScreenStatusBanner status="empty" message={statement.error ?? t("common.noData")} />;
+  if (statement.loading && !st) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
+  }
+  if (!st) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <ScreenStatusBanner status="empty" message={statement.error ?? t("common.noData")} />
+      </ScreenContainer>
+    );
+  }
 
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === range.start);
   const shown = displayStatement(st);
 
   return (
-    <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+    <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
       <ScreenTips
         screen="statement"
         sessionState={null}
@@ -101,12 +113,11 @@ export default function PeriodStatementScreen() {
       {packs.map((p) => (
         <Button key={p.id} label={`${t("report.packTitle")} · ${p.manifest.packHash.slice(0, 8)}`} variant="secondary" onPress={() => router.push(`/report/pack/${p.id}`)} />
       ))}
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   title: { ...FONT.h2 },
   caption: { ...FONT.caption },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.xs },

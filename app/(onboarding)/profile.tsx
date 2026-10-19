@@ -8,9 +8,11 @@
  * guarda al pulsar, no al pulsar Entrar.
  */
 import { useState } from "react";
-import { Text, StyleSheet, ScrollView } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Button, Input } from "../../src/components/ui";
+import { Button, Input, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
@@ -29,7 +31,6 @@ export default function ProfileScreen() {
 
   const rateNum = Number(rate.replace(",", "."));
   const valid = name.trim().length > 0 && Number.isFinite(rateNum) && rateNum >= 0 && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder);
-
   const onEnter = async () => {
     setBusy(true);
     const res = await emit({
@@ -39,21 +40,21 @@ export default function ProfileScreen() {
     setBusy(false);
     if (res.ok) router.replace("/");
   };
+  const chain = useFormFocusChain(FORM_FIELDS.onboardingProfile, { onSubmit: () => void onEnter(), canSubmit: valid && !busy });
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScreenScroll edges={SAFE_EDGES.none}>
       <HelpButton screen="profile" />
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
-      <Input label={t("onboarding.employeeName")} value={name} onChangeText={setName} autoCapitalize="words" />
-      <Input label={t("onboarding.hourlyRate")} value={rate} onChangeText={setRate} keyboardType="decimal-pad" />
+      <Input {...chain.props("name")} label={t("onboarding.employeeName")} value={name} onChangeText={setName} />
+      <Input {...chain.props("rate")} label={t("onboarding.hourlyRate")} value={rate} onChangeText={setRate} />
       <LanguageSwitch />
-      <Input label={t("onboarding.reminderTime")} value={reminder} onChangeText={setReminder} placeholder="07:00" mask="HH:mm" />
+      <Input {...chain.props("reminder")} label={t("onboarding.reminderTime")} value={reminder} onChangeText={setReminder} placeholder="07:00" mask="HH:mm" />
       <Button label={t("onboarding.enter")} disabled={!valid} isLoading={busy} onPress={onEnter} />
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: TOKENS.spacing.xl, gap: TOKENS.spacing.sm },
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
 });

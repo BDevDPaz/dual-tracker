@@ -7,10 +7,12 @@
  * Intenciones: REQUEST_PERMISSION, OPEN_OS_SETTINGS.
  */
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { HealthRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
-import { Button, Card, Input, Section } from "../../src/components/ui";
+import { Button, Card, Input, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
@@ -48,6 +50,10 @@ export default function HealthScreen() {
     setPin("");
     setBusy(false);
   };
+  const pinChain = useFormFocusChain(FORM_FIELDS.healthPin, {
+    canSubmit: pin.length >= PIN_MIN_LENGTH && !busy,
+    onSubmit: () => void acknowledge(),
+  });
 
   const permRepair = (key: PermissionKey, s: PermissionState, target: "LOCATION" | "NOTIFICATIONS"): ViewIntent =>
     s === "blocked" || s === "denied" ? { type: "OPEN_OS_SETTINGS", target } : { type: "REQUEST_PERMISSION", permission: key };
@@ -73,7 +79,7 @@ export default function HealthScreen() {
   ];
 
   return (
-    <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+    <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
       <ScreenTips
         screen="health"
         sessionState={null}
@@ -132,7 +138,7 @@ export default function HealthScreen() {
               <ScreenStatusBanner status="conflict" message={`${t("health.ledger.brokenTitle")} — ${t("health.ledger.brokenBody")}`} />
               {admin.hasPin ? (
                 <>
-                  <Input label={t("health.ledger.pin")} value={pin} onChangeText={setPin} secureToggle keyboardType="number-pad" />
+                  <Input {...pinChain.props("pin")} label={t("health.ledger.pin")} value={pin} onChangeText={setPin} secureToggle />
                   <Button label={t("health.ledger.acknowledge")} disabled={busy || pin.length < PIN_MIN_LENGTH} isLoading={busy} onPress={() => void acknowledge()} />
                 </>
               ) : (
@@ -175,16 +181,15 @@ export default function HealthScreen() {
           {formatDateTime(h.checkedAtMs)}
         </Text>
       ) : null}
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, paddingBottom: TOKENS.spacing["3xl"] },
   mode: { ...FONT.bodyStrong, marginBottom: TOKENS.spacing.md },
   caption: { ...FONT.caption, marginTop: TOKENS.spacing.md, textAlign: "right" },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   hint: { ...FONT.caption },
-  diagRow: { gap: 2, paddingTop: TOKENS.spacing.sm },
+  diagRow: { gap: TOKENS.spacing.xxs, paddingTop: TOKENS.spacing.sm },
   label: { ...FONT.bodyStrong },
 });
