@@ -31,7 +31,8 @@ import {
 } from "../../src/core/selectors";
 import { legalFlags } from "../../src/utils/companyPolicy";
 import { calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
-import { getLanguage, t, tHealthValue } from "../../src/i18n";
+import { getLanguage, t, tHealthValue, useLanguage } from "../../src/i18n";
+import { currentVersionLine } from "../../src/support/versionLine";
 
 interface Draft {
   employeeName: string;
@@ -49,6 +50,7 @@ interface Draft {
 }
 
 export default function SettingsScreen() {
+  useLanguage();
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(15_000);
@@ -287,6 +289,7 @@ export default function SettingsScreen() {
         <Section title={t("support.title")}>
           <Card style={styles.card}>
             <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("support.blurb")}</Text>
+            <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{currentVersionLine()}</Text>
             <Button label={t("support.open")} variant="secondary" size="sm" onPress={() => router.push("/support")} />
           </Card>
         </Section>

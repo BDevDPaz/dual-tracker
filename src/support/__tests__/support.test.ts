@@ -2,7 +2,9 @@
 import { setLanguage, t } from "../../i18n";
 import { allGuideKeys, tipsFor } from "../catalog";
 import { SUPPORT_CONTENT_VERSION } from "../contentVersion";
+import { readReleaseChannel } from "../buildLabel";
 import { buildSupportDiagnostic, diagnosticIsSafe } from "../diagnostic";
+import { formatVersionLine } from "../versionLine";
 import { PRACTICE_STORAGE_KEY, TIPS_STORAGE_KEY } from "../memory";
 import { dispatchPractice, enterPractice, exitPractice, getPracticeSnapshot, reducePractice } from "../practice";
 import { dismissTip, isTipDismissed, loadTips, resetTips } from "../tips";
@@ -126,7 +128,8 @@ describe("diagnóstico", () => {
     };
     const doc = buildSupportDiagnostic({
       nowMs: 10,
-      appVersion: "0.1.0",
+      appVersion: "1.0.0",
+      releaseChannel: "",
       build: "dev",
       settings,
       health,
@@ -144,7 +147,38 @@ describe("diagnóstico", () => {
     expect(doc.geofenceDiag[0].reason).toBe("BACKGROUND_NOT_ALWAYS");
     expect(doc.geofenceDiag[0].region).toBe("SESSION_1_SITE_2");
     expect(doc.contentVersion).toBe(SUPPORT_CONTENT_VERSION);
+    expect(doc.releaseChannel).toBe("");
+    expect(doc.versionLine).toBe("Versión 1.0.0 · build dev");
     expect("lat" in doc.geofenceDiag[0]).toBe(false);
+  });
+
+  test("RC1: la frase de versión coincide en español e inglés y entra en el JSON", () => {
+    const health = base.health;
+    const shared = {
+      nowMs: 10,
+      appVersion: "1.0.0",
+      releaseChannel: "RC1",
+      build: "4",
+      health,
+      tipsDismissed: [] as string[],
+    };
+    const esDoc = buildSupportDiagnostic({
+      ...shared,
+      settings: { ...base.settings, profile: { ...base.settings.profile, language: "es" } },
+    });
+    const enDoc = buildSupportDiagnostic({
+      ...shared,
+      settings: { ...base.settings, profile: { ...base.settings.profile, language: "en" } },
+    });
+    expect(esDoc.versionLine).toBe("Versión 1.0.0 (RC1) · build 4");
+    expect(enDoc.versionLine).toBe("Version 1.0.0 (RC1) · build 4");
+    expect(esDoc.releaseChannel).toBe("RC1");
+    expect(formatVersionLine({ version: "1.0.0", channel: " RC1 ", build: "4", lang: "es" })).toBe(esDoc.versionLine);
+    expect(formatVersionLine({ version: "1.0.0", channel: "RC1", build: "4", lang: "en" })).toBe(enDoc.versionLine);
+    expect(JSON.stringify(esDoc)).toContain("Versión 1.0.0 (RC1) · build 4");
+    expect(diagnosticIsSafe(esDoc)).toBe(true);
+    expect(diagnosticIsSafe(enDoc)).toBe(true);
+    expect(readReleaseChannel()).toBe("");
   });
 
   test("el namespace de práctica no es la base SQLite", () => {

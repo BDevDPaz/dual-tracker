@@ -23,7 +23,8 @@ export const supportEn: typeof supportEs = {
     practice: "Practice this flow",
   },
   about: {
-    line: "Version {version} · build {build} · guide {content}",
+    line: "Version {version} ({channel}) · build {build}",
+    linePlain: "Version {version} · build {build}",
   },
   export: {
     action: "Share diagnostic",

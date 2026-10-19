@@ -3,7 +3,7 @@
     "name": "Dual Tracker",
     "slug": "dual-tracker",
     "scheme": "dualtracker",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",

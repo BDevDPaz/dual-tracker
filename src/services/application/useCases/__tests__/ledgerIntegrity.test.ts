@@ -1,4 +1,5 @@
 /** P5 (spec v1.3 §5.5) — Ruptura del ledger: incidente, reconocimiento con PIN, verificación por segmentos, sello. */
+import { APP_VERSION } from "../../../../constants/app";
 import { GENESIS_HASH } from "../../../../core/contracts";
 import { Store } from "../../../../core/store";
 import { getWeekEnd, getWeekStart } from "../../../../utils/dateUtils";
@@ -176,8 +177,8 @@ describe("P5 — LEDGER_BREAK_ACKNOWLEDGED", () => {
     const { entries } = await world();
     await tamper(entries[2].id);
     await checkLedgerIntegrity("FULL");
-    const a = await IntegrityLedgerService.buildIncidentReport("0.1.0");
-    const b = await IntegrityLedgerService.buildIncidentReport("0.1.0");
+    const a = await IntegrityLedgerService.buildIncidentReport(APP_VERSION);
+    const b = await IntegrityLedgerService.buildIncidentReport(APP_VERSION);
     expect(a.sha256).toBe(b.sha256);
     expect(a.report.rows.breakAt?.id).toBe(entries[2].id);
     expect(a.report.rows.lastGood?.id).toBe(entries[1].id);
