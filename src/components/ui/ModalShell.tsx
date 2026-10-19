@@ -7,13 +7,17 @@ import {
   Pressable,
   Platform,
   ScrollView,
+  Keyboard,
   KeyboardAvoidingView,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
+import { useKeyboardInset, KeyboardScrollProvider } from "./keyboard";
+import { useResponsive } from "./responsive";
 import { useTheme } from "../../context/ThemeContext";
 import { ANIM_PRESETS } from "../../constants/animations";
 import { ICONS } from "../../constants/icons";
@@ -80,6 +84,12 @@ export function ModalShell({
   const { colors } = useTheme();
   useLanguage();
   const reduceMotion = useMotionPreference();
+  const { isCompact } = useResponsive();
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboardInset = useKeyboardInset();
+  const scrollRef = React.useRef<ScrollView>(null);
+  // La prop se conserva: toda hoja hace scroll interno (fuente grande y teclado), no solo cuando scrollable.
+  void scrollable;
   const { glass, containerStyle } = useGlass();
   const blockingId = useId();
   const blocking = visible && !dismissible;
@@ -141,28 +151,27 @@ export function ModalShell({
             >
               <Ionicons
                 name={toneConfig.icon as any}
-                size={24}
+                size={ICON.xl}
                 color={toneConfig.color}
               />
             </View>
             <View style={styles.titleContainer}>
-              <Text
-                style={[styles.title, { color: colors.text.primary }]}
-              >
+              <Text style={[isCompact ? styles.titleCompact : styles.title, { color: colors.text.primary }]}>
                 {title}
               </Text>
             </View>
             {dismissible && showCloseButton ? (
               <Pressable
                 onPress={onClose}
-                hitSlop={12}
+                hitSlop={TOKENS.spacing.md}
+                style={styles.closeHit}
                 accessibilityLabel={closeLabel ?? t("a11y.closeModal")}
                 accessibilityRole="button"
                 testID={testID ? `${testID}-close` : undefined}
               >
                 <Ionicons
                   name={ICONS.actions.close as any}
-                  size={24}
+                  size={ICON.xl}
                   color={colors.text.muted}
                 />
               </Pressable>
@@ -183,7 +192,7 @@ export function ModalShell({
         <View style={styles.body}>{children}</View>
 
         {primaryAction || secondaryAction ? (
-        <View style={styles.footer}>
+        <View style={[styles.footer, isCompact && styles.footerStack]}>
           {secondaryAction && (
             <Button
               label={secondaryAction.label}
@@ -212,25 +221,25 @@ export function ModalShell({
       </View>
     );
 
-    if (scrollable) {
-      return (
-        <ScrollView
-          bounces={false}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {content}
-        </ScrollView>
-      );
-    }
-
-    return content;
+    const scroller = (
+      <ScrollView
+        ref={scrollRef}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, Platform.OS !== "ios" && keyboardInset > 0 && { paddingBottom: keyboardInset }]}
+      >
+        {content}
+      </ScrollView>
+    );
+    return <KeyboardScrollProvider scrollRef={scrollRef}>{scroller}</KeyboardScrollProvider>;
   };
 
   const card = (
     <Animated.View
       entering={reduceMotion ? ANIM_PRESETS.reducedFade : ANIM_PRESETS.modalEnter}
-      style={[styles.modalCard, containerStyle, styles.modalCardEdges]}
+      style={[styles.modalCard, containerStyle, styles.modalCardEdges, { maxHeight: windowHeight * TOKENS.layout.sheetMaxRatio }]}
       testID={testID ? `${testID}-card` : undefined}
     >
       <GlassLayers enabled={glass} />
@@ -258,25 +267,24 @@ export function ModalShell({
         {dismissible ? (
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={onClose}
+            onPress={() => {
+              Keyboard.dismiss();
+              onClose();
+            }}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
             testID={testID ? `${testID}-backdrop` : undefined}
           />
         ) : null}
 
-        {scrollable ? (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.keyboardAvoider}
-            pointerEvents="box-none"
-            testID={testID ? `${testID}-kav` : undefined}
-          >
-            {card}
-          </KeyboardAvoidingView>
-        ) : (
-          card
-        )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.keyboardAvoider}
+          pointerEvents="box-none"
+          testID={testID ? `${testID}-kav` : undefined}
+        >
+          {card}
+        </KeyboardAvoidingView>
       </Animated.View>
     </Modal>
   );
@@ -290,7 +298,7 @@ const styles = StyleSheet.create({
   modalCard: {
     borderTopLeftRadius: TOKENS.radius.xl,
     borderTopRightRadius: TOKENS.radius.xl,
-    maxHeight: "90%",
+    width: "100%",
     overflow: "hidden",
   },
   modalCardEdges: {
@@ -300,6 +308,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   keyboardAvoider: {
+    flex: 1,
+    width: "100%",
     justifyContent: "flex-end",
   },
   contentBody: {
@@ -319,11 +329,17 @@ const styles = StyleSheet.create({
     marginBottom: TOKENS.spacing.xs,
   },
   iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: TOKENS.layout.minTouchTarget,
+    height: TOKENS.layout.minTouchTarget,
+    borderRadius: TOKENS.radius.round,
     justifyContent: "center",
     alignItems: "center",
+  },
+  closeHit: {
+    minWidth: TOKENS.layout.minTouchTarget,
+    minHeight: TOKENS.layout.minTouchTarget,
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleContainer: {
     flex: 1,
@@ -331,17 +347,23 @@ const styles = StyleSheet.create({
   title: {
     ...FONT.h2,
   },
+  titleCompact: {
+    ...FONT.h3,
+  },
   description: {
     ...FONT.body,
     marginTop: TOKENS.spacing.xs,
-    lineHeight: 22,
   },
   body: {
     marginBottom: TOKENS.spacing.xl,
   },
   footer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: TOKENS.spacing.md,
+  },
+  footerStack: {
+    flexDirection: "column",
   },
   footerButton: {
     flex: 1,

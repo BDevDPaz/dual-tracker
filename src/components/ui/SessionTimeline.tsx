@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { LedgerEntry } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
@@ -149,7 +149,7 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
                     styles.nodeDot,
                     { backgroundColor: dotColor },
                     hasBorder && {
-                      borderWidth: 1,
+                      borderWidth: TOKENS.layout.hairline,
                       borderColor: colors.border,
                     },
                   ]}
@@ -195,35 +195,35 @@ const styles = StyleSheet.create({
   inset: { marginHorizontal: TOKENS.layout.screenPadding },
   timelineBlock: {
     marginHorizontal: 0,
-    padding: 18,
+    padding: TOKENS.spacing.lg,
     borderRadius: TOKENS.radius.lg,
     marginBottom: TOKENS.spacing.xl,
   },
-  sectionTitle: { ...FONT.h3, fontSize: 16, marginBottom: TOKENS.spacing.md },
-  emptyText: { ...FONT.body, fontSize: 14, fontStyle: "italic" },
+  sectionTitle: { ...FONT.h3, marginBottom: TOKENS.spacing.md },
+  emptyText: { ...FONT.bodySmall, fontStyle: "italic" },
   timeline: { marginTop: TOKENS.spacing.sm },
   timelineNode: {
     flexDirection: "row",
     marginBottom: TOKENS.spacing.lg,
     position: "relative",
   },
-  nodeContent: { flex: 1, paddingBottom: 4 },
+  nodeContent: { flex: 1, paddingBottom: TOKENS.spacing.xs },
   nodeDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    marginTop: 4,
+    width: ICON.sm,
+    height: ICON.sm,
+    borderRadius: TOKENS.radius.sm,
+    marginTop: TOKENS.spacing.xs,
     marginRight: TOKENS.spacing.md,
     zIndex: 2,
   },
   nodeLine: {
     position: "absolute",
-    left: 6,
-    top: 16,
-    bottom: -20,
-    width: 2,
+    left: TOKENS.spacing.sm,
+    top: ICON.sm,
+    bottom: -TOKENS.spacing.xl,
+    width: TOKENS.radius.hairline,
     zIndex: 1,
   },
   nodeTitle: { ...FONT.bodyStrong },
-  nodeTime: { ...FONT.caption, marginTop: 2 },
+  nodeTime: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
 });

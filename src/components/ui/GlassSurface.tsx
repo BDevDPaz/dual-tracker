@@ -9,6 +9,7 @@
 import React from "react";
 import { Platform, StyleSheet, View, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
+import { TOKENS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { useReduceTransparency } from "./motion";
 
@@ -20,8 +21,8 @@ export function useGlass(): { glass: boolean; containerStyle: ViewStyle } {
   const reduceTransparency = useReduceTransparency();
   const glass = BLUR_SUPPORTED && !reduceTransparency;
   return glass
-    ? { glass, containerStyle: { backgroundColor: "transparent", borderColor: colors.glass.hairline, borderWidth: 1, overflow: "hidden" } }
-    : { glass, containerStyle: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: 1 } };
+    ? { glass, containerStyle: { backgroundColor: "transparent", borderColor: colors.glass.hairline, borderWidth: TOKENS.layout.hairline, overflow: "hidden" } }
+    : { glass, containerStyle: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: TOKENS.layout.hairline } };
 }
 
 /** Capas de fondo (desenfoque + relleno). Primer hijo de un contenedor con useGlass().containerStyle. */

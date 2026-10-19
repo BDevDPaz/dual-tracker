@@ -16,7 +16,7 @@ export function KeyValueRow({ label, value, emphasis = false, mono = false }: { 
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: TOKENS.spacing.xs, gap: TOKENS.spacing.md },
-  label: { ...FONT.caption, flexShrink: 0 },
-  value: { ...FONT.bodyStrong, fontSize: 14, flexShrink: 1, textAlign: "right" },
-  mono: { fontFamily: "monospace", fontSize: 12 },
+  label: { ...FONT.caption, flex: 1 },
+  value: { ...FONT.figure, flexShrink: 1, textAlign: "right", maxWidth: "48%" },
+  mono: { ...FONT.micro, fontFamily: "monospace" },
 });

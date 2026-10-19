@@ -1,6 +1,6 @@
 /** sites/_layout.tsx — Stack de destinos (accesible desde Hoy y Ajustes; no es un quinto tab). */
 import { Stack } from "expo-router";
-import { TOKENS } from "../../src/constants/theme";
+import { stackHeaderOptions } from "../../src/components/ui/navigation";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { t, useLanguage } from "../../src/i18n";
 
@@ -8,14 +8,7 @@ export default function SitesLayout() {
   useLanguage();
   return (
     <Stack
-      screenOptions={{
-        headerShown: true,
-        freezeOnBlur: false,
-        headerStyle: { backgroundColor: TOKENS.colors.background },
-        headerTintColor: TOKENS.colors.primary,
-        headerTitleStyle: { color: TOKENS.colors.text.primary },
-        contentStyle: { backgroundColor: TOKENS.colors.background },
-      }}
+      screenOptions={stackHeaderOptions()}
     >
       <Stack.Screen name="index" options={{ title: t("sites.title"), headerRight: () => <HelpButton screen="sites" /> }} />
       <Stack.Screen name="new" options={{ title: t("sites.newSite"), headerRight: () => <HelpButton screen="siteNew" /> }} />

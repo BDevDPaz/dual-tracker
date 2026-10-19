@@ -1,9 +1,9 @@
 /**
  * Guía de una pantalla o recorrido paso a paso. El id es una clave del catálogo.
  */
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, EmptyState } from "../../../src/components/ui";
+import { Button, EmptyState, SAFE_EDGES, ScreenScroll } from "../../../src/components/ui";
 import { LanguageSwitch } from "../../../src/components/support/LanguageSwitch";
 import { Walkthrough } from "../../../src/components/support/Walkthrough";
 import { TOKENS, FONT } from "../../../src/constants/theme";
@@ -20,25 +20,25 @@ export default function GuideScreen() {
   if (isFlowId(key)) {
     const flow = FLOWS[key];
     return (
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScroll edges={SAFE_EDGES.stack}>
         <LanguageSwitch />
         <Walkthrough title={flow.title} steps={flow.steps} practiceFlow={key} />
-      </ScrollView>
+      </ScreenScroll>
     );
   }
 
   if (!isScreenId(key)) {
     return (
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenScroll edges={SAFE_EDGES.stack}>
         <EmptyState title={t("support.missing")} icon="help-circle-outline" />
         <Button label={t("support.open")} onPress={() => router.replace("/support")} />
-      </ScrollView>
+      </ScreenScroll>
     );
   }
 
   const guide = SCREEN_GUIDES[key];
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScreenScroll edges={SAFE_EDGES.stack}>
       <LanguageSwitch />
       <Text style={[styles.intro, { color: TOKENS.colors.text.secondary }]}>{t(guide.intro)}</Text>
       <Walkthrough title={guide.title} steps={guide.steps} />
@@ -50,12 +50,11 @@ export default function GuideScreen() {
           ))}
         </>
       ) : null}
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: 48 },
   intro: { ...FONT.body },
   related: { ...FONT.label, letterSpacing: 1, marginTop: TOKENS.spacing.md },
 });

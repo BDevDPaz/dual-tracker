@@ -29,7 +29,7 @@ export function BackupAdviceCard({ onExport, busy }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: TOKENS.radius.lg, padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
+  card: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.lg, padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   title: { ...FONT.bodyStrong },
-  body: { ...FONT.caption, lineHeight: 18 },
+  body: { ...FONT.caption },
 });

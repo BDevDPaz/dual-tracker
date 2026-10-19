@@ -7,13 +7,15 @@
  * UNLOCK_ADMIN, LOCK_ADMIN, SETUP_ADMIN_PIN, OPEN_OS_SETTINGS.
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, Card, Input, PageHeader, ScreenContainer, Section, StatusPill } from "../../src/components/ui";
+import { Button, Card, Chip, Input, PageHeader, SAFE_EDGES, ScreenScroll, Section, StatusPill } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
-import { TOKENS, FONT } from "../../src/constants/theme";
+import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
@@ -121,16 +123,25 @@ export default function SettingsScreen() {
   };
 
   const permTone = (ok: boolean) => (ok ? "success" : "warning");
+  const profileChain = useFormFocusChain(FORM_FIELDS.settingsProfile, { onSubmit: () => void onSave(), canSubmit: dirty && !busy });
+  const pinChain = useFormFocusChain(FORM_FIELDS.settingsPin, {
+    onSubmit: () => void onAdminPin(),
+    canSubmit: pin.length >= PIN_MIN_LENGTH && !busy && admin.status !== "locked_out",
+  });
+  const adminChain = useFormFocusChain(FORM_FIELDS.settingsAdmin, { onSubmit: () => void onSave(), canSubmit: dirty && !busy && unlocked });
 
   return (
-    <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
+    <ScreenScroll
+      edges={SAFE_EDGES.tab}
+      refreshControl={refreshControl}
+      footer={dirty ? <Button label={t("common.save")} isLoading={busy} onPress={() => void onSave()} /> : null}
+    >
         <PageHeader title={t("settings.title")} helpScreen="settings" />
 
         <Section title={t("settings.profile")}>
-          <Input label={t("onboarding.employeeName")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} />
+          <Input {...profileChain.props("name")} label={t("onboarding.employeeName")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} />
           <LanguageSwitch />
-          <Input label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
+          <Input {...profileChain.props("reminder")} label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
         </Section>
 
         <Section title={t("settings.monitoring")}>
@@ -167,12 +178,12 @@ export default function SettingsScreen() {
           {!unlocked ? (
             <Card style={styles.card}>
               <View style={styles.statusRow}>
-                <Ionicons name="lock-closed-outline" size={18} color={TOKENS.colors.text.secondary} />
+                <Ionicons name="lock-closed-outline" size={ICON.md} color={TOKENS.colors.text.secondary} />
                 <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>
                   {admin.hasPin ? t("settings.adminLocked") : t("settings.adminSetup", { min: PIN_MIN_LENGTH })}
                 </Text>
               </View>
-              <Input label={t("settings.pin")} value={pin} onChangeText={setPin} secureToggle keyboardType="number-pad" />
+              <Input {...pinChain.props("pin")} label={t("settings.pin")} value={pin} onChangeText={setPin} secureToggle />
               <Button
                 label={admin.hasPin ? t("settings.unlock") : t("settings.setPin")}
                 disabled={pin.length < PIN_MIN_LENGTH || busy || admin.status === "locked_out"}
@@ -183,10 +194,10 @@ export default function SettingsScreen() {
             </Card>
           ) : (
             <Card style={styles.card}>
-              <Input label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} keyboardType="decimal-pad" />
-              <Input label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} keyboardType="decimal-pad" />
-              <Input label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
-              <Input label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} keyboardType="email-address" autoCapitalize="none" />
+              <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} />
+              <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} />
+              <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
+              <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} />
               <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
               <View style={styles.row}>
                 {queries.payrollPolicies().map((p) => {
@@ -203,8 +214,8 @@ export default function SettingsScreen() {
                   <Chip key={m} label={t(`settings.traceModes.${m}`)} selected={draft.traceMode === m} onPress={() => set("traceMode", m)} />
                 ))}
               </View>
-              <Input label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} keyboardType="number-pad" />
-              <Input label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} keyboardType="number-pad" />
+              <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} />
+              <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} />
               <WorkCalendarBlock />
               <Button label={t("settings.lock")} variant="ghost" size="sm" iconName="lock-closed-outline" onPress={() => void emit({ type: "LOCK_ADMIN" })} />
             </Card>
@@ -224,14 +235,7 @@ export default function SettingsScreen() {
             <LinkRow label={t("settings.retentionPolicy")} onPress={() => router.push("/legal/retention")} />
           </Card>
         </Section>
-      </ScrollView>
-
-      {dirty ? (
-        <View style={[styles.footer, { backgroundColor: TOKENS.colors.surface, borderColor: TOKENS.colors.border }]}>
-          <Button label={t("common.save")} isLoading={busy} onPress={() => void onSave()} />
-        </View>
-      ) : null}
-    </ScreenContainer>
+    </ScreenScroll>
   );
 }
 
@@ -255,12 +259,18 @@ function WorkCalendarBlock() {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(start.trim());
   const minutes = m ? Number(m[1]) * 60 + Number(m[2]) : null;
   const changed = minutes !== null && (minutes !== current.workdayStartMinutes || day !== current.workweekStartDay);
-
   const run = async (intent: Parameters<typeof emit>[0]) => {
     setBusy(true);
     await emit(intent);
     setBusy(false);
   };
+  const calendarChain = useFormFocusChain(FORM_FIELDS.settingsCalendar, {
+    canSubmit: changed && !busy,
+    onSubmit: () => {
+      if (minutes === null || !changed) return;
+      void run({ type: "SAVE_SETTINGS", patch: { calendar: { workdayStartMinutes: minutes, workweekStartDay: day } } });
+    },
+  });
 
   return (
     <View style={styles.calendar}>
@@ -282,7 +292,7 @@ function WorkCalendarBlock() {
         </>
       ) : (
         <>
-          <Input label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" mask="HH:mm" />
+          <Input {...calendarChain.props("start")} label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" mask="HH:mm" />
           <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.calendar.weekStart")}</Text>
           <View style={styles.row}>
             {WEEKDAYS.map((d) => (
@@ -330,36 +340,20 @@ function WorkCalendarBlock() {
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      style={[styles.chip, { borderColor: selected ? TOKENS.colors.primary : TOKENS.colors.border }]}
-    >
-      <Text style={{ color: selected ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>{label}</Text>
-    </Pressable>
-  );
-}
-
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="link" style={styles.statusRow}>
       <Text style={{ color: TOKENS.colors.text.primary }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={TOKENS.colors.text.muted} />
+      <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: 120 },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   label: { ...FONT.label, marginTop: TOKENS.spacing.sm },
   row: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, paddingVertical: TOKENS.spacing.xs },
   hint: { ...FONT.caption, flex: 1 },
   calendar: { gap: TOKENS.spacing.sm, marginTop: TOKENS.spacing.sm },
-  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: TOKENS.spacing.md },
-  footer: { position: "absolute", left: 0, right: 0, bottom: 0, padding: TOKENS.spacing.lg, borderTopWidth: 1 },
 });

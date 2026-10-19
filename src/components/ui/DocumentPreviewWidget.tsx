@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 
-import { TOKENS, FONT, font } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { formatUiDecimal } from "../../utils/dateUtils";
@@ -68,7 +68,7 @@ export function DocumentPreviewWidget({
   return (
     <View style={[styles.container, inset && styles.inset]}>
       <View style={styles.docHeader}>
-        <Ionicons name="document-text-outline" size={14} color={colors.primary} />
+        <Ionicons name="document-text-outline" size={ICON.sm} color={colors.primary} />
         <Text style={[styles.docHeaderText, { color: colors.text.secondary }]}>{t("report.previewTitle")}</Text>
       </View>
 
@@ -127,12 +127,12 @@ export function DocumentPreviewWidget({
           accessibilityHint={t("report.hashHint")}
           testID="preview-hash"
         >
-          <Ionicons name="finger-print-outline" size={16} color={colors.primary} />
+          <Ionicons name="finger-print-outline" size={ICON.sm} color={colors.primary} />
           <View style={styles.hashText}>
             <Text style={[styles.hashLabel, { color: colors.text.secondary }]}>{t("report.hash")}</Text>
             <Text style={[styles.hashValue, { color: colors.text.primary }]}>…{tail}</Text>
           </View>
-          <Ionicons name="copy-outline" size={18} color={colors.text.secondary} />
+          <Ionicons name="copy-outline" size={ICON.md} color={colors.text.secondary} />
         </Pressable>
       ) : null}
     </View>
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: TOKENS.spacing.sm,
-    gap: 6,
+    gap: TOKENS.spacing.sm,
   },
   docHeaderText: {
     ...FONT.label,
@@ -166,14 +166,11 @@ const styles = StyleSheet.create({
     marginBottom: TOKENS.spacing.sm,
   },
   companyName: {
-    fontSize: 11,
-    ...font("800"),
+    ...FONT.paperLabel,
     width: "60%",
   },
   docType: {
-    fontSize: 9,
-    ...font("800"),
-    letterSpacing: 1,
+    ...FONT.paperKicker,
   },
   divider: {
     height: 1,
@@ -185,17 +182,16 @@ const styles = StyleSheet.create({
     marginBottom: TOKENS.spacing.md,
   },
   label: {
-    fontSize: 9,
-    ...font("700"),
+    ...FONT.paperKicker,
     textTransform: "uppercase",
-    marginBottom: 2,
+    marginBottom: TOKENS.spacing.xxs,
   },
   value: {
-    fontSize: 12,
-    ...font("700"),
+    ...FONT.paperValue,
+    ...FONT.tabularNums,
   },
   linesContainer: {
-    gap: 10,
+    gap: TOKENS.spacing.md,
     marginBottom: TOKENS.spacing.sm,
     marginTop: TOKENS.spacing.sm,
   },
@@ -205,21 +201,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   lineLabel: {
-    fontSize: 11,
-    ...font("600"),
+    ...FONT.paperLine,
   },
   lineValue: {
-    fontSize: 11,
-    ...FONT.tabular,
+    ...FONT.paperLine,
+    ...FONT.tabularNums,
   },
   skeletonBarLong: {
-    height: 5,
-    borderRadius: 3,
+    height: TOKENS.spacing.xs,
+    borderRadius: TOKENS.radius.hairline,
     width: "65%",
   },
   skeletonBarShort: {
-    height: 5,
-    borderRadius: 3,
+    height: TOKENS.spacing.xs,
+    borderRadius: TOKENS.radius.hairline,
     width: "20%",
   },
   totalsRow: {
@@ -228,14 +223,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   totalLabel: {
-    fontSize: 11,
-    ...font("800"),
+    ...FONT.paperLabel,
   },
   totalValue: {
-    fontSize: 18,
-    ...font("800"),
-    fontVariant: ["tabular-nums"],
-    letterSpacing: -0.5,
+    ...FONT.paperTotal,
   },
   hashRow: {
     marginTop: TOKENS.spacing.sm,
@@ -244,12 +235,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: TOKENS.spacing.sm,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
     borderRadius: TOKENS.radius.md,
     paddingHorizontal: TOKENS.spacing.md,
     paddingVertical: TOKENS.spacing.sm,
   },
   hashText: { flex: 1 },
   hashLabel: { ...FONT.caption },
-  hashValue: { fontFamily: MONO, fontSize: 14, letterSpacing: 0.5 },
+  hashValue: { ...FONT.paperHash, fontFamily: MONO },
 });

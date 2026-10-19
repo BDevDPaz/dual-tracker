@@ -6,9 +6,11 @@
  * inicia jornada.
  */
 import { useState } from "react";
-import { Text, StyleSheet, ScrollView } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Button, Card, Input } from "../../src/components/ui";
+import { Button, Card, Input, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { Site } from "../../src/core/contracts";
@@ -28,7 +30,6 @@ export default function NewSiteScreen() {
 
   const radiusNum = Math.round(Number(radius));
   const valid = address.trim().length > 0 && radiusNum > 0;
-
   const onSave = async () => {
     setBusy(true);
     const res = await emit({
@@ -44,14 +45,15 @@ export default function NewSiteScreen() {
     setBusy(false);
     if (res.ok && res.data) setSaved(res.data as Site);
   };
+  const chain = useFormFocusChain(FORM_FIELDS.siteNew, { onSubmit: () => void onSave(), canSubmit: valid && !busy && !saved });
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Input label={t("sites.alias")} value={alias} onChangeText={setAlias} />
-      <Input label={`${t("sites.address")} *`} value={address} onChangeText={setAddress} />
-      <Input label={t("sites.client")} value={client} onChangeText={setClient} />
-      <Input label={t("sites.notes")} value={notes} onChangeText={setNotes} multiline />
-      <Input label={t("sites.radius")} value={radius} onChangeText={setRadius} keyboardType="number-pad" />
+    <ScreenScroll edges={SAFE_EDGES.stack}>
+      <Input {...chain.props("alias")} label={t("sites.alias")} value={alias} onChangeText={setAlias} />
+      <Input {...chain.props("address")} label={`${t("sites.address")} *`} value={address} onChangeText={setAddress} />
+      <Input {...chain.props("client")} label={t("sites.client")} value={client} onChangeText={setClient} />
+      <Input {...chain.props("notes")} label={t("sites.notes")} value={notes} onChangeText={setNotes} multiline />
+      <Input {...chain.props("radius")} label={t("sites.radius")} value={radius} onChangeText={setRadius} />
 
       <Card style={styles.card}>
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("sites.coords")}</Text>
@@ -71,12 +73,11 @@ export default function NewSiteScreen() {
       ) : (
         <Button label={t("sites.saveSite")} disabled={!valid} isLoading={busy} onPress={() => void onSave()} />
       )}
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   card: { padding: TOKENS.spacing.lg, marginVertical: TOKENS.spacing.md },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
 });

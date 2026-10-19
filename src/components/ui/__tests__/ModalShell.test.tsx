@@ -1,5 +1,6 @@
 /** Componentes — ModalShell: dismissible, X solo cuando procede, etiqueta i18n. */
 import React from "react";
+import { StyleSheet } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { setLanguage, t } from "../../../i18n";
 import { BlockingModals } from "../../feedback/blockingModals";
@@ -57,11 +58,11 @@ describe("ModalShell", () => {
     expect(screen.getByTestId("m").props.animationType).toBe("none");
   });
 
-  test("scrollable → KeyboardAvoidingView; área segura inferior en lugar de padding fijo", () => {
-    const { rerender } = render(<ModalShell visible title="T" onClose={() => undefined} testID="m" />);
-    expect(screen.queryByTestId("m-kav")).toBeNull();
-    expect(screen.getByTestId("safe-area-view")).toBeTruthy();
-    rerender(<ModalShell visible scrollable title="T" onClose={() => undefined} testID="m" />);
+  test("toda hoja evita el teclado y limita la altura con scroll interno", () => {
+    render(<ModalShell visible title="T" onClose={() => undefined} testID="m" />);
     expect(screen.getByTestId("m-kav")).toBeTruthy();
+    expect(screen.getByTestId("safe-area-view")).toBeTruthy();
+    const style = StyleSheet.flatten(screen.getByTestId("m-card").props.style) as { maxHeight?: number };
+    expect(style.maxHeight).toBeGreaterThan(0);
   });
 });

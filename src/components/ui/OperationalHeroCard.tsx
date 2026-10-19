@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { LinearTransition } from "react-native-reanimated";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON, BREAKPOINTS } from "../../constants/theme";
+import { useResponsive } from "./responsive";
 import { useTheme } from "../../context/ThemeContext";
 import type { SessionStateUI } from "../../core/selectors";
 import { t, useLanguage } from "../../i18n";
@@ -58,8 +59,8 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   // Cristal: desenfoque + relleno 12 % + filo dorado; sólido si no hay blur o se reduce la transparencia.
   const { glass, containerStyle } = useGlass();
   // Teléfonos estrechos (< 360 dp): CTAs apilados a ancho completo; el texto nunca baja de 16.
-  const { width } = useWindowDimensions();
-  const narrow = width < NARROW_WIDTH;
+  const { width, isCompact } = useResponsive();
+  const narrow = isCompact || width < BREAKPOINTS.compact;
   const primaryVariant = ui.state === "ACTIVA" || ui.state === "SALIDA" ? "danger" : "primary";
   return (
     <Animated.View
@@ -72,12 +73,12 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
           <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
           {onDestinationPress ? (
             <Pressable onPress={onDestinationPress} accessibilityRole="link" style={styles.destinationHit}>
-              <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={1}>
+              <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={2}>
                 {destination ?? t("today.noDestination")}
               </Text>
             </Pressable>
           ) : (
-            <Text style={[styles.destinationText, styles.destinationPlain, { color: colors.text.primary }]} numberOfLines={1}>
+            <Text style={[styles.destinationText, styles.destinationPlain, { color: colors.text.primary }]} numberOfLines={2}>
               {destination ?? t("today.noDestination")}
             </Text>
           )}
@@ -87,21 +88,34 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
         {uncertified ? <StatusPill tone="warning" label={t("today.uncertified")} /> : null}
 
         {ui.showTimer ? (
-          <View style={styles.metricsRow}>
+          <View style={[styles.metricsRow, narrow && styles.metricsStack]}>
             <View style={styles.metricBlock}>
               <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
-              <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]} testID="hero-timer">
+              <Text
+                style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]}
+                testID="hero-timer"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
                 {timeString}
               </Text>
             </View>
-            <View style={styles.metricBlockRight}>
+            <View style={[styles.metricBlockRight, narrow && styles.metricBlock]}>
               <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
-              <Text style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}>{earnings}</Text>
+              <Text
+                style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {earnings}
+              </Text>
             </View>
           </View>
         ) : nextAction ? (
           <View style={styles.nextRow} testID="hero-next-action">
-            <Ionicons name="navigate-outline" size={16} color={colors.status.info} />
+            <Ionicons name="navigate-outline" size={ICON.sm} color={colors.status.info} />
             <Text style={[styles.nextText, { color: colors.text.primary }]} numberOfLines={2}>
               {nextAction}
             </Text>
@@ -121,7 +135,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   );
 });
 
-export const NARROW_WIDTH = 360;
+export const NARROW_WIDTH = BREAKPOINTS.compact;
 
 const styles = StyleSheet.create({
   inset: { marginHorizontal: TOKENS.layout.screenPadding },
@@ -132,19 +146,20 @@ const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: TOKENS.radius.lg,
     padding: TOKENS.spacing.xl,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
   destinationHit: { flex: 1, marginLeft: TOKENS.spacing.md },
   destinationPlain: { marginLeft: TOKENS.spacing.md },
   destinationText: { ...FONT.bodyStrong, flex: 1, textAlign: "right" },
   subText: { ...FONT.caption, marginBottom: TOKENS.spacing.md },
-  metricsRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: TOKENS.spacing.lg },
+  metricsRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md },
+  metricsStack: { flexDirection: "column", alignItems: "flex-start" },
   metricBlock: { flex: 1 },
   metricBlockRight: { flex: 1, alignItems: "flex-end" },
   metricLabel: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
-  metricBigValue: { ...FONT.h1, ...FONT.tabular, fontSize: 36, lineHeight: 42 },
-  metricBigValueNarrow: { fontSize: 28, lineHeight: 34 },
+  metricBigValue: { ...FONT.metric },
+  metricBigValueNarrow: { ...FONT.metricCompact },
   spacer: { height: TOKENS.spacing.lg },
   nextRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, marginVertical: TOKENS.spacing.md },
   nextText: { ...FONT.body, flex: 1 },

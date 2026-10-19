@@ -7,6 +7,7 @@
  */
 import { useEffect } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { AppBrandTitle, Button } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
@@ -27,7 +28,7 @@ export default function HydratingScreen() {
   }, [hydrated, router]);
 
   return (
-    <View style={[styles.root, { backgroundColor: TOKENS.colors.background }]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: TOKENS.colors.background }]} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.help}>
         <HelpButton screen="boot" />
       </View>
@@ -43,7 +44,7 @@ export default function HydratingScreen() {
           <Text style={[styles.status, { color: TOKENS.colors.text.secondary }]}>{t("boot.restoring")}</Text>
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { FONT } from "../../constants/theme";
+import { FONT, TOKENS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import type { ScreenId } from "../../support/types";
@@ -16,7 +16,7 @@ export function HelpButton({ screen }: { screen: ScreenId }) {
       accessibilityRole="button"
       accessibilityLabel={t("support.helpButton")}
       onPress={() => router.push(`/support/guide/${screen}`)}
-      hitSlop={8}
+      hitSlop={TOKENS.spacing.sm}
       style={styles.hit}
     >
       <Text style={[styles.mark, { color: colors.primary }]}>?</Text>
@@ -29,6 +29,6 @@ export function helpHeader(screen: ScreenId): { headerRight: () => React.ReactEl
 }
 
 const styles = StyleSheet.create({
-  hit: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  hit: { minWidth: TOKENS.layout.minTouchTarget, minHeight: TOKENS.layout.minTouchTarget, alignItems: "center", justifyContent: "center" },
   mark: { ...FONT.h2 },
 });

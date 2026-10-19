@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import type { ScreenStatus } from "../../core/contracts";
 import { EmptyState } from "../ui/EmptyState";
 
@@ -33,9 +33,9 @@ export function ScreenStatusBanner({ status, message, onPress, emptyIcon }: Prop
   const bg = status === "conflict" ? TOKENS.colors.statusBg.danger : TOKENS.colors.statusBg.warning;
   const body = (
     <View style={[styles.banner, { borderColor: color, backgroundColor: bg }]}>
-      <Ionicons name={status === "conflict" ? "alert-circle-outline" : "warning-outline"} size={18} color={color} />
+      <Ionicons name={status === "conflict" ? "alert-circle-outline" : "warning-outline"} size={ICON.md} color={color} />
       <Text style={[styles.bannerText, { color }]}>{message}</Text>
-      {onPress ? <Ionicons name="chevron-forward" size={16} color={color} /> : null}
+      {onPress ? <Ionicons name="chevron-forward" size={ICON.sm} color={color} /> : null}
     </View>
   );
   return onPress ? (
@@ -50,6 +50,6 @@ export function ScreenStatusBanner({ status, message, onPress, emptyIcon }: Prop
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: TOKENS.spacing.xl },
   loadingText: { ...FONT.caption, marginTop: TOKENS.spacing.md },
-  banner: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
+  banner: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
   bannerText: { ...FONT.caption, flex: 1 },
 });

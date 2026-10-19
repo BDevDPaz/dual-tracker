@@ -6,7 +6,8 @@
  */
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS } from "../../src/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TOKENS, ICON } from "../../src/constants/theme";
 import { useWorkTracker, useClock } from "../../src/core/hooks";
 import { selectSessionState, selectUiRequests } from "../../src/core/selectors";
 import { t, useLanguage } from "../../src/i18n";
@@ -23,6 +24,7 @@ const TAB_ICONS: Record<string, [IconName, IconName]> = {
 export default function TabsLayout() {
   const { state } = useWorkTracker();
   useLanguage();
+  const insets = useSafeAreaInsets();
   const nowMs = useClock(30_000);
   const exitPending = selectSessionState(state, nowMs) === "SALIDA" || selectUiRequests(state).openExitModal;
 
@@ -36,12 +38,17 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: TOKENS.colors.background },
         tabBarActiveTintColor: TOKENS.colors.primary,
         tabBarInactiveTintColor: TOKENS.colors.text.muted,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: exitPending
           ? { display: "none" }
-          : { backgroundColor: TOKENS.colors.surface, borderTopColor: TOKENS.colors.border },
-        tabBarIcon: ({ focused, color, size }) => {
+          : {
+              backgroundColor: TOKENS.colors.surface,
+              borderTopColor: TOKENS.colors.border,
+              minHeight: TOKENS.layout.minTouchTarget + insets.bottom,
+            },
+        tabBarIcon: ({ focused, color }) => {
           const [on, off] = TAB_ICONS[route.name] ?? ["ellipse", "ellipse-outline"];
-          return <Ionicons name={focused ? on : off} size={size} color={color} />;
+          return <Ionicons name={focused ? on : off} size={ICON.xl} color={color} />;
         },
       })}
     >

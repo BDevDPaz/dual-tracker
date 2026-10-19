@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
+import { useFormFocusChain } from "../ui/formChain";
+import { FORM_FIELDS } from "../ui/formFields";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
@@ -72,6 +74,12 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
   }, [session, start, end, invalidEnd, checkOverlap]);
 
   const canSave = !!session && start !== null && !invalidEnd && changed && note.trim().length > 0 && !overlap;
+  const chain = useFormFocusChain(FORM_FIELDS.editSession, {
+    canSubmit: canSave && !busy,
+    onSubmit: () => {
+      if (start !== null) onSave({ declaredStartAtMs: start, endAtMs: end, note: note.trim() });
+    },
+  });
 
   return (
     <ModalShell
@@ -95,11 +103,11 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
         </View>
       ) : null}
       <View style={styles.row}>
-        <Input label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" mask="HH:mm" error={invalidStart ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} testID="edit-start" />
-        <Input label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" error={invalidEnd ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} testID="edit-end" />
+        <Input {...chain.props("start")} label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" mask="HH:mm" error={invalidStart ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} testID="edit-start" />
+        <Input {...chain.props("end")} label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" error={invalidEnd ? t("common.invalidTime") : undefined} containerStyle={styles.flexInput} testID="edit-end" />
       </View>
       {nextDay ? <Text style={[styles.nextDay, { color: colors.text.secondary }]}>{t("modals.endsNextDay")}</Text> : null}
-      <Input label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} testID="edit-note" />
+      <Input {...chain.props("note")} label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} testID="edit-note" />
     </ModalShell>
   );
 }
@@ -107,8 +115,8 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
 const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: TOKENS.spacing.md },
   flexInput: { flex: 1 },
-  textArea: { height: 90, textAlignVertical: "top" },
-  banner: { borderWidth: 1, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
+  textArea: { height: TOKENS.layout.textArea, textAlignVertical: "top" },
+  banner: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
   bannerText: { ...FONT.caption },
   nextDay: { ...FONT.caption, marginTop: -TOKENS.spacing.xs, marginBottom: TOKENS.spacing.sm },
 });

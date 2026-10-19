@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
+import { useFormFocusChain } from "../ui/formChain";
+import { FORM_FIELDS } from "../ui/formFields";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
@@ -41,6 +43,16 @@ export function LunchModal(props: LunchModalProps) {
     }
   }, [props.visible]);
 
+  const needsStart = props.mode === "close" && !!props.askStartTime && (selected ?? 0) > 0;
+  const startValid = HHMM.test(startHHmm.trim());
+  const chain = useFormFocusChain(FORM_FIELDS.lunchStart, {
+    canSubmit: props.mode === "close" && selected !== null && (!needsStart || startValid),
+    onSubmit: () => {
+      if (props.mode !== "close" || selected === null || (needsStart && !startValid)) return;
+      props.onConfirm(selected, needsStart ? startHHmm.trim() : null);
+    },
+  });
+
   if (props.mode === "supervisor") {
     return (
       <ModalShell
@@ -55,7 +67,6 @@ export function LunchModal(props: LunchModalProps) {
     );
   }
 
-  const needsStart = !!props.askStartTime && (selected ?? 0) > 0;
   return (
     <ModalShell
       visible={props.visible}
@@ -92,7 +103,7 @@ export function LunchModal(props: LunchModalProps) {
       </View>
       {needsStart ? (
         <View style={styles.startRow}>
-          <Input label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" testID="lunch-start" />
+          <Input {...chain.props("start")} label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" testID="lunch-start" />
           <Text style={[styles.hint, { color: colors.text.muted }]}>{t("modals.lunchStartHint")}</Text>
         </View>
       ) : null}
@@ -105,12 +116,12 @@ const styles = StyleSheet.create({
   optionsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: TOKENS.spacing.sm },
   optionPill: {
     width: "48.5%",
-    minHeight: TOKENS.layout.minTouchTarget + 4,
+    minHeight: TOKENS.layout.minTouchTarget,
     paddingVertical: TOKENS.spacing.md,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: TOKENS.radius.md,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
   },
   optionText: { ...FONT.bodyStrong },
   startRow: { marginTop: TOKENS.spacing.md, gap: TOKENS.spacing.xs },

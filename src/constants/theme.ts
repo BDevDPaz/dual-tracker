@@ -113,11 +113,58 @@ export const COLORS: Record<ColorScheme, ThemeColors> = {
   light: buildColors(PALETTE_LIGHT, "light"),
 };
 
+/**
+ * Anchos de referencia (dp). compact ≈ teléfonos 320–359; regular ≈ 360–599
+ * (Galaxy S22+ entra aquí); expanded ≈ plegable abierto; tablet ≥ 840.
+ */
+export const BREAKPOINTS = {
+  compact: 360,
+  expanded: 600,
+  tablet: 840,
+} as const;
+
+export type BreakpointName = "compact" | "regular" | "expanded" | "tablet";
+
+export function breakpointFor(width: number): BreakpointName {
+  if (width >= BREAKPOINTS.tablet) return "tablet";
+  if (width >= BREAKPOINTS.expanded) return "expanded";
+  if (width < BREAKPOINTS.compact) return "compact";
+  return "regular";
+}
+
+export function isLandscape(width: number, height: number): boolean {
+  return width > height;
+}
+
+export function screenPaddingFor(width: number): number {
+  return breakpointFor(width) === "compact" ? TOKENS.layout.screenPaddingCompact : TOKENS.layout.screenPadding;
+}
+
+/** En tablet, o en plegable apaisado, la columna de lectura no se estira de borde a borde. */
+export function contentMaxWidthFor(width: number, height: number): number | undefined {
+  const bp = breakpointFor(width);
+  if (bp === "tablet" || (bp === "expanded" && isLandscape(width, height))) return TOKENS.layout.readableMax;
+  return undefined;
+}
+
+/** Tamaños de icono Ionicons. No usar números sueltos en size={}. */
+export const ICON = {
+  xs: 12,
+  sm: 16,
+  md: 18,
+  lg: 20,
+  xl: 24,
+  xxl: 28,
+  hero: 48,
+} as const;
+
 export const TOKENS = {
   /** Estático = oscuro. Las primitivas leen useTheme().colors. */
   colors: COLORS.dark,
   spacing: {
     zero: 0,
+    /** Ritmo mínimo entre metadatos apilados (2 dp). */
+    xxs: 2,
     xs: 4,
     sm: 8,
     md: 12,
@@ -129,6 +176,8 @@ export const TOKENS = {
   },
   radius: {
     none: 0,
+    /** Marca de 2 dp (barra de progreso, subrayado de marca). */
+    hairline: 2,
     xs: 4,
     sm: 8,
     md: 12,
@@ -138,10 +187,30 @@ export const TOKENS = {
     round: 9999,
   },
   layout: {
+    /** Teléfono normal, plegable y tablet. */
     screenPadding: 24,
+    /** Teléfono estrecho (< 360 dp): un paso menos de la escala. */
+    screenPaddingCompact: 16,
     sectionGap: 32,
     cardPadding: 16,
-    minTouchTarget: 44,
+    /** Objetivo táctil mínimo (48 dp). Botones, chips, iconos de cierre y filas pulsables. */
+    minTouchTarget: 48,
+    buttonMd: 56,
+    buttonLg: 64,
+    inputMin: 48,
+    textArea: 96,
+    textAreaLg: 128,
+    /** Ancho de lectura en tablet / plegable apaisado. */
+    readableMax: 720,
+    hairline: 1,
+    /** Anillo de foco del campo (no desplaza el layout). */
+    focusOutline: 3,
+    metricRule: 40,
+    brandGlowWidth: 44,
+    brandGlowHeight: 26,
+    brandLine: 120,
+    /** Hoja modal: fracción de la ventana. */
+    sheetMaxRatio: 0.9,
   },
   shadows: {
     none: {
@@ -220,14 +289,35 @@ export function font(weight: FontWeight): { fontFamily: string; fontWeight?: Fon
   return Platform.OS === "android" ? { fontFamily: FONT_FAMILY[weight] } : { fontFamily: FONT_FAMILY[weight], fontWeight: weight };
 }
 
+const TABULAR_NUMS = ["tabular-nums"] as ["tabular-nums"];
+
 export const FONT = {
   h1: { fontSize: 32, lineHeight: 38, letterSpacing: -0.5, ...font("800") },
   h2: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3, ...font("700") },
   h3: { fontSize: 18, lineHeight: 24, ...font("600") },
+  display: { fontSize: 30, lineHeight: 36, letterSpacing: -0.4, ...font("800") },
+  /** Temporizador e importe grande del hero. */
+  metric: { fontSize: 36, lineHeight: 44, ...font("700"), fontVariant: TABULAR_NUMS },
+  metricCompact: { fontSize: 28, lineHeight: 34, ...font("700"), fontVariant: TABULAR_NUMS },
   bodyStrong: { fontSize: 16, lineHeight: 22, ...font("600") },
   body: { fontSize: 16, lineHeight: 22, ...font("400") },
+  bodySmall: { fontSize: 14, lineHeight: 20, ...font("400") },
   caption: { fontSize: 13, lineHeight: 18, ...font("500") },
+  micro: { fontSize: 12, lineHeight: 16, ...font("500") },
   label: { fontSize: 11, lineHeight: 14, letterSpacing: 1, ...font("700") },
+  button: { fontSize: 16, lineHeight: 22, ...font("600") },
+  buttonSm: { fontSize: 14, lineHeight: 20, ...font("600") },
+  buttonLg: { fontSize: 18, lineHeight: 24, ...font("600") },
+  /** Cifras de horas e importes en listas (14, negrita, ancho fijo). */
+  figure: { fontSize: 14, lineHeight: 20, ...font("700"), fontVariant: TABULAR_NUMS },
+  /** Miniatura del comprobante (documento, no UI de chrome). */
+  paperKicker: { fontSize: 9, lineHeight: 12, letterSpacing: 1, ...font("800") },
+  paperLabel: { fontSize: 11, lineHeight: 14, ...font("700") },
+  paperValue: { fontSize: 12, lineHeight: 16, ...font("700") },
+  paperLine: { fontSize: 11, lineHeight: 14, ...font("600") },
+  paperTotal: { fontSize: 18, lineHeight: 22, letterSpacing: -0.5, ...font("800"), fontVariant: TABULAR_NUMS },
+  paperHash: { fontSize: 14, lineHeight: 18, letterSpacing: 0.5, ...font("500") },
   /** Cifras de ancho fijo (temporizador del hero, importes): no "bailan" al avanzar. */
-  tabular: { ...font("700"), fontVariant: ["tabular-nums"] as ["tabular-nums"] },
+  tabular: { ...font("700"), fontVariant: TABULAR_NUMS },
+  tabularNums: { fontVariant: TABULAR_NUMS },
 };

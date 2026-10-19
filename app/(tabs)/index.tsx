@@ -6,13 +6,15 @@
  * sale de selectores; toda mutación es una ViewIntent.
  */
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import {
+  Chip,
   DailySummaryBlock,
   OperationalHeroCard,
   PageHeader,
-  ScreenContainer,
+  SAFE_EDGES,
+  ScreenScroll,
   SystemHealthBlock,
   EmptyState,
 } from "../../src/components/ui";
@@ -134,8 +136,7 @@ export default function TodayScreen() {
   const uncertified = health.degraded || (!!active && active.integrityClass !== "VALID") || !summary.certified;
 
   return (
-    <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+    <ScreenScroll edges={SAFE_EDGES.tab} refreshControl={refreshControl}>
         <PageHeader
           title={t("app.name")}
           subtitle={formatDate(nowMs)}
@@ -211,9 +212,7 @@ export default function TodayScreen() {
             <Text style={[styles.sectionLabel, { color: TOKENS.colors.text.secondary }]}>{t("today.visitedToday")}</Text>
             <View style={styles.chips}>
               {visited.map((s) => (
-                <View key={s!.id} style={[styles.chip, { borderColor: TOKENS.colors.border }]}>
-                  <Text style={{ color: TOKENS.colors.text.primary }}>{s!.alias}</Text>
-                </View>
+                <Chip key={s!.id} label={s!.alias} />
               ))}
             </View>
           </View>
@@ -222,7 +221,6 @@ export default function TodayScreen() {
         <Pressable onPress={() => router.push("/sites")} accessibilityRole="link" style={styles.footerLink}>
           <Text style={[styles.link, { color: TOKENS.colors.primary }]}>{t("cta.manageSites")}</Text>
         </Pressable>
-      </ScrollView>
 
       <DailySetupModal
         visible={modal === "SETUP_START" || modal === "SETUP_TRANSIT"}
@@ -275,16 +273,14 @@ export default function TodayScreen() {
         onCloseDay={() => setModal("LUNCH_CLOSE_EXIT")}
         onDismiss={() => setModal(null)}
       />
-    </ScreenContainer>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   visited: { gap: TOKENS.spacing.sm },
   sectionLabel: { ...FONT.label },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm },
-  chip: { borderWidth: 1, borderRadius: 999, paddingVertical: 4, paddingHorizontal: TOKENS.spacing.md },
-  footerLink: { alignSelf: "center", padding: TOKENS.spacing.md },
+  footerLink: { alignSelf: "center", padding: TOKENS.spacing.md, minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
   link: { ...FONT.bodyStrong },
 });

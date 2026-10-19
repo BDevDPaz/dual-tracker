@@ -20,7 +20,7 @@ import { haptics, useMotionPreference } from "./motion";
 
 // Importaciones del sistema de diseño y contexto
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { INTERACTION } from "../../constants/animations";
 
@@ -146,26 +146,25 @@ export const Button = React.memo(function Button({
     switch (size) {
       case "sm":
         return {
-          // Nunca por debajo del objetivo táctil mínimo (44 pt).
-          height: TOKENS.layout.minTouchTarget,
+          minHeight: TOKENS.layout.minTouchTarget,
           paddingHorizontal: TOKENS.spacing.md,
-          fontSize: 14,
-          iconSize: 16,
+          label: FONT.buttonSm,
+          iconSize: ICON.sm,
         };
       case "lg":
         return {
-          height: 64,
+          minHeight: TOKENS.layout.buttonLg,
           paddingHorizontal: TOKENS.spacing.xl,
-          fontSize: 18,
-          iconSize: 20,
+          label: FONT.buttonLg,
+          iconSize: ICON.lg,
         };
       case "md":
       default:
         return {
-          height: 56,
+          minHeight: TOKENS.layout.buttonMd,
           paddingHorizontal: TOKENS.spacing.lg,
-          fontSize: 16,
-          iconSize: 18,
+          label: FONT.button,
+          iconSize: ICON.md,
         };
     }
   };
@@ -187,8 +186,9 @@ export const Button = React.memo(function Button({
         {
           backgroundColor: variantStyles.backgroundColor,
           borderColor: variantStyles.borderColor,
-          height: sizeStyles.height,
+          minHeight: sizeStyles.minHeight,
           paddingHorizontal: sizeStyles.paddingHorizontal,
+          paddingVertical: TOKENS.spacing.sm,
         },
         isDisabled && styles.disabled,
         style,
@@ -208,14 +208,7 @@ export const Button = React.memo(function Button({
             />
           ) : null}
 
-          <Text
-            style={[
-              styles.label,
-              { color: variantStyles.textColor, fontSize: sizeStyles.fontSize },
-            ]}
-          >
-            {label}
-          </Text>
+          <Text style={[styles.label, sizeStyles.label, { color: variantStyles.textColor }]}>{label}</Text>
         </View>
       )}
     </AnimatedPressable>
@@ -225,7 +218,7 @@ export const Button = React.memo(function Button({
 const styles = StyleSheet.create({
   button: {
     borderRadius: TOKENS.radius.md,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
     justifyContent: "center",
     alignItems: "center",
     minWidth: TOKENS.layout.minTouchTarget, // Accesibilidad: objetivo táctil mínimo
@@ -237,7 +230,7 @@ const styles = StyleSheet.create({
     gap: TOKENS.spacing.sm,
   },
   icon: {
-    marginRight: 2,
+    marginRight: TOKENS.spacing.zero,
   },
   label: {
     ...FONT.bodyStrong,

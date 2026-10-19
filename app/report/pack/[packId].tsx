@@ -4,9 +4,9 @@
  * sellado, archivos incluidos, sesiones incluidas y compartir PDF empleado /
  * empleador. Sin "regenerar con otras reglas": un pack sellado no muta.
  */
-import { Text, StyleSheet, ScrollView } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, Section } from "../../../src/components/ui";
+import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
@@ -26,20 +26,26 @@ export default function PackScreen() {
   const pack = cached ?? loaded.data;
   const sessions = useQuery(() => (pack ? queries.packSessions(pack) : Promise.resolve([])), [pack?.id], ["sessions"]);
 
-  if (!pack && loaded.loading) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
+  if (!pack && loaded.loading) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
+  }
   if (!pack) {
     return (
-      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+      <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
         <EmptyState title={t("report.notFound")} icon="document-outline" />
         <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
-      </ScrollView>
+      </ScreenScroll>
     );
   }
   const m = pack.manifest;
   const shared = selectPackShared(state, pack.id);
 
   return (
-    <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+    <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
       {!m.certified ? <ScreenStatusBanner status="conflict" message={t("report.uncertified")} /> : null}
       {m.sealedAtMs <= m.periodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
       {m.sealWarnings?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.sealWarning")} /> : null}
@@ -81,14 +87,13 @@ export default function PackScreen() {
       {!shared ? <BackupAdviceCard /> : null}
       <Button label={t("reports.shareEmployee")} iconName="share-outline" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: pack.id })} />
       <Button label={t("reports.shareEmployer")} variant="secondary" iconName="briefcase-outline" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: pack.id })} />
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: TOKENS.spacing["3xl"] },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.xs },
   label: { ...FONT.label },
-  hash: { fontFamily: "monospace", fontSize: 13, lineHeight: 20 },
+  hash: { ...FONT.caption, fontFamily: "monospace" },
   caption: { ...FONT.caption },
 });

@@ -10,7 +10,7 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT, font } from "../../constants/theme";
+import { TOKENS, FONT, ICON, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
@@ -99,7 +99,7 @@ export function LoadingOverlay({
             >
               <Ionicons
                 name="cloud-offline-outline"
-                size={28}
+                size={ICON.xxl}
                 color={colors.status.warning}
               />
             </Animated.View>
@@ -144,35 +144,34 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     paddingVertical: TOKENS.spacing.xl,
-    paddingHorizontal: 32,
+    paddingHorizontal: TOKENS.spacing["2xl"],
     borderRadius: TOKENS.radius.lg,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
     alignItems: "center",
     gap: TOKENS.spacing.lg,
     maxWidth: "80%",
   },
   spinnerWrapper: {
-    width: 48,
-    height: 48,
+    width: TOKENS.layout.minTouchTarget,
+    height: TOKENS.layout.minTouchTarget,
     justifyContent: "center",
     alignItems: "center",
   },
   spinnerRing: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: TOKENS.radius.round,
     borderWidth: 3,
   },
   radarWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: TOKENS.radius.round,
     justifyContent: "center",
     alignItems: "center",
   },
   messageText: {
-    ...FONT.body,
-    fontSize: 14,
+    ...FONT.bodySmall,
     textAlign: "center",
   },
 });

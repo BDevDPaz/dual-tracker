@@ -1,0 +1,65 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`useResponsive instantánea del ritmo en teléfono estrecho y en tablet 1`] = `
+<View
+  testID="probe"
+>
+  <Text
+    testID="bp"
+  >
+    compact
+  </Text>
+  <Text
+    testID="pad"
+  >
+    16
+  </Text>
+  <Text
+    testID="max"
+  >
+    full
+  </Text>
+  <Text
+    testID="land"
+  >
+    port
+  </Text>
+  <Text
+    testID="fs"
+  >
+    2
+  </Text>
+</View>
+`;
+
+exports[`useResponsive instantánea del ritmo en teléfono estrecho y en tablet 2`] = `
+<View
+  testID="probe"
+>
+  <Text
+    testID="bp"
+  >
+    tablet
+  </Text>
+  <Text
+    testID="pad"
+  >
+    24
+  </Text>
+  <Text
+    testID="max"
+  >
+    720
+  </Text>
+  <Text
+    testID="land"
+  >
+    port
+  </Text>
+  <Text
+    testID="fs"
+  >
+    1
+  </Text>
+</View>
+`;

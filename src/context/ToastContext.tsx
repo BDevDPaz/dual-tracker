@@ -26,7 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
-import { TOKENS, FONT } from "../constants/theme";
+import { TOKENS, FONT, ICON } from "../constants/theme";
 import { useTheme } from "./ThemeContext";
 import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
@@ -49,7 +49,7 @@ interface ToastContextType {
 type ToastItem = { title: string; caption?: string; type: ToastType; live?: ToastLive };
 
 /** Separación entre el borde seguro superior y el aviso. */
-export const TOAST_TOP_GAP = 8;
+export const TOAST_TOP_GAP = TOKENS.spacing.sm;
 /** Máximo de avisos encolados mientras un modal bloqueante está visible. */
 const MAX_QUEUED = 3;
 
@@ -220,7 +220,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <View style={styles.contentRow}>
               <Ionicons
                 name={config.icon as any}
-                size={22}
+                size={ICON.xl}
                 color={config.color}
               />
               <View style={styles.textCol}>
@@ -272,9 +272,9 @@ const styles = StyleSheet.create({
   toastCard: {
     width: "100%",
     borderRadius: TOKENS.radius.md,
-    paddingVertical: 14,
+    paddingVertical: TOKENS.spacing.lg,
     paddingHorizontal: TOKENS.spacing.lg,
-    borderWidth: 1,
+    borderWidth: TOKENS.layout.hairline,
   },
   contentRow: {
     flexDirection: "row",
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   },
   textCol: {
     flex: 1,
-    gap: 2,
+    gap: TOKENS.spacing.xxs,
   },
   toastTitle: {
     ...FONT.bodyStrong,

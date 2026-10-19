@@ -8,9 +8,9 @@
  * Sesión eliminada → banner "Eliminada" y solo lectura.
  */
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, IntegrityBadge, ScreenContainer, Section, SessionTimeline, ledgerToTimeline } from "../../src/components/ui";
+import { Button, Card, EmptyState, IntegrityBadge, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, ledgerToTimeline } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
@@ -55,15 +55,19 @@ export default function SessionDetailScreen() {
   const trace = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
   const lines = useQuery(() => (session ? queries.sessionLines(session) : Promise.resolve([])), [sessionId, updatedAt], ["sessions", "settings"]);
 
-  if (!selectIsHydrated(state)) return <ScreenStatusBanner status="loading" message={t("common.loading")} />;
+  if (!selectIsHydrated(state)) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
+  }
   if (!session) {
     return (
-      <ScreenContainer>
-        <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
-          <EmptyState title={t("session.notFound")} icon="alert-circle-outline" />
-          <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
-        </ScrollView>
-      </ScreenContainer>
+      <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
+        <EmptyState title={t("session.notFound")} icon="alert-circle-outline" />
+        <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
+      </ScreenScroll>
     );
   }
 
@@ -89,9 +93,19 @@ export default function SessionDetailScreen() {
   };
 
   return (
-    <ScreenContainer noPadding>
+    <ScreenScroll
+      edges={SAFE_EDGES.stack}
+      refreshControl={refreshControl}
+      footer={
+        !deleted ? (
+          <View style={styles.footer}>
+            <Button label={t("common.edit")} variant="secondary" style={styles.flex} onPress={() => setModal("EDIT")} />
+            <Button label={t("common.delete")} variant="danger" style={styles.flex} disabled={session.domainStatus !== "CERRADA"} onPress={() => setModal("DELETE")} />
+          </View>
+        ) : null
+      }
+    >
       <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HelpButton screen="session" /> }} />
-      <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
         <ScreenTips screen="session" sessionState={session.domainStatus} siteCount={0} batteryRestricted={false} provisionalSeal={false} hasSplitRow={false} hasZeroOmitted={false} />
         {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
         {session.integrityClass === "CONFLICT" && !deleted ? (
@@ -164,15 +178,7 @@ export default function SessionDetailScreen() {
           </Text>
           {!deleted ? <Button label={t("session.addNote")} size="sm" variant="ghost" onPress={() => setModal("NOTE")} /> : null}
         </Section>
-      </ScrollView>
-
-      {!deleted ? (
-        <View style={[styles.footer, { borderColor: TOKENS.colors.border, backgroundColor: TOKENS.colors.surface }]}>
-          <Button label={t("common.edit")} variant="secondary" style={styles.flex} onPress={() => setModal("EDIT")} />
-          {/* Eliminar solo en sesiones cerradas (interpretación: no se borra una jornada en curso). */}
-          <Button label={t("common.delete")} variant="danger" style={styles.flex} disabled={session.domainStatus !== "CERRADA"} onPress={() => setModal("DELETE")} />
-        </View>
-      ) : null}
+      {/* Eliminar solo en sesiones cerradas (interpretación: no se borra una jornada en curso). */}
 
       <EditSessionModal
         visible={modal === "EDIT"}
@@ -190,17 +196,16 @@ export default function SessionDetailScreen() {
         onCancel={() => setModal(null)}
         onSave={(note) => void run({ type: "ADD_NOTE", sessionId: session.id, note })}
       />
-    </ScreenContainer>
+    </ScreenScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: TOKENS.layout.screenPadding, paddingVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md, paddingBottom: 120 },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.md },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: TOKENS.spacing.md },
   title: { ...FONT.h2, flex: 1 },
   caption: { ...FONT.caption },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   policy: { ...FONT.caption, marginTop: TOKENS.spacing.sm },
-  footer: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: TOKENS.spacing.md, padding: TOKENS.spacing.lg, borderTopWidth: 1 },
+  footer: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.md },
   flex: { flex: 1 },
 });
