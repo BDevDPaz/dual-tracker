@@ -49,6 +49,19 @@ describe("exitDecisionTimer.task", () => {
     expect((await PersistenceService.getSession(s.id))?.integrityClass).toBe("CONFLICT");
   });
 
+  test("salida a los 10 s sin estar claramente fuera no cierra: vuelve a ACTIVA", async () => {
+    const { siteA } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(10_000);
+    const firstExit = time.now();
+    await mustDispatch({ type: "EXIT_DETECTED", fact: makeExit({ sessionId: s.id, timestampMs: firstExit }) }, "GEOFENCE");
+    await TaskOrchestratorService.scheduleExitDecision(s.id, firstExit, MIN);
+    time.travel(2 * MIN);
+    LocationMock.__setPosition(SITE_LAT + 120 / 111_320, SITE_LON, 10);
+    expect(await runExitDecisionTimer()).toBe(false);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
   test("si el usuario ya eligió STAY_WORKING, el plazo caduca sin cerrar", async () => {
     const { s } = await inSalida();
     await mustDispatch({ type: "STAY_WORKING" });

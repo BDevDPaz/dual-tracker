@@ -19,6 +19,7 @@ export const INITIAL_HEALTH: SystemHealthSnapshot = {
   checkedAtMs: null,
   ledger: { broken: null, acknowledgedBreaks: 0 },
   fieldCrypto: { status: "UNINITIALIZED", lostKids: [], affectedSessionIds: [], platformSupported: true },
+  geofenceDiag: [],
 };
 
 export function createInitialState(): DualTrackerState {

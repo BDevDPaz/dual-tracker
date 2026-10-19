@@ -2,6 +2,8 @@
 
 Esta matriz es **obligatoria** antes de liberar el cifrado de campos. Jest (Node + sql.js + dobles) no ejecuta Hermes, el llavero de iOS, el Keystore de Android ni tareas reales en segundo plano, así que estas pruebas no se pueden automatizar en la suite.
 
+El fichaje automático en el Samsung Galaxy S22+ (entrada, salida, traslado y cómo leer el diagnóstico de Salud) está en [PRUEBAS_GEOCERCA.md](PRUEBAS_GEOCERCA.md).
+
 ## Requisitos
 
 - **Build de release** (Hermes activado). No sirve Expo Go ni un build de desarrollo. Se obtiene con el perfil `preview` de EAS (`npm run build:android:preview` / `npm run build:ios:preview`); cómo compilar e instalar en Android y en iPhone: [BUILD.md](BUILD.md).

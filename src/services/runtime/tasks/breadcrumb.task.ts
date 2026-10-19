@@ -38,7 +38,13 @@ export async function runBreadcrumbTask(
     }));
     await TraceRecorderService.ingest(session, samples, { mode: settings.company.traceMode, radiusM, battery: battery !== null && battery >= 0 ? battery : null });
     const last = samples[samples.length - 1];
-    await GeofenceRuntimeService.observeSample(last);
+    await GeofenceRuntimeService.observeSample({
+      lat: last.lat,
+      lon: last.lon,
+      accuracyM: last.accuracyM,
+      speedMps: last.speedMps,
+      timestampMs: last.timestampMs,
+    });
   } catch (error) {
     LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "fallo en tarea de miga de pan", serializeError(error));
   }

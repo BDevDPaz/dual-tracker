@@ -187,6 +187,8 @@ export const KV_KEYS = {
   EXIT_DECISION: "runtime.exit_decision",
   LAST_SWEEP_DAY: "runtime.last_integrity_sweep_day",
   LAST_FIX: "runtime.last_fix",
+  /** Bitácora de geocerca sin coordenadas (diagnóstico en Salud). */
+  GEOFENCE_DIAG: "runtime.geofence_diag",
   LAST_PACK_WEEK: "runtime.last_payroll_export_week",
   MUTEX_PREFIX: "mutex.",
   /** Migración única de pausas antiguas desde el ledger (spec v1.3 §5.3). */

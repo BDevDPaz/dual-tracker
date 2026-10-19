@@ -169,4 +169,107 @@ describe("geofence.task", () => {
     expect(await PersistenceService.getKv(KV_KEYS.LAST_FIX)).toMatch(/^enc:v1:k1:kv\.lastFix:/);
     expect(await PersistenceService.getLastFix()).toMatchObject({ lat: SITE_LAT });
   });
+
+  test("llegar en coche (40 km/h) dentro del radio sí hace check-in", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 12, 40 / 3.6);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("precisión 80 m dentro de un radio de 100 m ficha (el tope de 50 m no veta)", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 80);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+    const [f] = await PersistenceService.listSpatialFacts(s.id, ["ENTER"]);
+    expect(f.reliable).toBe(true);
+  });
+
+  test("un salto de 10 km en 20 min no rechaza la llegada", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    await PersistenceService.setLastFix({ lat: SITE_LAT + 0.09, lon: SITE_LON, timestampMs: time.now() - 20 * 60_000 });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("un salto de 10 km en 5 s sí rechaza la llegada", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    await PersistenceService.setLastFix({ lat: SITE_LAT + 0.09, lon: SITE_LON, timestampMs: time.now() - 5_000 });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+    const [f] = await PersistenceService.listSpatialFacts(s.id, ["ENTER"]);
+    expect(f).toMatchObject({ reliable: false, reason: "LOCATION_JUMP_DETECTED" });
+  });
+
+  test("EXIT a 120 m justo después de llegar no arma salida ni cierra (rebote)", async () => {
+    const { siteA } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(5_000);
+    LocationMock.__setPosition(SITE_LAT + 120 / 111_320, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    expect(await GeofenceRuntimeService.getPendingExit()).toBeNull();
+    time.travel(3 * 60_000);
+    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(false);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("la muestra del servicio en primer plano ficha si el ENTER nativo no llegó", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    await GeofenceRuntimeService.observeSample({ lat: SITE_LAT, lon: SITE_LON, accuracyM: 15, timestampMs: time.now() });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+    expect(await PersistenceService.listSpatialFacts(s.id, ["BREADCRUMB"])).toHaveLength(0);
+  });
+
+  test("una muestra con precisión peor que el radio no ficha", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    await GeofenceRuntimeService.observeSample({ lat: SITE_LAT, lon: SITE_LON, accuracyM: 500, timestampMs: time.now() });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+  });
+
+  test("ya dentro al registrar la geocerca: confirmPresence ficha sin evento del SO", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 20);
+    expect(await GeofenceRuntimeService.startMonitoring(s.id, siteA)).toBe(true);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("llegar a otro destino continúa la misma jornada (no abre otra sesión)", async () => {
+    const { siteA, siteB } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(2 * HOUR);
+    await GeofenceRuntimeService.observeSample({
+      lat: SITE_LAT + 0.05,
+      lon: SITE_LON,
+      accuracyM: 10,
+      timestampMs: time.now(),
+    });
+    const after = (await PersistenceService.getSession(s.id))!;
+    expect(after.domainStatus).toBe("ACTIVA");
+    expect(after.siteId).toBe(siteB);
+    expect(after.transitSegments.filter((t) => !t.cancelled)).toHaveLength(1);
+    const all = await PersistenceService.listSessions();
+    expect(all.filter((x) => !x.bookkeeping.isDeleted)).toHaveLength(1);
+  });
+
+  test("la bitácora no guarda coordenadas", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 500);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    const raw = JSON.stringify(await PersistenceService.getKv(KV_KEYS.GEOFENCE_DIAG));
+    expect(raw).toContain("ACCURACY_GT_RADIUS");
+    expect(raw).not.toContain(String(SITE_LAT));
+    expect(raw).not.toContain("latitude");
+    expect(raw).not.toContain("\"lat\"");
+  });
 });

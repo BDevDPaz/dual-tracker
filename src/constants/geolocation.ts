@@ -7,11 +7,18 @@
  * la Propuesta Técnica §4.3 ("el hecho se marca UNRELIABLE").
  */
 
-/** Precisión máxima aceptable para considerar un fix "limpio" (GEOTrack). */
+/**
+ * Precisión a partir de la cual un fix se etiqueta como red (no como veto).
+ * Fichar exige precisión ≤ radio del sitio: en ciudad el GPS del S22+ pasa
+ * de 50 m con facilidad y eso no puede impedir el check-in.
+ */
 export const MAX_ACCEPTABLE_ACCURACY_METERS = 50;
-/** Velocidad máxima coherente con una entrada a pie/vehículo lento (GEOTrack). */
+/**
+ * Umbrales heredados de GEOTrack. Ya NO rechazan la llegada ni la salida:
+ * el operario llega en vehículo. El único veto de velocidad es
+ * IMPOSSIBLE_SPEED_KMH (ver geofencePolicy.movementIssue).
+ */
 export const MAX_ENTRY_SPEED_KMH = 15;
-/** Velocidad máxima coherente con una salida (GEOTrack). */
 export const MAX_EXIT_SPEED_KMH = 25;
 /** Ventana anti-rebote entre eventos nativos idénticos (GEOTrack). */
 export const GEOFENCE_ANTI_REBOUNCE_MS = 5_000;

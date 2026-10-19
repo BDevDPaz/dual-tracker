@@ -2,6 +2,8 @@
 
 Para una persona, en el Samsung S22+ (o cualquier Android con ubicación). No hace falta un segundo teléfono. Jest no simula la geocerca del sistema: estos pasos sí.
 
+El checklist de fichaje automático (rebote de salida, muestras cuando el ENTER no llega, diagnóstico en Salud) está en [PRUEBAS_GEOCERCA.md](PRUEBAS_GEOCERCA.md). Para que la salida salte hay que alejarse del radio **más unos 50 m**: cruzar solo el borde no basta.
+
 Build de release (no Expo Go). Cómo instalarlo: [BUILD.md](BUILD.md). Anota fecha, modelo, versión de Android, commit y Aprobado/Fallido.
 
 Antes de empezar: en Ajustes, el nombre y la tarifa por hora ya están guardados, y aceptaste el aviso de ubicación. La política de traslado **no tiene interruptor en pantalla**. Por defecto el trayecto entre destinos se paga a la misma tarifa (×1) y **sí cuenta** para el extra diario y semanal. El camino de casa al primer destino no se paga.
