@@ -20,6 +20,7 @@ import type {
   SessionRecord,
   Site,
 } from "../../core/contracts";
+import { t } from "../../i18n";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatSiteName, noteToHtml } from "../domain/payrollDisplay";
@@ -146,17 +147,29 @@ function stats(st: PayrollStatement): string {
     </div>`;
 }
 
-function sessionRows(input: ReportInput): string {
+/** Fila sin minutos pagados y sin importe. El comprobante del empleado no la lista. */
+function isZeroPayRow(minutes: number, amountCents: number): boolean {
+  return minutes <= 0 && amountCents === 0;
+}
+
+function sessionRows(input: ReportInput, omitZeroPay: boolean): { html: string; omitted: number } {
   const byId = new Map(input.sessions.map((s) => [s.id, s]));
   const shown = displayStatement(input.statement);
   const bySession = new Map(shown.rows.map((r) => [r.sessionId, r]));
   const split = getPayrollPolicy(input.statement.policyId).segmentation === "WORKDAY";
   const history = companyCalendar(input.company);
-  return input.statement.sessionIds
+  let omitted = 0;
+  const html = input.statement.sessionIds
     .map((id) => {
       const s = byId.get(id);
       if (!s) return "";
       const row = bySession.get(id);
+      const minutes = row?.workedMinutes ?? 0;
+      const amountCents = row?.amountCents ?? 0;
+      if (omitZeroPay && isZeroPayRow(minutes, amountCents)) {
+        omitted += 1;
+        return "";
+      }
       const start = s.actualStartAtMs ?? s.declaredStartAtMs;
       const slice = split ? periodSliceOf(s, input.statement.periodStart, input.statement.periodEnd, history, input.statement.periodEnd) : null;
       const from = slice?.displayStartMs ?? start;
@@ -172,12 +185,19 @@ function sessionRows(input: ReportInput): string {
           <td>${sessionSitesLabel(s, input.sites)}
             ${note ? `<span class="notes">"${note}"</span>` : ""}</td>
           <td>${formatTime(from, ES)} - ${to != null ? formatTime(to, ES) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">Duración cero: no suma al pago. Conservada para auditoría.</span>` : ""}</td>
-          <td><strong>${row?.hours ?? "0.00"}</strong><span class="mins">${row?.workedMinutes ?? 0} min</span></td>
+          <td><strong>${row?.hours ?? "0.00"}</strong><span class="mins">${minutes} min</span></td>
           <td>${row?.amount ?? formatCurrency(0)}</td>
           <td><span class="badge b-${s.integrityClass}">${INTEGRITY_LABEL[s.integrityClass]}</span></td>
         </tr>`;
     })
     .join("");
+  return { html, omitted };
+}
+
+/** Aviso del comprobante. Siempre en español: el PDF no sigue el idioma de la UI. */
+function omittedNote(count: number): string {
+  if (count <= 0) return "";
+  return `<p class="notes">${escapeHtml(t("reports.zeroRowsOmitted", { count }, "es"))}</p>`;
 }
 
 function linesTable(st: PayrollStatement): string {
@@ -211,14 +231,16 @@ function sealWarningBlock(input: ReportInput): string {
   return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
 }
 
-/** Comprobante del empleado: resumen legible, sin rastro. */
+/** Comprobante del empleado: resumen legible, sin rastro. Las filas de 0 min no se listan. */
 export function renderEmployeeReceipt(input: ReportInput): string {
+  const rows = sessionRows(input, true);
   return `<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${BASE_CSS}</style></head><body>
     ${header("Dual Tracker", "Comprobante del empleado", input)}
     ${uncertifiedStamp(input)}
     ${sealWarningBlock(input)}
     ${stats(input.statement)}
-    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input)}</tbody></table>
+    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${rows.html}</tbody></table>
+    ${omittedNote(rows.omitted)}
     ${hashBlock(input)}
     <div class="footer">Documento generado por Dual Tracker. Las cifras son el estado de nómina sellado del periodo.</div>
   </body></html>`;
@@ -242,7 +264,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${sealWarningBlock(input)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>
-    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input)}</tbody></table>
+    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input, false).html}</tbody></table>
     <div class="section-title">Líneas de nómina</div>
     ${linesTable(input.statement)}
     <div class="section-title">Integridad</div>

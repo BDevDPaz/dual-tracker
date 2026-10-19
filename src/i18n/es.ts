@@ -297,6 +297,7 @@ export const es = {
     packs: "Expedientes sellados",
     packEarly: "Este expediente se selló antes de que terminara la semana. No es el cierre: si agregas jornadas o corriges una que cruza la medianoche, vuelve a generarlo. El sello anterior no se reescribe.",
     packStale: "Este periodo ya no coincide con el expediente sellado (horas o evidencia). Vuelve a generarlo para obtener un código nuevo; el anterior queda guardado.",
+    zeroRowsOmitted: "Jornadas de 0 min omitidas de este comprobante: {count}. Siguen en el expediente del empleador.",
   },
   report: {
     header: "Expediente",

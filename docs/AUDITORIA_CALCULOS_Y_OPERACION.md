@@ -36,7 +36,7 @@ En el comprobante del 12–18 hay seis sesiones el domingo y dos duran cero minu
 
 **Qué se hizo (lo que está claro).** Se quedan en el comprobante y en el expediente, con la nota «Duración cero: no suma al pago. Conservada para auditoría.» Historial y el detalle muestran el mismo aviso. Borrarlas sigue siendo el borrado lógico que ya existía (`DELETE_SESSION`, solo si está cerrada): el ledger anota `SOFT_DELETE` y la fila sale del cálculo. No se borran solas. No se marcan `CONFLICT` por durar cero. No se añade un aviso al statement: eso cambiaría el `contentHash` de una nómina que por lo demás es la misma.
 
-**Pregunta.** ¿El comprobante del empleado debería omitir las filas de $0 y dejar una línea de que se omitieron, y el expediente del empleador conservarlas todas? Recomendación: sí, cuando se decida, porque el recibo se lee como pago y el expediente como rastro. Hasta entonces las dos copias muestran lo mismo.
+**Decisión (Byron).** El comprobante del empleado no lista las filas de 0 min y $0. Deja la línea «Jornadas de 0 min omitidas de este comprobante: N. Siguen en el expediente del empleador.» El expediente, Historial y el detalle de la sesión las conservan, con la nota de auditoría. El texto del PDF sale del catálogo español aunque la interfaz esté en inglés (`reports.zeroRowsOmitted`).
 
 ## 3. Redondeo: filas, total y el reloj
 
@@ -103,9 +103,9 @@ Doble tiempo por encima de 12 h y el séptimo día seguido están declarados en 
 
 ## Preguntas (no se inventó una respuesta legal)
 
-1. **Filas de $0 en el recibo del empleado.** Recomendación: omitirlas del comprobante, con una línea de que se omitieron, y dejarlas en el expediente. Hoy están en los dos.
-2. **Minuto más cercano frente a pagar los segundos.** Recomendación: dejar el minuto más cercano, que es lo que ya corre, y enseñar los minutos enteros al lado del reloj (ya está). Cambiar a segundos o a truncar hacia abajo movería $19.83 y cualquier semana ya sellada no se reescribe, pero los sellos nuevos no coincidirían con el hábito actual.
-3. **¿Se puede sellar una semana que no ha terminado?** Recomendación: seguir pudiendo, con el aviso de que no es el cierre. Prohibirlo evita el pack del 19–25 sellado a las 12:26, y también impide el comprobante de una semana en curso que hoy se puede pedir.
+1. **Filas de $0 en el recibo del empleado.** Aprobado: se omiten del comprobante, con el conteo, y se quedan en el expediente. Hecho.
+2. **Minuto más cercano frente a pagar los segundos.** Aprobado: se queda el minuto más cercano y los minutos enteros al lado del reloj. Ya estaba así.
+3. **¿Se puede sellar una semana que no ha terminado?** Aprobado: se puede, con el aviso de que no es el cierre. Ya estaba así.
 4. **Hora repetida del cambio de otoño.** 01:30 existe dos veces. Una sesión guardada en epoch está bien. Un alta o un parche escrito solo como `HH:mm` no puede decir cuál de las dos es. Recomendación: no inventar un selector hasta que alguien edite una jornada en esa hora; el cálculo por epoch ya es el correcto.
 5. **Doble tiempo y séptimo día.** Siguen detrás de las banderas, en off. Recomendación: confirmar con asesoría antes de encenderlas. No se activaron.
 6. **Tránsito a 1×, cuenta para el cupo, sin recargo en la línea.** Ya aceptado. No se cambió. Si la asesoría pide otro multiplicador, es un cambio de política versionado, no un parche de este cálculo.

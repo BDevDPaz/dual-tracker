@@ -5,7 +5,7 @@ import type { Site } from "../../../core/contracts";
 import { makeEvidence, makeStatement } from "../../../../test/fixtures/payroll.fixture";
 import { COMPANY, HOUR, makeClosedSession, makeSegment, MONDAY_8AM } from "../../../../test/fixtures/session.fixture";
 import { fromWallClock, getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
-import { setLanguage } from "../../../i18n";
+import { setLanguage, t } from "../../../i18n";
 import { PayrollEngineService } from "../../domain/PayrollEngineService";
 import { CA_DAILY8_WEEKLY40_V2 } from "../../domain/payrollPolicies";
 import { DEFAULT_PROFILE } from "../../persistence/SettingsService";
@@ -148,17 +148,35 @@ describe("ReportService", () => {
     expect(html).not.toContain("\n🇸🇻");
   });
 
-  test("duración cero se conserva en el comprobante, con nota y sin pago", () => {
-    const t0 = fromWallClock(2026, 10, 18, 4, 45);
-    const session = makeClosedSession(t0, 0, { endAtMs: t0, integrityClass: "AUTO" });
-    const html = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
-      ...input(makeStatement({ regularHours: 0 })),
-      sessions: [session],
+  test("el comprobante del empleado omite las filas de 0 min; el expediente las conserva", () => {
+    const t0 = fromWallClock(2026, 10, 18, 16, 45);
+    const zero = makeClosedSession(t0, 0, { id: 1, endAtMs: t0, integrityClass: "AUTO" });
+    const paid = makeClosedSession(t0 + 3 * HOUR, 1, { id: 2 });
+    const st = PayrollEngineService.buildStatement({
+      periodStart: getWeekStart(t0),
+      periodEnd: getWeekEnd(t0),
+      sessions: [zero, paid],
+      rates: { hourlyRate: 20, overtimeMultiplier: 1.5 },
+      company: COMPANY,
+      policyId: COMPANY.overtimePolicyId,
+      nowMs: t0 + 8 * HOUR,
     });
-    expect(html).toContain("04:45 AM - 04:45 AM");
-    expect(html).toContain("Duración cero: no suma al pago. Conservada para auditoría.");
-    expect(html).toContain("Cierre automático");
-    expect(html).toContain("$0.00");
+    const base = { ...input(st), sessions: [zero, paid], company: COMPANY };
+    setLanguage("en");
+    const employee = ReportService.renderHtml("EMPLOYEE_RECEIPT", base);
+    const employer = ReportService.renderHtml("EMPLOYER_DOSSIER", base);
+    setLanguage("es");
+    expect(employee).toContain("07:45 PM");
+    expect(employee).toContain("$20.00");
+    expect(employee).not.toContain("04:45 PM");
+    expect(employee).not.toContain("Duración cero");
+    expect(employee).toContain(t("reports.zeroRowsOmitted", { count: 1 }, "es"));
+    expect(employee).not.toContain(t("reports.zeroRowsOmitted", { count: 1 }, "en"));
+    expect(employer).toContain("04:45 PM - 04:45 PM");
+    expect(employer).toContain("Duración cero: no suma al pago. Conservada para auditoría.");
+    expect(employer).toContain("Cierre automático");
+    expect(employer).toContain("07:45 PM");
+    expect(employer).not.toContain("omitidas de este comprobante");
   });
 
   test("sin alias se ve la dirección; si el alias no es la dirección, se ven las dos", () => {

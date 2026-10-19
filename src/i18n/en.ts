@@ -300,6 +300,7 @@ export const en: Dictionary = {
     packs: "Sealed packs",
     packEarly: "This pack was sealed before the week ended. It is not the final close: if you add shifts or correct one that crosses midnight, generate it again. The earlier seal is not rewritten.",
     packStale: "This period no longer matches the sealed pack (hours or evidence). Generate it again for a new code; the earlier pack stays on record.",
+    zeroRowsOmitted: "Zero-minute shifts omitted from this receipt: {count}. They remain on the employer dossier.",
   },
   report: {
     header: "Evidence pack",
