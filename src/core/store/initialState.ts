@@ -13,6 +13,7 @@ export const INITIAL_HEALTH: SystemHealthSnapshot = {
   batteryOptimization: "unknown",
   clockDriftMs: 0,
   clockDriftExceeded: false,
+  networkTime: "unknown",
   isMonitoring: false,
   lastSpatialFactAt: null,
   locationServicesEnabled: null,

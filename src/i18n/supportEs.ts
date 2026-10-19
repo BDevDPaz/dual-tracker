@@ -241,7 +241,7 @@ export const supportEs = {
   screens: {
     today: {
       title: "Hoy",
-      intro: "Hoy es el mando de la jornada: iniciar, llegar, almorzar, trasladarte y cerrar. El temporizador y el destino salen del estado real.",
+      intro: "Hoy es el mando de la jornada: iniciar, llegar, almorzar, trasladarte y cerrar. Si la jornada queda en Revisar por falta de señal, aquí confirmas el fin o sigues. El temporizador y el destino salen del estado real.",
       s0: { title: "La acción grande", body: "El botón principal cambia con el estado. Fuera de servicio es Iniciar jornada. En traslado es Confirmar llegada." },
       s1: { title: "No abras otra jornada", body: "Si vas a otro destino, usa Iniciar traslado en la misma jornada. Nueva jornada es para cuando la anterior ya está cerrada." },
     },
@@ -249,7 +249,7 @@ export const supportEs = {
       title: "Historial",
       intro: "El historial lista las jornadas de la semana, con filtros por integridad y las porciones que cruzan el domingo.",
       s0: { title: "La semana", body: "Las flechas cambian de semana. Todo muestra el historial completo; el resto se queda en la semana elegida." },
-      s1: { title: "La fila partida", body: "Si una jornada sigue el lunes, la fila dice «continúa el lun». Ábrela para ver el detalle o corregirla con nota." },
+      s1: { title: "La fila partida", body: "Si una jornada sigue el lunes, la fila dice «continúa el lun». Una jornada en Revisar por abandono se señala en la lista: ábrela para confirmar el fin o seguir." },
     },
     reports: {
       title: "Reportes",
@@ -259,13 +259,13 @@ export const supportEs = {
     },
     settings: {
       title: "Ajustes",
-      intro: "Ajustes guarda el perfil y el idioma, y abre Salud, destinos y esta sección de Soporte.",
+      intro: "Ajustes guarda el perfil y el idioma, muestra el estado de retención de cada semana y abre Salud, destinos y esta sección de Soporte.",
       s0: { title: "Soporte", body: "Desde aquí entras al manual, a las preguntas y al modo práctica." },
       s1: { title: "Idioma", body: "Español o English cambian la interfaz al momento, también las guías que tengas abiertas. No reescribe un PDF ya sellado." },
     },
     session: {
       title: "Sesión",
-      intro: "La sesión muestra qué declaraste, qué confirmó la zona, la integridad, las líneas y las notas.",
+      intro: "La sesión muestra qué declaraste, qué confirmó la zona, la integridad, las líneas y las notas. Si está en Revisar por abandono, aquí confirmas el fin o sigues.",
       s0: { title: "Editar", body: "Editar pide nota si cambias las horas. El horario anterior queda guardado." },
       s1: { title: "La actividad", body: "La línea de tiempo sale del registro, no de una lista fija. Cada paso (llegada, traslado, cierre) es un asiento." },
     },
@@ -295,8 +295,8 @@ export const supportEs = {
     },
     health: {
       title: "Salud operativa",
-      intro: "Salud muestra permisos, batería, reloj y el Diagnóstico de geocerca. Sirve para entender por qué no hubo check-in automático.",
-      s0: { title: "Diagnóstico de geocerca", body: "Cada fila es hora, tipo, región, precisión y si se aceptó. No hay mapa ni coordenadas." },
+      intro: "Salud muestra permisos, batería, reloj y el Diagnóstico de geocerca. Cada sensor dice si bloquea VALIDADA o si solo avisa. También lista las jornadas en revisión.",
+      s0: { title: "Diagnóstico de geocerca", body: "Cada fila es hora, tipo, región, precisión y si se aceptó. No hay mapa ni coordenadas. Ubicación, servicio en primer plano y reloj bloquean VALIDADA. Batería, avisos y red solo avisan." },
       s1: { title: "Reparar", body: "Reparar abre el ajuste del sistema que corresponde: ubicación, avisos o batería." },
     },
     conflict: {
@@ -350,7 +350,7 @@ export const supportEs = {
     legalRetention: {
       title: "Retención",
       intro: "La política de retención dice cuánto tiempo se guarda el rastro en el teléfono.",
-      s0: { title: "El plazo", body: "El número de días lo fija la zona admin. Esta pantalla solo lo explica." },
+      s0: { title: "Las dos condiciones", body: "El rastro de un periodo se borra solo si ese periodo ya se exportó y, además, pasaron los días de retención desde su fin. Sin exportar, no se borra." },
       s1: { title: "Volver", body: "Volver regresa sin cambiar nada." },
     },
     notFound: {
@@ -434,6 +434,26 @@ export const supportEs = {
     offline: {
       q: "¿Las guías necesitan internet?",
       a: "No. El texto va dentro de la app, con el número de guía que ves en Soporte. Sin cobertura se leen igual.",
+    },
+    orphanShift: {
+      q: "¿Qué es una jornada en Revisar por abandono?",
+      a: "Si el teléfono dejó de dar señal más del hueco de heartbeat y no hay una lectura dentro del sitio, la jornada no se cierra sola. En Hoy, en el detalle y en Salud puedes confirmar la hora de fin, con nota, o seguir trabajando. No se inventan horas.",
+    },
+    validSensors: {
+      q: "¿Qué impide una jornada VALIDADA?",
+      a: "La ubicación (en uso, segundo plano y servicios del sistema), el servicio en primer plano y la integridad del reloj. La batería, las notificaciones, la red y la geocerca solo avisan. Salud lo marca en cada fila.",
+    },
+    clockDrift: {
+      q: "¿Qué pasa si el reloj del teléfono no coincide con la hora de red?",
+      a: "Cuando hay red, la app compara el reloj con dos sitios conocidos. Si concuerdan y la diferencia supera el umbral, la jornada queda para revisión y el desfase queda en el registro. Sin red no se bloquea por este motivo.",
+    },
+    packSignature: {
+      q: "¿El expediente va firmado?",
+      a: "Los expedientes nuevos llevan una firma del teléfono (Ed25519) junto al código de verificación. Los anteriores, sin firma, siguen siendo válidos. El PDF ya sellado no se reescribe.",
+    },
+    retentionBoth: {
+      q: "¿Cuándo se borra el rastro?",
+      a: "Solo si el periodo ya se exportó y pasaron los días de retención desde el fin de ese periodo. Las dos cosas. Un periodo sin exportar no se toca. Las entradas y salidas se conservan.",
     },
   },
   trouble: {

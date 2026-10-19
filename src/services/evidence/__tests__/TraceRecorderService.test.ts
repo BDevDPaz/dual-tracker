@@ -76,13 +76,44 @@ describe("TraceRecorderService", () => {
     expect(TraceRecorderService.distanceMeters(pts)).toBeLessThan(120);
   });
 
-  test("purgeExpired borra migas antiguas pero conserva ENTER/EXIT", async () => {
+  test("purgeExpired no borra sin expediente y, con periodo sellado y plazo cumplido, borra la miga", async () => {
     await PersistenceService.init();
     TraceRecorderService.setSink(null);
     const old = Date.parse("2026-01-01T00:00:00Z");
     await PersistenceService.insertSpatialFact(makeEnter({ timestampMs: old }));
     await PersistenceService.insertSpatialFact(makeBreadcrumb({ timestampMs: old }));
+    expect(await TraceRecorderService.purgeExpired(30)).toBe(0);
+    expect((await PersistenceService.listSpatialFacts(1)).map((f) => f.type)).toEqual(["ENTER", "BREADCRUMB"]);
+
+    const periodEnd = old + 1000;
+    await PersistenceService.insertPack({
+      id: "pack-old",
+      manifest: {
+        manifestVersion: 4,
+        packId: "pack-old",
+        periodStart: old - 1000,
+        periodEnd,
+        sealedAtMs: periodEnd,
+        policyId: "CA_DAILY8_WEEKLY40_v2",
+        sessionIds: [1],
+        statementHash: "s",
+        evidenceHash: "e",
+        contentHash: "c",
+        packHash: "p",
+        certified: true,
+        sealWarnings: [],
+        files: [],
+      },
+      statement: {} as never,
+      evidence: {} as never,
+      employeePdfUri: null,
+      employerPdfUri: null,
+      manifestUri: null,
+      createdAtMs: periodEnd,
+    });
     expect(await TraceRecorderService.purgeExpired(30)).toBe(1);
     expect((await PersistenceService.listSpatialFacts(1)).map((f) => f.type)).toEqual(["ENTER"]);
+    const ledger = await PersistenceService.listLedger({ intent: "TRACE_PURGED" });
+    expect(ledger).toHaveLength(1);
   });
 });

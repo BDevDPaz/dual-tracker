@@ -19,7 +19,7 @@ import {
   EmptyState,
 } from "../../src/components/ui";
 import { DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
-import { ScreenStatusBanner } from "../../src/components/blocks";
+import { OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
@@ -155,6 +155,16 @@ export default function TodayScreen() {
 
         {hasConflict ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
+        ) : null}
+
+        {active?.bookkeeping.integrityReason === "ORPHAN_SESSION" ? (
+          <OrphanReviewCard
+            startMs={active.actualStartAtMs ?? active.declaredStartAtMs}
+            nowMs={nowMs}
+            busy={busy}
+            onContinue={() => void run({ type: "CONTINUE_ORPHAN" })}
+            onConfirm={(endAtMs, note) => void run({ type: "CONFIRM_ORPHAN_END", endAtMs, note })}
+          />
         ) : null}
 
         {!crypto.platformSupported ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.web")} /> : null}

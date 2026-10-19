@@ -36,6 +36,9 @@ export function SessionListItem({
   const hoursRaw = hoursText ?? (net == null ? "—" : `${formatHundredths(minutesToHundredths(net))} ${t("common.hours")}`);
   const hours = hoursRaw === "—" ? hoursRaw : formatUiDecimal(hoursRaw, language);
   const zero = slice?.zeroDuration ?? (s.domainStatus === "CERRADA" && s.endAtMs != null && net === 0);
+  const reasonKey = `reviewReasons.${s.bookkeeping.integrityReason}`;
+  const reasonLabel = t(reasonKey);
+  const reason = reasonLabel === reasonKey ? "" : reasonLabel;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={[styles.row, { borderColor: TOKENS.colors.border }]}>
       <View style={styles.main}>
@@ -53,6 +56,7 @@ export function SessionListItem({
           <Text style={[styles.range, { color: TOKENS.colors.text.muted }]}>{t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}</Text>
         ) : null}
         {zero ? <Text style={[styles.range, { color: TOKENS.colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
+        {reason ? <Text style={[styles.range, { color: TOKENS.colors.status.warning }]}>{reason}</Text> : null}
       </View>
       <View style={styles.side}>
         <Text style={[styles.hours, { color: TOKENS.colors.text.primary }]}>{hours}</Text>

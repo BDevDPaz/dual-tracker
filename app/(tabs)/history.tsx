@@ -22,6 +22,7 @@ import {
   selectComputedSessions,
   selectHasConflict,
   selectPeriodSessionRows,
+  selectReviewSessions,
   selectVisibleSessions,
   type ComputedSession,
   type PeriodSessionRow,
@@ -128,6 +129,16 @@ export default function HistoryScreen() {
 
       {selectHasConflict(state) ? (
         <ScreenStatusBanner status="conflict" message={t("screen.conflict")} onPress={() => router.push("/system/conflict")} />
+      ) : null}
+      {selectReviewSessions(state).some((s) => s.bookkeeping.integrityReason === "ORPHAN_SESSION") ? (
+        <ScreenStatusBanner
+          status="conflict"
+          message={t("today.orphanTitle")}
+          onPress={() => {
+            const orphan = selectReviewSessions(state).find((s) => s.bookkeeping.integrityReason === "ORPHAN_SESSION");
+            if (orphan) router.push(`/session/${orphan.id}`);
+          }}
+        />
       ) : null}
 
       <Card style={styles.rollup}>

@@ -18,6 +18,7 @@ import * as Linking from "expo-linking";
 import * as Location from "expo-location";
 import { Platform } from "react-native";
 import type { OsSettingsTarget, PermissionKey, PermissionState, SystemHealthSnapshot } from "../../core/contracts";
+import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { StoreActions, Store } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
@@ -110,8 +111,11 @@ export const PermissionsHealthService = {
     }
   },
 
-  /** "Sin esto no hay VALID" — sensores que impiden certificar. */
-  blocksValid(h: SystemHealthSnapshot): boolean {
-    return h.locationBackground !== "granted" || h.clockDriftExceeded || h.locationServicesEnabled === false;
+  /**
+   * Impide VALIDADA solo ubicación, servicio en primer plano (con jornada
+   * abierta) y reloj. Batería, avisos y red no entran.
+   */
+  blocksValid(h: SystemHealthSnapshot, sessionOpen = false): boolean {
+    return blockingIntegrityReason(h, sessionOpen) !== null;
   },
 };

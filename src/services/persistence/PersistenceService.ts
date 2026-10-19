@@ -660,7 +660,33 @@ export const PersistenceService = {
     return parseTimestamp(r?.t);
   },
 
-  /** Expurgo por retención (§5.4). Solo miga de pan; ENTER/EXIT se conservan como evidencia. */
+  /** Migas y caídas de precisión, con su marca de tiempo. ENTER/EXIT no salen. */
+  async listTrailStamps(): Promise<{ id: number; timestampMs: number }[]> {
+    const d = await ensureReady();
+    const rows = await d.getAllAsync<{ id: number; timestamp_ms: number }>(
+      `SELECT id, timestamp_ms FROM spatial_facts WHERE type IN ('BREADCRUMB', 'ACCURACY_DROP') ORDER BY timestamp_ms ASC`,
+    );
+    return rows.map((r) => ({ id: Number(r.id), timestampMs: Number(r.timestamp_ms) }));
+  },
+
+  /** Borra solo miga de pan y ACCURACY_DROP, por id, en tandas. */
+  async deleteSpatialFactsByIds(ids: number[]): Promise<number> {
+    if (!ids.length) return 0;
+    const d = await ensureReady();
+    let deleted = 0;
+    for (let i = 0; i < ids.length; i += 400) {
+      const chunk = ids.slice(i, i + 400);
+      const res = await d.runAsync(
+        `DELETE FROM spatial_facts WHERE id IN (${chunk.map(() => "?").join(",")}) AND type IN ('BREADCRUMB', 'ACCURACY_DROP')`,
+        chunk,
+      );
+      deleted += res.changes;
+    }
+    if (deleted) markPersisted("trace");
+    return deleted;
+  },
+
+  /** Expurgo por corte de edad. El barrido de retención usa listTrailStamps. */
   async purgeBreadcrumbsBefore(cutoffMs: number): Promise<number> {
     const d = await ensureReady();
     const res = await d.runAsync(

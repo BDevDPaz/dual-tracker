@@ -21,6 +21,9 @@ export function HealthRow({ label, value, ok, blocksValid, onRepair }: Props) {
       <View style={styles.texts}>
         <Text style={[styles.label, { color: TOKENS.colors.text.primary }]}>{label}</Text>
         <Text style={[styles.value, { color }]}>{value}</Text>
+        <Text style={[styles.impact, { color: blocksValid ? TOKENS.colors.status.warning : TOKENS.colors.text.muted }]}>
+          {blocksValid ? t("health.impactBlocking") : t("health.impactWarning")}
+        </Text>
         {!ok && blocksValid ? <Text style={[styles.impact, { color: TOKENS.colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
       </View>
       {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" onPress={onRepair} /> : null}

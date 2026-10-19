@@ -28,6 +28,7 @@ import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
+import { readHeartbeat, touchHeartbeat } from "./heartbeat";
 import { NotificationService } from "./NotificationService";
 import type { ExitDecisionDeadline } from "./tasks";
 import {
@@ -40,8 +41,7 @@ import {
   runSessionWatchdog,
 } from "./tasks";
 
-/** Hueco de heartbeat que se considera muerte del proceso. TODO(valor provisional). */
-export const HEARTBEAT_GAP_MS = 45 * 60 * 1000;
+export { HEARTBEAT_GAP_MS } from "../../constants/tasks";
 const FOREGROUND_HEARTBEAT_MS = 60 * 1000;
 
 type EnsureReady = () => Promise<void>;
@@ -116,9 +116,11 @@ export const TaskOrchestratorService = {
   /** Worker: watchdog + temporizador de salida + barrido + exportación. */
   async runWorker(): Promise<void> {
     await guarded("BACKGROUND_WORKER", async () => {
-      await TaskOrchestratorService.heartbeat();
+      // El vigilante lee el heartbeat anterior: si este worker lo renovara antes,
+      // un hueco de más de 45 min no se vería.
       await runExitDecisionTimer().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "EXIT_DECISION_TIMER", serializeError(e)));
       await runSessionWatchdog().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "SESSION_WATCHDOG", serializeError(e)));
+      await TaskOrchestratorService.heartbeat();
       await runIntegritySweep().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "INTEGRITY_SWEEP", serializeError(e)));
       await runPayrollExport().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "PAYROLL_EXPORT", serializeError(e)));
     });
@@ -134,11 +136,11 @@ export const TaskOrchestratorService = {
   },
 
   async heartbeat(): Promise<void> {
-    await PersistenceService.setKv(KV_KEYS.HEARTBEAT, TimeAuthorityService.now()).catch(() => {});
+    await touchHeartbeat();
   },
 
   async lastHeartbeat(): Promise<number | null> {
-    return PersistenceService.getKv<number>(KV_KEYS.HEARTBEAT);
+    return readHeartbeat();
   },
 
   /** Heartbeat y re-anclaje del reloj mientras la app está en primer plano. */

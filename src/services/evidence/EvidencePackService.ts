@@ -28,6 +28,7 @@ import { OfflineQueueService } from "../persistence/OfflineQueueService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
 import { sha256Hex } from "./HashChain";
+import { canSignPacks, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
 import { ReportService } from "./ReportService";
 import { TimeAuthorityService } from "./TimeAuthorityService";
 import { TraceRecorderService } from "./TraceRecorderService";
@@ -50,7 +51,12 @@ export interface PackVerification {
   valid: boolean;
   /** Pack v1 sin contentHash: se verifica con el formato antiguo y no se comprueba contenido. */
   legacy: boolean;
-  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH). */
+  /**
+   * "Ed25519" si el manifiesto trae firma (v4). "unsigned-v1" si no: packs
+   * v1–v3 y un sello v4 sin llavero. Siguen siendo válidos si los hashes cuadran.
+   */
+  scheme: "Ed25519" | "unsigned-v1";
+  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE). */
   failures: string[];
 }
 
@@ -98,8 +104,12 @@ export async function computeContentHash(statement: PayrollStatement, evidence: 
   return sha256Hex(canonicalJson(contentOf(statement, evidence)));
 }
 
-/** packHash = SHA-256 del manifiesto canónico (sin packHash ni files). v1 no lleva versión ni contentHash. */
-async function computePackHash(m: Omit<PackManifest, "packHash" | "files">): Promise<string> {
+/**
+ * Cuerpo que entra en packHash. La firma y `files` quedan fuera: packHash no
+ * cambia de significado al firmar. v1 sin versión ni contentHash; v2 añade
+ * ambos; v3+ añade sealWarnings.
+ */
+export function packHashBody(m: Omit<PackManifest, "packHash" | "files" | "signature">): Record<string, unknown> {
   const base = {
     packId: m.packId,
     periodStart: m.periodStart,
@@ -111,11 +121,14 @@ async function computePackHash(m: Omit<PackManifest, "packHash" | "files">): Pro
     evidenceHash: m.evidenceHash,
     certified: m.certified,
   };
-  // v1 (legado): sin versión ni contentHash. v2: + manifestVersion y contentHash.
-  // v3 (FieldCrypto §15): + sealWarnings (contexto del sello; fuera de contentHash).
-  const v2 = m.manifestVersion === undefined ? base : { ...base, manifestVersion: m.manifestVersion, contentHash: m.contentHash ?? null };
-  const body = (m.manifestVersion ?? 0) >= 3 ? { ...v2, sealWarnings: m.sealWarnings ?? [] } : v2;
-  return sha256Hex(canonicalJson(body));
+  if (m.manifestVersion === undefined) return base;
+  const v2 = { ...base, manifestVersion: m.manifestVersion, contentHash: m.contentHash ?? null };
+  return (m.manifestVersion ?? 0) >= 3 ? { ...v2, sealWarnings: m.sealWarnings ?? [] } : v2;
+}
+
+/** packHash = SHA-256 del cuerpo canónico. */
+async function computePackHash(m: Omit<PackManifest, "packHash" | "files" | "signature">): Promise<string> {
+  return sha256Hex(canonicalJson(packHashBody(m)));
 }
 
 /**
@@ -269,7 +282,10 @@ export const EvidencePackService = {
       const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));
       const evidenceHash = await sha256Hex(canonicalJson(evidence));
       const certified = statement.integrityRollup.certified;
-      const sealWarnings = await sealWarningsFor(statement.sessionIds);
+      const baseWarnings = await sealWarningsFor(statement.sessionIds);
+      // La firma se decide antes del hash: si no hay llavero, PACK_UNSIGNED entra en packHash.
+      const signingKeyReady = await canSignPacks();
+      const sealWarnings = signingKeyReady ? baseWarnings : [...baseWarnings, { code: "PACK_UNSIGNED" as const, sessionIds: [] }];
       const unsigned = {
         manifestVersion: PACK_MANIFEST_VERSION,
         packId,
@@ -284,7 +300,9 @@ export const EvidencePackService = {
         certified,
         sealWarnings,
       };
+      const body = packHashBody(unsigned);
       const packHash = await computePackHash(unsigned);
+      const signature = signingKeyReady ? await signCanonicalBody(body, packHash) : null;
 
       const manifest: PackManifest = {
         manifestVersion: PACK_MANIFEST_VERSION,
@@ -300,6 +318,7 @@ export const EvidencePackService = {
         packHash,
         certified,
         sealWarnings,
+        ...(signature ? { signature } : {}),
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
@@ -320,8 +339,6 @@ export const EvidencePackService = {
         { role: "EMPLOYER_DOSSIER", name: employer.name },
         { role: "MANIFEST_JSON", name: `manifest_${packId}.json` },
       ];
-      // TODO(propuesta): "JSON firmado" — hoy el manifiesto no lleva firma
-      // asimétrica (no hay clave de dispositivo provisionada por el empleador).
       const manifestFile = ReportService.writeJson(packId, `manifest_${packId}`, canonicalJson({ manifest, statement: sealedStatement, evidence }));
 
       const pack: EvidencePack = {
@@ -375,10 +392,14 @@ export const EvidencePackService = {
     if ((await sha256Hex(canonicalJson({ ...pack.statement, packHash: null }))) !== m.statementHash) failures.push("STATEMENT_HASH");
     if ((await sha256Hex(canonicalJson(pack.evidence))) !== m.evidenceHash) failures.push("EVIDENCE_HASH");
     if (!legacy && (await computeContentHash(pack.statement, pack.evidence)) !== m.contentHash) failures.push("CONTENT_HASH");
-    const { packHash, files: _files, ...rest } = m;
-    if ((await computePackHash(rest)) !== packHash) failures.push("PACK_HASH");
+    const { packHash, files: _files, signature, ...rest } = m;
+    const body = packHashBody(rest);
+    if ((await sha256Hex(canonicalJson(body))) !== packHash) failures.push("PACK_HASH");
     if (pack.statement.packHash !== packHash) failures.push("STATEMENT_PACK_HASH");
-    return { valid: failures.length === 0, legacy, failures };
+    // v4 firma. Una firma ausente es unsigned-v1 (packs viejos y sello sin llavero).
+    const signed = (m.manifestVersion ?? 0) >= 4 && !!signature;
+    if (signed && signature && !verifyCanonicalBody(body, packHash, signature)) failures.push("SIGNATURE");
+    return { valid: failures.length === 0, legacy, scheme: signed ? "Ed25519" : "unsigned-v1", failures };
   },
 
   async get(packId: string): Promise<EvidencePack | null> {

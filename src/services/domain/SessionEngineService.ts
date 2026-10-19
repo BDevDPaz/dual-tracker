@@ -34,6 +34,7 @@ import type {
 import { ORIGIN_TO_ACTOR } from "../../core/contracts";
 import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
+import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
@@ -160,11 +161,9 @@ async function ledgerData(intent: SessionIntent): Promise<Record<string, unknown
   return data;
 }
 
-function degradedReason(): TransitionContext["degradedReason"] {
+function degradedReason(open: SessionRecord | null): TransitionContext["degradedReason"] {
   const h = Store.getState().health;
-  if (h.locationBackground === "denied" || h.locationBackground === "blocked") return "BACKGROUND_PERMISSION_MISSING";
-  if (h.clockDriftExceeded || TimeAuthorityService.isDriftExceeded()) return "CLOCK_DRIFT";
-  return null;
+  return blockingIntegrityReason(h, !!open) ?? (TimeAuthorityService.isDriftExceeded() ? "CLOCK_DRIFT" : null);
 }
 
 async function hasCleanGpsPair(sessionId: number): Promise<boolean> {
@@ -209,7 +208,7 @@ export const SessionEngineService = {
           policyId: settings.company.overtimePolicyId,
           company: settings.company,
           disclosureAccepted: DualDisclosureService.isAccepted(settings.device),
-          degradedReason: degradedReason(),
+          degradedReason: degradedReason(open),
           siteExists: (id) => activeSiteIds.has(id),
           newId,
         };
@@ -423,7 +422,7 @@ export const SessionEngineService = {
         db,
       );
     });
-    // TODO(propuesta): no se define si un OS_KILL degrada la clase de la
-    // sesión; por ahora solo queda en el ledger.
+    // El OS_KILL solo anota el hueco. La clase pasa a Revisar en otro camino
+    // (MARK_ORPHAN) si además no hay fix dentro del sitio. No se inventan horas.
   },
 };

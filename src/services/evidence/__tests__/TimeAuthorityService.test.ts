@@ -69,24 +69,43 @@ describe("TimeAuthorityService", () => {
     TimeAuthorityService.configureReference(null);
     expect(await TimeAuthorityService.checkReferenceTime()).toBeNull();
     const ref = new Date(time.now() - 5 * MIN).toUTCString();
-    const fetchSpy = jest.fn(async () => ({ headers: { get: (k: string) => (k === "date" ? ref : null) } }));
-    const g = globalThis as unknown as { fetch: unknown };
-    const original = g.fetch;
-    g.fetch = fetchSpy;
-    try {
-      TimeAuthorityService.configureReference("https://example.test");
-      expect(await TimeAuthorityService.checkReferenceTime()).toBe(5 * MIN);
-      expect(TimeAuthorityService.isDriftExceeded()).toBe(true);
-      g.fetch = jest.fn(async () => {
-        throw new Error("offline");
-      });
-      expect(await TimeAuthorityService.checkReferenceTime()).toBeNull();
-      // Resetear el desfase de referencia para no contaminar otros casos.
-      g.fetch = jest.fn(async () => ({ headers: { get: () => new Date(time.now()).toUTCString() } }));
-      expect(await TimeAuthorityService.checkReferenceTime()).toBe(0);
-    } finally {
-      g.fetch = original;
-      TimeAuthorityService.configureReference(null);
-    }
+    const header = (value: string | null) => ({ headers: { get: (k: string) => (k.toLowerCase() === "date" ? value : null) } });
+    TimeAuthorityService.__setFetch(async () => header(ref));
+    TimeAuthorityService.configureReference("https://example.test");
+    expect(await TimeAuthorityService.checkReferenceTime()).toBe(5 * MIN);
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(true);
+    TimeAuthorityService.__setFetch(async () => {
+      throw new Error("offline");
+    });
+    expect(await TimeAuthorityService.checkReferenceTime()).toBeNull();
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
+    TimeAuthorityService.__setFetch(async () => header(new Date(time.now()).toUTCString()));
+    expect(await TimeAuthorityService.checkReferenceTime()).toBe(0);
+    TimeAuthorityService.configureReference(null);
+  });
+
+  test("dos hosts que concuerdan marcan deriva; el desacuerdo y la caída no bloquean", async () => {
+    const header = (ms: number) => ({ headers: { get: (k: string) => (k.toLowerCase() === "date" ? new Date(ms).toUTCString() : null) } });
+    TimeAuthorityService.__setFetch(async () => header(time.now() - 4 * MIN));
+    const agreed = await TimeAuthorityService.sampleTrustedTime();
+    expect(agreed.agreed).toBe(true);
+    expect(agreed.offline).toBe(false);
+    expect(agreed.driftMs).toBe(4 * MIN);
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(true);
+
+    TimeAuthorityService.__setFetch(async (url) => header(url.includes("cloudflare") ? time.now() - 4 * MIN : time.now()));
+    const split = await TimeAuthorityService.sampleTrustedTime();
+    expect(split.agreed).toBe(false);
+    expect(split.offline).toBe(false);
+    expect(TimeAuthorityService.isNetworkSampleOnline()).toBe(false);
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
+
+    TimeAuthorityService.__setFetch(async () => {
+      throw new Error("offline");
+    });
+    const offline = await TimeAuthorityService.sampleTrustedTime();
+    expect(offline.offline).toBe(true);
+    expect(offline.agreed).toBe(false);
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
   });
 });

@@ -19,3 +19,9 @@ export const BACKGROUND_WORKER_MIN_INTERVAL_MIN = 15;
 
 /** Tope de jornada abierta antes de proponer AUTO-CLOSE (Propuesta §4.1: 12 h). */
 export const MAX_OPEN_SESSION_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Hueco de heartbeat que cuenta como proceso muerto.
+ * Constante configurable: el vigilante de jornada huérfana la usa tal cual.
+ */
+export const HEARTBEAT_GAP_MS = 45 * 60 * 1000;

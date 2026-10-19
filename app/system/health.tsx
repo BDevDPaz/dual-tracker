@@ -7,7 +7,8 @@
  * Intenciones: REQUEST_PERMISSION, OPEN_OS_SETTINGS.
  */
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { HealthRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { Button, Card, Input, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
@@ -16,8 +17,9 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
+import { sensorBlocksValid } from "../../src/core/healthPolicy";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
-import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
+import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
 import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
 
@@ -30,6 +32,7 @@ interface Row {
 }
 
 export default function HealthScreen() {
+  const router = useRouter();
   const { state, emit } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
   useAutoRefresh();
@@ -66,16 +69,18 @@ export default function HealthScreen() {
   };
   const diag = [...h.geofenceDiag].reverse();
 
-  // TODO(propuesta): qué sensores bloquean VALIDADA además de ubicación/FGS/reloj (tabla no cerrada en §5.15).
+  const reviews = selectReviewSessions(state);
+  const locationOk = h.locationForeground === "granted" && h.locationServicesEnabled !== false;
   const rows: Row[] = [
-    { sensor: "locationForeground", value: t(`permission.${h.locationForeground}`), ok: h.locationForeground === "granted", blocksValid: true, repair: permRepair("locationForeground", h.locationForeground, "LOCATION") },
-    { sensor: "locationBackground", value: t(`permission.${h.locationBackground}`), ok: h.locationBackground === "granted", blocksValid: true, repair: permRepair("locationBackground", h.locationBackground, "LOCATION") },
-    { sensor: "notifications", value: t(`permission.${h.notifications}`), ok: h.notifications === "granted", blocksValid: false, repair: permRepair("notifications", h.notifications, "NOTIFICATIONS") },
-    { sensor: "foregroundService", value: tHealthValue(h.foregroundService), ok: h.foregroundService === "running" || h.foregroundService === "n/a" || !hasOpenSession, blocksValid: true, repair: { type: "OPEN_OS_SETTINGS", target: "APP" } },
-    { sensor: "batteryOptimization", value: tHealthValue(h.batteryOptimization), ok: h.batteryOptimization !== "restricted", blocksValid: false, repair: { type: "OPEN_OS_SETTINGS", target: "BATTERY" } },
-    { sensor: "clockDriftMs", value: `${Math.round(h.clockDriftMs / 1000)} s`, ok: !h.clockDriftExceeded, blocksValid: true },
-    { sensor: "isMonitoring", value: h.isMonitoring ? t("health.ok") : "—", ok: h.isMonitoring || !hasOpenSession, blocksValid: true },
-    { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: true, blocksValid: false },
+    { sensor: "locationForeground", value: h.locationServicesEnabled === false ? t("health.locationServicesOff") : t(`permission.${h.locationForeground}`), ok: locationOk, blocksValid: sensorBlocksValid("locationForeground"), repair: permRepair("locationForeground", h.locationForeground, "LOCATION") },
+    { sensor: "locationBackground", value: t(`permission.${h.locationBackground}`), ok: h.locationBackground === "granted", blocksValid: sensorBlocksValid("locationBackground"), repair: permRepair("locationBackground", h.locationBackground, "LOCATION") },
+    { sensor: "notifications", value: t(`permission.${h.notifications}`), ok: h.notifications === "granted", blocksValid: sensorBlocksValid("notifications"), repair: permRepair("notifications", h.notifications, "NOTIFICATIONS") },
+    { sensor: "foregroundService", value: tHealthValue(h.foregroundService), ok: h.foregroundService === "running" || h.foregroundService === "n/a" || !hasOpenSession, blocksValid: sensorBlocksValid("foregroundService"), repair: { type: "OPEN_OS_SETTINGS", target: "APP" } },
+    { sensor: "batteryOptimization", value: tHealthValue(h.batteryOptimization), ok: h.batteryOptimization !== "restricted", blocksValid: sensorBlocksValid("batteryOptimization"), repair: { type: "OPEN_OS_SETTINGS", target: "BATTERY" } },
+    { sensor: "clockDriftMs", value: `${Math.round(h.clockDriftMs / 1000)} s`, ok: !h.clockDriftExceeded, blocksValid: sensorBlocksValid("clockDriftMs") },
+    { sensor: "isMonitoring", value: h.isMonitoring ? t("health.ok") : "—", ok: h.isMonitoring || !hasOpenSession, blocksValid: sensorBlocksValid("isMonitoring") },
+    { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: true, blocksValid: sensorBlocksValid("lastSpatialFactAt") },
+    { sensor: "networkTime", value: t(`health.network.${h.networkTime}`), ok: h.networkTime !== "offline", blocksValid: sensorBlocksValid("networkTime") },
   ];
 
   return (
@@ -103,6 +108,24 @@ export default function HealthScreen() {
           onRepair={r.repair ? () => void emit(r.repair!) : undefined}
         />
       ))}
+      <Section title={t("health.review.title")}>
+        <Card style={styles.card}>
+          {reviews.length === 0 ? (
+            <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.review.empty")}</Text>
+          ) : (
+            reviews.map((session) => {
+              const reasonKey = `reviewReasons.${session.bookkeeping.integrityReason}`;
+              const reason = t(reasonKey);
+              return (
+                <Pressable key={session.id} onPress={() => router.push(`/session/${session.id}`)} accessibilityRole="button">
+                  <Text style={[styles.label, { color: TOKENS.colors.text.primary }]}>{formatDateTime(session.actualStartAtMs ?? session.declaredStartAtMs)}</Text>
+                  <Text style={[styles.hint, { color: TOKENS.colors.status.warning }]}>{reason === reasonKey ? session.bookkeeping.integrityReason : reason}</Text>
+                </Pressable>
+              );
+            })
+          )}
+        </Card>
+      </Section>
       <Section title={t("health.diag.title")}>
         <Card style={styles.card}>
           <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("health.diag.hint")}</Text>

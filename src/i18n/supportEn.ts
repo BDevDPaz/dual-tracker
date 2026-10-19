@@ -243,7 +243,7 @@ export const supportEn: typeof supportEs = {
   screens: {
     today: {
       title: "Today",
-      intro: "Today is the shift control: start, arrive, lunch, travel, and close. The timer and the site come from the real state.",
+      intro: "Today is the shift control: start, arrive, lunch, travel, and close. If the shift needs review because the phone went quiet, confirm the end here or keep working. The timer and the site come from the real state.",
       s0: { title: "The large action", body: "The main button follows the state. Off duty it is Start shift. While traveling it is Confirm arrival." },
       s1: { title: "Do not open another shift", body: "If you are going to another site, use Start travel on the same shift. New shift is for when the previous one is already closed." },
     },
@@ -251,7 +251,7 @@ export const supportEn: typeof supportEs = {
       title: "History",
       intro: "History lists the week's shifts, with integrity filters and the slices that cross Sunday.",
       s0: { title: "The week", body: "The arrows change the week. All shows the full history; the other filters stay on the selected week." },
-      s1: { title: "The split row", body: "If a shift continues on Monday, the row says “continues on Mon”. Open it to see the detail or correct it with a note." },
+      s1: { title: "The split row", body: "If a shift continues on Monday, the row says “continues on Mon”. A shift in review for abandonment is marked in the list: open it to confirm the end or keep working." },
     },
     reports: {
       title: "Reports",
@@ -261,13 +261,13 @@ export const supportEn: typeof supportEs = {
     },
     settings: {
       title: "Settings",
-      intro: "Settings stores the profile and the language, and opens Health, sites, and this Support section.",
+      intro: "Settings stores the profile and the language, shows each week's retention status, and opens Health, sites, and this Support section.",
       s0: { title: "Support", body: "From here you open the manual, the questions, and practice mode." },
       s1: { title: "Language", body: "Español or English changes the interface at once, including any guide you have open. It does not rewrite a sealed PDF." },
     },
     session: {
       title: "Session",
-      intro: "The session shows what you declared, what the zone confirmed, the integrity, the lines, and the notes.",
+      intro: "The session shows what you declared, what the zone confirmed, the integrity, the lines, and the notes. If it needs review for abandonment, confirm the end here or keep working.",
       s0: { title: "Edit", body: "Edit asks for a note if you change the hours. The previous times stay on record." },
       s1: { title: "Activity", body: "The timeline comes from the log, not from a fixed list. Each step (arrival, travel, close) is an entry." },
     },
@@ -297,8 +297,8 @@ export const supportEn: typeof supportEs = {
     },
     health: {
       title: "Operational health",
-      intro: "Health shows permissions, battery, the clock, and the Geofence diagnostic. It is how you see why an automatic check-in did not happen.",
-      s0: { title: "Geofence diagnostic", body: "Each row is time, type, region, accuracy, and whether it was accepted. There is no map and no coordinates." },
+      intro: "Health shows permissions, battery, the clock, and the Geofence diagnostic. Each sensor says whether it blocks VALIDATED or is only a warning. It also lists shifts in review.",
+      s0: { title: "Geofence diagnostic", body: "Each row is time, type, region, accuracy, and whether it was accepted. There is no map and no coordinates. Location, the foreground service, and the clock block VALIDATED. Battery, notifications, and the network only warn." },
       s1: { title: "Repair", body: "Repair opens the matching system setting: location, notifications, or battery." },
     },
     conflict: {
@@ -352,7 +352,7 @@ export const supportEn: typeof supportEs = {
     legalRetention: {
       title: "Retention",
       intro: "The retention policy says how long the trace is kept on the phone.",
-      s0: { title: "The period", body: "The number of days is set in the admin area. This screen only explains it." },
+      s0: { title: "Both conditions", body: "A period's trail is deleted only if that period was already exported and the retention days have also passed since it ended. If it was not exported, it is kept." },
       s1: { title: "Back", body: "Back returns without changing anything." },
     },
     notFound: {
@@ -436,6 +436,26 @@ export const supportEn: typeof supportEs = {
     offline: {
       q: "Do the guides need the internet?",
       a: "No. The text ships inside the app, with the guide number you see in Support. They read the same with no signal.",
+    },
+    orphanShift: {
+      q: "What is a shift in review for abandonment?",
+      a: "If the phone stopped checking in for longer than the heartbeat gap and there is no reading inside the site, the shift is not closed on its own. On Today, in the detail, and in Health you can confirm the end time, with a note, or keep working. Hours are not invented.",
+    },
+    validSensors: {
+      q: "What blocks a VALIDATED shift?",
+      a: "Location (while in use, in the background, and the system location services), the foreground service, and clock integrity. Battery, notifications, the network, and the geofence only warn. Health marks each row.",
+    },
+    clockDrift: {
+      q: "What if the phone clock does not match network time?",
+      a: "When online, the app compares the clock with two well-known sites. If they agree and the difference is over the threshold, the shift is flagged for review and the offset is written in the record. Offline, this does not block.",
+    },
+    packSignature: {
+      q: "Is the pack signed?",
+      a: "New packs carry a signature from the phone (Ed25519) next to the verification code. Older packs, without a signature, stay valid. A PDF that was already sealed is not rewritten.",
+    },
+    retentionBoth: {
+      q: "When is the trail deleted?",
+      a: "Only if the period was already exported and the retention days have passed since that period ended. Both. An unexported period is left alone. Entries and exits are kept.",
     },
   },
   trouble: {

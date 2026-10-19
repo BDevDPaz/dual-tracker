@@ -15,7 +15,7 @@ import { Button, Card, EmptyState, IntegrityBadge, SAFE_EDGES, ScreenContainer, 
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
-import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
+import { KeyValueRow, OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import type { LedgerEntry } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
@@ -109,7 +109,15 @@ export default function SessionDetailScreen() {
       <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HelpButton screen="session" /> }} />
         <ScreenTips screen="session" sessionState={session.domainStatus} siteCount={0} batteryRestricted={false} provisionalSeal={false} hasSplitRow={false} hasZeroOmitted={false} />
         {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
-        {session.integrityClass === "CONFLICT" && !deleted ? (
+        {session.bookkeeping.integrityReason === "ORPHAN_SESSION" && !deleted ? (
+          <OrphanReviewCard
+            startMs={start}
+            nowMs={nowMs}
+            busy={busy}
+            onContinue={() => void run({ type: "CONTINUE_ORPHAN" })}
+            onConfirm={(endAtMs, note) => void run({ type: "CONFIRM_ORPHAN_END", endAtMs, note })}
+          />
+        ) : session.integrityClass === "CONFLICT" && !deleted ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
         ) : null}
 
