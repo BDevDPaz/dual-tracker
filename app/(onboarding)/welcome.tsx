@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AppBrandTitle, Button, Card } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { t, useLanguage } from "../../src/i18n";
 
@@ -19,6 +20,7 @@ export default function WelcomeScreen() {
   ];
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <HelpButton screen="welcome" />
       <AppBrandTitle />
       <Text style={[styles.tagline, { color: TOKENS.colors.text.secondary }]}>{t("app.tagline")}</Text>
       <View style={styles.columns}>

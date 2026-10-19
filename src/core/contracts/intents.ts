@@ -178,6 +178,8 @@ export type ViewIntent =
   // Integridad del ledger (spec v1.3 §5.5)
   | { type: "ACKNOWLEDGE_LEDGER_BREAK"; pin: string; incident: import("./ledger").LedgerIncident }
   | { type: "EXPORT_LEDGER_INCIDENT" }
+  /** Diagnóstico de Soporte: versión, ajustes no sensibles, permisos y geocerca sin coordenadas. */
+  | { type: "EXPORT_SUPPORT_DIAGNOSTIC" }
   // Feedback
   | { type: "DISMISS_FEEDBACK"; feedbackId: string }
   | { type: "CONSUME_UI_REQUEST" };

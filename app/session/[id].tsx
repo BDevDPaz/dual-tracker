@@ -11,6 +11,8 @@ import { useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, IntegrityBadge, ScreenContainer, Section, SessionTimeline, ledgerToTimeline } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
+import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
@@ -98,8 +100,9 @@ export default function SessionDetailScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Stack.Screen options={{ title: formatDate(start) }} />
+      <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HelpButton screen="session" /> }} />
       <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+        <ScreenTips screen="session" sessionState={session.domainStatus} siteCount={0} batteryRestricted={false} provisionalSeal={false} hasSplitRow={false} hasZeroOmitted={false} />
         {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
         {session.integrityClass === "CONFLICT" && !deleted ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />

@@ -81,6 +81,7 @@ export default function RootLayout() {
               <Stack.Screen name="report" />
               <Stack.Screen name="system" options={{ presentation: "modal" }} />
               <Stack.Screen name="legal" />
+              <Stack.Screen name="support" />
               <Stack.Screen name="+not-found" />
             </Stack>
           </ToastProvider>

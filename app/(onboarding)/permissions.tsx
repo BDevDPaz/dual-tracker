@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Text, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Button } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { PermissionCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { OsSettingsTarget, PermissionKey } from "../../src/core/contracts";
@@ -38,6 +39,7 @@ export default function PermissionsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <HelpButton screen="permissions" />
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.permissionsTitle")}</Text>
       {CARDS.map((c, i) => {
         // Secuencial: una tarjeta se habilita cuando la anterior ya tiene respuesta.

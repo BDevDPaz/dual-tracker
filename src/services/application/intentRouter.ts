@@ -37,6 +37,7 @@ import {
   cancelCalendarChange,
   confirmExit,
   exportLedgerIncident,
+  exportSupportDiagnostic,
   generateWeeklyPayroll,
   requestCalendarChange,
   startDay,
@@ -275,6 +276,8 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       }
       case "EXPORT_LEDGER_INCIDENT":
         return report(await exportLedgerIncident());
+      case "EXPORT_SUPPORT_DIAGNOSTIC":
+        return report(await exportSupportDiagnostic());
 
       // ---- Feedback / UI ----
       case "DISMISS_FEEDBACK":

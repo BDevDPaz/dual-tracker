@@ -9,6 +9,7 @@ import { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Input } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectSettings } from "../../src/core/selectors";
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <HelpButton screen="profile" />
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
       <Input label={t("onboarding.employeeName")} value={name} onChangeText={setName} autoCapitalize="words" />
       <Input label={t("onboarding.hourlyRate")} value={rate} onChangeText={setRate} keyboardType="decimal-pad" />

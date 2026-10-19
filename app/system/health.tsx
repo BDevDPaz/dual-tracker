@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { HealthRow, ScreenStatusBanner } from "../../src/components/blocks";
+import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { Button, Card, Input, Section } from "../../src/components/ui";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
@@ -73,6 +74,15 @@ export default function HealthScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+      <ScreenTips
+        screen="health"
+        sessionState={null}
+        siteCount={0}
+        batteryRestricted={h.batteryOptimization === "restricted"}
+        provisionalSeal={false}
+        hasSplitRow={false}
+        hasZeroOmitted={false}
+      />
       <Text style={[styles.mode, { color: sys.degraded ? TOKENS.colors.status.warning : TOKENS.colors.status.success }]}>
         {t(`health.modes.${sys.traceMode}`)}
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Text, StyleSheet, ScrollView } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, Input, ScreenContainer, Section } from "../../src/components/ui";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
@@ -64,7 +65,7 @@ export default function SiteDetailScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Stack.Screen options={{ title: site.alias || t("sites.title") }} />
+      <Stack.Screen options={{ title: site.alias || t("sites.title"), headerRight: () => <HelpButton screen="siteEdit" /> }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
         {!site.active ? <ScreenStatusBanner status="degraded" message={t("sites.archived")} /> : null}
         {site.unreadableFields?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableSite")} /> : null}

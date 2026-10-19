@@ -7,20 +7,23 @@
 import { Text, StyleSheet, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, ScreenContainer, Section } from "../../src/components/ui";
+import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { displayStatement, selectCalendarHistory, selectPacks } from "../../src/core/selectors";
+import { displayStatement, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatRange, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
 export default function PeriodStatementScreen() {
   const router = useRouter();
   const { periodId } = useLocalSearchParams<{ periodId: string }>();
-  const { state, queries } = useWorkTracker();
+  const { state, queries, now } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
   useAutoRefresh();
   const range = parseWeekPeriodId(String(periodId ?? ""), selectCalendarHistory(state));
+  const nowMs = now();
+  const portionRows = range ? selectPeriodSessionRows(state, range.start, range.end, nowMs) : [];
   const statement = useQuery(
     () => (range ? queries.previewPeriod(range.start, range.end) : Promise.resolve(null)),
     [range?.start, range?.end, state.sessions],
@@ -44,6 +47,15 @@ export default function PeriodStatementScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
+      <ScreenTips
+        screen="statement"
+        sessionState={null}
+        siteCount={0}
+        batteryRestricted={false}
+        provisionalSeal={packs.some((p) => p.manifest.sealedAtMs <= range.end)}
+        hasSplitRow={portionRows.some((r) => r.continuesFromMs != null || r.continuesUntilMs != null)}
+        hasZeroOmitted={portionRows.some((r) => r.zeroDuration)}
+      />
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("report.statement")}</Text>
       <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>{formatRange(range.start, range.end)}</Text>
       {st.sessionIds.length === 0 ? (

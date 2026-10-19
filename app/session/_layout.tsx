@@ -4,6 +4,7 @@
  */
 import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
+import { HelpButton } from "../../src/components/support/HelpButton";
 import { t, useLanguage } from "../../src/i18n";
 
 export default function SessionLayout() {
@@ -18,8 +19,8 @@ export default function SessionLayout() {
         contentStyle: { backgroundColor: TOKENS.colors.background },
       }}
     >
-      <Stack.Screen name="[id]" options={{ title: t("session.title") }} />
-      <Stack.Screen name="[id]/trace" options={{ title: t("trace.title") }} />
+      <Stack.Screen name="[id]" options={{ title: t("session.title"), headerRight: () => <HelpButton screen="session" /> }} />
+      <Stack.Screen name="[id]/trace" options={{ title: t("trace.title"), headerRight: () => <HelpButton screen="trace" /> }} />
     </Stack>
   );
 }
