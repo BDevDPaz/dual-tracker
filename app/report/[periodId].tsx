@@ -12,8 +12,8 @@ import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { displayStatement, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
-import { formatCurrency, formatRange, parseWeekPeriodId } from "../../src/utils/dateUtils";
+import { t, tLineKind } from "../../src/i18n";
+import { formatCurrency, formatRange, formatUiDecimal, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
 export default function PeriodStatementScreen() {
   const router = useRouter();
@@ -71,9 +71,9 @@ export default function PeriodStatementScreen() {
       ) : null}
 
       <Card style={styles.card}>
-        <KeyValueRow label={t("reports.regular")} value={`${shown.regular} ${t("common.hours")}`} />
-        <KeyValueRow label={t("reports.overtime")} value={`${shown.overtime} ${t("common.hours")}`} />
-        <KeyValueRow label={t("reports.transit")} value={`${shown.transit} ${t("common.hours")}`} />
+        <KeyValueRow label={t("reports.regular")} value={`${formatUiDecimal(shown.regular)} ${t("common.hours")}`} />
+        <KeyValueRow label={t("reports.overtime")} value={`${formatUiDecimal(shown.overtime)} ${t("common.hours")}`} />
+        <KeyValueRow label={t("reports.transit")} value={`${formatUiDecimal(shown.transit)} ${t("common.hours")}`} />
         <KeyValueRow label={t("reports.lunch")} value={`${st.lunchMinutes} ${t("common.minutes")}`} />
         <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
         <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
@@ -84,7 +84,7 @@ export default function PeriodStatementScreen() {
       <Section title={t("report.lines")}>
         {st.lines.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
         {st.lines.map((l, i) => (
-          <KeyValueRow key={`${l.sessionId}-${l.kind}-${l.dateString}-${i}`} label={`${l.dateString} · ${l.kind} · ${l.minutes} ${t("common.minutes")}`} value={formatCurrency(l.amount)} />
+          <KeyValueRow key={`${l.sessionId}-${l.kind}-${l.dateString}-${i}`} label={`${l.dateString} · ${tLineKind(l.kind)} · ${l.minutes} ${t("common.minutes")}`} value={formatCurrency(l.amount)} />
         ))}
       </Section>
 

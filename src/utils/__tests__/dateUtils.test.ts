@@ -2,15 +2,19 @@
  * utils — dateUtils (portado de scripts/check-dates.ts, camino Node + Intl).
  * El script se conserva para ejecutar el camino sin Intl en Hermes real.
  */
+import { setLanguage } from "../../i18n";
 import {
   DATE_FALLBACK,
   atTimeOfDay,
   atTimeOfDayAfter,
   corporateOffsetMinutes,
+  formatCurrency,
   formatDate,
   formatDateTime,
+  formatLocaleNumber,
   formatRange,
   formatTime,
+  formatUiDecimal,
   getWeekEnd,
   getWeekStart,
   isDateString,
@@ -70,6 +74,20 @@ describe("dateUtils formateadores (nunca 'Invalid Date')", () => {
     expect(atTimeOfDay(T, "08:15")).toBe(Date.UTC(2026, 8, 26, 15, 15));
     expect(atTimeOfDay(T, "25:00")).toBeNull();
     expect(formatRange(W, getWeekEnd(W))).toBe("lun, 21 sep 2026 – dom, 27 sep 2026");
+    expect(formatLocaleNumber(8.25)).toBe("8,25");
+    expect(formatUiDecimal("8.25 h")).toBe("8,25 h");
+    expect(formatCurrency(12.5)).toBe("$12.50");
+  });
+
+  test("inglés: fecha, AM/PM y punto decimal; la moneda no cambia", () => {
+    setLanguage("en");
+    expect(formatDate(T)).toBe("Sat, Sep 26, 2026");
+    expect(formatTime(T)).toBe("11:42 PM");
+    expect(formatTime(Date.UTC(2026, 8, 27, 7, 5))).toBe("12:05 AM");
+    expect(formatLocaleNumber(8.25)).toBe("8.25");
+    expect(formatUiDecimal("8,25 h")).toBe("8.25 h");
+    expect(formatCurrency(12.5)).toBe("$12.50");
+    setLanguage("es");
   });
 
   test.each<unknown>([NaN, null, undefined, 0, "Invalid Date", "garbage"])("fallback con %p", (bad) => {

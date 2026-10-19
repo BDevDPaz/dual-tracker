@@ -291,6 +291,25 @@ export const formatHours = (hours: number): string =>
 export const formatCurrency = (amount: number): string =>
   `$${(Number.isFinite(amount) ? amount : 0).toFixed(2)}`;
 
+/**
+ * Cantidad de la UI (horas en pantalla). Español usa coma decimal; inglés, punto.
+ * No entra en el PDF ni en formatCurrency / formatHundredths / formatCents:
+ * el expediente sellado sigue con punto (docs/IDIOMA.md).
+ */
+export function formatLocaleNumber(value: number, digits = 2, lang: Language = getLanguage()): string {
+  const safe = Number.isFinite(value) ? value : 0;
+  const neg = safe < 0;
+  const text = Math.abs(safe).toFixed(digits);
+  const out = lang === "es" ? text.replace(".", ",") : text;
+  return neg ? `-${out}` : out;
+}
+
+/** Reescribe el separador decimal de un texto ya formado con punto ("8.25 h"). */
+export function formatUiDecimal(text: string, lang: Language = getLanguage()): string {
+  if (lang === "es") return text.replace(/(\d)\.(\d)/g, "$1,$2");
+  return text.replace(/(\d),(\d)/g, "$1.$2");
+}
+
 /** Fecha YYYY-MM-DD de un timestamp en la zona corporativa ("" si no es válido). */
 export const toDateString = (input: DateInput): string => {
   const ts = parseTimestamp(input);

@@ -6,7 +6,7 @@ import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { Site, SiteDraft } from "../../core/contracts";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 /**
  * DailySetupModal — portado de GEOTrack/LEDTracker (Producto §5.11 y §7).
@@ -28,6 +28,7 @@ interface DailySetupModalProps {
 }
 
 export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, busy = false, onCancel, onConfirm, onQuickCreate }: DailySetupModalProps) {
+  useLanguage();
   const { colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
   const [quick, setQuick] = useState(false);

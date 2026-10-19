@@ -27,7 +27,7 @@ import {
   type PeriodSessionRow,
 } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
-import { formatRange, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
+import { formatRange, formatUiDecimal, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
 
 type Filter = "ALL" | "WEEK" | "MANUAL" | "AUTO" | "CONFLICT";
 const FILTERS: Filter[] = ["ALL", "WEEK", "MANUAL", "AUTO", "CONFLICT"];
@@ -130,7 +130,7 @@ export default function HistoryScreen() {
 
       <Card style={styles.rollup}>
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("history.weeklyRollup")}</Text>
-        <KeyValueRow label={t("today.netHours")} value={`${weekHours} ${t("common.hours")}`} />
+        <KeyValueRow label={t("today.netHours")} value={`${formatUiDecimal(weekHours)} ${t("common.hours")}`} />
         <KeyValueRow label={t("today.estimate")} value={formatCents(weekGrossCents)} emphasis />
         <KeyValueRow label={t("history.manualCount")} value={String(counts.MANUAL)} />
         <KeyValueRow label={t("history.conflictCount")} value={String(counts.CONFLICT)} />

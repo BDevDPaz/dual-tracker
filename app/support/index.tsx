@@ -31,12 +31,14 @@ export default function SupportIndexScreen() {
     setBusy(true);
     const res = await emit({ type: "EXPORT_SUPPORT_DIAGNOSTIC" });
     setBusy(false);
-    showToast(res.ok ? t("support.export.ok") : t("support.export.fail"), res.ok ? "success" : "error");
+    showToast(res.ok ? t("support.export.ok") : t("support.export.fail"), res.ok ? "success" : "error", undefined, (lang) => ({
+      title: t(res.ok ? "support.export.ok" : "support.export.fail", {}, lang),
+    }));
   };
 
   const onResetTips = async () => {
     await resetTips();
-    showToast(t("support.tips.resetDone"), "success");
+    showToast(t("support.tips.resetDone"), "success", undefined, (lang) => ({ title: t("support.tips.resetDone", {}, lang) }));
   };
 
   return (

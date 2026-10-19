@@ -5,7 +5,8 @@ import * as Clipboard from "expo-clipboard";
 
 import { TOKENS, FONT, font } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
+import { formatUiDecimal } from "../../utils/dateUtils";
 
 export interface PreviewLine {
   label: string;
@@ -52,6 +53,7 @@ export function DocumentPreviewWidget({
   onHashCopied,
   inset = false,
 }: DocumentPreviewWidgetProps) {
+  const language = useLanguage();
   const { colors } = useTheme();
   const paper = colors.paper;
   const real = (lines ?? []).slice(0, 2);
@@ -97,7 +99,7 @@ export function DocumentPreviewWidget({
             ? real.map((l) => (
                 <View key={l.label} style={styles.lineRow} testID="preview-line">
                   <Text style={[styles.lineLabel, { color: paper.text }]}>{l.label}</Text>
-                  <Text style={[styles.lineValue, { color: paper.text }]}>{l.value}</Text>
+                  <Text style={[styles.lineValue, { color: paper.text }]}>{formatUiDecimal(l.value, language)}</Text>
                 </View>
               ))
             : [1, 2, 3, 4].map((i) => (
@@ -111,7 +113,7 @@ export function DocumentPreviewWidget({
         <View style={[styles.divider, { backgroundColor: paper.line }]} />
 
         <View style={styles.totalsRow}>
-          <Text style={[styles.totalLabel, { color: paper.muted }]}>{t("report.totalHours", { hours: totalHours })}</Text>
+          <Text style={[styles.totalLabel, { color: paper.muted }]}>{t("report.totalHours", { hours: formatUiDecimal(totalHours, language) })}</Text>
           <Text style={[styles.totalValue, { color: paper.ink }]}>{totalEarnings}</Text>
         </View>
       </View>

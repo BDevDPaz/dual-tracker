@@ -5,7 +5,7 @@ import { Input } from "../ui/Input";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 /**
  * LunchModal — portado de GEOTrack con dos modos (Producto §7):
@@ -30,6 +30,7 @@ const OPTIONS = [0, 30, 45, 60];
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export function LunchModal(props: LunchModalProps) {
+  useLanguage();
   const { colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
   const [startHHmm, setStartHHmm] = useState("");

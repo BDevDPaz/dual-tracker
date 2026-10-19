@@ -46,14 +46,30 @@ function toPermissionState(p: Notifications.NotificationPermissionsStatus): Perm
   return "unknown";
 }
 
+/**
+ * Samsung One UI no renombra un canal ya creado. Si el nombre guardado no es
+ * el del idioma activo, se borra y se vuelve a crear. Si coincide, no se toca
+ * (borrar siempre resetearía el ajuste del usuario en cada arranque).
+ */
+async function upsertChannel(
+  id: string,
+  cfg: { name: string; importance: Notifications.AndroidImportance; vibrationPattern?: number[] },
+): Promise<void> {
+  const existing = await Notifications.getNotificationChannelAsync(id).catch(() => null);
+  if (existing && existing.name !== cfg.name) {
+    await Notifications.deleteNotificationChannelAsync(id).catch(() => {});
+  }
+  await Notifications.setNotificationChannelAsync(id, cfg);
+}
+
 async function ensureChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
-  await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DEFAULT, {
+  await upsertChannel(NOTIFICATION_CHANNELS.DEFAULT, {
     name: t("notifications.channelDefault"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
   });
-  await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.FOREGROUND_WORK, {
+  await upsertChannel(NOTIFICATION_CHANNELS.FOREGROUND_WORK, {
     name: t("notifications.channelForeground"),
     importance: Notifications.AndroidImportance.LOW,
   });

@@ -3,7 +3,7 @@ import { useToast } from "../../context/ToastContext";
 import type { FeedbackCode, FeedbackPayload, FeedbackTone } from "../../core/contracts";
 import { useWorkTracker } from "../../core/hooks";
 import { selectPendingFeedback } from "../../core/selectors";
-import { getLanguage, t } from "../../i18n";
+import { t, useLanguage, type Language } from "../../i18n";
 import { ModalShell, type ModalTone } from "../ui/ModalShell";
 import { useBlockingModalVisible } from "./blockingModals";
 
@@ -38,6 +38,7 @@ const MODAL_TONE: Record<FeedbackTone, ModalTone> = {
 };
 
 export function FeedbackBridge() {
+  const language = useLanguage();
   const { state, emit, queries } = useWorkTracker();
   const { showToast } = useToast();
   const blockingVisible = useBlockingModalVisible();
@@ -56,12 +57,16 @@ export function FeedbackBridge() {
         continue;
       }
       // Toast (o diálogo cuyo modal ya pinta la pantalla → aviso corto, no un segundo diálogo).
-      const { title, message } = queries.renderFeedback(fb, getLanguage());
-      showToast(title, fb.tone, message || undefined);
+      const { title, message } = queries.renderFeedback(fb, language);
+      const live = (lang: Language) => {
+        const rendered = queries.renderFeedback(fb, lang);
+        return { title: rendered.title, caption: rendered.message || undefined };
+      };
+      showToast(title, fb.tone, message || undefined, live);
       void emit({ type: "DISMISS_FEEDBACK", feedbackId: fb.id });
     }
     if (dialogs.length) setQueue((q) => [...q, ...dialogs]);
-  }, [pending, emit, queries, showToast]);
+  }, [pending, emit, queries, showToast, language]);
 
   // Siguiente diálogo solo cuando no hay otro en pantalla ni un modal bloqueante ajeno.
   useEffect(() => {
@@ -71,7 +76,7 @@ export function FeedbackBridge() {
   }, [current, queue, blockingVisible]);
 
   if (!current) return null;
-  const { title, message } = queries.renderFeedback(current, getLanguage());
+  const { title, message } = queries.renderFeedback(current, language);
   const dismiss = () => {
     const id = current.id;
     setCurrent(null);

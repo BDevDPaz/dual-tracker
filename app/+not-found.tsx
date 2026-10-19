@@ -5,9 +5,10 @@
 import { Stack, useRouter } from "expo-router";
 import { ScreenContainer, EmptyState, Button } from "../src/components/ui";
 import { HelpButton } from "../src/components/support/HelpButton";
-import { t } from "../src/i18n";
+import { t, useLanguage } from "../src/i18n";
 
 export default function NotFoundScreen() {
+  useLanguage();
   const router = useRouter();
   return (
     <ScreenContainer>

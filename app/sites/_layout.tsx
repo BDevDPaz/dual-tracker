@@ -10,6 +10,7 @@ export default function SitesLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
+        freezeOnBlur: false,
         headerStyle: { backgroundColor: TOKENS.colors.background },
         headerTintColor: TOKENS.colors.primary,
         headerTitleStyle: { color: TOKENS.colors.text.primary },

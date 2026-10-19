@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
 
 /** Fila de sensor de system/health.tsx: estado, impacto en integridad y CTA Reparar. */
@@ -14,6 +14,7 @@ interface Props {
 }
 
 export function HealthRow({ label, value, ok, blocksValid, onRepair }: Props) {
+  useLanguage();
   const color = ok ? TOKENS.colors.status.success : TOKENS.colors.status.warning;
   return (
     <View style={[styles.row, { borderColor: TOKENS.colors.border }]}>

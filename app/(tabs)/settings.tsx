@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Card, Input, PageHeader, ScreenContainer, Section, StatusPill } from "../../src/components/ui";
 import { KeyValueRow } from "../../src/components/blocks";
+import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
@@ -27,11 +28,10 @@ import {
 } from "../../src/core/selectors";
 import { legalFlags } from "../../src/utils/companyPolicy";
 import { calendarAt, formatDateTime } from "../../src/utils/dateUtils";
-import { setLanguage as setActiveLanguage, t, tHealthValue } from "../../src/i18n";
+import { getLanguage, t, tHealthValue } from "../../src/i18n";
 
 interface Draft {
   employeeName: string;
-  language: "es" | "en";
   dailyReminderTime: string;
   hourlyRate: string;
   employerName: string;
@@ -58,7 +58,6 @@ export default function SettingsScreen() {
   const initial = useMemo<Draft>(
     () => ({
       employeeName: settings.profile.employeeName,
-      language: settings.profile.language,
       dailyReminderTime: settings.profile.dailyReminderTime,
       hourlyRate: String(settings.profile.hourlyRate),
       employerName: settings.company.employerName,
@@ -74,38 +73,28 @@ export default function SettingsScreen() {
   const [draft, setDraft] = useState<Draft>(initial);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
-  // El idioma se persiste al pulsar el chip. Ese guardado no debe borrar
-  // el resto del formulario si el usuario aún no ha pulsado Guardar.
-  const languageHold = useRef(false);
+  // El idioma no vive en el borrador: lo pinta LanguageSwitch y se guarda al
+  // pulsar. Un SET_LANGUAGE no debe borrar el resto si aún no se pulsó Guardar.
+  const seen = useRef(initial);
   useEffect(() => {
-    if (languageHold.current) {
-      languageHold.current = false;
-      setDraft((d) => ({ ...d, language: initial.language }));
-      return;
-    }
-    setDraft(initial);
+    const base = seen.current;
+    setDraft((prev) => {
+      const next: Draft = { ...initial };
+      (Object.keys(prev) as (keyof Draft)[]).forEach((k) => {
+        if (prev[k] !== base[k]) (next as Record<keyof Draft, Draft[keyof Draft]>)[k] = prev[k];
+      });
+      return next;
+    });
+    seen.current = initial;
   }, [initial]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const dirty = (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== initial[k]);
 
-  const onLanguage = async (l: "es" | "en") => {
-    if (l === draft.language && l === settings.profile.language) return;
-    languageHold.current = true;
-    setDraft((d) => ({ ...d, language: l }));
-    setActiveLanguage(l);
-    const res = await emit({ type: "SET_LANGUAGE", language: l });
-    if (!res.ok) {
-      languageHold.current = false;
-      setActiveLanguage(settings.profile.language);
-      setDraft((d) => ({ ...d, language: settings.profile.language }));
-    }
-  };
-
   const num = (s: string) => Number(s.replace(",", "."));
   const onSave = async () => {
     const patch: SettingsPatch = {
-      profile: { employeeName: draft.employeeName.trim(), language: draft.language, dailyReminderTime: draft.dailyReminderTime },
+      profile: { employeeName: draft.employeeName.trim(), language: getLanguage(), dailyReminderTime: draft.dailyReminderTime },
     };
     if (unlocked) {
       if (draft.hourlyRate !== initial.hourlyRate) patch.profile!.hourlyRate = num(draft.hourlyRate);
@@ -140,17 +129,7 @@ export default function SettingsScreen() {
 
         <Section title={t("settings.profile")}>
           <Input label={t("onboarding.employeeName")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} />
-          <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("onboarding.language")}</Text>
-          <View style={styles.row}>
-            {(["es", "en"] as const).map((l) => (
-              <Chip
-                key={l}
-                label={t(l === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
-                selected={draft.language === l}
-                onPress={() => void onLanguage(l)}
-              />
-            ))}
-          </View>
+          <LanguageSwitch />
           <Input label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
         </Section>
 

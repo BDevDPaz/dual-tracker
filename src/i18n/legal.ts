@@ -71,7 +71,7 @@ const DISCLOSURE: Record<"es" | "en", LegalContent> = {
       {
         key: "breadcrumb",
         title: "Shift trail",
-        body: "Only if your employer enables trail mode, location points are stored while the shift is ACTIVE or in TRANSIT. Never before starting or after closing the shift: there is no 24/7 tracking.",
+        body: "Only if your employer enables trail mode, location points are stored while the shift is on site or traveling. Never before starting or after closing the shift: there is no 24/7 tracking.",
       },
       {
         key: "lunch",

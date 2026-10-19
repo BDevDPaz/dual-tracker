@@ -33,7 +33,7 @@ describe("catálogo de soporte", () => {
     setLanguage("es");
     expect(t("support.flows.transfer.title")).toContain("Traslado");
     setLanguage("en");
-    expect(t("support.flows.transfer.title")).toBe("Transfer and several sites");
+    expect(t("support.flows.transfer.title")).toBe("Travel and several sites");
     expect(t("support.marks.continuesMonday")).toBe("continues on Mon");
   });
 });
