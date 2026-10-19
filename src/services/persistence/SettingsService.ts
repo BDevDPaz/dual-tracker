@@ -161,6 +161,9 @@ export const SettingsService = {
     if (next.profile.highContrast !== undefined && typeof next.profile.highContrast !== "boolean") {
       return { ok: false, code: "INVALID_VALUE" };
     }
+    if (next.profile.comprobanteTheme !== undefined && next.profile.comprobanteTheme !== "light" && next.profile.comprobanteTheme !== "dark") {
+      return { ok: false, code: "INVALID_VALUE" };
+    }
 
     if (patch.profile) await SettingsService.saveProfile(next.profile);
     if (patch.company) await SettingsService.saveCompany(next.company);

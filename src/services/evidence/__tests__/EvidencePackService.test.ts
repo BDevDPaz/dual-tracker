@@ -1,19 +1,22 @@
 /** T3 — EvidencePack: contentHash estable entre sellos, packHash por sello, idempotencia, verificación (v2 y legado). */
 import * as Print from "expo-print";
+import * as FileSystem from "expo-file-system";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import { getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
 import { PersistenceService } from "../../persistence/PersistenceService";
-import { PACK_MANIFEST_VERSION } from "../../../core/contracts";
+import { DOCUMENT_VERSION, PACK_MANIFEST_VERSION } from "../../../core/contracts";
 import { Store } from "../../../core/store";
 import { MICROCOPY } from "../../../i18n/microcopy";
 import { canonicalJson } from "../../../utils/canonicalJson";
 import { routeIntent } from "../../application/intentRouter";
-import { EvidencePackService, computeContentHash } from "../EvidencePackService";
+import { EvidencePackService, computeContentHash, packHashBody } from "../EvidencePackService";
 import { sha256Hex } from "../HashChain";
 import { COMPANY, HOUR } from "../../../../test/fixtures/session.fixture";
 import { CA_DAILY8_WEEKLY40_V2 } from "../../domain/payrollPolicies";
-import { SettingsService } from "../../persistence/SettingsService";
+import { DEFAULT_PROFILE, SettingsService } from "../../persistence/SettingsService";
+import { ReportService } from "../ReportService";
+import { SITE_LAT, SITE_LON } from "../../../../test/fixtures/spatial.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 
@@ -214,5 +217,69 @@ describe("EvidencePackService", () => {
     expect((MailComposer as unknown as { __sent: unknown[] }).__sent).toHaveLength(1);
     expect(await EvidencePackService.shareEmployee("nope")).toEqual({ ok: false, code: "PACK_NOT_FOUND" });
     expect(await EvidencePackService.shareEmployer("nope")).toEqual({ ok: false, code: "PACK_NOT_FOUND" });
+  });
+
+  test("el sello nuevo escribe documentVersion fuera del hash; un pack viejo sigue verificando y no se reescribe", async () => {
+    const period = await closedWeek();
+    await SettingsService.saveProfile({ ...DEFAULT_PROFILE, employeeName: "Ana", language: "en", comprobanteTheme: "dark" });
+    const pack = await seal(period);
+    expect(pack.manifest.documentVersion).toBe(DOCUMENT_VERSION);
+    expect(pack.manifest.documentTheme).toBe("dark");
+    expect(pack.manifest.documentLocale).toBe("en");
+    expect(pack.manifest.manifestVersion).toBe(PACK_MANIFEST_VERSION);
+    const { documentVersion: _d, documentTheme: _t, documentLocale: _l, ...legacyManifest } = pack.manifest;
+    expect(canonicalJson(packHashBody(legacyManifest))).toBe(canonicalJson(packHashBody(pack.manifest)));
+    expect(await EvidencePackService.verify(pack)).toMatchObject({ valid: true, legacy: false, scheme: "Ed25519", failures: [] });
+
+    const files = (FileSystem as unknown as { __files: Map<string, string> }).__files;
+    const sealedHtml = files.get(pack.employeePdfUri ?? "") ?? "";
+    expect(sealedHtml).toContain('data-document-version="2"');
+    expect(sealedHtml).toContain("theme-dark");
+    expect(sealedHtml).toContain("Employee receipt");
+    expect(sealedHtml).not.toContain(String(SITE_LAT));
+    expect(sealedHtml).not.toContain(String(SITE_LON));
+
+    const legacy = { ...pack, manifest: legacyManifest, statement: pack.statement };
+    expect(await EvidencePackService.verify(legacy)).toMatchObject({ valid: true, failures: [] });
+    const legacyHtml = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
+      statement: pack.statement,
+      evidence: pack.evidence,
+      manifest: legacyManifest,
+      sessions: [],
+      sites: [],
+      profile: DEFAULT_PROFILE,
+      company: COMPANY,
+    });
+    expect(legacyHtml).toContain("Comprobante del empleado");
+    expect(legacyHtml).not.toContain("data-document-version");
+    expect(files.get(pack.employeePdfUri ?? "")).toBe(sealedHtml);
+
+    const db = await PersistenceService.init();
+    await db.runAsync(`UPDATE evidence_packs SET manifest_json = ? WHERE id = ?`, [JSON.stringify(legacyManifest), pack.id]);
+    const loaded = await EvidencePackService.get(pack.id);
+    expect(loaded?.manifest.documentVersion).toBeUndefined();
+    expect(await EvidencePackService.verify(loaded!)).toMatchObject({ valid: true, failures: [] });
+    (Sharing as unknown as { __shared: string[] }).__shared.length = 0;
+    expect(await EvidencePackService.shareEmployee(pack.id, { ledger: true, enterExit: true })).toEqual({ ok: true });
+    expect((Sharing as unknown as { __shared: string[] }).__shared).toEqual([pack.employeePdfUri]);
+    expect(files.get(pack.employeePdfUri ?? "")).toBe(sealedHtml);
+  });
+
+  test("un anexo al exportar no sustituye el PDF sellado", async () => {
+    const pack = await seal(await closedWeek());
+    const files = (FileSystem as unknown as { __files: Map<string, string> }).__files;
+    const before = files.get(pack.employeePdfUri ?? "");
+    (Sharing as unknown as { __shared: string[] }).__shared.length = 0;
+    expect(await EvidencePackService.shareEmployee(pack.id, { ledger: true, enterExit: true })).toEqual({ ok: true });
+    const shared = (Sharing as unknown as { __shared: string[] }).__shared.at(-1) ?? "";
+    expect(shared).not.toBe(pack.employeePdfUri);
+    expect(shared).toContain("_export");
+    expect(files.get(pack.employeePdfUri ?? "")).toBe(before);
+    const extra = files.get(shared) ?? "";
+    expect(extra).toContain("Bitácora forense");
+    expect(extra).toContain("Entradas y salidas");
+    expect(extra).toContain("Este anexo no incluye coordenadas.");
+    expect(extra).not.toContain(String(SITE_LAT));
+    expect(await EvidencePackService.verify(pack)).toMatchObject({ valid: true, failures: [] });
   });
 });

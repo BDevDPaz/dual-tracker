@@ -22,6 +22,11 @@ export interface PersonProfile {
    * system | dark | light: solo la paleta que pinta ThemeContext.
    */
   highContrast?: boolean;
+  /**
+   * Tema del PDF del comprobante. Ausente = claro. No es el tema de la app
+   * (`theme`): solo lo leen los sellos nuevos al pintar el documento.
+   */
+  comprobanteTheme?: "light" | "dark";
 }
 
 /**

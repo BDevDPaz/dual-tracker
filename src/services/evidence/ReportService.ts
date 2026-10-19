@@ -21,10 +21,21 @@ import { LoggingService } from "../persistence/LoggingService";
 import type { ReportInput } from "./reportTemplates";
 import { renderEmployeeReceipt, renderEmployerDossier } from "./reportTemplates";
 
+export interface RenderPdfOptions {
+  /** `cache` pinta una copia (anexos al exportar) y no toca el PDF sellado. */
+  destination?: "pack" | "cache";
+}
+
 export type ReportRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
 
 function packDirectory(packId: string): Directory {
   const dir = new Directory(Paths.document, "packs", safeFileName(packId, "d").replace(/\.d$/, ""));
+  dir.create({ intermediates: true, idempotent: true });
+  return dir;
+}
+
+function cacheDirectory(): Directory {
+  const dir = new Directory(Paths.cache, "exports");
   dir.create({ intermediates: true, idempotent: true });
   return dir;
 }
@@ -35,14 +46,15 @@ export const ReportService = {
   },
 
   /** Genera el PDF y lo guarda como artefacto. Devuelve { uri, name }. */
-  async renderPdf(role: ReportRole, input: ReportInput): Promise<{ uri: string; name: string }> {
+  async renderPdf(role: ReportRole, input: ReportInput, opts?: RenderPdfOptions): Promise<{ uri: string; name: string }> {
     const html = ReportService.renderHtml(role, input);
     const { uri } = await Print.printToFileAsync({ html, base64: false });
+    const cache = opts?.destination === "cache";
     const name = safeFileName(
-      `DualTracker_${role === "EMPLOYEE_RECEIPT" ? "Comprobante" : "Expediente"}_${input.manifest.packId}`,
+      `DualTracker_${role === "EMPLOYEE_RECEIPT" ? "Comprobante" : "Expediente"}_${input.manifest.packId}${cache ? "_export" : ""}`,
       "pdf",
     );
-    const target = new File(packDirectory(input.manifest.packId), name);
+    const target = new File(cache ? cacheDirectory() : packDirectory(input.manifest.packId), name);
     if (target.exists) target.delete();
     new File(uri).move(target);
     LoggingService.log("VERDE", "OPERACION_EXITOSA", "INFO", `PDF ${role} generado`, { packId: input.manifest.packId });

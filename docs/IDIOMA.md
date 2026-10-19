@@ -67,7 +67,8 @@ El idioma de la interfaz no reescribe lo ya sellado ni lo que tiene que ser idé
 | Qué | Idioma | Por qué |
 | --- | --- | --- |
 | PDF ya generado (`documents/packs/`) | El del momento en que se selló | Se comparte el archivo guardado. No se regenera. |
-| HTML/PDF nuevo (`reportTemplates.ts`) | Siempre español | `t(..., "es")` y fechas con `lang: "es"`. El mismo statement produce el mismo documento. |
+| HTML/PDF sin `documentVersion` (o v1) | Siempre español | Plantilla heredada. El mismo statement produce el mismo documento. |
+| HTML/PDF de un sello nuevo (`documentVersion` 2) | `documentLocale` del perfil al sellar | Fuera de `packHash`. Cambiar el idioma después no reescribe el archivo. Ver `docs/COMPROBANTES_PREMIUM.md`. |
 | Asientos del ledger, `intent`, hashes, manifiesto | Códigos | La UI traduce el `intent` al leer. Un `reason` sin clave no se muestra. |
 | Notas, nombres de destino, direcciones | Lo que escribió la persona | No son copy de la app. |
 | Importes | `$1.50` fijo | La nómina es en dólares y el PDF usa el mismo formato. |

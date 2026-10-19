@@ -157,9 +157,9 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         return r.ok ? r : report(r);
       }
       case "SHARE_EMPLOYEE":
-        return report(await EvidencePackService.shareEmployee(intent.packId));
+        return report(await EvidencePackService.shareEmployee(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
       case "SHARE_EMPLOYER":
-        return report(await EvidencePackService.shareEmployer(intent.packId));
+        return report(await EvidencePackService.shareEmployer(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
       case "EXPORT_PACK": {
         // §16: reutiliza el pack más reciente del periodo; si no hay, sella
         // (certificado; un periodo no certificable se remite al flujo de Reportes).

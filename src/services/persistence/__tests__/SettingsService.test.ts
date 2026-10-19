@@ -68,6 +68,13 @@ describe("SettingsService", () => {
     const contrast = await SettingsService.applyPatch(cur, { profile: { highContrast: true } }, { adminUnlocked: false });
     expect(contrast.ok && contrast.next.profile.highContrast).toBe(true);
     expect((await SettingsService.load()).profile.highContrast).toBe(true);
+    expect((await SettingsService.load()).profile.comprobanteTheme).toBeUndefined();
+    const dark = await SettingsService.applyPatch(await SettingsService.load(), { profile: { comprobanteTheme: "dark" } }, { adminUnlocked: false });
+    expect(dark.ok && dark.next.profile.comprobanteTheme).toBe("dark");
+    expect(await SettingsService.applyPatch(await SettingsService.load(), { profile: { comprobanteTheme: "sepia" as "dark" } }, { adminUnlocked: false })).toEqual({
+      ok: false,
+      code: "INVALID_VALUE",
+    });
     expect(
       await SettingsService.applyPatch(cur, { profile: { theme: "sepia" as never } }, { adminUnlocked: false }),
     ).toEqual({ ok: false, code: "INVALID_VALUE" });
