@@ -37,30 +37,42 @@ import { FeedbackService } from "../../services/application/FeedbackService";
 import { PersistenceService } from "../../services/persistence/PersistenceService";
 import { useLanguage } from "../../i18n";
 import { companyCalendar } from "../../utils/companyPolicy";
-import { getWeekEnd, getWeekStart } from "../../utils/dateUtils";
+import { segmentInterval } from "../../services/domain/segmentation";
+import { getWeekEnd } from "../../utils/dateUtils";
 
 const queries = {
   loadSessionLedger: (sessionId: number): Promise<LedgerEntry[]> => IntegrityLedgerService.listForSession(sessionId),
   loadTrace: (sessionId: number): Promise<SpatialFact[]> => TraceRecorderService.listForSession(sessionId),
   traceDistanceMeters: (facts: SpatialFact[]): number => TraceRecorderService.distanceMeters(facts),
   previewPeriod: (periodStart: number, periodEnd: number): Promise<PayrollStatement> => previewPayroll(periodStart, periodEnd),
-  /** Líneas de una sesión dentro de su semana (session/[id]). */
+  sealFreshness: (periodStart: number, periodEnd: number) => EvidencePackService.describeFreshness(periodStart, periodEnd),
+  /**
+   * Líneas de una sesión en cada semana que toca. Una jornada que cruza el
+   * domingo no se queda solo con la semana de entrada.
+   */
   sessionLines: async (session: SessionRecord): Promise<PayrollLine[]> => {
     const state = Store.getState();
     const start = session.actualStartAtMs ?? session.declaredStartAtMs;
     const history = companyCalendar(state.settings.company);
-    const periodStart = getWeekStart(start, history);
-    const periodEnd = getWeekEnd(start, history);
-    const week = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
-    const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? state.settings.company.overtimePolicyId;
-    return PayrollEngineService.linesForSession(session.id, week, {
-      rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: state.settings.company.overtimeMultiplier },
-      company: state.settings.company,
-      policyId,
-      nowMs: TimeAuthorityService.now(),
-      periodStart,
-      periodEnd,
-    });
+    const end = session.endAtMs ?? TimeAuthorityService.now();
+    const weekStarts = [...new Set(segmentInterval(start, end, history).map((seg) => seg.weekStartMs))].sort((a, b) => a - b);
+    const lines: PayrollLine[] = [];
+    for (const periodStart of weekStarts) {
+      const periodEnd = getWeekEnd(periodStart, history);
+      const week = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
+      const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? state.settings.company.overtimePolicyId;
+      lines.push(
+        ...PayrollEngineService.linesForSession(session.id, week, {
+          rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: state.settings.company.overtimeMultiplier },
+          company: state.settings.company,
+          policyId,
+          nowMs: TimeAuthorityService.now(),
+          periodStart,
+          periodEnd,
+        }),
+      );
+    }
+    return lines;
   },
   /** Solape REAL (EditSessionModal) — sustituye la regla demo "00:00" de W Tracker. */
   checkOverlap: (startMs: number, endMs: number | null, excludeId: number | null): Promise<boolean> =>

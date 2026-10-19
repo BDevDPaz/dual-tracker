@@ -36,6 +36,7 @@ import {
   toHHmm,
   atTimeOfDay,
   atTimeOfDayAfter,
+  fromWallClock,
   resolveSessionEditTimes,
   weekPeriodId,
   nextWorkdayBoundary,
@@ -247,6 +248,11 @@ eq("cal: por defecto = getWeekStart", workweekStartAt(T, null), getWeekStart(T))
 // Otoño (1 nov 2026, 25 h) con jornada 06:00: la jornada del sáb 31 oct dura 25 h reales.
 const HOCT: CalendarHistory = [{ effectiveFromMs: 0, workdayStartMinutes: 360, workweekStartDay: 1 }];
 eq("cal: jornada DST otoño 25 h", (nextWorkdayBoundary(Date.UTC(2026, 10, 1, 7), HOCT) - workdayStartAt(Date.UTC(2026, 10, 1, 7), HOCT)) / 3_600_000, 25);
+// 1 nov 2026: 1:00 AM PDT → 2:00 AM PST son 2 h reales (la hora repetida cuenta).
+const dstOne = fromWallClock(2026, 11, 1, 1, 0);
+const dstTwo = fromWallClock(2026, 11, 1, 2, 0);
+eq("dst: 01:00–02:00 del fallback = 120 min", (dstTwo - dstOne) / 60_000, 120);
+eq("dst: la hora repetida sigue siendo 01:30 en el reloj", formatTime(dstOne + 30 * 60_000), formatTime(dstOne + 90 * 60_000));
 
 log(`[${engine}${hasIntl ? " + Intl" : " sin Intl"}] ${passed} passed, ${failed} failed`);
 if (failed > 0) {

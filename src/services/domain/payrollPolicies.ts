@@ -7,7 +7,8 @@
  * política v2 declara los umbrales, pero el motor SOLO los aplica si la
  * empresa activa payrollLegalFlags.caDoubleTime / caSeventhDay
  * [CONFIRMAR CON ASESORÍA LEGAL]. Por defecto NO se aplican.
- * No implementado: periodos de comida obligatorios, redondeos de minutos.
+ * El motor redondea al minuto más cercano el tiempo real (ms). Esta ficha
+ * no ofrece otro modo. Los periodos de comida obligatorios no están modelados.
  */
 import type { PayrollPolicy } from "../../core/contracts";
 

@@ -16,7 +16,17 @@ import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { LedgerEntry, PayrollLineKind } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectCertification, selectComputedSessions, selectIsHydrated, selectSessionById } from "../../src/core/selectors";
+import {
+  formatCents,
+  formatHundredths,
+  minutesToHundredths,
+  moneyCents,
+  selectCertification,
+  selectComputedSessions,
+  selectIsHydrated,
+  selectSessionById,
+  trimDisplayNote,
+} from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
 
@@ -69,6 +79,12 @@ export default function SessionDetailScreen() {
   const cert = selectCertification(state, session);
   const deleted = session.bookkeeping.isDeleted;
   const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+  const lineRows = lines.data ?? [];
+  const paidMinutes = lineRows.filter((l) => !l.kind.endsWith("DEDUCTION")).reduce((a, l) => a + l.minutes, 0);
+  const paidCents = lineRows.reduce((a, l) => a + moneyCents(l.minutes, l.rate), 0);
+  const useLines = lineRows.length > 0;
+  const zeroDuration = session.domainStatus === "CERRADA" && session.endAtMs != null && Math.round((session.endAtMs - start) / 60000) <= 0;
+  const note = session.bookkeeping.manualNote ? trimDisplayNote(session.bookkeeping.manualNote) : "";
   const facts = trace.data ?? [];
   const hasTrace = facts.some((f) => f.type === "BREADCRUMB");
   const hasEnter = facts.some((f) => f.type === "ENTER" && f.reliable);
@@ -99,19 +115,31 @@ export default function SessionDetailScreen() {
         <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>
           {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
         </Text>
+        {zeroDuration ? <Text style={[styles.caption, { color: TOKENS.colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
 
         <Card style={styles.card}>
-          <KeyValueRow label={t("today.netHours")} value={computed.preview ? `${(computed.preview.netMinutes / 60).toFixed(2)} ${t("common.hours")}` : "—"} />
-          <KeyValueRow label={t("today.estimate")} value={computed.preview ? formatCurrency(computed.preview.grossEstimate) : "—"} emphasis />
+          <KeyValueRow
+            label={t("today.netHours")}
+            value={useLines ? `${formatHundredths(minutesToHundredths(paidMinutes))} ${t("common.hours")}` : computed.preview ? `${formatHundredths(minutesToHundredths(computed.preview.netMinutes))} ${t("common.hours")}` : "—"}
+          />
+          <KeyValueRow
+            label={t("today.estimate")}
+            value={useLines ? formatCents(paidCents) : computed.preview ? formatCurrency(computed.preview.grossEstimate) : "—"}
+            emphasis
+          />
         </Card>
 
         <Section title={t("session.lines")}>
           <Card style={styles.card}>
             {lines.loading ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.loading")}</Text> : null}
-            {(lines.data ?? []).map((l, i) => (
-              <KeyValueRow key={`${l.kind}-${i}`} label={`${t(LINE_LABEL[l.kind])} · ${l.minutes} ${t("common.minutes")} × ${formatCurrency(l.rate)}`} value={formatCurrency(l.amount)} />
+            {lineRows.map((l, i) => (
+              <KeyValueRow
+                key={`${l.dateString}-${l.kind}-${i}`}
+                label={`${l.dateString} · ${t(LINE_LABEL[l.kind])} · ${l.minutes} ${t("common.minutes")} × ${formatCurrency(l.rate)}`}
+                value={formatCurrency(l.amount)}
+              />
             ))}
-            {!lines.loading && (lines.data ?? []).length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
+            {!lines.loading && lineRows.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
             <Text style={[styles.policy, { color: TOKENS.colors.text.muted }]}>
               {t("session.policy")}: {session.policyId}
             </Text>
@@ -133,7 +161,7 @@ export default function SessionDetailScreen() {
 
         <Section title={t("session.notes")}>
           <Text style={{ color: session.bookkeeping.manualNote ? TOKENS.colors.text.primary : TOKENS.colors.text.muted }}>
-            {cert.unreadable.includes("note") ? t("fieldCrypto.unreadableNote") : (session.bookkeeping.manualNote ?? t("session.noNotes"))}
+            {cert.unreadable.includes("note") ? t("fieldCrypto.unreadableNote") : note || t("session.noNotes")}
           </Text>
           {!deleted ? <Button label={t("session.addNote")} size="sm" variant="ghost" onPress={() => setModal("NOTE")} /> : null}
         </Section>

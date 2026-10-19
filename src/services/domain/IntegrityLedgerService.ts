@@ -383,9 +383,17 @@ export const IntegrityLedgerService = {
     traces: EvidenceSummary["traces"],
   ): Promise<EvidenceSummary> {
     const ids = new Set(sessions.map((s) => s.id));
-    const entries = (await PersistenceService.listLedger({ from, to })).filter(
-      (e) => e.sessionId === null || ids.has(e.sessionId),
-    );
+    // La ventana del periodo no alcanza: una jornada que cruza la semana tiene
+    // asientos del lado de allá (entrada el domingo, cierre el lunes). Esos
+    // asientos son de las sesiones incluidas y entran al expediente.
+    const inWindow = await PersistenceService.listLedger({ from, to });
+    const extras = (await Promise.all([...ids].map((id) => PersistenceService.listLedger({ sessionId: id })))).flat();
+    const byId = new Map<number, (typeof inWindow)[number]>();
+    for (const e of [...inWindow, ...extras]) {
+      if (e.sessionId !== null && !ids.has(e.sessionId)) continue;
+      byId.set(e.id, e);
+    }
+    const entries = [...byId.values()].sort((a, b) => a.id - b.id);
     const chain = await IntegrityLedgerService.verify();
     return {
       ledgerEntryCount: entries.length,

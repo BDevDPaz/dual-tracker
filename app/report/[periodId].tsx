@@ -10,7 +10,7 @@ import { Button, Card, EmptyState, ScreenContainer, Section } from "../../src/co
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { selectCalendarHistory, selectPacks } from "../../src/core/selectors";
+import { displayStatement, selectCalendarHistory, selectPacks } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatRange, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
@@ -40,6 +40,7 @@ export default function PeriodStatementScreen() {
   if (!st) return <ScreenStatusBanner status="empty" message={statement.error ?? t("common.noData")} />;
 
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === range.start);
+  const shown = displayStatement(st);
 
   return (
     <ScrollView contentContainerStyle={styles.content} refreshControl={refreshControl}>
@@ -58,11 +59,11 @@ export default function PeriodStatementScreen() {
       ) : null}
 
       <Card style={styles.card}>
-        <KeyValueRow label={t("reports.regular")} value={`${st.regularHours.toFixed(2)} ${t("common.hours")}`} />
-        <KeyValueRow label={t("reports.overtime")} value={`${st.overtimeHours.toFixed(2)} ${t("common.hours")}`} />
-        <KeyValueRow label={t("reports.transit")} value={`${st.transitHours.toFixed(2)} ${t("common.hours")}`} />
+        <KeyValueRow label={t("reports.regular")} value={`${shown.regular} ${t("common.hours")}`} />
+        <KeyValueRow label={t("reports.overtime")} value={`${shown.overtime} ${t("common.hours")}`} />
+        <KeyValueRow label={t("reports.transit")} value={`${shown.transit} ${t("common.hours")}`} />
         <KeyValueRow label={t("reports.lunch")} value={`${st.lunchMinutes} ${t("common.minutes")}`} />
-        <KeyValueRow label={t("reports.total")} value={formatCurrency(st.grossEstimate)} emphasis />
+        <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
         <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
           {t("session.policy")}: {st.policyId} · {t(st.integrityRollup.certified ? "report.certified" : "report.uncertified")}
         </Text>
@@ -71,7 +72,7 @@ export default function PeriodStatementScreen() {
       <Section title={t("report.lines")}>
         {st.lines.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
         {st.lines.map((l, i) => (
-          <KeyValueRow key={`${l.sessionId}-${l.kind}-${i}`} label={`${l.dateString} · ${l.kind} · ${l.minutes} ${t("common.minutes")}`} value={formatCurrency(l.amount)} />
+          <KeyValueRow key={`${l.sessionId}-${l.kind}-${l.dateString}-${i}`} label={`${l.dateString} · ${l.kind} · ${l.minutes} ${t("common.minutes")}`} value={formatCurrency(l.amount)} />
         ))}
       </Section>
 

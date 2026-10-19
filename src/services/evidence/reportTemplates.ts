@@ -20,7 +20,12 @@ import type {
   SessionRecord,
   Site,
 } from "../../core/contracts";
+import { t } from "../../i18n";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
+import { companyCalendar } from "../../utils/companyPolicy";
+import { displayStatement, formatSiteName, noteToHtml } from "../domain/payrollDisplay";
+import { periodSliceOf } from "../domain/periodSlice";
+import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { checkedInSiteIds } from "../domain/siteVisits";
 
 /**
@@ -80,7 +85,9 @@ const BASE_CSS = `
   .b-MANUAL { background: #fff4e0; color: #b9770e; }
   .b-AUTO { background: #eaf2fb; color: #2471a3; }
   .b-CONFLICT { background: #fdecea; color: #c0392b; }
-  .notes { font-style: italic; color: #666; font-size: 10px; display: block; margin-top: 4px; }
+  .notes { font-style: italic; color: #666; font-size: 10px; display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; line-height: 1.35; }
+  .grapheme { white-space: nowrap; display: inline; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  .mins, .addr { display: block; font-size: 9px; color: #888; font-weight: normal; margin-top: 2px; }
   .seal-warning { margin: 12px 0; padding: 10px; border: 1px solid #b9770e; color: #7e5109; background: #fef5e7; font-size: 11px; }
   .stamp { margin: 16px 0; padding: 10px; border: 2px dashed #c0392b; color: #c0392b; font-weight: bold; text-align: center; text-transform: uppercase; }
   .hash { font-family: Menlo, monospace; font-size: 10px; word-break: break-all; background: #f4f4f4; padding: 8px; border-radius: 4px; }
@@ -89,16 +96,20 @@ const BASE_CSS = `
   .footer { margin-top: 40px; text-align: center; font-size: 9px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
 `;
 
-function siteAlias(sites: Site[], id: number | null): string {
+function siteAliasHtml(sites: Site[], id: number | null): string {
   if (id === null) return "Sin destino";
-  return sites.find((s) => s.id === id)?.alias ?? `Destino #${id}`;
+  const site = sites.find((s) => s.id === id);
+  const name = formatSiteName(site);
+  if (!name.primary) return `Destino #${id}`;
+  const primary = escapeHtml(name.primary);
+  return name.address ? `${primary}<span class="addr">${escapeHtml(name.address)}</span>` : primary;
 }
 
 /** Cadena de destinos de la jornada (origen → llegadas). Un solo sitio queda igual. */
 function sessionSitesLabel(session: SessionRecord, sites: Site[]): string {
   const ids = checkedInSiteIds(session);
-  if (!ids.length) return siteAlias(sites, session.siteId);
-  return ids.map((id) => siteAlias(sites, id)).join(" → ");
+  if (!ids.length) return siteAliasHtml(sites, session.siteId);
+  return ids.map((id) => siteAliasHtml(sites, id)).join(" → ");
 }
 
 function header(title: string, subtitle: string, input: ReportInput): string {
@@ -125,38 +136,68 @@ function header(title: string, subtitle: string, input: ReportInput): string {
 }
 
 function stats(st: PayrollStatement): string {
+  const d = displayStatement(st);
   return `
     <div class="stats-box">
-      <div class="stat-item"><div class="stat-num">${st.regularHours.toFixed(2)}</div><div class="stat-desc">Regulares</div></div>
-      <div class="stat-item"><div class="stat-num">${st.overtimeHours.toFixed(2)}</div><div class="stat-desc">Horas extra</div></div>
-      <div class="stat-item"><div class="stat-num">${st.transitHours.toFixed(2)}</div><div class="stat-desc">Tránsito</div></div>
+      <div class="stat-item"><div class="stat-num">${d.regular}</div><div class="stat-desc">Regulares</div></div>
+      <div class="stat-item"><div class="stat-num">${d.overtime}</div><div class="stat-desc">Horas extra</div></div>
+      <div class="stat-item"><div class="stat-num">${d.transit}</div><div class="stat-desc">Tránsito</div></div>
       <div class="stat-item"><div class="stat-num">${st.lunchMinutes}</div><div class="stat-desc">Almuerzo (min)</div></div>
-      <div class="stat-item"><div class="stat-num" style="color:#D4AF37;">${formatCurrency(st.grossEstimate)}</div><div class="stat-desc">Estimado bruto</div></div>
+      <div class="stat-item"><div class="stat-num" style="color:#D4AF37;">${d.gross}</div><div class="stat-desc">Estimado bruto</div></div>
     </div>`;
 }
 
-function sessionRows(input: ReportInput): string {
+/** Fila sin minutos pagados y sin importe. El comprobante del empleado no la lista. */
+function isZeroPayRow(minutes: number, amountCents: number): boolean {
+  return minutes <= 0 && amountCents === 0;
+}
+
+function sessionRows(input: ReportInput, omitZeroPay: boolean): { html: string; omitted: number } {
   const byId = new Map(input.sessions.map((s) => [s.id, s]));
-  return input.statement.sessionIds
+  const shown = displayStatement(input.statement);
+  const bySession = new Map(shown.rows.map((r) => [r.sessionId, r]));
+  const split = getPayrollPolicy(input.statement.policyId).segmentation === "WORKDAY";
+  const history = companyCalendar(input.company);
+  let omitted = 0;
+  const html = input.statement.sessionIds
     .map((id) => {
       const s = byId.get(id);
       if (!s) return "";
-      const lines = input.statement.lines.filter((l) => l.sessionId === id);
-      const worked = lines.filter((l) => !l.kind.endsWith("DEDUCTION")).reduce((a, l) => a + l.minutes, 0);
-      const amount = lines.reduce((a, l) => a + l.amount, 0);
+      const row = bySession.get(id);
+      const minutes = row?.workedMinutes ?? 0;
+      const amountCents = row?.amountCents ?? 0;
+      if (omitZeroPay && isZeroPayRow(minutes, amountCents)) {
+        omitted += 1;
+        return "";
+      }
       const start = s.actualStartAtMs ?? s.declaredStartAtMs;
+      const slice = split ? periodSliceOf(s, input.statement.periodStart, input.statement.periodEnd, history, input.statement.periodEnd) : null;
+      const from = slice?.displayStartMs ?? start;
+      const to = slice?.displayEndMs ?? s.endAtMs;
+      const cont: string[] = [];
+      if (slice?.continuesFromMs != null) cont.push(`continúa de ${formatDate(slice.continuesFromMs, ES)}`);
+      if (slice?.continuesUntilMs != null) cont.push(`continúa el ${formatDate(slice.continuesUntilMs, ES)}`);
+      const zero = slice?.zeroDuration ?? (s.endAtMs !== null && Math.round((s.endAtMs - start) / 60000) <= 0);
+      const note = s.bookkeeping.manualNote ? noteToHtml(s.bookkeeping.manualNote, escapeHtml) : "";
       return `
         <tr>
-          <td><strong>${formatDate(start, ES)}</strong></td>
-          <td>${escapeHtml(sessionSitesLabel(s, input.sites))}
-            ${s.bookkeeping.manualNote ? `<span class="notes">"${escapeHtml(s.bookkeeping.manualNote)}"</span>` : ""}</td>
-          <td>${formatTime(start, ES)} - ${s.endAtMs ? formatTime(s.endAtMs, ES) : "—"}</td>
-          <td><strong>${(worked / 60).toFixed(2)}</strong></td>
-          <td>${formatCurrency(amount)}</td>
+          <td><strong>${formatDate(from, ES)}</strong></td>
+          <td>${sessionSitesLabel(s, input.sites)}
+            ${note ? `<span class="notes">"${note}"</span>` : ""}</td>
+          <td>${formatTime(from, ES)} - ${to != null ? formatTime(to, ES) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">Duración cero: no suma al pago. Conservada para auditoría.</span>` : ""}</td>
+          <td><strong>${row?.hours ?? "0.00"}</strong><span class="mins">${minutes} min</span></td>
+          <td>${row?.amount ?? formatCurrency(0)}</td>
           <td><span class="badge b-${s.integrityClass}">${INTEGRITY_LABEL[s.integrityClass]}</span></td>
         </tr>`;
     })
     .join("");
+  return { html, omitted };
+}
+
+/** Aviso del comprobante. Siempre en español: el PDF no sigue el idioma de la UI. */
+function omittedNote(count: number): string {
+  if (count <= 0) return "";
+  return `<p class="notes">${escapeHtml(t("reports.zeroRowsOmitted", { count }, "es"))}</p>`;
 }
 
 function linesTable(st: PayrollStatement): string {
@@ -190,14 +231,16 @@ function sealWarningBlock(input: ReportInput): string {
   return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
 }
 
-/** Comprobante del empleado: resumen legible, sin rastro. */
+/** Comprobante del empleado: resumen legible, sin rastro. Las filas de 0 min no se listan. */
 export function renderEmployeeReceipt(input: ReportInput): string {
+  const rows = sessionRows(input, true);
   return `<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${BASE_CSS}</style></head><body>
     ${header("Dual Tracker", "Comprobante del empleado", input)}
     ${uncertifiedStamp(input)}
     ${sealWarningBlock(input)}
     ${stats(input.statement)}
-    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input)}</tbody></table>
+    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${rows.html}</tbody></table>
+    ${omittedNote(rows.omitted)}
     ${hashBlock(input)}
     <div class="footer">Documento generado por Dual Tracker. Las cifras son el estado de nómina sellado del periodo.</div>
   </body></html>`;
@@ -221,7 +264,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${sealWarningBlock(input)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>
-    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input)}</tbody></table>
+    <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input, false).html}</tbody></table>
     <div class="section-title">Líneas de nómina</div>
     ${linesTable(input.statement)}
     <div class="section-title">Integridad</div>
