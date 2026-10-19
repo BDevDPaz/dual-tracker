@@ -39,7 +39,11 @@ export type LedgerIntent =
   /** Expurgo de miga de pan tras exportar el periodo y cumplir la retención. */
   | "TRACE_PURGED"
   /** El empleador dejó el PIN admin con un código de un solo uso. No guarda el PIN ni el hash. */
-  | "ADMIN_PIN_PROVISIONED";
+  | "ADMIN_PIN_PROVISIONED"
+  /** Primera clave Ed25519 del empleador fijada en el teléfono (TOFU). Solo el id, no la clave. */
+  | "EMPLOYER_KEY_PINNED"
+  /** La zona admin desbloqueada sustituyó la clave fijada. Solo ids. */
+  | "EMPLOYER_KEY_REPINNED";
 
 export interface LedgerEntry {
   id: number;

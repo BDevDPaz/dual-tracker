@@ -459,7 +459,7 @@ export const supportEn: typeof supportEs = {
     },
     employerPin: {
       q: "Who sets the admin PIN?",
-      a: "If the employer has not provisioned the phone, the first person to use it sets it. Settings calls that a local PIN (not provisioned by the employer). A one-time code, which expires, installs the employer PIN. The PIN is not inside the code: it is told separately. After several wrong tries the phone waits; the lockout steps stay the same.",
+      a: "If the employer has not provisioned the phone, the first person to use it sets it. Settings calls that a local PIN (not provisioned by the employer). A one-time code, which expires, installs the employer PIN. The PIN is not inside the code: it is told separately. The first valid code pins the employer key. A different key is rejected until you unlock the admin area. After several wrong tries the phone waits; the lockout steps stay the same.",
     },
     employerPortal: {
       q: "Are packs sent to a portal?",

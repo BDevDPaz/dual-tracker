@@ -9,7 +9,11 @@ Cada entrada del módulo tiene unidad, motivo y fuente. Esta tabla es el mismo c
 | Id | Valor | Unidad | Por qué está así | Fuente |
 | --- | --- | --- | --- | --- |
 | `pin.attemptDelayMs` | 650 | ms | Frena la fuerza bruta antes de responder | GEOTrack, 650 ms. Técnica §4.8 pide retardo sin cifra |
-| `pin.hashIterations` | 1000 | rondas | SHA-256 con sal, no un KDF de memoria | Técnica §4.8. El TODO de KDF nativo sigue abierto |
+| `pin.hashIterations` | 1000 | rondas | Solo verifica un PIN guardado antes de scrypt. Si coincide, se reescribe | Técnica §4.8. Migración transparente |
+| `pin.scryptN` | 16384 | factor N (potencia de 2) | Unos 50 ms y 16 MB en el host de pruebas. En un Android de gama media, JS puro, cerca de 250–500 ms. No bajarlo | Tanda 2, endurecimiento. RFC 7914 |
+| `pin.scryptR` | 8 | factor r | Tamaño de bloque. La memoria es del orden de 128·N·r bytes | RFC 7914 |
+| `pin.scryptP` | 1 | factor p | Un solo PIN, sin paralelismo | RFC 7914 |
+| `pin.scryptDkLen` | 32 | bytes | Longitud de la clave derivada | RFC 7914 |
 | `pin.minLength` | 6 | caracteres | Sustituye el demo de 4 dígitos | Técnica §4.8 y Producto §4 |
 | `pin.lockoutSteps` | 3→30 s, 5→5 min, 8→30 min, 10→24 h | fallos → espera | Escalera progresiva | Técnica §4.8 sin cifras. Se conservan los escalones ya usados |
 | `pin.adminUnlockTtlMs` | 10 min | ms | La zona admin caduca | Técnica §4.8 |

@@ -32,8 +32,40 @@ const pinHashIterations = spec(
   "pin.hashIterations",
   1000,
   "rondas",
-  "SHA-256 iterado con sal. No es un KDF de memoria (scrypt/argon2): es el punto de partida hasta que el llavero ofrezca uno nativo.",
-  "Técnica §4.8 (hash en dispositivo). TODO original: migrar a KDF nativo.",
+  "SHA-256 iterado. Solo verifica un PIN guardado antes de scrypt. Si el PIN coincide, se reescribe con scrypt y esta cifra deja de usarse.",
+  "Técnica §4.8. Se conserva para la migración transparente.",
+);
+
+const pinScryptN = spec(
+  "pin.scryptN",
+  16384,
+  "factor N (potencia de 2)",
+  "Coste de CPU y de memoria de scrypt. En este host son unos 50 ms y unos 16 MB. Un Android de gama media en JS puro suele ir 5–8 veces más lento, así que cae cerca de 250–500 ms. No bajar N: los PIN ya guardados se verifican con el N que llevan escrito.",
+  "Tanda 2, endurecimiento. RFC 7914. Medido con @noble/hashes en el entorno de pruebas.",
+);
+
+const pinScryptR = spec(
+  "pin.scryptR",
+  8,
+  "factor r",
+  "Tamaño de bloque habitual de scrypt. Junto con N fija la memoria (128·N·r bytes).",
+  "RFC 7914. Valor de uso común.",
+);
+
+const pinScryptP = spec(
+  "pin.scryptP",
+  1,
+  "factor p",
+  "Paralelismo. 1 basta: el teléfono deriva un solo PIN y no necesita varias hebras.",
+  "RFC 7914. Valor de uso común para un inicio de sesión.",
+);
+
+const pinScryptDkLen = spec(
+  "pin.scryptDkLen",
+  32,
+  "bytes",
+  "Longitud de la clave derivada. 32 bytes para compararla en tiempo constante.",
+  "RFC 7914. dkLen ≥ 1; 32 es el tamaño de una clave.",
 );
 
 const pinMinLength = spec(
@@ -194,6 +226,10 @@ export const PROVISIONAL = {
   pin: {
     attemptDelayMs: pinAttemptDelayMs,
     hashIterations: pinHashIterations,
+    scryptN: pinScryptN,
+    scryptR: pinScryptR,
+    scryptP: pinScryptP,
+    scryptDkLen: pinScryptDkLen,
     minLength: pinMinLength,
     lockoutSteps: pinLockoutSteps,
     adminUnlockTtlMs: adminUnlockTtlMs,
@@ -220,6 +256,10 @@ export const PROVISIONAL = {
 export const PROVISIONAL_SPECS: readonly ProvisionalSpec<unknown>[] = [
   pinAttemptDelayMs,
   pinHashIterations,
+  pinScryptN,
+  pinScryptR,
+  pinScryptP,
+  pinScryptDkLen,
   pinMinLength,
   pinLockoutSteps,
   adminUnlockTtlMs,
@@ -243,6 +283,10 @@ export const PROVISIONAL_SPECS: readonly ProvisionalSpec<unknown>[] = [
 /** Nombres planos. Definidos solo en este archivo. */
 export const PIN_ATTEMPT_DELAY_MS = pinAttemptDelayMs.value;
 export const PIN_HASH_ITERATIONS = pinHashIterations.value;
+export const PIN_SCRYPT_N = pinScryptN.value;
+export const PIN_SCRYPT_R = pinScryptR.value;
+export const PIN_SCRYPT_P = pinScryptP.value;
+export const PIN_SCRYPT_DK_LEN = pinScryptDkLen.value;
 export const PIN_MIN_LENGTH = pinMinLength.value;
 export const PIN_LOCKOUT_STEPS = pinLockoutSteps.value;
 export const ADMIN_UNLOCK_TTL_MS = adminUnlockTtlMs.value;

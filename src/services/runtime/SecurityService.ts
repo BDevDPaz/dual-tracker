@@ -2,8 +2,9 @@
  * SecurityService — Runtime (Propuesta Técnica §4.8)
  * Reemplaza el PIN demo y el securityAdapter aislado.
  * ============================================================================
- *  - PIN/clave de administración con HASH EN DISPOSITIVO (SHA-256 salado e
- *    iterado, guardado en SecureStore/Keystore).
+ *  - PIN/clave de administración con HASH EN DISPOSITIVO (scrypt con sal
+ *    aleatoria, guardado en SecureStore/Keystore). Un hash legado SHA-256
+ *    iterado se acepta una vez y se reescribe a scrypt.
  *  - Retardo anti-fuerza bruta (650 ms heredados de GEOTrack) y bloqueo
  *    progresivo (PIN_LOCKOUT_STEPS).
  *  - Fail-secure: cualquier error criptográfico o de almacenamiento DENIEGA.
@@ -21,15 +22,17 @@
  */
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
-import { ADMIN_UNLOCK_TTL_MS, PIN_ATTEMPT_DELAY_MS, PIN_HASH_ITERATIONS, PIN_LOCKOUT_STEPS, PIN_MIN_LENGTH } from "../../config/provisional";
+import { ADMIN_UNLOCK_TTL_MS, PIN_ATTEMPT_DELAY_MS, PIN_HASH_ITERATIONS, PIN_LOCKOUT_STEPS, PIN_MIN_LENGTH, PIN_SCRYPT_DK_LEN, PIN_SCRYPT_N, PIN_SCRYPT_P, PIN_SCRYPT_R } from "../../config/provisional";
 import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
-import { derivePinHash } from "./pinHash";
-import { assessProvisionCode } from "./pinProvision";
+import { derivePinHash, parseScryptPinHash, scryptPinHash, scryptPinMatches, timingSafeEqual, type ScryptPinParams } from "./pinHash";
+import { assessProvisionCode, employerKeyId, type PinProvisionPayload } from "./pinProvision";
 
-const PIN_KEY = "dualtracker.admin.pin.v1";
+export const ADMIN_PIN_STORE_KEY = "dualtracker.admin.pin.v1";
+export const EMPLOYER_KEY_STORE_KEY = "dualtracker.admin.employer.key.v1";
+const PIN_KEY = ADMIN_PIN_STORE_KEY;
 const LOCKOUT_KEY = "dualtracker.admin.lockout.v1";
 const USED_NONCES_KEY = "dualtracker.admin.provision.used.v1";
 
@@ -38,12 +41,21 @@ export type PinOrigin = "UNSET" | "LOCAL" | "EMPLOYER";
 interface StoredPin {
   salt: string;
   hash: string;
-  iterations: number;
+  /** Ausente o distinto de scrypt: formato legado (SHA-256 iterado). */
+  kdf?: "scrypt";
+  iterations?: number;
   /** Ausente en registros anteriores a la tanda 2: se leen como LOCAL. */
   provision?: "LOCAL" | "EMPLOYER";
   provisionNonce?: string;
   provisionedAtMs?: number;
 }
+
+interface PinnedEmployerKey {
+  pub: string;
+  keyId: string;
+}
+
+export type EmployerKeyAction = "PINNED" | "REPINNED" | "UNCHANGED";
 
 interface LockoutState {
   failures: number;
@@ -56,16 +68,15 @@ export type UnlockResult =
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function toHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+function scryptParams(): ScryptPinParams {
+  return { N: PIN_SCRYPT_N, r: PIN_SCRYPT_R, p: PIN_SCRYPT_P, dkLen: PIN_SCRYPT_DK_LEN };
 }
 
-/** Comparación en tiempo constante. */
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
+function freshScryptRecord(pin: string, salt: Uint8Array, extra: Pick<StoredPin, "provision" | "provisionNonce" | "provisionedAtMs">): StoredPin {
+  const hash = scryptPinHash(pin, salt, scryptParams());
+  const parsed = parseScryptPinHash(hash);
+  if (!parsed) throw new Error("hash scrypt inválido");
+  return { salt: parsed.saltB64, hash: parsed.canonical, kdf: "scrypt", ...extra };
 }
 
 async function readLockout(): Promise<LockoutState> {
@@ -94,6 +105,28 @@ async function readStoredPin(): Promise<StoredPin | null> {
   const raw = await SecureStore.getItemAsync(PIN_KEY);
   if (!raw) return null;
   return JSON.parse(raw) as StoredPin;
+}
+
+async function readPinnedKey(): Promise<PinnedEmployerKey | null> {
+  const raw = await SecureStore.getItemAsync(EMPLOYER_KEY_STORE_KEY);
+  if (!raw) return null;
+  const parsed = JSON.parse(raw) as PinnedEmployerKey;
+  if (!parsed || typeof parsed.pub !== "string" || typeof parsed.keyId !== "string") return null;
+  return parsed;
+}
+
+function storedFromPayload(payload: PinProvisionPayload, nowMs: number): StoredPin {
+  if (payload.v === 2) {
+    return { salt: payload.salt, hash: payload.hash, kdf: "scrypt", provision: "EMPLOYER", provisionNonce: payload.nonce, provisionedAtMs: nowMs };
+  }
+  return {
+    salt: payload.salt,
+    hash: payload.hash,
+    iterations: payload.iterations,
+    provision: "EMPLOYER",
+    provisionNonce: payload.nonce,
+    provisionedAtMs: nowMs,
+  };
 }
 
 export const SecurityService = {
@@ -128,9 +161,7 @@ export const SecurityService = {
     if (clean.length < PIN_MIN_LENGTH) return { ok: false, code: "PIN_INVALID" };
     if ((await SecurityService.hasPin()) && !SecurityService.isUnlocked()) return { ok: false, code: "ADMIN_LOCKED" };
     try {
-      const salt = toHex(Crypto.getRandomBytes(16));
-      const hash = derivePinHash(clean, salt, PIN_HASH_ITERATIONS);
-      const stored: StoredPin = { salt, hash, iterations: PIN_HASH_ITERATIONS, provision: "LOCAL" };
+      const stored = freshScryptRecord(clean, Crypto.getRandomBytes(16), { provision: "LOCAL" });
       await SecureStore.setItemAsync(PIN_KEY, JSON.stringify(stored));
       await SecureStore.deleteItemAsync(LOCKOUT_KEY);
       StoreActions.adminUpdated({ hasPin: true, pinOrigin: "LOCAL" });
@@ -151,30 +182,36 @@ export const SecurityService = {
   async provisionFromCode(
     code: string,
   ): Promise<
-    | { ok: true; nonce: string; expiresAtMs: number }
-    | { ok: false; code: "CODE_INVALID" | "CODE_EXPIRED" | "CODE_USED" | "ALREADY_PROVISIONED" | "ERROR" }
+    | { ok: true; nonce: string; expiresAtMs: number; keyId: string; previousKeyId: string | null; keyAction: EmployerKeyAction }
+    | { ok: false; code: "CODE_INVALID" | "CODE_EXPIRED" | "CODE_USED" | "ALREADY_PROVISIONED" | "EMPLOYER_KEY_MISMATCH" | "ERROR" }
   > {
     const assessed = assessProvisionCode(code, TimeAuthorityService.now());
     if (!assessed.ok) return { ok: false, code: assessed.code === "PIN_INVALID" ? "CODE_INVALID" : assessed.code };
     try {
+      const keyId = employerKeyId(assessed.payload.pub);
+      const pinned = await readPinnedKey();
+      let keyAction: EmployerKeyAction = "UNCHANGED";
+      let previousKeyId: string | null = null;
+      if (!pinned) keyAction = "PINNED";
+      else if (!timingSafeEqual(pinned.pub, assessed.payload.pub)) {
+        if (!SecurityService.isUnlocked()) return { ok: false, code: "EMPLOYER_KEY_MISMATCH" };
+        keyAction = "REPINNED";
+        previousKeyId = pinned.keyId;
+      }
       const used = await readUsedNonces();
       if (used.includes(assessed.payload.nonce)) return { ok: false, code: "CODE_USED" };
       const current = await readStoredPin();
       if (current?.provision === "EMPLOYER" && !SecurityService.isUnlocked()) return { ok: false, code: "ALREADY_PROVISIONED" };
-      const stored: StoredPin = {
-        salt: assessed.payload.salt,
-        hash: assessed.payload.hash,
-        iterations: assessed.payload.iterations,
-        provision: "EMPLOYER",
-        provisionNonce: assessed.payload.nonce,
-        provisionedAtMs: TimeAuthorityService.now(),
-      };
-      await SecureStore.setItemAsync(PIN_KEY, JSON.stringify(stored));
+      const nowMs = TimeAuthorityService.now();
+      await SecureStore.setItemAsync(PIN_KEY, JSON.stringify(storedFromPayload(assessed.payload, nowMs)));
+      if (keyAction !== "UNCHANGED") {
+        await SecureStore.setItemAsync(EMPLOYER_KEY_STORE_KEY, JSON.stringify({ pub: assessed.payload.pub, keyId } satisfies PinnedEmployerKey));
+      }
       await SecureStore.setItemAsync(USED_NONCES_KEY, JSON.stringify([...used, assessed.payload.nonce]));
       await SecureStore.deleteItemAsync(LOCKOUT_KEY);
       StoreActions.adminUpdated({ hasPin: true, pinOrigin: "EMPLOYER", isUnlocked: false, unlockedUntilMs: null, status: "IDLE" });
       LoggingService.audit({ sessionId: null, actionType: "ADMIN_PIN_SET", details: "PIN aprovisionado por el empleador" }).catch(() => {});
-      return { ok: true, nonce: assessed.payload.nonce, expiresAtMs: assessed.payload.exp };
+      return { ok: true, nonce: assessed.payload.nonce, expiresAtMs: assessed.payload.exp, keyId, previousKeyId, keyAction };
     } catch (error) {
       LoggingService.log("ROJO", "SEGURIDAD", "ERROR", "Fallo aprovisionando PIN", serializeError(error));
       return { ok: false, code: "ERROR" };
@@ -198,8 +235,28 @@ export const SecurityService = {
         return { ok: false, code: "ADMIN_LOCKOUT", lockedUntilMs: lock.lockedUntilMs };
       }
       const stored = JSON.parse(raw) as StoredPin;
-      const hash = derivePinHash((candidate ?? "").trim(), stored.salt, stored.iterations);
-      if (safeEqual(hash, stored.hash)) {
+      const clean = (candidate ?? "").trim();
+      const scryptRecord = stored.kdf === "scrypt" || stored.hash.startsWith("scrypt1$");
+      const matches = scryptRecord
+        ? scryptPinMatches(clean, stored.hash, scryptParams())
+        : timingSafeEqual(derivePinHash(clean, stored.salt, stored.iterations ?? PIN_HASH_ITERATIONS), stored.hash);
+      if (!matches && !scryptRecord) {
+        // Iguala el coste de un fallo legado con scrypt, para no delatar el formato por el tiempo.
+        scryptPinHash(clean, Crypto.getRandomBytes(16), scryptParams());
+      }
+      if (matches) {
+        if (!scryptRecord) {
+          try {
+            const migrated = freshScryptRecord(clean, Crypto.getRandomBytes(16), {
+              provision: stored.provision,
+              provisionNonce: stored.provisionNonce,
+              provisionedAtMs: stored.provisionedAtMs,
+            });
+            await SecureStore.setItemAsync(PIN_KEY, JSON.stringify(migrated));
+          } catch (error) {
+            LoggingService.log("NARANJA", "SEGURIDAD", "WARN", "PIN legado verificado sin poder migrar a scrypt", serializeError(error));
+          }
+        }
         await SecureStore.deleteItemAsync(LOCKOUT_KEY);
         const until = now + ADMIN_UNLOCK_TTL_MS;
         StoreActions.adminUpdated({ status: "granted", isUnlocked: true, unlockedUntilMs: until, lockedUntilMs: null });

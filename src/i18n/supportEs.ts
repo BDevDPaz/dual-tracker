@@ -457,7 +457,7 @@ export const supportEs = {
     },
     employerPin: {
       q: "¿Quién pone el PIN de administración?",
-      a: "Si el empleador no ha aprovisionado el teléfono, lo fija la primera persona que lo use. Ajustes lo llama PIN local (no aprovisionado por empleador). Un código de un solo uso, que caduca, deja el PIN del empleador. El PIN no va dentro del código: te lo dicen aparte. Tras varios fallos el teléfono espera; los escalones siguen igual.",
+      a: "Si el empleador no ha aprovisionado el teléfono, lo fija la primera persona que lo use. Ajustes lo llama PIN local (no aprovisionado por empleador). Un código de un solo uso, que caduca, deja el PIN del empleador. El PIN no va dentro del código: te lo dicen aparte. El primer código válido fija la clave del empleador. Una clave distinta no entra hasta que desbloquees la zona admin. Tras varios fallos el teléfono espera; los escalones siguen igual.",
     },
     employerPortal: {
       q: "¿Se envían los expedientes a un portal?",

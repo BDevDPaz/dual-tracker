@@ -12,6 +12,10 @@ const OWNER = "src/config/provisional.ts";
 const NAMES = [
   "PIN_ATTEMPT_DELAY_MS",
   "PIN_HASH_ITERATIONS",
+  "PIN_SCRYPT_N",
+  "PIN_SCRYPT_R",
+  "PIN_SCRYPT_P",
+  "PIN_SCRYPT_DK_LEN",
   "PIN_MIN_LENGTH",
   "PIN_LOCKOUT_STEPS",
   "ADMIN_UNLOCK_TTL_MS",

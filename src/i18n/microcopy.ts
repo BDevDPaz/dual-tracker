@@ -138,6 +138,7 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     CODE_EXPIRED: "El código del empleador ya caducó.",
     CODE_USED: "Ese código ya se usó en este teléfono.",
     ALREADY_PROVISIONED: "Este teléfono ya tiene un PIN del empleador. Desbloquéalo para cambiarlo.",
+    EMPLOYER_KEY_MISMATCH: "Este código no es de la clave del empleador que ya está en el teléfono. Desbloquea la zona admin para cambiar de clave.",
     PORTAL_URL_INVALID: "La dirección del portal tiene que ser https.",
   },
   en: {
@@ -191,6 +192,7 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     CODE_EXPIRED: "The employer code has expired.",
     CODE_USED: "That code was already used on this phone.",
     ALREADY_PROVISIONED: "This phone already has an employer PIN. Unlock it to replace it.",
+    EMPLOYER_KEY_MISMATCH: "This code is not from the employer key already on this phone. Unlock the admin area to change the key.",
     PORTAL_URL_INVALID: "The portal address has to be https.",
   },
 };

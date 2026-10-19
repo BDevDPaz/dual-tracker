@@ -26,10 +26,42 @@ export async function provisionAdminPin(code: string): Promise<IntentResult<{ no
           reason: "EMPLOYER_CODE",
           timestampMs: nowMs,
           integrityClass: null,
-          data: { nonce: installed.nonce, expiresAtMs: installed.expiresAtMs },
+          data: { nonce: installed.nonce, expiresAtMs: installed.expiresAtMs, keyId: installed.keyId },
         },
         db,
       );
+      if (installed.keyAction === "PINNED") {
+        await IntegrityLedgerService.append(
+          {
+            sessionId: null,
+            actor: "USER",
+            intent: "EMPLOYER_KEY_PINNED",
+            fromState: null,
+            toState: null,
+            reason: "TOFU",
+            timestampMs: nowMs,
+            integrityClass: null,
+            data: { keyId: installed.keyId },
+          },
+          db,
+        );
+      }
+      if (installed.keyAction === "REPINNED") {
+        await IntegrityLedgerService.append(
+          {
+            sessionId: null,
+            actor: "USER",
+            intent: "EMPLOYER_KEY_REPINNED",
+            fromState: null,
+            toState: null,
+            reason: "ROTATION",
+            timestampMs: nowMs,
+            integrityClass: null,
+            data: { keyId: installed.keyId, previousKeyId: installed.previousKeyId },
+          },
+          db,
+        );
+      }
     });
   } catch (error) {
     LoggingService.log("ROJO", "SEGURIDAD", "ERROR", "PIN aprovisionado sin asiento de ledger", serializeError(error));
