@@ -28,7 +28,7 @@ import {
 } from "../../src/core/selectors";
 import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
-import { formatDate, formatRange, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
+import { formatDate, formatRange, formatUiDecimal, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
 
 type Period = "CURRENT" | "PREVIOUS";
 
@@ -137,9 +137,9 @@ export default function ReportsScreen() {
         {st && shown ? (
           <Card style={styles.card}>
             <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("reports.rollup")}</Text>
-            <KeyValueRow label={t("reports.regular")} value={`${shown.regular} ${t("common.hours")}`} />
-            <KeyValueRow label={t("reports.overtime")} value={`${shown.overtime} ${t("common.hours")}`} />
-            <KeyValueRow label={t("reports.transit")} value={`${shown.transit} ${t("common.hours")}`} />
+            <KeyValueRow label={t("reports.regular")} value={`${formatUiDecimal(shown.regular)} ${t("common.hours")}`} />
+            <KeyValueRow label={t("reports.overtime")} value={`${formatUiDecimal(shown.overtime)} ${t("common.hours")}`} />
+            <KeyValueRow label={t("reports.transit")} value={`${formatUiDecimal(shown.transit)} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.lunch")} value={`${st.lunchMinutes} ${t("common.minutes")}`} />
             <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
             <KeyValueRow
@@ -186,7 +186,11 @@ export default function ReportsScreen() {
               { label: t("reports.transit"), value: `${shown.transit} ${t("common.hours")}` },
             ]}
             packHash={latestPack?.manifest.packHash ?? null}
-            onHashCopied={(tail) => showToast(t("report.hashCopied", { hash: tail }), "success")}
+            onHashCopied={(tail) =>
+              showToast(t("report.hashCopied", { hash: tail }), "success", undefined, (lang) => ({
+                title: t("report.hashCopied", { hash: tail }, lang),
+              }))
+            }
           />
         ) : null}
 

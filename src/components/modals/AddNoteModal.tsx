@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { Input } from "../ui/Input";
 import { ICONS } from "../../constants/icons";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 /**
  * AddNoteModal — portado de GEOTrack. Se abre desde Detalle o Conflicto para
@@ -18,6 +18,7 @@ interface AddNoteModalProps {
 }
 
 export function AddNoteModal({ visible, title, busy = false, onCancel, onSave }: AddNoteModalProps) {
+  useLanguage();
   const [note, setNote] = useState("");
   useEffect(() => {
     if (visible) setNote("");

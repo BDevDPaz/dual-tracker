@@ -31,19 +31,22 @@ import { useTheme } from "./ThemeContext";
 import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
-import { t, useLanguage } from "../i18n";
+import { t, useLanguage, type Language } from "../i18n";
 import { useBlockingModalVisible } from "../components/feedback/blockingModals";
 
 const now = () => TimeAuthorityService.now();
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
+/** Si se pasa, el aviso visible se reescribe al cambiar el idioma, sin esperar a que se cierre. */
+export type ToastLive = (lang: Language) => { title: string; caption?: string };
+
 interface ToastContextType {
   /** title: línea principal; caption: detalle opcional en una segunda línea. */
-  showToast: (title: string, type?: ToastType, caption?: string) => void;
+  showToast: (title: string, type?: ToastType, caption?: string, live?: ToastLive) => void;
 }
 
-type ToastItem = { title: string; caption?: string; type: ToastType };
+type ToastItem = { title: string; caption?: string; type: ToastType; live?: ToastLive };
 
 /** Separación entre el borde seguro superior y el aviso. */
 export const TOAST_TOP_GAP = 8;
@@ -56,7 +59,8 @@ const DEDUPE_THRESHOLD_MS = 2500;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
-  useLanguage();
+  const language = useLanguage();
+  const liveRef = useRef<ToastLive | undefined>(undefined);
   const insets = useSafeAreaInsets();
   const blockingVisible = useBlockingModalVisible();
   const [message, setMessage] = useState("");
@@ -104,11 +108,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   blockingRef.current = blockingVisible;
 
   const present = useCallback(
-    ({ title, caption: cap, type: toastType }: ToastItem) => {
+    ({ title, caption: cap, type: toastType, live }: ToastItem) => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
 
+      liveRef.current = live;
       setMessage(title);
       setCaption(cap);
       setType(toastType);
@@ -127,7 +132,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const showToast = useCallback(
-    (title: string, toastType: ToastType = "info", cap?: string) => {
+    (title: string, toastType: ToastType = "info", cap?: string, live?: ToastLive) => {
       if (!title || title.trim() === "") return;
       const text = cap ? `${title}\n${cap}` : title;
 
@@ -147,7 +152,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         timestamp: currentTs,
       };
 
-      const item: ToastItem = { title, caption: cap || undefined, type: toastType };
+      const item: ToastItem = { title, caption: cap || undefined, type: toastType, live };
       if (blockingRef.current) {
         setQueued((q) => [...q, item].slice(-MAX_QUEUED));
         return;
@@ -186,6 +191,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   };
 
   const config = getToastConfig();
+  const liveCopy = message !== "" && liveRef.current ? liveRef.current(language) : null;
+  const shownTitle = liveCopy?.title ?? message;
+  const shownCaption = liveCopy ? liveCopy.caption : caption;
 
   return (
     <ToastContext.Provider value={{ showToast }}>
@@ -207,7 +215,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             ]}
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
-            accessibilityLabel={t("a11y.toast", { message: caption ? `${message}. ${caption}` : message })}
+            accessibilityLabel={t("a11y.toast", { message: shownCaption ? `${shownTitle}. ${shownCaption}` : shownTitle })}
           >
             <View style={styles.contentRow}>
               <Ionicons
@@ -221,15 +229,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   numberOfLines={2}
                   testID="toast-title"
                 >
-                  {message}
+                  {shownTitle}
                 </Text>
-                {caption ? (
+                {shownCaption ? (
                   <Text
                     style={[styles.toastCaption, { color: colors.text.secondary }]}
                     numberOfLines={3}
                     testID="toast-caption"
                   >
-                    {caption}
+                    {shownCaption}
                   </Text>
                 ) : null}
               </View>

@@ -3,5 +3,5 @@ import { Stack } from "expo-router";
 import { TOKENS } from "../../src/constants/theme";
 
 export default function BootLayout() {
-  return <Stack screenOptions={{ headerShown: false, gestureEnabled: false, contentStyle: { backgroundColor: TOKENS.colors.background } }} />;
+  return <Stack screenOptions={{ headerShown: false, gestureEnabled: false, freezeOnBlur: false, contentStyle: { backgroundColor: TOKENS.colors.background } }} />;
 }

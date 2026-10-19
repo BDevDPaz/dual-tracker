@@ -6,7 +6,7 @@ import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { SessionRecord } from "../../core/contracts";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
 
 /**
@@ -34,6 +34,7 @@ interface EditSessionModalProps {
 }
 
 export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap }: EditSessionModalProps) {
+  useLanguage();
   const { colors } = useTheme();
   const base = session ? session.actualStartAtMs ?? session.declaredStartAtMs : 0;
   const [inTime, setInTime] = useState("");

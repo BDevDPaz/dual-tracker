@@ -26,6 +26,7 @@ export function LanguageSwitch() {
           <Pressable
             key={code}
             onPress={() => void onLanguage(code)}
+            testID={`language-${code}`}
             accessibilityRole="radio"
             accessibilityState={{ selected: language === code }}
             accessibilityLabel={t(code === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}

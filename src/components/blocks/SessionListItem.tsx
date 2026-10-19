@@ -2,8 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
 import type { ComputedSession, PeriodSessionRow } from "../../core/selectors";
-import { t } from "../../i18n";
-import { formatCurrency, formatDate, formatTime } from "../../utils/dateUtils";
+import { t, useLanguage } from "../../i18n";
+import { formatCurrency, formatDate, formatTime, formatUiDecimal } from "../../utils/dateUtils";
 import { formatCents, formatHundredths, minutesToHundredths } from "../../services/domain/payrollDisplay";
 import { IntegrityBadge } from "../ui/IntegrityBadge";
 
@@ -26,13 +26,15 @@ export function SessionListItem({
   /** Horas ya repartidas para que la suma de la lista cuadre con el total. */
   hoursText?: string;
 }) {
+  const language = useLanguage();
   const s = item.session;
   const start = slice?.displayStartMs ?? s.actualStartAtMs ?? s.declaredStartAtMs;
   const end = slice ? slice.displayEndMs : s.endAtMs;
   const conflict = s.integrityClass === "CONFLICT";
   const net = slice ? slice.netMinutes : item.preview ? item.preview.netMinutes : null;
   const gross = slice ? slice.grossEstimate : item.preview ? item.preview.grossEstimate : null;
-  const hours = hoursText ?? (net == null ? "—" : `${formatHundredths(minutesToHundredths(net))} ${t("common.hours")}`);
+  const hoursRaw = hoursText ?? (net == null ? "—" : `${formatHundredths(minutesToHundredths(net))} ${t("common.hours")}`);
+  const hours = hoursRaw === "—" ? hoursRaw : formatUiDecimal(hoursRaw, language);
   const zero = slice?.zeroDuration ?? (s.domainStatus === "CERRADA" && s.endAtMs != null && net === 0);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={[styles.row, { borderColor: TOKENS.colors.border }]}>

@@ -4,7 +4,7 @@ import { ModalShell } from "../ui/ModalShell";
 import { Button } from "../ui/Button";
 import { ICONS } from "../../constants/icons";
 import { TOKENS } from "../../constants/theme";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 /**
  * ExitDetectionModal — "decision hub" de salida (Producto §5.7).
@@ -29,6 +29,7 @@ interface ExitDetectionModalProps {
 }
 
 export function ExitDetectionModal({ visible, firstExitTime, busy = false, onStay, onLunch, onTransfer, onCloseDay, onDismiss }: ExitDetectionModalProps) {
+  useLanguage();
   return (
     <ModalShell
       visible={visible}

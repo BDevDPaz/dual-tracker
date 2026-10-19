@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { enableFreeze } from "react-native-screens";
 import {
   useFonts,
   Montserrat_400Regular,
@@ -24,8 +25,13 @@ import {
 import { ThemeProvider } from "../src/context/ThemeContext";
 import { ToastProvider } from "../src/context/ToastContext";
 import { FeedbackBridge } from "../src/components/feedback/FeedbackBridge";
-import { boot, registerBackgroundTasks } from "../src/core/boot";
+import { boot, ensureRuntimeReady, registerBackgroundTasks } from "../src/core/boot";
 import { TOKENS } from "../src/constants/theme";
+import { useLanguage } from "../src/i18n";
+
+// Las pantallas del fondo (pila, pestañas, modal) siguen vivas: un cambio de
+// idioma las repinta aunque no tengan el foco. react-freeze las dejaría en el idioma anterior.
+enableFreeze(false);
 
 // TaskManager.defineTask debe ejecutarse al evaluar el bundle, antes del primer render
 // (también cuando el SO despierta la app en segundo plano sin UI).
@@ -37,6 +43,7 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 const FONT_LOAD_TIMEOUT_MS = 3000;
 
 export default function RootLayout() {
+  useLanguage();
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
@@ -45,10 +52,24 @@ export default function RootLayout() {
     Montserrat_800ExtraBold,
   });
 
+  // No se pinta copy hasta que el perfil (o el idioma del teléfono, si aún
+  // no hay perfil) está aplicado. Así no hay un fotograma en español que
+  // salta a inglés cuando arranca boot().
+  const [langReady, setLangReady] = useState(false);
   useEffect(() => {
-    // boot() es idempotente y publica el estado de hidratación en el store;
-    // el gate reacciona a selectIsHydrated.
-    void boot();
+    let live = true;
+    void (async () => {
+      try {
+        await ensureRuntimeReady();
+      } catch {
+        /* boot() publica el fallo; no dejamos el splash colgado. */
+      }
+      if (live) setLangReady(true);
+      void boot();
+    })();
+    return () => {
+      live = false;
+    };
   }, []);
 
   const [fontTimeout, setFontTimeout] = useState(false);
@@ -59,10 +80,10 @@ export default function RootLayout() {
   const fontsSettled = fontsLoaded || !!fontError || fontTimeout;
 
   useEffect(() => {
-    if (fontsSettled) SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsSettled]);
+    if (fontsSettled && langReady) SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontsSettled, langReady]);
 
-  if (!fontsSettled) return null;
+  if (!fontsSettled || !langReady) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: TOKENS.colors.background }}>
@@ -71,7 +92,7 @@ export default function RootLayout() {
           <ToastProvider>
             <StatusBar style="light" />
             <FeedbackBridge />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: TOKENS.colors.background } }}>
+            <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: TOKENS.colors.background } }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="(boot)" options={{ gestureEnabled: false }} />
               <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />

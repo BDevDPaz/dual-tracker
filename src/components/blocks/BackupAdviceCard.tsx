@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
 
 /**
@@ -15,6 +15,7 @@ interface Props {
 }
 
 export function BackupAdviceCard({ onExport, busy }: Props) {
+  useLanguage();
   return (
     <View
       accessibilityRole="summary"

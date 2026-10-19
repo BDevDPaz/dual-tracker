@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
+import { formatUiDecimal } from "../../utils/dateUtils";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 interface DailySummaryBlockProps {
@@ -18,6 +19,7 @@ interface DailySummaryBlockProps {
 }
 
 export function DailySummaryBlock({ hours, earnings, inset = false }: DailySummaryBlockProps) {
+  const language = useLanguage();
   const { colors } = useTheme();
   const reduceMotion = useMotionPreference();
   return (
@@ -53,7 +55,7 @@ export function DailySummaryBlock({ hours, earnings, inset = false }: DailySumma
         <Text
           style={[styles.metricValue, { color: colors.text.primary }]}
         >
-          {hours}
+          {formatUiDecimal(hours, language)}
         </Text>
       </View>
 

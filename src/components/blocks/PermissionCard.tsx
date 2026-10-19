@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
 import type { PermissionState } from "../../core/contracts";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { StatusPill } from "../ui/StatusPill";
@@ -18,6 +18,7 @@ interface Props {
 }
 
 export function PermissionCard({ title, body, state, enabled, onRequest, onOpenSettings }: Props) {
+  useLanguage();
   const tone = state === "granted" ? "success" : state === "unknown" ? "neutral" : "warning";
   return (
     <Card style={[styles.card, !enabled && styles.disabled]}>

@@ -2,6 +2,7 @@
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { act, render, screen } from "@testing-library/react-native";
+import { setLanguage } from "../../i18n";
 import { ToastProvider, useToast, TOAST_TOP_GAP, type ToastType } from "../ToastContext";
 import { BlockingModals } from "../../components/feedback/blockingModals";
 import { __setInsets } from "../../../test/mocks/react-native-safe-area-context";
@@ -20,7 +21,8 @@ const mount = () =>
       <Grab />
     </ToastProvider>,
   );
-const show = (title: string, type?: ToastType, caption?: string) => act(() => api.showToast(title, type, caption));
+const show = (title: string, type?: ToastType, caption?: string, live?: (lang: "es" | "en") => { title: string; caption?: string }) =>
+  act(() => api.showToast(title, type, caption, live));
 
 describe("ToastContext", () => {
   test("top = inset seguro + 8; título y leyenda en nodos separados; polite + alert", () => {
@@ -47,5 +49,18 @@ describe("ToastContext", () => {
     expect(screen.queryByTestId("toast")).toBeNull();
     act(() => BlockingModals.hide("exit"));
     expect(screen.getByTestId("toast-title").props.children).toBe("Aviso retenido");
+  });
+
+  test("un aviso visible se reescribe al cambiar el idioma", () => {
+    mount();
+    show("Jornada iniciada", "success", "Geocerca activa", (lang) => ({
+      title: lang === "en" ? "Shift started" : "Jornada iniciada",
+      caption: lang === "en" ? "Geofence on" : "Geocerca activa",
+    }));
+    expect(screen.getByTestId("toast-title").props.children).toBe("Jornada iniciada");
+    act(() => setLanguage("en"));
+    expect(screen.getByTestId("toast-title").props.children).toBe("Shift started");
+    expect(screen.getByTestId("toast-caption").props.children).toBe("Geofence on");
+    act(() => setLanguage("es"));
   });
 });

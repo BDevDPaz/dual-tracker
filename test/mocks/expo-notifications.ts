@@ -40,9 +40,24 @@ export async function cancelScheduledNotificationAsync(id: string) {
 export async function dismissNotificationAsync(id: string) {
   __state.dismissed.push(id);
 }
+/**
+ * Samsung One UI conserva el nombre del canal si solo se vuelve a llamar
+ * setNotificationChannelAsync. El nombre nuevo entra al borrar y crear.
+ */
 export async function setNotificationChannelAsync(id: string, cfg: unknown) {
-  __state.channels.set(id, cfg);
-  return cfg;
+  const prev = __state.channels.get(id) as { name?: string } | undefined;
+  if (prev && cfg && typeof cfg === "object" && "name" in (cfg as object)) {
+    __state.channels.set(id, { ...(cfg as object), name: prev.name });
+  } else {
+    __state.channels.set(id, cfg);
+  }
+  return __state.channels.get(id);
+}
+export async function getNotificationChannelAsync(id: string) {
+  return (__state.channels.get(id) as { name?: string } | undefined) ?? null;
+}
+export async function deleteNotificationChannelAsync(id: string) {
+  __state.channels.delete(id);
 }
 export async function setNotificationCategoryAsync(id: string, actions: unknown) {
   return { identifier: id, actions };

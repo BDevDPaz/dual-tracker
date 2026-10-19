@@ -88,7 +88,12 @@ function wirePorts(): void {
  * Fija el idioma antes de que una tarea headless traduzca notificaciones.
  * El perfil guardado gana; si no hay perfil, el idioma del dispositivo.
  */
-async function hydrateUiLanguage(): Promise<void> {
+/**
+ * Lee el idioma guardado y lo publica antes de pintar. Se puede llamar otra
+ * vez (el arranque en frío lo hace dentro de ensureRuntimeReady). No usa la
+ * caché de ensureRuntimeReady: siempre relee el perfil.
+ */
+export async function applyPersistedLanguage(): Promise<void> {
   let stored: unknown;
   try {
     const profile = await PersistenceService.getKv<{ language?: unknown }>(KV_KEYS.PROFILE);
@@ -126,7 +131,7 @@ export function ensureRuntimeReady(): Promise<void> {
       });
       // Antes de cualquier notificación de una tarea headless (el JS arranca
       // en "es" de módulo solo un instante; aquí ya hay perfil o locale).
-      await hydrateUiLanguage();
+      await applyPersistedLanguage();
     })().catch((e) => {
       runtimeReady = null;
       throw e;

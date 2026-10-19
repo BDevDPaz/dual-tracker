@@ -20,7 +20,7 @@ export default function OnboardingLayout() {
           <View key={s} style={[styles.step, { backgroundColor: i <= current ? TOKENS.colors.primary : TOKENS.colors.border }]} />
         ))}
       </View>
-      <Stack screenOptions={{ headerShown: false, gestureEnabled: false, contentStyle: { backgroundColor: TOKENS.colors.background } }} />
+      <Stack screenOptions={{ headerShown: false, gestureEnabled: false, freezeOnBlur: false, contentStyle: { backgroundColor: TOKENS.colors.background } }} />
     </SafeAreaView>
   );
 }

@@ -70,6 +70,24 @@ export function tHealthValue(value: string): string {
   return label === key ? value : label;
 }
 
+const LINE_KIND_KEY: Record<string, string> = {
+  REGULAR: "reports.regular",
+  OVERTIME_DAILY: "reports.overtime",
+  OVERTIME_WEEKLY: "reports.overtime",
+  OVERTIME_DOUBLE: "reports.doubleTime",
+  TRANSIT: "reports.transit",
+  LUNCH_DEDUCTION: "reports.lunch",
+  PAUSE_DEDUCTION: "reports.lunch",
+};
+
+/** Tipo de línea de nómina (REGULAR, …) → etiqueta del idioma activo. */
+export function tLineKind(kind: string): string {
+  const key = LINE_KIND_KEY[kind];
+  if (!key) return kind;
+  const label = t(key);
+  return label === key ? kind : label;
+}
+
 export { es, en };
 export { MICROCOPY, MICROCOPY_VERSION } from "./microcopy";
 export { bootstrapLocaleTag, languageFromLocaleTag, readDeviceLocaleTag, resolveInitialLanguage } from "./locale";

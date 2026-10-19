@@ -16,7 +16,7 @@ import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import type { LedgerEntry, PayrollLineKind } from "../../src/core/contracts";
+import type { LedgerEntry } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   formatCents,
@@ -29,18 +29,8 @@ import {
   selectSessionById,
   trimDisplayNote,
 } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
-import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
-
-const LINE_LABEL: Record<PayrollLineKind, string> = {
-  REGULAR: "reports.regular",
-  OVERTIME_DAILY: "reports.overtime",
-  OVERTIME_WEEKLY: "reports.overtime",
-  OVERTIME_DOUBLE: "reports.doubleTime",
-  TRANSIT: "reports.transit",
-  LUNCH_DEDUCTION: "reports.lunch",
-  PAUSE_DEDUCTION: "reports.lunch",
-};
+import { t, tLineKind } from "../../src/i18n";
+import { formatCurrency, formatDate, formatTime, formatUiDecimal } from "../../src/utils/dateUtils";
 
 function ledgerLabel(e: LedgerEntry): string {
   const key = `ledger.${e.intent}`;
@@ -123,7 +113,13 @@ export default function SessionDetailScreen() {
         <Card style={styles.card}>
           <KeyValueRow
             label={t("today.netHours")}
-            value={useLines ? `${formatHundredths(minutesToHundredths(paidMinutes))} ${t("common.hours")}` : computed.preview ? `${formatHundredths(minutesToHundredths(computed.preview.netMinutes))} ${t("common.hours")}` : "—"}
+            value={
+              useLines
+                ? formatUiDecimal(`${formatHundredths(minutesToHundredths(paidMinutes))} ${t("common.hours")}`)
+                : computed.preview
+                  ? formatUiDecimal(`${formatHundredths(minutesToHundredths(computed.preview.netMinutes))} ${t("common.hours")}`)
+                  : "—"
+            }
           />
           <KeyValueRow
             label={t("today.estimate")}
@@ -138,7 +134,7 @@ export default function SessionDetailScreen() {
             {lineRows.map((l, i) => (
               <KeyValueRow
                 key={`${l.dateString}-${l.kind}-${i}`}
-                label={`${l.dateString} · ${t(LINE_LABEL[l.kind])} · ${l.minutes} ${t("common.minutes")} × ${formatCurrency(l.rate)}`}
+                label={`${l.dateString} · ${tLineKind(l.kind)} · ${l.minutes} ${t("common.minutes")} × ${formatCurrency(l.rate)}`}
                 value={formatCurrency(l.amount)}
               />
             ))}

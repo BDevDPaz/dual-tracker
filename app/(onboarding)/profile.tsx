@@ -4,16 +4,19 @@
  * empresa (multiplicador, radio…): eso es zona admin. Intención:
  * COMPLETE_ONBOARDING (marca onboardingCompleted).
  * Nota: la tarifa se fija aquí; después solo es editable en zona admin.
+ * El idioma es el mismo selector que Ajustes y Soporte: se aplica y se
+ * guarda al pulsar, no al pulsar Entrar.
  */
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { Text, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Input } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
+import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectSettings } from "../../src/core/selectors";
-import { setLanguage as setActiveLanguage, t } from "../../src/i18n";
+import { getLanguage, t } from "../../src/i18n";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -21,7 +24,6 @@ export default function ProfileScreen() {
   const profile = selectSettings(state).profile;
   const [name, setName] = useState(profile.employeeName);
   const [rate, setRate] = useState(profile.hourlyRate ? String(profile.hourlyRate) : "");
-  const [language, setLanguage] = useState<"es" | "en">(profile.language);
   const [reminder, setReminder] = useState(profile.dailyReminderTime);
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +34,7 @@ export default function ProfileScreen() {
     setBusy(true);
     const res = await emit({
       type: "COMPLETE_ONBOARDING",
-      profile: { employeeName: name.trim(), hourlyRate: rateNum, language, dailyReminderTime: reminder },
+      profile: { employeeName: name.trim(), hourlyRate: rateNum, language: getLanguage(), dailyReminderTime: reminder },
     });
     setBusy(false);
     if (res.ok) router.replace("/");
@@ -44,26 +46,7 @@ export default function ProfileScreen() {
       <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
       <Input label={t("onboarding.employeeName")} value={name} onChangeText={setName} autoCapitalize="words" />
       <Input label={t("onboarding.hourlyRate")} value={rate} onChangeText={setRate} keyboardType="decimal-pad" />
-      <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("onboarding.language")}</Text>
-      <View style={styles.langRow}>
-        {(["es", "en"] as const).map((l) => (
-          <Pressable
-            key={l}
-            onPress={() => {
-              setLanguage(l);
-              setActiveLanguage(l);
-            }}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: language === l }}
-            accessibilityLabel={t(l === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
-            style={[styles.chip, { borderColor: language === l ? TOKENS.colors.primary : TOKENS.colors.border }]}
-          >
-            <Text style={{ color: language === l ? TOKENS.colors.primary : TOKENS.colors.text.secondary }}>
-              {t(l === "es" ? "onboarding.languageEs" : "onboarding.languageEn")}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <LanguageSwitch />
       <Input label={t("onboarding.reminderTime")} value={reminder} onChangeText={setReminder} placeholder="07:00" mask="HH:mm" />
       <Button label={t("onboarding.enter")} disabled={!valid} isLoading={busy} onPress={onEnter} />
     </ScrollView>
@@ -73,7 +56,4 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   content: { padding: TOKENS.spacing.xl, gap: TOKENS.spacing.sm },
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
-  label: { ...FONT.label, marginTop: TOKENS.spacing.sm },
-  langRow: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
-  chip: { borderWidth: 1, borderRadius: TOKENS.radius.md, paddingVertical: TOKENS.spacing.sm, paddingHorizontal: TOKENS.spacing.lg },
 });

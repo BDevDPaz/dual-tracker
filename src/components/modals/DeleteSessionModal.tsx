@@ -1,7 +1,7 @@
 import React from "react";
 import { ModalShell } from "../ui/ModalShell";
 import { ICONS } from "../../constants/icons";
-import { t } from "../../i18n";
+import { t, useLanguage } from "../../i18n";
 
 /**
  * DeleteSessionModal — portado de GEOTrack. El copy original prometía un
@@ -16,6 +16,7 @@ interface DeleteSessionModalProps {
 }
 
 export function DeleteSessionModal({ visible, busy = false, onCancel, onConfirm }: DeleteSessionModalProps) {
+  useLanguage();
   return (
     <ModalShell
       visible={visible}
