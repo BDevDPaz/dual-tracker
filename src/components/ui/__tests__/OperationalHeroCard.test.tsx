@@ -24,6 +24,7 @@ describe("OperationalHeroCard", () => {
     mockDims.mockReturnValue({ width: 390, height: 800, scale: 2, fontScale: 1 });
     render(<OperationalHeroCard {...props("ACTIVA")} />);
     expect(direction()).toBe("row");
+    expect(screen.getByTestId("arrival-mark", { includeHiddenElements: true })).toBeTruthy();
   });
 
   test("ancho < 360: CTAs apilados y tipografía ≥ 16", () => {
@@ -41,5 +42,6 @@ describe("OperationalHeroCard", () => {
     expect(screen.getByTestId("hero-next-action")).toBeTruthy();
     expect(screen.getByText("Siguiente: llegar a Obra · geocerca vigilando")).toBeTruthy();
     expect(screen.queryByTestId("hero-timer")).toBeNull();
+    expect(screen.queryByTestId("arrival-mark")).toBeNull();
   });
 });

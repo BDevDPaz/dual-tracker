@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { ArrivalMark } from "../brand/ArrivalMark";
 import { Button, Card } from "../ui";
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import type { GuideStep } from "../../support/catalog";
@@ -13,13 +14,15 @@ interface WalkthroughProps {
   steps: readonly GuideStep[];
   /** Si se indica, el último paso ofrece practicar ese flujo. */
   practiceFlow?: FlowId;
+  /** Símbolo de llegada confirmada (concepto D) en la guía de llegada. */
+  emblem?: "arrival";
 }
 
 /**
  * Recorrido en el sistema de diseño: tarjeta, contador y un control resaltado
  * (coach mark) con el mismo borde y color de acento que el resto de la app.
  */
-export function Walkthrough({ title, steps, practiceFlow }: WalkthroughProps) {
+export function Walkthrough({ title, steps, practiceFlow, emblem }: WalkthroughProps) {
   useLanguage();
   const { colors } = useTheme();
   const router = useRouter();
@@ -31,6 +34,7 @@ export function Walkthrough({ title, steps, practiceFlow }: WalkthroughProps) {
   return (
     <View style={styles.wrap}>
       <Text style={[styles.kicker, { color: colors.text.muted }]}>{t("support.walk.step", { n: index + 1, total: steps.length })}</Text>
+      {emblem === "arrival" ? <ArrivalMark size={ICON.hero} /> : null}
       <Text testID="walk-title" style={[styles.title, { color: colors.text.primary }]}>
         {t(title)}
       </Text>

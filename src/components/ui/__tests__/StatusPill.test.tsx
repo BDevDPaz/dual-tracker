@@ -31,4 +31,11 @@ describe("StatusPill", () => {
   test("cada tono tiene un glifo distinto", () => {
     expect(new Set(Object.values(PILL_GLYPH)).size).toBe(5);
   });
+
+  test("En sitio usa el símbolo de llegada confirmada", () => {
+    render(<StatusPill tone="success" label="En sitio" symbol="arrival" />);
+    expect(screen.getByTestId("arrival-mark", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId("status-pill-glyph-success")).toBeNull();
+    expect(screen.getByText("EN SITIO")).toBeTruthy();
+  });
 });

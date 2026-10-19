@@ -123,7 +123,8 @@ dual-tracker/
 │   ├── constants/               theme, icons, animations, geolocation, notifications, tasks, security, flags
 │   ├── context/                 ThemeContext, ToastContext
 │   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError
-├── assets/images/               icon, splash, adaptive-icon, favicon (MARCADORES de posición: sustituir)
+├── assets/images/               icon, splash, adaptive-icon, favicon, notification (marca A y D)
+├── assets/brand/                SVG fuente A y D; se regeneran con scripts/brand/build.py
 ├── docs/                        PRUEBAS_DISPOSITIVO.md (matriz D1–D15), BUILD.md (EAS Build)
 ├── app.json  app.config.ts      config base + variante de build (APP_VARIANT=d11)
 ├── eas.json                     perfiles development / preview / preview-simulator / preview-d11 / production
@@ -347,4 +348,3 @@ Se marcan en el código como `TODO(propuesta)`:
   - Vista de mapa en `session/[id]/trace`.
   - Traducción inglesa completa (`en.ts` es parcial).
 - **Valores provisionales** (constantes en `src/constants/*`): perfiles de miga de pan, escalones de bloqueo del PIN, `destinationLimit = 20`, hueco de heartbeat de 45 min y ventana de decisión de salida.
-- **Assets**: los PNG de `assets/images` son marcadores generados; hay que sustituirlos por la marca real.

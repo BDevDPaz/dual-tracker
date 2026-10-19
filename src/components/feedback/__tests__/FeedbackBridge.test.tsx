@@ -75,6 +75,25 @@ describe("FeedbackBridge", () => {
     expect(screen.getByText("Sesión recuperada")).toBeTruthy();
   });
 
+  test("llegada y check-in automático usan el símbolo D; otro éxito no", async () => {
+    mount();
+    await act(async () => {
+      FeedbackService.emit("AUTO_CHECKIN");
+    });
+    expect(screen.getByTestId("toast-arrival-mark", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText("Llegaste al sitio")).toBeTruthy();
+    await act(async () => {
+      FeedbackService.emit("ARRIVAL_CONFIRMED");
+    });
+    expect(screen.getByText("Llegada confirmada")).toBeTruthy();
+    expect(screen.getByTestId("toast-arrival-mark", { includeHiddenElements: true })).toBeTruthy();
+    await act(async () => {
+      FeedbackService.emit("DAY_STARTED");
+    });
+    expect(screen.getByText("Jornada iniciada")).toBeTruthy();
+    expect(screen.queryByTestId("toast-arrival-mark")).toBeNull();
+  });
+
   test("EXIT_DETECTED nunca es un segundo diálogo (lo decide ExitDetectionModal)", async () => {
     const alertSpy = jest.spyOn(Alert, "alert");
     mount();

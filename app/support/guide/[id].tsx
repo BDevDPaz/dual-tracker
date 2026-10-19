@@ -22,7 +22,7 @@ export default function GuideScreen() {
     return (
       <ScreenScroll edges={SAFE_EDGES.stack}>
         <LanguageSwitch />
-        <Walkthrough title={flow.title} steps={flow.steps} practiceFlow={key} />
+        <Walkthrough title={flow.title} steps={flow.steps} practiceFlow={key} emblem={key === "arrival" ? "arrival" : undefined} />
       </ScreenScroll>
     );
   }

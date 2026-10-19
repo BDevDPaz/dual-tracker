@@ -40,6 +40,8 @@ export const es = {
     hideSecret: "Ocultar PIN",
     refresh: "Actualizar",
     refreshing: "Actualizando",
+    brandMark: "Marca de Dual Tracker",
+    arrivalConfirmed: "Llegada confirmada",
   },
   states: {
     NO_INICIADA: { label: "Fuera de servicio", sub: "No hay jornada abierta." },

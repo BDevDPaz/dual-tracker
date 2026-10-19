@@ -10,7 +10,8 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
-import { TOKENS, FONT } from "../../constants/theme";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
+import { PinClockMark } from "../brand/PinClockMark";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
@@ -100,6 +101,7 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.titleRow, titleAnimatedStyle]}>
+        <PinClockMark size={ICON.xxl} decorative />
         <View style={styles.wordmarkWrap}>
           <Animated.View
             style={[
@@ -148,6 +150,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: TOKENS.spacing.sm,
   },
   wordmarkWrap: {
     position: "relative",

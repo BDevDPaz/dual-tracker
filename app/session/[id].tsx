@@ -10,12 +10,13 @@
 import { useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { ArrivalMark } from "../../src/components/brand/ArrivalMark";
 import { Button, Card, EmptyState, IntegrityBadge, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, ledgerToTimeline } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
-import { TOKENS, FONT } from "../../src/constants/theme";
+import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import type { LedgerEntry } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
@@ -119,9 +120,12 @@ export default function SessionDetailScreen() {
           <IntegrityBadge integrity={session.integrityClass} blocked={cert.blocked} />
         </View>
         {cert.blocked ? <Text style={[styles.caption, { color: TOKENS.colors.status.warning }]}>{t("integrity.blockedDetail")}</Text> : null}
-        <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>
-          {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
-        </Text>
+        <View style={styles.stateLine}>
+          {session.domainStatus === "ACTIVA" ? <ArrivalMark size={ICON.lg} decorative /> : null}
+          <Text style={[styles.caption, styles.stateCaption, { color: TOKENS.colors.text.secondary }]}>
+            {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
+          </Text>
+        </View>
         {zeroDuration ? <Text style={[styles.caption, { color: TOKENS.colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
 
         <Card style={styles.card}>
@@ -204,6 +208,8 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: TOKENS.spacing.md },
   title: { ...FONT.h2, flex: 1 },
   caption: { ...FONT.caption },
+  stateLine: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm },
+  stateCaption: { flex: 1 },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   policy: { ...FONT.caption, marginTop: TOKENS.spacing.sm },
   footer: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.md },

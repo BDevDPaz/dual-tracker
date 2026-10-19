@@ -16,7 +16,7 @@ const config: Config = {
   // Sin alias @/ en tsconfig: imports relativos como el árbol actual.
   // transformIgnorePatterns: el de jest-expo + @noble (ESM puro, spec v1.3 §8).
   transformIgnorePatterns: [
-    "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@noble/.*))",
+    "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@noble/.*|react-native-svg))",
     "/node_modules/react-native-reanimated/plugin/",
   ],
   clearMocks: true,

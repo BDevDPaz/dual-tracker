@@ -7,6 +7,7 @@ import { useTheme } from "../../context/ThemeContext";
 import type { LedgerEntry } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
+import { ArrivalMark } from "../brand/ArrivalMark";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
@@ -144,16 +145,22 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
                 entering={timelineEntering(index, reduceMotion)}
                 style={styles.timelineNode}
               >
-                <View
-                  style={[
-                    styles.nodeDot,
-                    { backgroundColor: dotColor },
-                    hasBorder && {
-                      borderWidth: TOKENS.layout.hairline,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                />
+                <View style={styles.markerSlot}>
+                  {event.type === "arrival" ? (
+                    <ArrivalMark size={ICON.lg} decorative testID={`arrival-mark-${event.id}`} />
+                  ) : (
+                    <View
+                      style={[
+                        styles.nodeDot,
+                        { backgroundColor: dotColor },
+                        hasBorder && {
+                          borderWidth: TOKENS.layout.hairline,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
 
                 {!isLast && (
                   <View
@@ -208,18 +215,24 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   nodeContent: { flex: 1, paddingBottom: TOKENS.spacing.xs },
-  nodeDot: {
-    width: ICON.sm,
-    height: ICON.sm,
-    borderRadius: TOKENS.radius.sm,
+  markerSlot: {
+    width: ICON.lg,
+    height: ICON.lg,
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: TOKENS.spacing.xs,
     marginRight: TOKENS.spacing.md,
     zIndex: 2,
   },
+  nodeDot: {
+    width: ICON.sm,
+    height: ICON.sm,
+    borderRadius: TOKENS.radius.sm,
+  },
   nodeLine: {
     position: "absolute",
-    left: TOKENS.spacing.sm,
-    top: ICON.sm,
+    left: (ICON.lg - TOKENS.radius.hairline) / 2,
+    top: ICON.lg + TOKENS.spacing.xs,
     bottom: -TOKENS.spacing.xl,
     width: TOKENS.radius.hairline,
     zIndex: 1,
