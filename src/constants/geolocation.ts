@@ -28,10 +28,9 @@ export const MAX_INSTANT_LOCATION_JUMP_METERS = 500;
 export const IMPOSSIBLE_SPEED_KMH = 200;
 
 /**
- * Debounce de salida. La propuesta indica "hoy ~2 min" y que debe ser
- * configurable: este es solo el valor por defecto de CompanyPolicy.
+ * Debounce de salida por defecto. La cifra está en src/config/provisional.ts.
  */
-export const DEFAULT_EXIT_DEBOUNCE_MS = 2 * 60 * 1000;
+export { DEFAULT_EXIT_DEBOUNCE_MS } from "../config/provisional";
 
 /** Radio por defecto si el sitio no declara el suyo (GEOTrack: 200 m). */
 export const DEFAULT_SITE_RADIUS_METERS = 200;
@@ -41,12 +40,6 @@ export const GEOFENCE_TASK_NAME = "DUALTRACKER_GEOFENCE_TASK";
 export const BREADCRUMB_TASK_NAME = "DUALTRACKER_BREADCRUMB_TASK";
 
 /**
- * Perfiles de muestreo adaptativo del TraceRecorder / ForegroundWork.
- * TODO(valores provisionales): la propuesta pide "intervalo largo dentro,
- * más frecuente en tránsito" sin cifras. Ajustar tras pruebas de batería.
+ * Perfiles de muestreo adaptativo. Las cifras están en src/config/provisional.ts.
  */
-export const BREADCRUMB_PROFILES = {
-  ON_SITE: { timeIntervalMs: 5 * 60 * 1000, distanceIntervalM: 50 },
-  IN_TRANSIT: { timeIntervalMs: 30 * 1000, distanceIntervalM: 25 },
-  WAITING: { timeIntervalMs: 2 * 60 * 1000, distanceIntervalM: 100 },
-} as const;
+export { BREADCRUMB_PROFILES } from "../config/provisional";

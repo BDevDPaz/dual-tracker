@@ -1,19 +1,19 @@
 /**
- * (tabs)/reports.tsx — Centro de reportes (Producto §5.12). REDISEÑO.
- * Periodo, rollup del PayrollEngine (preview), sesiones del periodo,
- * DocumentPreviewWidget (solo con PayrollStatement) y acciones de
- * EvidencePack. No genera HTML ni llama a Print en la pantalla: SEAL_PACK.
- * Con CONFLICT en el periodo, el expediente exige pasar por /system/conflict
- * o exportar con sello "No certificado" visible.
+ * (tabs)/reports.tsx — Centro de reportes (Producto §5.12).
+ * Rango libre (semana, quincena, mes o fechas) partido en semanas laborales.
+ * Cada semana usa el mismo motor que el expediente. No se sella un rango
+ * que mezcle semanas: el sello sigue siendo de una semana.
  */
 import { useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Button, Card, Chip, DocumentPreviewWidget, LoadingOverlay, PageHeader, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
+import { Button, Card, Chip, DocumentPreviewWidget, Input, LoadingOverlay, PageHeader, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
+import { useFormFocusChain } from "../../src/components/ui/formChain";
+import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import type { EvidencePack } from "../../src/core/contracts";
+import type { EvidencePack, PayrollStatement } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   allocateDisplayHundredths,
@@ -28,9 +28,26 @@ import {
 } from "../../src/core/selectors";
 import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
-import { formatDate, formatRange, formatUiDecimal, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
+import { formatDate, formatRange, formatUiDecimal, toDateString } from "../../src/utils/dateUtils";
+import {
+  combineWeekStatements,
+  corporateDayBounds,
+  isSingleWorkWeek,
+  presetRange,
+  validateReportRange,
+  type ClosedRange,
+  type RangePreset,
+} from "../../src/utils/reportRange";
 
-type Period = "CURRENT" | "PREVIOUS";
+const PRESETS: RangePreset[] = ["CURRENT_WEEK", "PREVIOUS_WEEK", "QUINCENA", "MONTH", "CUSTOM"];
+
+const PRESET_KEY: Record<RangePreset, string> = {
+  CURRENT_WEEK: "reports.periodCurrent",
+  PREVIOUS_WEEK: "reports.periodPrevious",
+  QUINCENA: "reports.periodQuincena",
+  MONTH: "reports.periodMonth",
+  CUSTOM: "reports.periodCustom",
+};
 
 export default function ReportsScreen() {
   const router = useRouter();
@@ -38,35 +55,63 @@ export default function ReportsScreen() {
   const nowMs = useClock(60_000);
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
-  const [period, setPeriod] = useState<Period>("CURRENT");
+  const [preset, setPreset] = useState<RangePreset>("CURRENT_WEEK");
+  const [startText, setStartText] = useState("");
+  const [endText, setEndText] = useState("");
   const [sealing, setSealing] = useState(false);
-  // TODO(propuesta): selector de "rango" libre (§5.12). Hoy solo semana actual / anterior.
   const calendar = selectCalendarHistory(state);
-  const periodStart = period === "CURRENT" ? getWeekStart(nowMs, calendar) : shiftWeek(getWeekStart(nowMs, calendar), -1, calendar);
-  const periodEnd = getWeekEnd(periodStart, calendar);
   const settings = selectSettings(state);
 
+  const customError = preset === "CUSTOM" ? customRangeError(startText, endText) : null;
+  const requested: ClosedRange | null =
+    preset === "CUSTOM"
+      ? customError
+        ? null
+        : customBounds(startText, endText)
+      : presetRange(preset, nowMs, calendar);
+
+  const preview = useQuery(
+    () => (requested ? queries.previewRange(requested.start, requested.end) : Promise.resolve({ ok: false as const, code: "RANGE_INVALID" as const })),
+    [requested?.start ?? 0, requested?.end ?? 0, preset === "CUSTOM" && !requested ? 1 : 0],
+    ["sessions", "settings"],
+  );
+  const weeks = useMemo(() => (preview.data && preview.data.ok ? preview.data.data.weeks : []), [preview.data]);
+  const single = !!requested && isSingleWorkWeek(requested, calendar) && weeks.length === 1;
+  const anchor = single ? weeks[0] : null;
+  const freshness = useQuery(
+    () => (anchor ? queries.sealFreshness(anchor.start, anchor.end) : Promise.resolve(null)),
+    [anchor?.start ?? 0, anchor?.end ?? 0],
+    ["sessions", "packs", "ledger"],
+  );
+
   const sessionsVersion = state.sessions;
-  const statement = useQuery(() => queries.previewPeriod(periodStart, periodEnd), [periodStart, periodEnd, sessionsVersion], ["sessions", "settings"]);
-  const freshness = useQuery(() => queries.sealFreshness(periodStart, periodEnd), [periodStart, periodEnd, sessionsVersion, state.packs], ["sessions", "packs", "ledger"]);
-  const rows = useMemo(() => selectPeriodSessionRows(state, periodStart, periodEnd, nowMs), [state, nowMs, periodStart, periodEnd]);
+  void sessionsVersion;
+  const combined = useMemo(() => combineWeekStatements(weeks.map((w) => w.statement)), [weeks]);
+  const shown = combined ? displayStatement(combined) : null;
+  const rows = useMemo(() => {
+    if (!weeks.length) return [];
+    return weeks.flatMap((w) => selectPeriodSessionRows(state, w.start, w.end, nowMs).map((row) => ({ ...row, weekStart: w.start })));
+  }, [state, nowMs, weeks]);
   const computedById = useMemo(() => new Map(selectComputedSessions(state, nowMs).map((c) => [c.session.id, c])), [state, nowMs]);
-  const shown = statement.data ? displayStatement(statement.data) : null;
   const hoursById = new Map((shown?.rows ?? []).map((r) => [r.sessionId, `${r.hours} ${t("common.hours")}`]));
-  const openHundredths = allocateDisplayHundredths(rows.filter((r) => !hoursById.has(r.session.id)).map((r) => r.netMinutes ?? 0));
+  const hourSource = single ? rows.filter((r) => !hoursById.has(r.session.id)) : rows;
+  const openHundredths = allocateDisplayHundredths(hourSource.map((r) => r.netMinutes ?? 0));
   let openCursor = 0;
-  const rowHours = new Map<number, string>();
+  const rowHours = new Map<string, string>();
   for (const r of rows) {
     const sealed = hoursById.get(r.session.id);
-    if (sealed) rowHours.set(r.session.id, sealed);
-    else rowHours.set(r.session.id, `${formatHundredths(openHundredths[openCursor++] ?? 0)} ${t("common.hours")}`);
+    const key = `${r.weekStart}:${r.session.id}`;
+    if (sealed && single) rowHours.set(key, sealed);
+    else rowHours.set(key, `${formatHundredths(openHundredths[openCursor++] ?? 0)} ${t("common.hours")}`);
   }
-  const packs = selectPacks(state).filter((p) => p.manifest.periodStart === periodStart);
-  const latestPack = packs.reduce<EvidencePack | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null);
+
+  const weekStarts = new Set(weeks.map((w) => w.start));
+  const packs = selectPacks(state).filter((p) => weekStarts.has(p.manifest.periodStart));
+  const latestPack = single
+    ? packs.filter((p) => p.manifest.periodStart === anchor?.start).reduce<EvidencePack | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null)
+    : null;
   const { showToast } = useToast();
-  const st = statement.data;
-  const hasConflict = !!st?.integrityRollup.hasConflict;
-  // §16: recomendación de exportar expedientes (packs sin compartir o periodo cerrado sin pack).
+  const hasConflict = !!combined?.integrityRollup.hasConflict;
   const backup = selectBackupAdvice(state, nowMs);
   const [exporting, setExporting] = useState(false);
   const exportNext = async () => {
@@ -76,26 +121,42 @@ export default function ReportsScreen() {
     setExporting(false);
   };
 
-  const seal = async (allowUncertified: boolean) => {
+  const seal = async (start: number, end: number, allowUncertified: boolean) => {
     setSealing(true);
-    const res = await emit({ type: "SEAL_PACK", periodStart, periodEnd, allowUncertified });
+    const res = await emit({ type: "SEAL_PACK", periodStart: start, periodEnd: end, allowUncertified });
     setSealing(false);
     const pack = res.ok ? (res.data as EvidencePack | undefined) : undefined;
     if (pack) router.push(`/report/pack/${pack.id}`);
   };
 
-  // Solo las jornadas CERRADAS entran al statement/expediente (PayrollEngine).
-  const closedCount = st?.sessionIds.length ?? 0;
+  const closedCount = combined?.sessionIds.length ?? 0;
   const openCount = rows.filter((c) => c.session.domainStatus !== "CERRADA" && !c.session.bookkeeping.cancelled).length;
-  const periodId = weekPeriodId(periodStart, calendar);
-  const status = statement.loading && !st ? "loading" : rows.length === 0 ? "empty" : "ready";
+  const status = !requested || customError ? "ready" : preview.loading && !preview.data ? "loading" : rows.length === 0 && weeks.every((w) => w.statement.sessionIds.length === 0) ? "empty" : "ready";
   const fresh = freshness.data;
-  const canSeal = !!periodId && closedCount > 0 && !sealing;
+  const canSealWeek = (st: PayrollStatement) => st.sessionIds.length > 0 && !sealing;
+  const rangeChain = useFormFocusChain(FORM_FIELDS.reportsRange, { canSubmit: preset === "CUSTOM" && !customError });
+
+  const choose = (p: RangePreset) => {
+    setPreset(p);
+    if (p === "CUSTOM" && !startText) {
+      const week = presetRange("CURRENT_WEEK", nowMs, calendar);
+      if (week) {
+        setStartText(toDateString(week.start));
+        setEndText(toDateString(week.end));
+      }
+    }
+  };
+
+  const subtitle = requested
+    ? formatRange(requested.start, requested.end)
+    : preset === "CUSTOM" && !startText.trim() && !endText.trim()
+      ? t("reports.periodCustom")
+      : t("reports.rangeInvalid");
 
   return (
     <View style={styles.root}>
       <ScreenScroll edges={SAFE_EDGES.tab} refreshControl={refreshControl}>
-        <PageHeader title={t("reports.title")} subtitle={formatRange(periodStart, periodEnd)} helpScreen="reports" />
+        <PageHeader title={t("reports.title")} subtitle={subtitle} helpScreen="reports" />
         <ScreenTips
           screen="reports"
           sessionState={null}
@@ -106,66 +167,97 @@ export default function ReportsScreen() {
           hasZeroOmitted={rows.some((r) => r.zeroDuration)}
         />
         <View style={styles.periods}>
-          {(["CURRENT", "PREVIOUS"] as const).map((p) => (
-            <Chip key={p} label={t(p === "CURRENT" ? "reports.periodCurrent" : "reports.periodPrevious")} selected={period === p} onPress={() => setPeriod(p)} />
+          {PRESETS.map((p) => (
+            <Chip key={p} label={t(PRESET_KEY[p])} selected={preset === p} onPress={() => choose(p)} />
           ))}
         </View>
+        {preset === "CUSTOM" ? (
+          <View style={styles.dates}>
+            <Input {...rangeChain.props("start")} label={t("reports.rangeStart")} value={startText} onChangeText={setStartText} placeholder={t("reports.datePlaceholder")} />
+            <Input {...rangeChain.props("end")} label={t("reports.rangeEnd")} value={endText} onChangeText={setEndText} placeholder={t("reports.datePlaceholder")} />
+          </View>
+        ) : null}
+        {customError ? <ScreenStatusBanner status="degraded" message={t(customError === "RANGE_ORDER" ? "reports.rangeOrder" : customError === "RANGE_TOO_LONG" ? "reports.rangeTooLong" : "reports.rangeInvalid")} /> : null}
+        {!single && weeks.length > 1 ? <ScreenStatusBanner status="degraded" message={t("reports.weekMath")} /> : null}
 
         {status !== "ready" ? (
           <ScreenStatusBanner status={status} message={status === "empty" ? t("reports.empty") : t("common.loading")} emptyIcon="document-outline" />
         ) : null}
 
-        {status === "ready" && st && closedCount === 0 ? (
+        {status === "ready" && combined && closedCount === 0 && !customError ? (
           <ScreenStatusBanner status="degraded" message={openCount > 0 ? t("reports.openOnly") : t("reports.noClosed")} />
         ) : null}
-        {status === "ready" && st && closedCount > 0 && openCount > 0 ? (
+        {status === "ready" && combined && closedCount > 0 && openCount > 0 ? (
           <ScreenStatusBanner status="degraded" message={t("reports.openExcluded")} />
         ) : null}
-        {fresh?.latestPackId && fresh.sealedBeforePeriodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
-        {fresh?.latestPackId && !fresh.matches ? <ScreenStatusBanner status="degraded" message={t("reports.packStale")} /> : null}
+        {single && fresh?.latestPackId && fresh.sealedBeforePeriodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
+        {single && fresh?.latestPackId && !fresh.matches ? <ScreenStatusBanner status="degraded" message={t("reports.packStale")} /> : null}
 
-        {st && shown ? (
+        {combined && shown && !customError ? (
           <Card style={styles.card}>
-            <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("reports.rollup")}</Text>
+            <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t(single ? "reports.rollup" : "reports.combined")}</Text>
             <KeyValueRow label={t("reports.regular")} value={`${formatUiDecimal(shown.regular)} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.overtime")} value={`${formatUiDecimal(shown.overtime)} ${t("common.hours")}`} />
             <KeyValueRow label={t("reports.transit")} value={`${formatUiDecimal(shown.transit)} ${t("common.hours")}`} />
-            <KeyValueRow label={t("reports.lunch")} value={`${st.lunchMinutes} ${t("common.minutes")}`} />
+            <KeyValueRow label={t("reports.lunch")} value={`${combined.lunchMinutes} ${t("common.minutes")}`} />
             <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
-            <KeyValueRow
-              label={t("reports.integrity")}
-              value={`V ${st.integrityRollup.byClass.VALID} · M ${st.integrityRollup.byClass.MANUAL} · A ${st.integrityRollup.byClass.AUTO} · C ${st.integrityRollup.byClass.CONFLICT}`}
-            />
-            {periodId ? (
-              <Pressable onPress={() => router.push(`/report/${periodId}`)} accessibilityRole="link">
-                <Text style={[styles.link, { color: TOKENS.colors.primary }]}>{t("reports.viewStatement")}</Text>
-              </Pressable>
+            {single ? (
+              <KeyValueRow
+                label={t("reports.integrity")}
+                value={`V ${combined.integrityRollup.byClass.VALID} · M ${combined.integrityRollup.byClass.MANUAL} · A ${combined.integrityRollup.byClass.AUTO} · C ${combined.integrityRollup.byClass.CONFLICT}`}
+              />
             ) : null}
           </Card>
         ) : null}
 
-        {rows.length > 0 ? (
-          <Section title={t("history.title")}>
-            {rows.map((slice) => {
-              const item = computedById.get(slice.session.id);
-              if (!item) return null;
-              return (
-                <SessionListItem
-                  key={slice.session.id}
-                  item={item}
-                  slice={slice}
-                  hoursText={rowHours.get(slice.session.id)}
-                  onPress={() => router.push(`/session/${slice.session.id}`)}
+        {weeks.map((week) => {
+          const weekRows = rows.filter((r) => r.weekStart === week.start);
+          if (!single && weekRows.length === 0 && week.statement.sessionIds.length === 0) return null;
+          const weekShown = displayStatement(week.statement);
+          const weekConflict = week.statement.integrityRollup.hasConflict;
+          return (
+            <Section key={week.start} title={t("reports.weekOf", { range: formatRange(week.start, week.end) })}>
+              {!single ? (
+                <Card style={styles.card}>
+                  <KeyValueRow label={t("reports.regular")} value={`${formatUiDecimal(weekShown.regular)} ${t("common.hours")}`} />
+                  <KeyValueRow label={t("reports.overtime")} value={`${formatUiDecimal(weekShown.overtime)} ${t("common.hours")}`} />
+                  <KeyValueRow label={t("reports.total")} value={weekShown.gross} emphasis />
+                </Card>
+              ) : null}
+              {weekRows.map((slice) => {
+                const item = computedById.get(slice.session.id);
+                if (!item) return null;
+                return (
+                  <SessionListItem
+                    key={`${week.start}:${slice.session.id}`}
+                    item={item}
+                    slice={slice}
+                    hoursText={rowHours.get(`${week.start}:${slice.session.id}`)}
+                    onPress={() => router.push(`/session/${slice.session.id}`)}
+                  />
+                );
+              })}
+              {weekConflict ? (
+                <View style={styles.gate}>
+                  <Button label={t("reports.goToConflict")} variant="secondary" onPress={() => router.push("/system/conflict")} />
+                  <Button label={t("reports.exportUncertified")} variant="ghost" disabled={!canSealWeek(week.statement)} onPress={() => void seal(week.start, week.end, true)} />
+                </View>
+              ) : (
+                <Button
+                  label={single ? t("reports.generate") : t("reports.sealWeek")}
+                  iconName="shield-checkmark-outline"
+                  disabled={!canSealWeek(week.statement)}
+                  onPress={() => void seal(week.start, week.end, false)}
                 />
-              );
-            })}
-          </Section>
-        ) : null}
+              )}
+            </Section>
+          );
+        })}
 
-        {st && shown && closedCount > 0 ? (
+        {single && combined && shown && closedCount > 0 ? (
           <DocumentPreviewWidget
             employeeName={settings.profile.employeeName}
-            dateRange={formatRange(periodStart, periodEnd)}
+            dateRange={formatRange(anchor!.start, anchor!.end)}
             totalHours={`${shown.worked} ${t("common.hours")}`}
             totalEarnings={shown.gross}
             companyName={settings.company.employerName}
@@ -183,16 +275,6 @@ export default function ReportsScreen() {
             }
           />
         ) : null}
-
-        {hasConflict ? (
-          <View style={styles.gate}>
-            <ScreenStatusBanner status="conflict" message={t("reports.conflictGate")} />
-            <Button label={t("reports.goToConflict")} variant="secondary" onPress={() => router.push("/system/conflict")} />
-            <Button label={t("reports.exportUncertified")} variant="ghost" disabled={!canSeal} onPress={() => void seal(true)} />
-          </View>
-        ) : (
-          <Button label={t("reports.generate")} iconName="shield-checkmark-outline" disabled={!canSeal} onPress={() => void seal(false)} />
-        )}
 
         {packs.length > 0 ? (
           <Section title={t("reports.packs")}>
@@ -218,12 +300,27 @@ export default function ReportsScreen() {
   );
 }
 
+function customBounds(startText: string, endText: string): ClosedRange | null {
+  const start = corporateDayBounds(startText.trim());
+  const end = corporateDayBounds(endText.trim());
+  if (!start || !end) return null;
+  return { start: start.start, end: end.end };
+}
+
+function customRangeError(startText: string, endText: string): "RANGE_INVALID" | "RANGE_ORDER" | "RANGE_TOO_LONG" | null {
+  if (!startText.trim() && !endText.trim()) return null;
+  const range = customBounds(startText, endText);
+  if (!range) return startText.trim() || endText.trim() ? "RANGE_INVALID" : null;
+  const check = validateReportRange(range.start, range.end);
+  return check.ok ? null : check.code;
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  periods: { flexDirection: "row", gap: TOKENS.spacing.sm },
-  card: { padding: TOKENS.spacing.lg },
+  periods: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
+  dates: { gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
+  card: { padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.sm },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
-  link: { ...FONT.bodyStrong, marginTop: TOKENS.spacing.sm },
   gate: { gap: TOKENS.spacing.sm },
   actions: { gap: TOKENS.spacing.sm, marginTop: TOKENS.spacing.sm },
 });

@@ -36,6 +36,8 @@ export interface DualTrackerState {
   /** Estado de desbloqueo = sesión de UI, no del adaptador (§4.8). */
   admin: {
     hasPin: boolean;
+    /** UNSET: nadie lo fijó. LOCAL: el primer usuario del teléfono. EMPLOYER: código de un solo uso. */
+    pinOrigin: "UNSET" | "LOCAL" | "EMPLOYER";
     isUnlocked: boolean;
     unlockedUntilMs: number | null;
     lockedUntilMs: number | null;

@@ -27,6 +27,11 @@ export const FORM_FIELDS = {
     { id: "reminder", kind: "time" },
   ],
   settingsPin: [{ id: "pin", kind: "pin" }],
+  settingsProvision: [{ id: "code", kind: "text" }],
+  reportsRange: [
+    { id: "start", kind: "text" },
+    { id: "end", kind: "text" },
+  ],
   settingsAdmin: [
     { id: "rate", kind: "decimal" },
     { id: "multiplier", kind: "decimal" },
@@ -34,6 +39,7 @@ export const FORM_FIELDS = {
     { id: "email", kind: "email" },
     { id: "retention", kind: "integer" },
     { id: "radius", kind: "integer" },
+    { id: "portalUrl", kind: "text" },
   ],
   settingsCalendar: [{ id: "start", kind: "time" }],
   siteNew: [

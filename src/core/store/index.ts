@@ -104,6 +104,7 @@ export const StoreActions = {
     settings: SettingsSnapshot;
     osKillDetected: boolean;
     hasPin: boolean;
+    pinOrigin?: DualTrackerState["admin"]["pinOrigin"];
     nowMs: number;
   }): void {
     commit({
@@ -113,7 +114,7 @@ export const StoreActions = {
       sites: sitesSlice(input.sites),
       packs: packsSlice(input.packs, input.sharedPackIds ?? state.packs.sharedIds),
       settings: input.settings,
-      admin: { ...state.admin, hasPin: input.hasPin },
+      admin: { ...state.admin, hasPin: input.hasPin, pinOrigin: input.pinOrigin ?? state.admin.pinOrigin },
     });
   },
 

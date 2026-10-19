@@ -55,6 +55,12 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   ADMIN_DENIED: { kind: "toast", tone: "error", es: { title: "PIN incorrecto", message: "" }, en: { title: "Wrong PIN", message: "" } },
   ADMIN_LOCKOUT: { kind: "dialog", tone: "error", es: { title: "Demasiados intentos", message: "Espera {minutes} min para reintentar." }, en: { title: "Too many attempts", message: "Wait {minutes} min to retry." } },
   ADMIN_PIN_SET: { kind: "toast", tone: "success", es: { title: "PIN configurado", message: "" }, en: { title: "PIN set", message: "" } },
+  ADMIN_PIN_PROVISIONED: {
+    kind: "toast",
+    tone: "success",
+    es: { title: "PIN del empleador instalado", message: "El código ya no se puede volver a usar." },
+    en: { title: "Employer PIN installed", message: "That code cannot be used again." },
+  },
   DISCLOSURE_ACCEPTED: { kind: "toast", tone: "success", es: { title: "Aviso aceptado", message: "" }, en: { title: "Notice accepted", message: "" } },
   LEDGER_BROKEN: {
     kind: "dialog",
@@ -128,6 +134,12 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     // FieldCrypto v1.3 §12 (microcopy exacta).
     FIELD_CRYPTO_UNAVAILABLE: "No se puede guardar la nota: el cifrado no está disponible en este dispositivo. Inténtalo cuando el aviso de cifrado desaparezca.",
     NOT_ORPHAN: "Esta jornada no está en revisión por abandono.",
+    CODE_INVALID: "El código del empleador no es válido.",
+    CODE_EXPIRED: "El código del empleador ya caducó.",
+    CODE_USED: "Ese código ya se usó en este teléfono.",
+    ALREADY_PROVISIONED: "Este teléfono ya tiene un PIN del empleador. Desbloquéalo para cambiarlo.",
+    EMPLOYER_KEY_MISMATCH: "Este código no es de la clave del empleador que ya está en el teléfono. Desbloquea la zona admin para cambiar de clave.",
+    PORTAL_URL_INVALID: "La dirección del portal tiene que ser https.",
   },
   en: {
     NO_OPEN_SESSION: "There is no open shift.",
@@ -176,5 +188,11 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     SPLIT_INSIDE_BREAK: "The split cannot fall during lunch or a break.",
     FIELD_CRYPTO_UNAVAILABLE: "The note cannot be saved: encryption is not available on this device. Try again when the encryption notice is gone.",
     NOT_ORPHAN: "This shift is not in review for abandonment.",
+    CODE_INVALID: "The employer code is not valid.",
+    CODE_EXPIRED: "The employer code has expired.",
+    CODE_USED: "That code was already used on this phone.",
+    ALREADY_PROVISIONED: "This phone already has an employer PIN. Unlock it to replace it.",
+    EMPLOYER_KEY_MISMATCH: "This code is not from the employer key already on this phone. Unlock the admin area to change the key.",
+    PORTAL_URL_INVALID: "The portal address has to be https.",
   },
 };

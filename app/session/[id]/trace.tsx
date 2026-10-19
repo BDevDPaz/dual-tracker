@@ -1,18 +1,15 @@
 /**
- * session/[id]/trace.tsx — Rastro (Producto §5.10). NUEVO.
- * Lista de puntos de TraceRecorder + hechos ENTER/EXIT de una sesión. Capas
- * Perímetro / Miga de pan. Precisión visible por punto; si accuracy > radio
- * (o el hecho vino marcado no fiable) se pinta como "No fiable". Solo lee:
- * no hay botón de grabar.
- * TODO(propuesta): vista de mapa (react-native-maps no está en las
- * dependencias de los linajes); hoy se presenta como lista.
+ * session/[id]/trace.tsx — Rastro (Producto §5.10).
+ * Plano local (sin teselas, sin enviar coordenadas) y lista de puntos.
+ * Capas Perímetro / Miga de pan. Precisión visible por punto. Solo lee.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Chip, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
+import { TracePlane, type TraceSiteMark } from "../../../src/components/trace/TracePlane";
 import { TOKENS, FONT, ICON } from "../../../src/constants/theme";
 import type { SpatialFact } from "../../../src/core/contracts";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
@@ -35,10 +32,27 @@ export default function TraceScreen() {
   const updatedAt = session?.bookkeeping.updatedAtMs ?? 0;
   const facts = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
 
-  const all = facts.data ?? [];
+  const all = useMemo(() => facts.data ?? [], [facts.data]);
   const visible = all.filter((f) => (f.type === "BREADCRUMB" ? layers.BREADCRUMB : layers.PERIMETER));
   const crumbs = all.filter((f) => f.type === "BREADCRUMB");
   const isUnreliable = (f: SpatialFact) => !f.reliable || (f.accuracyM !== null && f.accuracyM > radius);
+  const gapKey = `${state.settings.company.traceRetentionDays}:${Object.keys(state.packs.byId).join(",")}`;
+  const gaps = useMemo(() => (gapKey && facts.data ? queries.traceGaps(facts.data) : []), [facts.data, queries, gapKey]);
+  const siteMarks = useMemo(() => {
+    const ids = new Set<number>();
+    if (session?.siteId) ids.add(session.siteId);
+    for (const f of all) if (typeof f.siteId === "number") ids.add(f.siteId);
+    const marks: TraceSiteMark[] = [];
+    for (const id of ids) {
+      const s = selectSiteById(state, id);
+      if (!s || s.targetLat === null || s.targetLon === null) continue;
+      if (s.unreadableFields?.includes("coords")) continue;
+      marks.push({ id: s.id, lat: s.targetLat, lon: s.targetLon, radiusM: s.radiusM ?? state.settings.company.defaultRadiusM });
+    }
+    return marks;
+  }, [all, session?.siteId, state]);
+  const mapFacts = visible.filter((f) => f.lat !== null && f.lon !== null && !f.unreadable);
+  const mapGaps = layers.BREADCRUMB ? gaps : [];
 
   // FieldCrypto §14: coordenadas de una clave perdida → texto de ilegible (nunca ciphertext).
   const unreadable = all.some((f) => f.unreadable);
@@ -54,6 +68,10 @@ export default function TraceScreen() {
   return (
     <ScreenContainer edges={SAFE_EDGES.stack}>
       {unreadable ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableTrace")} /> : null}
+      <Text style={[styles.offline, { color: TOKENS.colors.text.secondary }]}>{t("trace.offline")}</Text>
+      {mapGaps.some((g) => g.kind === "retention") ? <ScreenStatusBanner status="degraded" message={t("trace.retentionGap")} /> : null}
+      {mapGaps.some((g) => g.kind === "recording") ? <ScreenStatusBanner status="degraded" message={t("trace.recordingGap")} /> : null}
+      {mapFacts.length > 0 || siteMarks.length > 0 ? <TracePlane facts={mapFacts} sites={siteMarks} gaps={mapGaps} /> : null}
       <View style={styles.layers}>
         {(["PERIMETER", "BREADCRUMB"] as const).map((l) => (
           <Chip
@@ -99,6 +117,7 @@ export default function TraceScreen() {
 }
 
 const styles = StyleSheet.create({
+  offline: { ...FONT.caption, marginBottom: TOKENS.spacing.sm },
   list: { flex: 1 },
   listContent: { flexGrow: 1 },
   layers: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },

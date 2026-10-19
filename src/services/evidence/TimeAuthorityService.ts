@@ -11,10 +11,10 @@
  *
  * Origen: sustituye a src/utils/timeProvider.ts de GEOTrack.
  */
+import { CLOCK_DRIFT_THRESHOLD_MS, TIME_SOURCE_AGREEMENT_MS } from "../../config/provisional";
 import { parseTimestamp, toDateString } from "../../utils/dateUtils";
 
-/** Umbral de deriva (propuesta: "por ejemplo 3 minutos"). */
-export const CLOCK_DRIFT_THRESHOLD_MS = 3 * 60 * 1000;
+export { CLOCK_DRIFT_THRESHOLD_MS, TIME_SOURCE_AGREEMENT_MS };
 
 const monotonicNow = (): number =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -31,9 +31,6 @@ let lastReferenceOffsetMs: number | null = null;
  * bloquea VALIDADA por este camino.
  */
 export const TRUSTED_TIME_HOSTS = ["https://www.google.com/generate_204", "https://www.cloudflare.com/cdn-cgi/trace"] as const;
-
-/** Acuerdo máximo entre las dos fuentes (cabecera HTTP Date + ida y vuelta). */
-export const TIME_SOURCE_AGREEMENT_MS = 5_000;
 
 /** URL opcional de una sola fuente (pruebas y configuración manual). */
 let referenceUrl: string | null = null;

@@ -12,6 +12,7 @@
  * periodId "W<YYYY-MM-DD>", ISO de nowIso() y cabecera HTTP Date.
  */
 import type { CompanyPolicy, SessionRecord } from "../src/core/contracts";
+import { DEFAULT_TRACE_RETENTION_DAYS } from "../src/config/provisional";
 import { setLanguage } from "../src/i18n";
 import { PayrollEngineService } from "../src/services/domain/PayrollEngineService";
 
@@ -167,7 +168,7 @@ const company: CompanyPolicy = {
   overtimePolicyId: "CA_DAILY8_WEEKLY40_V1",
   defaultRadiusM: 200,
   destinationLimit: 10,
-  traceRetentionDays: 90,
+  traceRetentionDays: DEFAULT_TRACE_RETENTION_DAYS,
   traceMode: "PERIMETER",
   exitDebounceMs: 120000,
   exitDecisionWindowMs: 600000,

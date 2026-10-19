@@ -29,6 +29,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# clave Ed25519 del empleador (scripts/provision-admin-pin.ts)
+employer-key.json
+employer-key.retired-*.json
+
 # typescript
 *.tsbuildinfo
 

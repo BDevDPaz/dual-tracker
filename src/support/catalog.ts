@@ -84,10 +84,10 @@ export const FLOWS: Record<FlowId, FlowGuide> = {
 export const SCREEN_GUIDES: Record<ScreenId, ScreenGuide> = {
   today: screen("today", ["startManual", "startGeofence", "arrival", "transfer", "lunch", "closeManual", "closeAuto"], ["cta.startDay", "modals.exitTransfer"]),
   history: screen("history", ["forgotClock", "readStatement", "states"], ["history.title", "support.marks.continuesMonday"]),
-  reports: screen("reports", ["sealShare", "readStatement"], ["reports.generate", "reports.packEarly"]),
-  settings: screen("settings", [], ["support.title", "onboarding.language"]),
+  reports: screen("reports", ["sealShare", "readStatement"], ["reports.periodCustom", "reports.weekMath"]),
+  settings: screen("settings", [], ["settings.pinLocal", "settings.portalUnconfigured"]),
   session: screen("session", ["editNote", "forgotClock"], ["common.edit", "modals.editNote"]),
-  trace: screen("trace", ["arrival"], ["trace.title", "trace.unreliable"]),
+  trace: screen("trace", ["arrival"], ["trace.offline", "trace.retentionGap"]),
   sites: screen("sites", ["startManual", "transfer"], ["sites.newSite", "cta.manageSites"]),
   siteNew: screen("siteNew", ["startManual"], ["sites.address", "modals.activateGeofence"]),
   siteEdit: screen("siteEdit", ["startManual"], ["common.save", "sites.radius"]),

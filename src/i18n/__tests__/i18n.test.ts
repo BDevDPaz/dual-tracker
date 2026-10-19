@@ -46,6 +46,8 @@ describe("i18n", () => {
       expect(t(k, {}, "es")).not.toBe(k);
       expect(t(k, {}, "en")).not.toBe(k);
     }
+    expect(t("settings.pinLocal", {}, "es")).toBe("PIN local (no aprovisionado por empleador)");
+    expect(t("settings.portalUnconfigured", {}, "es")).toBe("Portal del empleador: no configurado");
     expect(t("a11y.toast", { message: "x" }, "es")).toBe("Aviso: x");
     expect(t("integrity.a11yLabel", { label: "Validated" }, "en")).toBe("Integrity: Validated");
   });

@@ -30,7 +30,7 @@ export function createInitialState(): DualTrackerState {
     sites: { byId: {}, order: [] },
     settings: { profile: { ...DEFAULT_PROFILE }, company: { ...DEFAULT_COMPANY_POLICY }, device: { ...DEFAULT_DEVICE_PREFS } },
     health: { ...INITIAL_HEALTH },
-    admin: { hasPin: false, isUnlocked: false, unlockedUntilMs: null, lockedUntilMs: null, status: "IDLE" },
+    admin: { hasPin: false, pinOrigin: "UNSET", isUnlocked: false, unlockedUntilMs: null, lockedUntilMs: null, status: "IDLE" },
     packs: { byId: {}, order: [], sharedIds: [] },
     feedback: { pending: [] },
     uiRequests: { openExitModal: false, openDailySetup: null },

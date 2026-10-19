@@ -25,7 +25,8 @@ import type {
 } from "../contracts";
 import { Store } from "../store";
 import { routeIntent } from "../../services/application/intentRouter";
-import { previewPayroll } from "../../services/application/useCases";
+import { previewPayroll, previewPayrollRange } from "../../services/application/useCases";
+import { OfflineQueueService } from "../../services/persistence/OfflineQueueService";
 import { DualDisclosureService } from "../../services/domain/DualDisclosureService";
 import { IntegrityLedgerService } from "../../services/domain/IntegrityLedgerService";
 import { PayrollEngineService } from "../../services/domain/PayrollEngineService";
@@ -33,6 +34,7 @@ import { PAYROLL_POLICIES, getPayrollPolicy } from "../../services/domain/payrol
 import { EvidencePackService } from "../../services/evidence/EvidencePackService";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../../services/evidence/TraceRecorderService";
+import { classifyBreadcrumbGaps } from "../../services/evidence/traceGaps";
 import { FeedbackService } from "../../services/application/FeedbackService";
 import { PersistenceService } from "../../services/persistence/PersistenceService";
 import { useLanguage } from "../../i18n";
@@ -43,8 +45,20 @@ import { getWeekEnd } from "../../utils/dateUtils";
 const queries = {
   loadSessionLedger: (sessionId: number): Promise<LedgerEntry[]> => IntegrityLedgerService.listForSession(sessionId),
   loadTrace: (sessionId: number): Promise<SpatialFact[]> => TraceRecorderService.listForSession(sessionId),
+  /** Huecos de la miga ya descifrada. No sale del teléfono. */
+  traceGaps: (facts: SpatialFact[]) => {
+    const state = Store.getState();
+    const packs = Object.values(state.packs.byId).map((p) => ({
+      periodStart: p.manifest.periodStart,
+      periodEnd: p.manifest.periodEnd,
+    }));
+    const crumbs = facts.filter((f) => f.type === "BREADCRUMB").map((f) => ({ timestampMs: f.timestampMs }));
+    return classifyBreadcrumbGaps(crumbs, packs, TimeAuthorityService.now(), state.settings.company.traceRetentionDays);
+  },
   traceDistanceMeters: (facts: SpatialFact[]): number => TraceRecorderService.distanceMeters(facts),
   previewPeriod: (periodStart: number, periodEnd: number): Promise<PayrollStatement> => previewPayroll(periodStart, periodEnd),
+  previewRange: (periodStart: number, periodEnd: number) => previewPayrollRange(periodStart, periodEnd),
+  listOfflineQueue: () => OfflineQueueService.list(),
   sealFreshness: (periodStart: number, periodEnd: number) => EvidencePackService.describeFreshness(periodStart, periodEnd),
   /**
    * Líneas de una sesión en cada semana que toca. Una jornada que cruza el

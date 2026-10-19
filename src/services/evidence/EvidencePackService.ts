@@ -369,7 +369,7 @@ export const EvidencePackService = {
         );
       });
       await PersistenceService.insertPack(pack);
-      await OfflineQueueService.enqueue(packId);
+      await OfflineQueueService.enqueue(packId, packHash);
       StoreActions.packUpserted(pack);
       return { ok: true, data: pack, reused: false };
     } catch (error) {

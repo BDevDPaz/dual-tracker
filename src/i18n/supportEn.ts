@@ -255,15 +255,15 @@ export const supportEn: typeof supportEs = {
     },
     reports: {
       title: "Reports",
-      intro: "Reports summarizes the week, warns you if the seal is provisional, and generates the pack from closed shifts.",
-      s0: { title: "Generate", body: "Generate pack seals what is closed. A shift that is still open is left out until you close it." },
-      s1: { title: "The amber banner", body: "If you sealed before the week ended, the banner says so. You can generate another later; the first one is kept." },
+      intro: "Reports summarizes a range (week, pay period, month, or dates) split into work weeks. Overtime is not mixed across weeks. A seal is still one week.",
+      s0: { title: "The range", body: "Current week and previous week match the work calendar. The pay period is the 1st–15th or the 16th through the end of the month. Custom asks for two dates. More than a year is rejected." },
+      s1: { title: "Seal", body: "Each week is sealed on its own, with the same calculation as always. The sum above does not reallocate overtime." },
     },
     settings: {
       title: "Settings",
-      intro: "Settings stores the profile and the language, shows each week's retention status, and opens Health, sites, and this Support section.",
-      s0: { title: "Support", body: "From here you open the manual, the questions, and practice mode." },
-      s1: { title: "Language", body: "Español or English changes the interface at once, including any guide you have open. It does not rewrite a sealed PDF." },
+      intro: "Settings stores the profile and language, the PIN (local or employer), the portal, and retention status. It also opens Health, sites, and Support.",
+      s0: { title: "The PIN", body: "Until the employer provisions the phone, the first person sets a local PIN. The label says so. A one-time code is pasted once and it expires." },
+      s1: { title: "The portal", body: "With no https address, nothing is sent: Employer portal: not configured. Turning it on needs the admin area and an https address." },
     },
     session: {
       title: "Session",
@@ -273,9 +273,9 @@ export const supportEn: typeof supportEs = {
     },
     trace: {
       title: "Trace",
-      intro: "The trace lists entries, exits, and breadcrumbs for that shift. Nothing is recorded from this screen.",
-      s0: { title: "Layers", body: "You can show the perimeter, the breadcrumb, or both. If the shift was geofence only, the list can be empty." },
-      s1: { title: "Unreliable", body: "A point with poor accuracy, or marked unreliable, is flagged. It is not shown as a clean arrival." },
+      intro: "The trace draws the shift on the phone, without a street map and without sending coordinates. The point list stays underneath.",
+      s0: { title: "The plane", body: "The line is the breadcrumb. The circle is the geofence. The arrival mark is an entry; another mark is travel to the next site. An exit is a dot. North is up." },
+      s1: { title: "Gaps", body: "A missing stretch is not invented. If retention already purged it, the notice says so. An unreliable point is not shown as a clean arrival." },
     },
     sites: {
       title: "Job sites",
@@ -455,7 +455,23 @@ export const supportEn: typeof supportEs = {
     },
     retentionBoth: {
       q: "When is the trail deleted?",
-      a: "Only if the period was already exported and the retention days have passed since that period ended. Both. An unexported period is left alone. Entries and exits are kept.",
+      a: "Only if the period was already exported and the retention days have passed since that period ended. Both. An unexported period is left alone. Entries and exits are kept. On the plane, what was deleted shows as a gap, not as an invented line.",
+    },
+    employerPin: {
+      q: "Who sets the admin PIN?",
+      a: "If the employer has not provisioned the phone, the first person to use it sets it. Settings calls that a local PIN (not provisioned by the employer). A one-time code, which expires, installs the employer PIN. The PIN is not inside the code: it is told separately. The first valid code pins the employer key. A different key is rejected until you unlock the admin area. After several wrong tries the phone waits; the lockout steps stay the same.",
+    },
+    employerPortal: {
+      q: "Are packs sent to a portal?",
+      a: "No, unless the admin area enters an https address and turns sending on. Without that, Settings says Employer portal: not configured and nothing leaves the phone. The queue shows pending, sent, or failed. A failure waits and retries. The PDF is not uploaded: the signed manifest, the pay statement, and the evidence summary are sent.",
+    },
+    reportRange: {
+      q: "Can I see more than one week in Reports?",
+      a: "Yes. Current week, previous week, pay period, month, or two dates. The end cannot be before the start, and the range cannot exceed one year. Overtime is calculated week by week, the same as the pack. Sealing is still one week.",
+    },
+    offlineMap: {
+      q: "Does the trail map use the internet?",
+      a: "No. There are no streets and no maps key. The plane is drawn from points already on the phone. A purged stretch stays a gap. Encrypted coordinates are read only here, to draw them.",
     },
   },
   trouble: {

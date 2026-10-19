@@ -253,15 +253,15 @@ export const supportEs = {
     },
     reports: {
       title: "Reportes",
-      intro: "Reportes resume la semana, avisa si el sello es provisional y genera el expediente con las jornadas cerradas.",
-      s0: { title: "Generar", body: "Generar expediente sella lo cerrado. Una jornada todavía abierta no entra hasta que la cierres." },
-      s1: { title: "El aviso ámbar", body: "Si sellaste antes del fin de semana, el aviso lo dice. Puedes generar otro más tarde; el primero se conserva." },
+      intro: "Reportes resume un rango (semana, quincena, mes o fechas) partido en semanas laborales. Las horas extra no se mezclan entre semanas. El sello sigue siendo de una semana.",
+      s0: { title: "El rango", body: "Semana actual y semana anterior coinciden con el calendario laboral. Quincena es del 1 al 15 o del 16 al fin de mes. Personalizado pide dos fechas. Más de un año no se acepta." },
+      s1: { title: "Sellar", body: "Cada semana se sella sola, con el mismo cálculo de siempre. La suma de arriba no vuelve a repartir las horas extra." },
     },
     settings: {
       title: "Ajustes",
-      intro: "Ajustes guarda el perfil y el idioma, muestra el estado de retención de cada semana y abre Salud, destinos y esta sección de Soporte.",
-      s0: { title: "Soporte", body: "Desde aquí entras al manual, a las preguntas y al modo práctica." },
-      s1: { title: "Idioma", body: "Español o English cambian la interfaz al momento, también las guías que tengas abiertas. No reescribe un PDF ya sellado." },
+      intro: "Ajustes guarda el perfil y el idioma, el PIN (local o del empleador), el portal y el estado de retención. También abre Salud, destinos y Soporte.",
+      s0: { title: "El PIN", body: "Hasta que el empleador aprovisione un código, el primer usuario fija un PIN local. La etiqueta lo dice. El código de un solo uso se pega una vez y caduca." },
+      s1: { title: "El portal", body: "Si no hay dirección https, no se envía nada: «Portal del empleador: no configurado». Encenderlo pide la zona admin y una dirección https." },
     },
     session: {
       title: "Sesión",
@@ -271,9 +271,9 @@ export const supportEs = {
     },
     trace: {
       title: "Rastro",
-      intro: "El rastro lista entradas, salidas y migas de esa jornada. Desde aquí no se graba nada.",
-      s0: { title: "Capas", body: "Puedes ver el perímetro, la miga de pan o las dos. Si solo hubo geocerca, la lista puede estar vacía." },
-      s1: { title: "No fiable", body: "Un punto con poca precisión, o marcado no fiable, se señala. No se presenta como una llegada limpia." },
+      intro: "El rastro dibuja la jornada en el teléfono, sin mapa de calles y sin enviar coordenadas. Debajo sigue la lista de puntos.",
+      s0: { title: "El plano", body: "La línea es la miga. El círculo es la geocerca. La marca de llegada es la entrada; otra marca es un traslado. La salida es un punto. El norte queda arriba." },
+      s1: { title: "Huecos", body: "Si falta un tramo, no se inventa. Si ya se expurgó por retención, el aviso lo dice. Un punto no fiable no se presenta como llegada limpia." },
     },
     sites: {
       title: "Destinos",
@@ -453,7 +453,23 @@ export const supportEs = {
     },
     retentionBoth: {
       q: "¿Cuándo se borra el rastro?",
-      a: "Solo si el periodo ya se exportó y pasaron los días de retención desde el fin de ese periodo. Las dos cosas. Un periodo sin exportar no se toca. Las entradas y salidas se conservan.",
+      a: "Solo si el periodo ya se exportó y pasaron los días de retención desde el fin de ese periodo. Las dos cosas. Un periodo sin exportar no se toca. Las entradas y salidas se conservan. En el plano, lo borrado se ve como un hueco, no como una línea inventada.",
+    },
+    employerPin: {
+      q: "¿Quién pone el PIN de administración?",
+      a: "Si el empleador no ha aprovisionado el teléfono, lo fija la primera persona que lo use. Ajustes lo llama PIN local (no aprovisionado por empleador). Un código de un solo uso, que caduca, deja el PIN del empleador. El PIN no va dentro del código: te lo dicen aparte. El primer código válido fija la clave del empleador. Una clave distinta no entra hasta que desbloquees la zona admin. Tras varios fallos el teléfono espera; los escalones siguen igual.",
+    },
+    employerPortal: {
+      q: "¿Se envían los expedientes a un portal?",
+      a: "No, salvo que la zona admin escriba una dirección https y encienda el envío. Sin eso, Ajustes dice Portal del empleador: no configurado y no sale nada del teléfono. La cola muestra pendiente, enviado o falló. Un fallo espera y reintenta. El PDF no se sube: se manda el manifiesto firmado, el estado de nómina y el resumen de evidencia.",
+    },
+    reportRange: {
+      q: "¿Puedo ver más de una semana en Reportes?",
+      a: "Sí. Semana actual, semana anterior, quincena, mes o dos fechas. El fin no puede ser anterior al inicio ni el rango pasar de un año. Las horas extra se calculan semana por semana, como el expediente. Sellar sigue siendo de una semana.",
+    },
+    offlineMap: {
+      q: "¿El mapa del rastro usa internet?",
+      a: "No. No hay calles ni clave de mapas. El plano se dibuja con los puntos que ya están en el teléfono. Un tramo expurgado queda como hueco. Las coordenadas cifradas solo se leen aquí para pintarlas.",
     },
   },
   trouble: {

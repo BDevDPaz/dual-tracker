@@ -81,6 +81,10 @@ export const FAQ_IDS = [
   "clockDrift",
   "packSignature",
   "retentionBoth",
+  "employerPin",
+  "employerPortal",
+  "reportRange",
+  "offlineMap",
 ] as const;
 
 export type FaqId = (typeof FAQ_IDS)[number];

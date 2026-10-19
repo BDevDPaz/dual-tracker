@@ -18,7 +18,14 @@ import type {
   SettingsPatch,
   SettingsSnapshot,
 } from "../../core/contracts";
-import { DEFAULT_EXIT_DEBOUNCE_MS, DEFAULT_SITE_RADIUS_METERS } from "../../constants/geolocation";
+import { DEFAULT_SITE_RADIUS_METERS } from "../../constants/geolocation";
+import { parsePortalUrl } from "./employerPortal";
+import {
+  DEFAULT_DESTINATION_LIMIT,
+  DEFAULT_EXIT_DEBOUNCE_MS,
+  DEFAULT_EXIT_DECISION_WINDOW_MS,
+  DEFAULT_TRACE_RETENTION_DAYS,
+} from "../../config/provisional";
 import { bootstrapLocaleTag, resolveInitialLanguage } from "../../i18n/locale";
 import { DEFAULT_PAYROLL_POLICY_ID } from "../domain/payrollPolicies";
 import { markPersisted } from "../../core/refresh/dataRevision";
@@ -45,13 +52,13 @@ export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
   overtimeMultiplier: 1.5,
   overtimePolicyId: DEFAULT_PAYROLL_POLICY_ID,
   defaultRadiusM: DEFAULT_SITE_RADIUS_METERS,
-  // TODO(política): la propuesta no fija el límite de destinos.
-  destinationLimit: 20,
-  traceRetentionDays: 90,
+  destinationLimit: DEFAULT_DESTINATION_LIMIT,
+  traceRetentionDays: DEFAULT_TRACE_RETENTION_DAYS,
   traceMode: "PERIMETER",
   exitDebounceMs: DEFAULT_EXIT_DEBOUNCE_MS,
-  // Heredado de BackgroundTasks.ts de GEOTrack (FAILSAFE_THRESHOLD_MS = 15 min).
-  exitDecisionWindowMs: 15 * 60 * 1000,
+  exitDecisionWindowMs: DEFAULT_EXIT_DECISION_WINDOW_MS,
+  employerPortalEnabled: false,
+  employerPortalUrl: null,
   exitDecisionExpiry: "AUTO_IF_CONFIRMED_OUTSIDE",
   // Replica el comportamiento heredado: el tránsito se contaba dentro de la
   // jornada a tarifa normal. TODO: confirmar con el empleador.
@@ -125,7 +132,7 @@ export const SettingsService = {
     current: SettingsSnapshot,
     patch: SettingsPatch,
     ctx: { adminUnlocked: boolean },
-  ): Promise<{ ok: true; next: SettingsSnapshot } | { ok: false; code: "ADMIN_LOCKED" | "INVALID_VALUE" }> {
+  ): Promise<{ ok: true; next: SettingsSnapshot } | { ok: false; code: "ADMIN_LOCKED" | "INVALID_VALUE" | "PORTAL_URL_INVALID" }> {
     if (patch.company && !ctx.adminUnlocked) return { ok: false, code: "ADMIN_LOCKED" };
     // El historial de calendario solo cambia por el caso de uso de §5.1 (prospectivo + ledger).
     if (patch.company && "calendarHistory" in patch.company) return { ok: false, code: "INVALID_VALUE" };
@@ -143,6 +150,10 @@ export const SettingsService = {
       return { ok: false, code: "INVALID_VALUE" };
     }
     if (!(next.company.defaultRadiusM > 0)) return { ok: false, code: "INVALID_VALUE" };
+    const portalUrl = next.company.employerPortalUrl ?? "";
+    const portalParsed = parsePortalUrl(portalUrl);
+    if (portalUrl.trim() && !portalParsed.ok) return { ok: false, code: "PORTAL_URL_INVALID" };
+    if (next.company.employerPortalEnabled === true && !portalParsed.ok) return { ok: false, code: "PORTAL_URL_INVALID" };
     if (next.profile.theme !== undefined && !["system", "dark", "light"].includes(next.profile.theme)) {
       return { ok: false, code: "INVALID_VALUE" };
     }

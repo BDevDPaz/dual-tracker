@@ -192,6 +192,7 @@ export function boot(): Promise<void> {
         settings,
         osKillDetected: osKill,
         hasPin: await SecurityService.hasPin(),
+        pinOrigin: await SecurityService.pinOrigin(),
         nowMs: now,
       });
       if (osKill) FeedbackService.emit("OS_KILL_RECOVERED");
