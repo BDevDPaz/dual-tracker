@@ -66,6 +66,13 @@ export interface CompanyPolicy {
   exitDebounceMs: number;
   /** Plazo de decisión tras la primera salida (EXIT_DECISION_TIMER). */
   exitDecisionWindowMs: number;
+  /**
+   * Portal del empleador (tanda 2). Ausente = desactivado y sin URL.
+   * No se envía nada si no hay una URL https explícita y la bandera en true.
+   */
+  employerPortalEnabled?: boolean;
+  /** URL https del portal. Vacía o null = no configurado. */
+  employerPortalUrl?: string | null;
   /** Qué pasa si el plazo expira (§7.2: "CONFLICT o AUTO según política"). */
   exitDecisionExpiry: "CONFLICT" | "AUTO_IF_CONFIRMED_OUTSIDE";
   // TransitPolicy (§5.6)

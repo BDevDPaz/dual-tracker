@@ -18,7 +18,7 @@ import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
-import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   selectAdmin,
   selectCalendarHistory,
@@ -44,6 +44,8 @@ interface Draft {
   traceRetentionDays: string;
   traceMode: TraceMode;
   defaultRadiusM: string;
+  portalUrl: string;
+  portalEnabled: boolean;
 }
 
 export default function SettingsScreen() {
@@ -71,12 +73,16 @@ export default function SettingsScreen() {
       traceRetentionDays: String(settings.company.traceRetentionDays),
       traceMode: settings.company.traceMode,
       defaultRadiusM: String(settings.company.defaultRadiusM),
+      portalUrl: settings.company.employerPortalUrl ?? "",
+      portalEnabled: settings.company.employerPortalEnabled === true,
     }),
     [settings],
   );
   const [draft, setDraft] = useState<Draft>(initial);
   const [pin, setPin] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const queue = useQuery(() => queries.listOfflineQueue(), [settings.company.employerPortalUrl ?? "", settings.company.employerPortalEnabled === true], ["packs", "settings"]);
   // El idioma no vive en el borrador: lo pinta LanguageSwitch y se guarda al
   // pulsar. Un SET_LANGUAGE no debe borrar el resto si aún no se pulsó Guardar.
   const seen = useRef(initial);
@@ -110,6 +116,8 @@ export default function SettingsScreen() {
         traceRetentionDays: Math.round(num(draft.traceRetentionDays)),
         traceMode: draft.traceMode,
         defaultRadiusM: Math.round(num(draft.defaultRadiusM)),
+        employerPortalUrl: draft.portalUrl.trim() ? draft.portalUrl.trim() : null,
+        employerPortalEnabled: draft.portalEnabled,
       };
     }
     setBusy(true);
@@ -124,6 +132,13 @@ export default function SettingsScreen() {
     setBusy(false);
   };
 
+  const onProvision = async () => {
+    setBusy(true);
+    await emit({ type: "PROVISION_ADMIN_PIN", code: code.trim() });
+    setCode("");
+    setBusy(false);
+  };
+
   const permTone = (ok: boolean) => (ok ? "success" : "warning");
   const profileChain = useFormFocusChain(FORM_FIELDS.settingsProfile, { onSubmit: () => void onSave(), canSubmit: dirty && !busy });
   const pinChain = useFormFocusChain(FORM_FIELDS.settingsPin, {
@@ -131,6 +146,15 @@ export default function SettingsScreen() {
     canSubmit: pin.length >= PIN_MIN_LENGTH && !busy && admin.status !== "locked_out",
   });
   const adminChain = useFormFocusChain(FORM_FIELDS.settingsAdmin, { onSubmit: () => void onSave(), canSubmit: dirty && !busy && unlocked });
+  const provisionChain = useFormFocusChain(FORM_FIELDS.settingsProvision, {
+    onSubmit: () => void onProvision(),
+    canSubmit: code.trim().length > 0 && !busy,
+  });
+  const portalLabel = !settings.company.employerPortalUrl?.trim()
+    ? t("settings.portalUnconfigured")
+    : settings.company.employerPortalEnabled === true
+      ? t("settings.portalActive")
+      : t("settings.portalDisabled");
 
   return (
     <ScreenScroll
@@ -177,6 +201,9 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title={t("settings.admin")}>
+          <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>
+            {admin.pinOrigin === "EMPLOYER" ? t("settings.pinEmployer") : t("settings.pinLocal")}
+          </Text>
           {!unlocked ? (
             <Card style={styles.card}>
               <View style={styles.statusRow}>
@@ -192,7 +219,6 @@ export default function SettingsScreen() {
                 isLoading={busy && admin.status === "validating"}
                 onPress={() => void onAdminPin()}
               />
-              {/* TODO(propuesta): aprovisionamiento del PIN por el empleador (hoy lo fija el primer usuario del dispositivo). */}
             </Card>
           ) : (
             <Card style={styles.card}>
@@ -218,10 +244,32 @@ export default function SettingsScreen() {
               </View>
               <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} />
               <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} />
+              <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
+              <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.portalOn")}</Text>
+              <View style={styles.row}>
+                <Chip label={t("settings.portalOff")} selected={!draft.portalEnabled} onPress={() => set("portalEnabled", false)} />
+                <Chip label={t("settings.portalOn")} selected={draft.portalEnabled} onPress={() => set("portalEnabled", true)} />
+              </View>
               <WorkCalendarBlock />
               <Button label={t("settings.lock")} variant="ghost" size="sm" iconName="lock-closed-outline" onPress={() => void emit({ type: "LOCK_ADMIN" })} />
             </Card>
           )}
+          <Card style={styles.card}>
+            <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("settings.provisionHint")}</Text>
+            <Input {...provisionChain.props("code")} label={t("settings.provisionCode")} value={code} onChangeText={setCode} autoCapitalize="none" autoCorrect={false} />
+            <Button label={t("settings.provisionSubmit")} disabled={!code.trim() || busy} isLoading={busy} onPress={() => void onProvision()} />
+          </Card>
+          <Card style={styles.card}>
+            <Text style={[styles.hint, { color: TOKENS.colors.text.primary }]}>{portalLabel}</Text>
+            <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("settings.portalQueue")}</Text>
+            {(queue.data ?? []).length === 0 ? (
+              <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("settings.queueEmpty")}</Text>
+            ) : (
+              (queue.data ?? []).map((item) => (
+                <KeyValueRow key={item.id} label={item.packId} value={t(`settings.queue.${item.status}`)} />
+              ))
+            )}
+          </Card>
         </Section>
 
         <Section title={t("settings.retentionStatus")}>

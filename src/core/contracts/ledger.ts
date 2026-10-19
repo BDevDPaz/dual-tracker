@@ -37,7 +37,9 @@ export type LedgerIntent =
   /** Muestra de hora de red (deriva). No cierra la jornada. */
   | "CLOCK_SAMPLED"
   /** Expurgo de miga de pan tras exportar el periodo y cumplir la retención. */
-  | "TRACE_PURGED";
+  | "TRACE_PURGED"
+  /** El empleador dejó el PIN admin con un código de un solo uso. No guarda el PIN ni el hash. */
+  | "ADMIN_PIN_PROVISIONED";
 
 export interface LedgerEntry {
   id: number;

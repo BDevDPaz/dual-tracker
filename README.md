@@ -233,7 +233,7 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
   - El hecho A son los tiempos originales capturados antes del ajuste; el hecho B, los vigentes.
   - La diferencia y el impacto en nómina los calcula un selector con `PayrollEngineService`.
   - El back queda bloqueado (`beforeRemove`) mientras haya conflictos abiertos.
-- **Rastro**: se muestra como lista, porque no hay dependencia de mapas en los linajes.
+- **Rastro**: lista de puntos y, encima, un plano local dibujado en el teléfono (sin teselas ni clave de mapas). Ver `docs/TANDA2.md`.
 - **Evidencia**
   - Los puntos de miga de pan no se escriben en el ledger (se resumen en el pack). El resto de hechos espaciales sí.
   - OS_KILL se detecta con un hueco de heartbeat de más de 45 min y solo deja asiento en el ledger.
@@ -336,21 +336,26 @@ Detalle y checklist de teléfono: `docs/CONFIABILIDAD_TANDA1.md`.
 - Retención: se expurga solo si el periodo está exportado y pasaron los días mínimos. Las dos condiciones.
 - Traducción inglesa: completa (`en.ts` tiene la misma forma que `es.ts`; la paridad la vigila Jest).
 
+## Hecho en la tanda 2
+
+Checklist de teléfono: `docs/TANDA2.md`.
+
+- PIN de administración del empleador: código de un solo uso (`DTPIN1`), caduca, no se repite, asiento `ADMIN_PIN_PROVISIONED`. Hasta entonces el primer usuario lo fija y Ajustes dice «PIN local (no aprovisionado por empleador)». Generador sin servidor: `docs/PIN_APROVISIONAMIENTO.md`.
+- Portal del empleador: POST HTTPS del expediente firmado, clave de idempotencia = `packHash`, reintentos con espera exponencial. Apagado y sin URL por defecto. Ajustes dice «Portal del empleador: no configurado». Contrato: `docs/PORTAL_EMPLEADOR.md`.
+- Reportes: semana actual, semana anterior, quincena, mes o fechas. El rango se parte en semanas laborales y cada una usa el motor de siempre. El sello sigue siendo de una semana.
+- Rastro: plano local con `react-native-svg` (miga, geocercas, entradas, salidas, traslados, norte y escala). No hay teselas ni se envían coordenadas. Un tramo expurgado se ve como hueco.
+- Cifras provisionales en un solo módulo: `src/config/provisional.ts` y `docs/VALORES_PROVISIONALES.md`.
+
 ## TODO (no especificado en las propuestas ni en el código previo)
 
 Se marcan en el código como `TODO(propuesta)`:
 
 - **Seguridad**
   - Cifrado de campos: implementado (spec FieldCrypto v1.3). Pendiente fuera de Jest: la matriz de dispositivo D1–D15 (`docs/PRUEBAS_DISPOSITIVO.md`).
-  - Aprovisionamiento del PIN admin por el empleador (hoy lo fija el primer usuario del dispositivo).
+  - El hash del PIN sigue siendo SHA-256 iterado, no un KDF de memoria.
 - **Evidencia**
-  - Destino remoto de `OfflineQueueService` (portal del empleador): la cola existe, el envío no.
   - No hay revocación de packs en el modelo actual.
   - Efecto de nómina de un tramo cancelado, y el orden relativo AUTO frente a otras severidades de integridad.
 - **Plataforma**
   - Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico.
   - Cambio significativo de ubicación en iOS como respaldo de la geocerca.
-- **Vistas**
-  - Selector de "rango" libre en Reportes (hoy: semana actual o anterior).
-  - Vista de mapa en `session/[id]/trace`.
-- **Valores provisionales** (constantes en `src/constants/*`): perfiles de miga de pan, escalones de bloqueo del PIN, `destinationLimit = 20`, hueco de heartbeat de 45 min y ventana de decisión de salida.

@@ -1,0 +1,32 @@
+# Valores provisionales
+
+Todas las cifras que la propuesta dejó como ejemplo, o que una tanda fijó a la espera de confirmarlas, están en `src/config/provisional.ts`. El resto del código las importa. No las vuelve a escribir.
+
+La prueba `src/config/__tests__/provisionalGuard.test.ts` falla si alguna de esas constantes se declara otra vez (`const NOMBRE =`) o si se copia una de las expresiones vigiladas.
+
+Cada entrada del módulo tiene unidad, motivo y fuente. Esta tabla es el mismo catálogo.
+
+| Id | Valor | Unidad | Por qué está así | Fuente |
+| --- | --- | --- | --- | --- |
+| `pin.attemptDelayMs` | 650 | ms | Frena la fuerza bruta antes de responder | GEOTrack, 650 ms. Técnica §4.8 pide retardo sin cifra |
+| `pin.hashIterations` | 1000 | rondas | SHA-256 con sal, no un KDF de memoria | Técnica §4.8. El TODO de KDF nativo sigue abierto |
+| `pin.minLength` | 6 | caracteres | Sustituye el demo de 4 dígitos | Técnica §4.8 y Producto §4 |
+| `pin.lockoutSteps` | 3→30 s, 5→5 min, 8→30 min, 10→24 h | fallos → espera | Escalera progresiva | Técnica §4.8 sin cifras. Se conservan los escalones ya usados |
+| `pin.adminUnlockTtlMs` | 10 min | ms | La zona admin caduca | Técnica §4.8 |
+| `pin.provisionDefaultTtlMs` | 72 h | ms | Caducidad del código si el script no recibe `--hours` | Tanda 2. No hay servidor que revoque |
+| `breadcrumb.profiles` | En sitio 5 min / 50 m; traslado 30 s / 25 m; espera 2 min / 100 m | ms y metros | Más lento dentro, más frecuente en traslado | Técnica §5.4 sin cifras. Ajustar tras pruebas de batería |
+| `breadcrumb.gapFactor` | 2 | veces el intervalo en sitio | Por encima de esto el mapa no inventa el tramo | Tanda 2 |
+| `sites.destinationLimit` | 20 | destinos activos | Tope por dispositivo | Producto §5.5 nombra el límite y no fija el número |
+| `heartbeat.gapMs` | 45 min | ms | Hueco sin lectura dentro del sitio → jornada por revisar | Tanda 1 |
+| `exit.debounceMs` | 2 min | ms | Debounce antes de tratar la salida como real. La empresa puede cambiarlo | Técnica §4.3 («hoy ~2 min») |
+| `exit.decisionWindowMs` | 15 min | ms | Plazo para decidir tras la primera salida | GEOTrack 15 min. Técnica §7.2 no fija la cifra |
+| `clock.driftThresholdMs` | 3 min | ms | Por encima, la jornada abierta pasa a Revisar | Técnica §5.1 («por ejemplo 3 minutos») |
+| `clock.hostAgreementMs` | 5 s | ms | Las dos cabeceras `Date` tienen que coincidir | Tanda 1 |
+| `retention.days` | 90 | días | Mínimo tras el fin del periodo exportado | Técnica §5.4 («por ejemplo 90 días»). Hacen falta las dos condiciones |
+| `reports.maxRangeMs` | 366 días | ms | Tope del rango libre, para cubrir un bisiesto | Tanda 2 |
+| `portal.backoffBaseMs` | 30 s | ms | Primera espera tras un fallo de envío | Tanda 2 |
+| `portal.backoffCapMs` | 6 h | ms | Tope de la espera | Tanda 2 |
+| `portal.maxAttempts` | 8 | intentos | Después el ítem no se reintenta solo | Tanda 2 |
+| `portal.timeoutMs` | 20 s | ms | Corte de la petición | Tanda 2 |
+
+Los módulos antiguos (`src/constants/security.ts`, `src/constants/geolocation.ts`, `src/constants/tasks.ts` y `TimeAuthorityService`) reexportan algunos nombres para no romper imports. La cifra no está ahí.

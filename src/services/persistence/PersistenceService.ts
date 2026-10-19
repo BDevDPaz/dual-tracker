@@ -30,7 +30,7 @@ import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
-import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SITE_ADDED_COLUMNS } from "./schema";
+import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SITE_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
@@ -206,6 +206,7 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   for (const [col, def] of SESSION_ADDED_COLUMNS) await addColumnIfMissing(database, "sessions", col, def);
   // v3 DDL (FieldCrypto §7): sin clave. El paso de datos va en runCryptoDataMigrations.
   for (const [col, def] of SITE_ADDED_COLUMNS) await addColumnIfMissing(database, "sites", col, def);
+  for (const [col, def] of OFFLINE_QUEUE_ADDED_COLUMNS) await addColumnIfMissing(database, "offline_queue", col, def);
   // v2: reparación de date_string (ver arriba).
   await repairInvalidDateStrings(database);
   // Paso de datos sin clave: pausas antiguas desde el ledger (una vez).
@@ -802,12 +803,13 @@ export const PersistenceService = {
     return row ? mapPackRow(row) : null;
   },
 
-  async enqueueOffline(packId: string): Promise<number> {
+  async enqueueOffline(packId: string, idempotencyKey: string | null = null): Promise<number> {
     const d = await ensureReady();
     const now = TimeAuthorityService.now();
     const res = await d.runAsync(
-      `INSERT INTO offline_queue (pack_id, status, attempts, created_at_ms, updated_at_ms) VALUES (?, 'PENDING', 0, ?, ?)`,
-      [packId, now, now],
+      `INSERT INTO offline_queue (pack_id, status, attempts, last_error, created_at_ms, updated_at_ms, idempotency_key, next_attempt_at_ms)
+       VALUES (?, 'PENDING', 0, NULL, ?, ?, ?, NULL)`,
+      [packId, now, now, idempotencyKey],
     );
     return Number(res.lastInsertRowId);
   },
@@ -826,14 +828,21 @@ export const PersistenceService = {
       lastError: (r.last_error as string | null) ?? null,
       createdAtMs: Number(r.created_at_ms),
       updatedAtMs: Number(r.updated_at_ms),
+      idempotencyKey: typeof r.idempotency_key === "string" ? r.idempotency_key : null,
+      nextAttemptAtMs: r.next_attempt_at_ms == null ? null : Number(r.next_attempt_at_ms),
     }));
   },
 
-  async updateOffline(id: number, status: OfflineQueueStatus, lastError: string | null): Promise<void> {
+  async updateOffline(
+    id: number,
+    status: OfflineQueueStatus,
+    lastError: string | null,
+    nextAttemptAtMs: number | null = null,
+  ): Promise<void> {
     const d = await ensureReady();
     await d.runAsync(
-      `UPDATE offline_queue SET status = ?, attempts = attempts + 1, last_error = ?, updated_at_ms = ? WHERE id = ?`,
-      [status, lastError, TimeAuthorityService.now(), id],
+      `UPDATE offline_queue SET status = ?, attempts = attempts + 1, last_error = ?, updated_at_ms = ?, next_attempt_at_ms = ? WHERE id = ?`,
+      [status, lastError, TimeAuthorityService.now(), nextAttemptAtMs, id],
     );
   },
 

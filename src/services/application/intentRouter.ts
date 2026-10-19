@@ -39,6 +39,7 @@ import {
   exportLedgerIncident,
   exportSupportDiagnostic,
   generateWeeklyPayroll,
+  provisionAdminPin,
   requestCalendarChange,
   startDay,
 } from "./useCases";
@@ -244,6 +245,11 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         const r = await SecurityService.setPin(intent.pin);
         if (r.ok) FeedbackService.emit("ADMIN_PIN_SET");
         return report(r.ok ? { ok: true } : { ok: false, code: r.code });
+      }
+      case "PROVISION_ADMIN_PIN": {
+        const r = await provisionAdminPin(intent.code);
+        if (r.ok) FeedbackService.emit("ADMIN_PIN_PROVISIONED");
+        return report(r.ok ? { ok: true, data: r.data } : { ok: false, code: r.code });
       }
       case "COMPLETE_ONBOARDING": {
         const profile = { ...state.settings.profile, ...intent.profile };

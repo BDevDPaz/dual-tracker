@@ -92,4 +92,8 @@ export interface OfflineQueueItem {
   lastError: string | null;
   createdAtMs: number;
   updatedAtMs: number;
+  /** packHash con el que se enviará (clave de idempotencia). null si aún no se conoce. */
+  idempotencyKey: string | null;
+  /** No reintentar antes de este instante. null = se puede intentar ya. */
+  nextAttemptAtMs: number | null;
 }

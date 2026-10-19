@@ -28,6 +28,12 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
 /** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. */
 export const SITE_ADDED_COLUMNS: [string, string][] = [["target_coords_enc", "TEXT"]];
 
+/** Cola del portal (tanda 2): clave de idempotencia y espera del reintento. */
+export const OFFLINE_QUEUE_ADDED_COLUMNS: [string, string][] = [
+  ["idempotency_key", "TEXT"],
+  ["next_attempt_at_ms", "INTEGER"],
+];
+
 export const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,7 +146,9 @@ export const CREATE_TABLES_SQL = `
     attempts INTEGER NOT NULL DEFAULT 0,
     last_error TEXT,
     created_at_ms INTEGER NOT NULL,
-    updated_at_ms INTEGER NOT NULL
+    updated_at_ms INTEGER NOT NULL,
+    idempotency_key TEXT,
+    next_attempt_at_ms INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS app_kv (

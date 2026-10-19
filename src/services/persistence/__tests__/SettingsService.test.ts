@@ -10,6 +10,9 @@ describe("SettingsService", () => {
     const s = await SettingsService.load();
     expect(s.company.overtimePolicyId).toBe("CA_DAILY8_WEEKLY40_v1");
     expect(s.device.disclosureAcceptedVersion).toBeNull();
+    expect(s.company.employerPortalEnabled).toBe(false);
+    expect(s.company.employerPortalUrl).toBeNull();
+    expect(s.company.destinationLimit).toBe(20);
   });
 
   test("companyEmail se guarda sellado y se abre al cargar", async () => {
@@ -37,6 +40,23 @@ describe("SettingsService", () => {
     const loaded = await SettingsService.load();
     expect(loaded.profile.language).toBe("en");
     expect(loaded.profile.employeeName).toBe("Ana");
+  });
+
+  test("el portal solo acepta https y no se enciende sin URL", async () => {
+    const cur = await SettingsService.load();
+    expect(
+      await SettingsService.applyPatch(cur, { company: { employerPortalUrl: "http://portal.example/in" } }, { adminUnlocked: true }),
+    ).toEqual({ ok: false, code: "PORTAL_URL_INVALID" });
+    expect(
+      await SettingsService.applyPatch(cur, { company: { employerPortalEnabled: true } }, { adminUnlocked: true }),
+    ).toEqual({ ok: false, code: "PORTAL_URL_INVALID" });
+    const ok = await SettingsService.applyPatch(
+      cur,
+      { company: { employerPortalEnabled: true, employerPortalUrl: "https://portal.example/in" } },
+      { adminUnlocked: true },
+    );
+    expect(ok.ok && ok.next.company.employerPortalUrl).toBe("https://portal.example/in");
+    expect((await SettingsService.load()).company.employerPortalEnabled).toBe(true);
   });
 
   test("profile.theme: por defecto dark, se persiste y rechaza valores desconocidos", async () => {

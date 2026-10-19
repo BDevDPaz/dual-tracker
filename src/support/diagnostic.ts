@@ -28,6 +28,8 @@ export interface SupportDiagnostic {
     onboardingCompleted: boolean;
     disclosureAccepted: boolean;
     exitDecisionExpiry: string;
+    /** Sin la dirección. Solo si está apagado, encendido o sin configurar. */
+    employerPortal: "unconfigured" | "disabled" | "enabled";
   };
   permissions: {
     foreground: string;
@@ -99,6 +101,12 @@ export function diagnosticIsSafe(value: unknown): boolean {
   return walk(value);
 }
 
+function portalStatus(enabled: boolean | undefined, url: string | null | undefined): "unconfigured" | "disabled" | "enabled" {
+  const text = (url ?? "").trim();
+  if (!text) return "unconfigured";
+  return enabled === true ? "enabled" : "disabled";
+}
+
 function diagRow(event: GeofenceDiagEvent): SupportDiagnostic["geofenceDiag"][number] {
   return {
     atMs: event.atMs,
@@ -143,6 +151,7 @@ export function buildSupportDiagnostic(input: {
       onboardingCompleted: input.settings.device.onboardingCompleted,
       disclosureAccepted: input.settings.device.disclosureAcceptedVersion != null,
       exitDecisionExpiry: input.settings.company.exitDecisionExpiry,
+      employerPortal: portalStatus(input.settings.company.employerPortalEnabled, input.settings.company.employerPortalUrl),
     },
     permissions: {
       foreground: input.health.locationForeground,
