@@ -26,6 +26,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
+        "monochromeImage": "./assets/images/adaptive-monochrome.png",
         "backgroundColor": "#0A0A0C"
       },
       "edgeToEdgeEnabled": true,
@@ -64,7 +65,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/notification-icon.png",
           "color": "#D4AF37",
           "defaultChannel": "default"
         }

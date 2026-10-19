@@ -15,6 +15,7 @@ describe("SessionTimeline", () => {
     render(<SessionTimeline events={events} />);
     const titles = screen.getAllByText(/^T:/).map((n) => n.props.children);
     expect(titles).toEqual(["T:START_DAY", "T:ARRIVAL_CONFIRMED", "T:CLOSE_DAY"]);
+    expect(screen.getByTestId(`arrival-mark-${events[1].id}`, { includeHiddenElements: true })).toBeTruthy();
   });
 
   test("sin asientos muestra el estado vacío", () => {

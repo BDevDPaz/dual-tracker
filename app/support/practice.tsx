@@ -69,7 +69,7 @@ export default function PracticeScreen() {
         <LanguageSwitch />
         <Text style={[styles.note, { color: TOKENS.colors.text.secondary }]}>{t("support.practice.isolated")}</Text>
         <Card style={styles.card}>
-          <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
+          <StatusPill tone={ui.tone} label={t(ui.labelKey)} symbol={phase === "ACTIVA" ? "arrival" : undefined} />
           <Text style={[styles.site, { color: TOKENS.colors.text.primary }]}>
             {session?.site === "B" ? t("support.practice.siteB") : t("support.practice.siteA")}
             {session?.transfer ? ` → ${t("support.practice.siteB")}` : ""}

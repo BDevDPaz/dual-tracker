@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useToast } from "../../context/ToastContext";
+import { useToast, type ToastMark } from "../../context/ToastContext";
 import type { FeedbackCode, FeedbackPayload, FeedbackTone } from "../../core/contracts";
 import { useWorkTracker } from "../../core/hooks";
 import { selectPendingFeedback } from "../../core/selectors";
@@ -29,6 +29,9 @@ export const BLOCKING_DIALOGS: ReadonlySet<FeedbackCode> = new Set<FeedbackCode>
   "LEDGER_BROKEN",
   "FIELD_CRYPTO_KEY_LOST",
 ]);
+
+/** Llegada confirmada a mano y check-in automático: el símbolo es el concepto D. */
+const ARRIVAL_MARK: ReadonlySet<FeedbackCode> = new Set<FeedbackCode>(["ARRIVAL_CONFIRMED", "AUTO_CHECKIN"]);
 
 const MODAL_TONE: Record<FeedbackTone, ModalTone> = {
   success: "success",
@@ -62,7 +65,8 @@ export function FeedbackBridge() {
         const rendered = queries.renderFeedback(fb, lang);
         return { title: rendered.title, caption: rendered.message || undefined };
       };
-      showToast(title, fb.tone, message || undefined, live);
+      const mark: ToastMark | undefined = ARRIVAL_MARK.has(fb.code) ? "arrival" : undefined;
+      showToast(title, fb.tone, message || undefined, live, mark);
       void emit({ type: "DISMISS_FEEDBACK", feedbackId: fb.id });
     }
     if (dialogs.length) setQueue((q) => [...q, ...dialogs]);

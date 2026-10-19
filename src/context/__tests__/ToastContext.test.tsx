@@ -40,6 +40,14 @@ describe("ToastContext", () => {
     mount();
     show("Hola");
     expect(screen.queryByTestId("toast-caption")).toBeNull();
+    expect(screen.queryByTestId("toast-arrival-mark")).toBeNull();
+  });
+
+  test("llegada confirmada muestra el símbolo D", () => {
+    mount();
+    act(() => api.showToast("Llegada confirmada", "success", "Tu jornada está activa.", undefined, "arrival"));
+    expect(screen.getByTestId("toast-arrival-mark", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId("toast-title").props.children).toBe("Llegada confirmada");
   });
 
   test("con un modal bloqueante visible se retiene y aparece al cerrarse", () => {

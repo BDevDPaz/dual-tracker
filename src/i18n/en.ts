@@ -43,6 +43,8 @@ export const en: Dictionary = {
     hideSecret: "Hide PIN",
     refresh: "Refresh",
     refreshing: "Updating",
+    brandMark: "Dual Tracker mark",
+    arrivalConfirmed: "Arrival confirmed",
   },
   states: {
     NO_INICIADA: { label: "Off duty", sub: "No open shift." },

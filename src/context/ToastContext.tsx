@@ -32,21 +32,24 @@ import { DURATIONS } from "../constants/animations";
 import { ICONS } from "../constants/icons";
 import { TimeAuthorityService } from "../services/evidence/TimeAuthorityService";
 import { t, useLanguage, type Language } from "../i18n";
+import { ArrivalMark } from "../components/brand/ArrivalMark";
 import { useBlockingModalVisible } from "../components/feedback/blockingModals";
 
 const now = () => TimeAuthorityService.now();
 
 export type ToastType = "success" | "error" | "info" | "warning";
+/** Símbolo de llegada confirmada (manual o check-in automático). */
+export type ToastMark = "arrival";
 
 /** Si se pasa, el aviso visible se reescribe al cambiar el idioma, sin esperar a que se cierre. */
 export type ToastLive = (lang: Language) => { title: string; caption?: string };
 
 interface ToastContextType {
   /** title: línea principal; caption: detalle opcional en una segunda línea. */
-  showToast: (title: string, type?: ToastType, caption?: string, live?: ToastLive) => void;
+  showToast: (title: string, type?: ToastType, caption?: string, live?: ToastLive, mark?: ToastMark) => void;
 }
 
-type ToastItem = { title: string; caption?: string; type: ToastType; live?: ToastLive };
+type ToastItem = { title: string; caption?: string; type: ToastType; live?: ToastLive; mark?: ToastMark };
 
 /** Separación entre el borde seguro superior y el aviso. */
 export const TOAST_TOP_GAP = TOKENS.spacing.sm;
@@ -66,6 +69,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState("");
   const [caption, setCaption] = useState<string | undefined>(undefined);
   const [type, setType] = useState<ToastType>("info");
+  const [mark, setMark] = useState<ToastMark | undefined>(undefined);
   const [queued, setQueued] = useState<ToastItem[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastToastRef = useRef<{
@@ -108,7 +112,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   blockingRef.current = blockingVisible;
 
   const present = useCallback(
-    ({ title, caption: cap, type: toastType, live }: ToastItem) => {
+    ({ title, caption: cap, type: toastType, live, mark: toastMark }: ToastItem) => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
@@ -117,6 +121,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       setMessage(title);
       setCaption(cap);
       setType(toastType);
+      setMark(toastMark);
 
       opacity.value = 1;
       translateY.value = withSpring(0, {
@@ -132,7 +137,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const showToast = useCallback(
-    (title: string, toastType: ToastType = "info", cap?: string, live?: ToastLive) => {
+    (title: string, toastType: ToastType = "info", cap?: string, live?: ToastLive, toastMark?: ToastMark) => {
       if (!title || title.trim() === "") return;
       const text = cap ? `${title}\n${cap}` : title;
 
@@ -152,7 +157,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         timestamp: currentTs,
       };
 
-      const item: ToastItem = { title, caption: cap || undefined, type: toastType, live };
+      const item: ToastItem = { title, caption: cap || undefined, type: toastType, live, mark: toastMark };
       if (blockingRef.current) {
         setQueued((q) => [...q, item].slice(-MAX_QUEUED));
         return;
@@ -218,11 +223,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             accessibilityLabel={t("a11y.toast", { message: shownCaption ? `${shownTitle}. ${shownCaption}` : shownTitle })}
           >
             <View style={styles.contentRow}>
-              <Ionicons
-                name={config.icon as any}
-                size={ICON.xl}
-                color={config.color}
-              />
+              {mark === "arrival" ? (
+                <ArrivalMark size={ICON.xl} decorative testID="toast-arrival-mark" />
+              ) : (
+                <Ionicons
+                  name={config.icon as any}
+                  size={ICON.xl}
+                  color={config.color}
+                />
+              )}
               <View style={styles.textCol}>
                 <Text
                   style={[styles.toastTitle, { color: colors.text.primary }]}

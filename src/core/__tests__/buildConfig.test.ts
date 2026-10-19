@@ -139,6 +139,33 @@ describe("app.config.ts — variantes", () => {
     expect(input).toEqual(base);
   });
 
+  test("los iconos de marca resuelven: A en la app, D en la notificación", () => {
+    const png = (rel: string) => {
+      const buf = fs.readFileSync(path.join(ROOT, rel));
+      expect(buf.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    };
+    expect(base.icon).toBe("./assets/images/icon.png");
+    expect(png(base.icon!)).toEqual({ w: 1024, h: 1024 });
+    expect(base.splash).toMatchObject({ image: "./assets/images/splash.png", backgroundColor: "#0A0A0C", resizeMode: "contain" });
+    expect(png(base.splash!.image!)).toEqual({ w: 1284, h: 1284 });
+    expect(base.android?.adaptiveIcon).toMatchObject({
+      foregroundImage: "./assets/images/adaptive-icon.png",
+      monochromeImage: "./assets/images/adaptive-monochrome.png",
+      backgroundColor: "#0A0A0C",
+    });
+    expect(png(base.android!.adaptiveIcon!.foregroundImage!)).toEqual({ w: 1024, h: 1024 });
+    expect(png(base.android!.adaptiveIcon!.monochromeImage!)).toEqual({ w: 1024, h: 1024 });
+    expect(base.web?.favicon).toBe("./assets/images/favicon.png");
+    expect(png(base.web!.favicon!)).toEqual({ w: 48, h: 48 });
+    const notif = (base.plugins ?? []).find((p) => Array.isArray(p) && p[0] === "expo-notifications") as [string, { icon: string; color: string }];
+    expect(notif[1]).toMatchObject({ icon: "./assets/images/notification-icon.png", color: "#D4AF37" });
+    expect(png(notif[1].icon)).toEqual({ w: 96, h: 96 });
+    for (const rel of ["assets/brand/A/icon.svg", "assets/brand/A/adaptive-foreground.svg", "assets/brand/A/monochrome.svg", "assets/brand/D/icon.svg", "assets/brand/D/adaptive-foreground.svg", "assets/brand/D/monochrome.svg"]) {
+      expect(fs.existsSync(path.join(ROOT, rel))).toBe(true);
+    }
+  });
+
   test("app.json conserva los ids de la app real y no declara la variante", () => {
     expect(base.android?.package).toBe("com.bdevdpaz.dualtracker");
     expect(base.ios?.bundleIdentifier).toBe("com.bdevdpaz.dualtracker");

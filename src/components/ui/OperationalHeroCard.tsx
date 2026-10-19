@@ -70,7 +70,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
       <View style={[styles.cardContainer, containerStyle]} testID="hero-card">
         <GlassLayers enabled={glass} />
         <View style={styles.headerRow}>
-          <StatusPill tone={ui.tone} label={t(ui.labelKey)} />
+          <StatusPill tone={ui.tone} label={t(ui.labelKey)} symbol={ui.state === "ACTIVA" ? "arrival" : undefined} />
           {onDestinationPress ? (
             <Pressable onPress={onDestinationPress} accessibilityRole="link" style={styles.destinationHit}>
               <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={2}>
