@@ -7,7 +7,7 @@
  * Intenciones: REQUEST_PERMISSION, OPEN_OS_SETTINGS.
  */
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { HealthRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { Button, Card, Input, Section } from "../../src/components/ui";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
@@ -16,7 +16,7 @@ import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from ".
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
-import { formatDateTime } from "../../src/utils/dateUtils";
+import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
 
 interface Row {
   sensor: HealthSensor;
@@ -51,6 +51,14 @@ export default function HealthScreen() {
   const permRepair = (key: PermissionKey, s: PermissionState, target: "LOCATION" | "NOTIFICATIONS"): ViewIntent =>
     s === "blocked" || s === "denied" ? { type: "OPEN_OS_SETTINGS", target } : { type: "REQUEST_PERMISSION", permission: key };
 
+  const diagReason = (code: string | null): string => {
+    if (!code) return "";
+    const key = `health.diag.reasons.${code}`;
+    const label = t(key);
+    return label === key ? code : label;
+  };
+  const diag = [...h.geofenceDiag].reverse();
+
   // TODO(propuesta): qué sensores bloquean VALIDADA además de ubicación/FGS/reloj (tabla no cerrada en §5.15).
   const rows: Row[] = [
     { sensor: "locationForeground", value: t(`permission.${h.locationForeground}`), ok: h.locationForeground === "granted", blocksValid: true, repair: permRepair("locationForeground", h.locationForeground, "LOCATION") },
@@ -79,6 +87,34 @@ export default function HealthScreen() {
           onRepair={r.repair ? () => void emit(r.repair!) : undefined}
         />
       ))}
+      <Section title={t("health.diag.title")}>
+        <Card style={styles.card}>
+          <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>{t("health.diag.hint")}</Text>
+          {diag.length === 0 ? (
+            <Text style={[styles.hint, { color: TOKENS.colors.text.muted }]}>{t("health.diag.empty")}</Text>
+          ) : (
+            diag.map((event, index) => {
+              const reason = diagReason(event.reason);
+              return (
+                <View key={`${event.atMs}-${index}`} style={styles.diagRow}>
+                  <Text style={[styles.label, { color: TOKENS.colors.text.primary }]}>
+                    {formatTime(event.atMs)} · {t(`health.diag.kinds.${event.kind}`)}
+                  </Text>
+                  <Text style={[styles.hint, { color: TOKENS.colors.text.secondary }]}>
+                    {event.region ? t("health.diag.region", { id: event.region }) : t("health.diag.noRegion")}
+                    {" · "}
+                    {event.accuracyM === null ? t("health.diag.accuracyUnknown") : t("health.diag.accuracy", { m: Math.round(event.accuracyM) })}
+                  </Text>
+                  <Text style={[styles.hint, { color: event.accepted ? TOKENS.colors.status.success : TOKENS.colors.status.warning }]}>
+                    {event.accepted ? t("health.diag.accepted") : t("health.diag.rejected")}
+                    {reason ? ` · ${reason}` : ""}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </Card>
+      </Section>
       <Section title={t("health.ledger.title")}>
         <Card style={styles.card}>
           {ledger.broken ? (
@@ -139,4 +175,6 @@ const styles = StyleSheet.create({
   caption: { ...FONT.caption, marginTop: TOKENS.spacing.md, textAlign: "right" },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   hint: { ...FONT.caption },
+  diagRow: { gap: 2, paddingTop: TOKENS.spacing.sm },
+  label: { ...FONT.bodyStrong },
 });

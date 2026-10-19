@@ -40,6 +40,15 @@ describe("TaskOrchestratorService", () => {
     expect(await TaskOrchestratorService.lastHeartbeat()).toBe(time.now());
   });
 
+  test("BREADCRUMB en ESPERANDO con Solo geocerca ficha la llegada y no graba rastro", async () => {
+    const { siteA } = await seedWorld();
+    await SettingsService.saveCompany({ ...DEFAULT_COMPANY_POLICY, traceMode: "PERIMETER" });
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    await TaskManagerMock.__run(BREADCRUMB_TASK_NAME, { locations: [loc()] });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+    expect(await PersistenceService.listSpatialFacts(s.id, ["BREADCRUMB"])).toHaveLength(0);
+  });
+
   test("BREADCRUMB con jornada CERRADA o sin jornada no graba nada", async () => {
     const { siteA } = await seedWorld();
     await SettingsService.saveCompany({ ...DEFAULT_COMPANY_POLICY, traceMode: "BREADCRUMB" });

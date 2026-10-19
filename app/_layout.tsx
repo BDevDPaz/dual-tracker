@@ -2,7 +2,9 @@
  * app/_layout.tsx — Layout raíz (Producto §3.1).
  * Carga Montserrat, envuelve ThemeContext y ToastContext, llama boot() de
  * src/core/boot.ts y registra las tareas de TaskOrchestrator en el ámbito
- * global del bundle. No pinta UI de negocio: la decisión de grupo visible
+ * global del bundle. El entry index.js carga la definición headless antes
+ * de React; aquí se reafirma (idempotente) por el camino que sí puede
+ * importar app/. No pinta UI de negocio: la decisión de grupo visible
  * ((boot) / (onboarding) / (tabs)) la toma el gate app/index.tsx.
  */
 import { useEffect, useState } from "react";
