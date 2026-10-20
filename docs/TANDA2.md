@@ -1,6 +1,6 @@
 # Tanda 2 — checklist de teléfono
 
-Build de desarrollo, sin APK de tienda. Español al empezar. Anota versión, compilación y guía `soporte.v4`.
+Build de desarrollo, sin APK de tienda. Español al empezar. Anota versión, compilación y guía `soporte.v5`.
 
 No hace falta portal real ni clave de mapas. El código de PIN se genera en un ordenador con `npx tsx scripts/provision-admin-pin.ts --pin …… --hours 1` y se pega en el teléfono. El PIN se dice aparte: no está dentro del código.
 
@@ -21,7 +21,7 @@ No hace falta portal real ni clave de mapas. El código de PIN se genera en un o
 | T13 | Abre el rastro de una jornada con miga, en modo avión. | Hay un plano (línea, círculo del sitio, norte, escala). No pide red ni muestra calles. |
 | T14 | En ese plano pellizca o usa + / − / 1. | Se acerca, se aleja y vuelve al tamaño. |
 | T15 | Jornada solo de geocerca, sin miga. | El plano puede no salir. La lista lo dice. No se inventa un camino. |
-| T16 | Soporte, preguntas del PIN, del portal, del rango y del plano. English y otra vez Español. | Las cuatro existen en los dos idiomas y cambian en el acto. La del PIN dice que la primera clave queda fijada. La línea de versión dice `soporte.v4`. |
+| T16 | Soporte, preguntas del PIN, del portal, del rango y del plano. English y otra vez Español. | Las cuatro existen en los dos idiomas y cambian en el acto. La del PIN dice que la primera clave queda fijada. La línea de versión dice `soporte.v5`. |
 | T17 | Comparte el diagnóstico y ábrelo. | No hay dirección del portal, ni coordenadas, ni PIN. Puede decir `unconfigured`, `disabled` o `enabled`. |
 | T18 | Sin desbloquear, pega un código de otra clave (otro archivo, o tras `--rotate`). Luego desbloquea con el PIN actual, pega ese código y bloquea. | Cerrado, se rechaza y el aviso pide desbloquear para cambiar de clave. Abierto, el PIN nuevo entra. Un código de la clave anterior ya no entra. |
 

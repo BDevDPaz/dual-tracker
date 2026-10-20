@@ -449,7 +449,7 @@ export const supportEn: typeof supportEs = {
     },
     clockDrift: {
       q: "What if the phone clock does not match network time?",
-      a: "When online, the app compares the clock with two well-known sites. If they agree and the difference is over the threshold, the shift is flagged for review and the offset is written in the record. Offline, this does not block.",
+      a: "When online, the app compares the clock with two well-known sites. It uses the round-trip midpoint and drops a slow sample. It records drift only when several spaced readings agree, and only once per shift. If that shift already has good location evidence, the drift stays a warning and does not remove validated status. A jump of the phone clock itself does flag the shift for review. Offline, network time does not block.",
     },
     packSignature: {
       q: "Is the pack signed?",

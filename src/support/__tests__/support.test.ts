@@ -23,7 +23,7 @@ describe("catálogo de soporte", () => {
   });
 
   test("la versión viaja con el texto y el consejo de traslado es el acordado", () => {
-    expect(SUPPORT_CONTENT_VERSION).toBe("soporte.v4");
+    expect(SUPPORT_CONTENT_VERSION).toBe("soporte.v5");
     expect(t("support.tips.transferSameSession", {}, "es")).toBe(
       "¿Vas a otro destino? Usa Iniciar traslado y Confirmar llegada en la misma jornada para que se pague el traslado",
     );

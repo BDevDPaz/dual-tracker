@@ -24,8 +24,13 @@ Cada entrada del módulo tiene unidad, motivo y fuente. Esta tabla es el mismo c
 | `heartbeat.gapMs` | 45 min | ms | Hueco sin lectura dentro del sitio → jornada por revisar | Tanda 1 |
 | `exit.debounceMs` | 2 min | ms | Debounce antes de tratar la salida como real. La empresa puede cambiarlo | Técnica §4.3 («hoy ~2 min») |
 | `exit.decisionWindowMs` | 15 min | ms | Plazo para decidir tras la primera salida | GEOTrack 15 min. Técnica §7.2 no fija la cifra |
-| `clock.driftThresholdMs` | 3 min | ms | Por encima, la jornada abierta pasa a Revisar | Técnica §5.1 («por ejemplo 3 minutos») |
+| `clock.driftThresholdMs` | 3 min | ms | Un salto del reloj local pasa a Revisar. La hora de red solo avisa si varias muestras coinciden | Técnica §5.1. Prueba de campo 19 oct 2026 |
 | `clock.hostAgreementMs` | 5 s | ms | Las dos cabeceras `Date` tienen que coincidir | Tanda 1 |
+| `clock.maxSampleRttMs` | 1,5 s | ms | Por encima se descarta la muestra. El desfase usa el punto medio | Prueba de campo 19 oct 2026 |
+| `clock.sampleMinIntervalMs` | 60 s | ms | No hay ráfaga al volver a primer plano ni en cada evento de geocerca | Prueba de campo 19 oct 2026 |
+| `clock.driftConfirmSamples` | 3 | muestras | Todas por encima del umbral y del mismo signo | Prueba de campo 19 oct 2026 |
+| `clock.driftConfirmSpanMs` | 90 s | ms | Esas muestras tienen que cubrir al menos este lapso | Prueba de campo 19 oct 2026 |
+| `clock.driftConsistencyMs` | 60 s | ms | Si el desfase oscila más que esto, no se anota deriva | Prueba de campo 19 oct 2026 |
 | `retention.days` | 90 | días | Mínimo tras el fin del periodo exportado | Técnica §5.4 («por ejemplo 90 días»). Hacen falta las dos condiciones |
 | `reports.maxRangeMs` | 366 días | ms | Tope del rango libre, para cubrir un bisiesto | Tanda 2 |
 | `portal.backoffBaseMs` | 30 s | ms | Primera espera tras un fallo de envío | Tanda 2 |

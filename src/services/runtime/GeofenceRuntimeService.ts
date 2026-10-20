@@ -87,7 +87,7 @@ interface RegionSpec {
   notifyOnExit: boolean;
 }
 
-let lastProcessed: { sessionId: number; type: "ENTER" | "EXIT"; atMs: number } | null = null;
+let lastProcessed: { sessionId: number; siteId: number; type: "ENTER" | "EXIT"; atMs: number } | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let registeredKey: string | null = null;
 
@@ -480,7 +480,13 @@ export const GeofenceRuntimeService = {
     }
     const type: "ENTER" | "EXIT" = eventType === Location.GeofencingEventType.Enter ? "ENTER" : "EXIT";
     const nowMs = TimeAuthorityService.now();
-    if (lastProcessed && lastProcessed.sessionId === session.id && lastProcessed.type === type && nowMs - lastProcessed.atMs < GEOFENCE_ANTI_REBOUNCE_MS) {
+    if (
+      lastProcessed &&
+      lastProcessed.sessionId === session.id &&
+      lastProcessed.siteId === parsed.siteId &&
+      lastProcessed.type === type &&
+      nowMs - lastProcessed.atMs < GEOFENCE_ANTI_REBOUNCE_MS
+    ) {
       await appendGeofenceDiag({
         kind: type,
         region: region.identifier ?? null,
@@ -510,12 +516,13 @@ export const GeofenceRuntimeService = {
       return;
     }
 
-    lastProcessed = { sessionId: session.id, type, atMs: nowMs };
+    lastProcessed = { sessionId: session.id, siteId: parsed.siteId, type, atMs: nowMs };
     const issue = await reliabilityIssue(type, fix, target, nowMs);
     const { far, zone } = zoneOf(fix, target);
     let reason = issue;
     if (type === "EXIT" && !shouldArmExit({ zone, far, dwellMs: dwellMs(session, nowMs) })) {
-      reason = zone === "inside" ? "INSIDE_RADIUS" : "FLICKER_DWELL";
+      if (zone === "inside") reason = "INSIDE_RADIUS";
+      else if (reason === null) reason = "FLICKER_DWELL";
     }
     const fact: SpatialFact = {
       sessionId: session.id,

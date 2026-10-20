@@ -22,6 +22,7 @@
  * Solo este servicio muta el ciclo de vida: geocerca, notificaciones y
  * watchdog entran como intenciones con su origen.
  */
+import type * as SQLite from "expo-sqlite";
 import type {
   IntentOrigin,
   IntentResult,
@@ -34,6 +35,7 @@ import type {
 import { ORIGIN_TO_ACTOR } from "../../core/contracts";
 import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
+import { GEOFENCE_ENTER_COALESCE_MS } from "../../constants/geolocation";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
@@ -159,6 +161,28 @@ async function ledgerData(intent: SessionIntent): Promise<Record<string, unknown
     data = { ...rest, noteDigest: await IntegrityLedgerService.noteDigest(typeof note === "string" ? note : null) };
   }
   return data;
+}
+
+/**
+ * ENTER repetido de la misma región dentro de la ventana: no se escribe otro
+ * asiento. Un ENTER fiable después de uno no fiable sí se anota (mejora la
+ * evidencia). El ledger no se reescribe.
+ */
+async function coalescedEnterId(db: SQLite.SQLiteDatabase, fact: SpatialFact): Promise<number | null> {
+  if (fact.type !== "ENTER") return null;
+  const siteId = fact.siteId ?? null;
+  const row = await db.getFirstAsync<{ id: number; reliable: number | null }>(
+    `SELECT id, reliable FROM spatial_facts
+     WHERE session_id = ? AND type = 'ENTER' AND timestamp_ms BETWEEN ? AND ?
+       AND site_id IS ?
+     ORDER BY reliable DESC, timestamp_ms DESC
+     LIMIT 1`,
+    [fact.sessionId, fact.timestampMs - GEOFENCE_ENTER_COALESCE_MS, fact.timestampMs, siteId],
+  );
+  if (!row) return null;
+  if (row.reliable === 1) return row.id;
+  if (!fact.reliable) return row.id;
+  return null;
 }
 
 function degradedReason(open: SessionRecord | null): TransitionContext["degradedReason"] {
@@ -368,12 +392,19 @@ export const SessionEngineService = {
   async recordSpatialFact(fact: SpatialFact & { speedMps?: number | null; altitudeM?: number | null; battery?: number | null }): Promise<number> {
     const report: WriteReport = { degradedFields: [] };
     let blocked = false;
+    let coalesced = false;
     const id = await PersistenceService.transaction(async (db) => {
+      const prior = await coalescedEnterId(db, fact);
+      if (prior !== null) {
+        coalesced = true;
+        return prior;
+      }
       const factId = await PersistenceService.insertSpatialFact(fact, report, db);
       // §12: coordenadas escritas sin cifrar → bloqueo de certificación de la sesión.
       blocked = await applyCertBlocker(db, fact.sessionId, report, "GEOFENCE", fact.timestampMs, null);
       return factId;
     });
+    if (coalesced) return id;
     if (blocked) {
       const s = await PersistenceService.getSession(fact.sessionId);
       if (s) StoreActions.sessionUpserted(s);

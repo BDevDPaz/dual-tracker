@@ -161,16 +161,56 @@ const clockDriftThresholdMs = spec(
   "clock.driftThresholdMs",
   3 * 60 * 1000,
   "ms",
-  "Por encima de esto la jornada abierta pasa a Revisar (CLOCK_DRIFT). Vale para el salto del reloj local y para la muestra de red.",
-  "Técnica §5.1 («por ejemplo 3 minutos»). Tanda 1 lo dejó en 3 min.",
+  "Por encima de esto un salto del reloj local deja la jornada en Revisar. La hora de red solo avisa, y solo si varias muestras coinciden: con ubicación buena no quita VALIDADA.",
+  "Técnica §5.1 («por ejemplo 3 minutos»). Tanda 1 lo dejó en 3 min. Prueba de campo 19 oct 2026: la red ya no degrada sola.",
 );
 
 const timeSourceAgreementMs = spec(
   "clock.hostAgreementMs",
   5_000,
   "ms",
-  "Las dos cabeceras Date tienen que coincidir dentro de este margen (incluye la ida y vuelta). Si no, no hay muestra de red y no se bloquea por ese camino.",
+  "Las dos cabeceras Date tienen que coincidir dentro de este margen. Si no, no hay muestra de red.",
   "Tanda 1 (docs/CONFIABILIDAD_TANDA1.md): acuerdo de 5 s.",
+);
+
+const clockSampleMaxRttMs = spec(
+  "clock.maxSampleRttMs",
+  1500,
+  "ms",
+  "Una cabecera Date con ida y vuelta mayor que esto se tira. El desfase usa el punto medio del envío y la respuesta; una muestra lenta no es deriva.",
+  "Prueba de campo 19 oct 2026 (docs/PRUEBA_CAMPO_1.md). La cabecera HTTP solo tiene segundos.",
+);
+
+const clockSampleMinIntervalMs = spec(
+  "clock.sampleMinIntervalMs",
+  60 * 1000,
+  "ms",
+  "Mínimo entre muestras de hora de red. Al volver a primer plano o al dispararse la geocerca no se anota una ráfaga.",
+  "Prueba de campo 19 oct 2026: 35 muestras en el mismo minuto (16:10).",
+);
+
+const clockDriftConfirmSamples = spec(
+  "clock.driftConfirmSamples",
+  3,
+  "muestras",
+  "Hacen falta estas muestras aceptadas, todas por encima del umbral y del mismo signo, antes de anotar deriva de red.",
+  "Prueba de campo 19 oct 2026. Una sola muestra al borde del umbral no basta.",
+);
+
+const clockDriftConfirmSpanMs = spec(
+  "clock.driftConfirmSpanMs",
+  90 * 1000,
+  "ms",
+  "Esas muestras tienen que cubrir al menos este lapso. Una ráfaga en el mismo segundo no confirma.",
+  "Prueba de campo 19 oct 2026. Va con el intervalo mínimo de muestreo.",
+);
+
+const clockDriftConsistencyMs = spec(
+  "clock.driftConsistencyMs",
+  60 * 1000,
+  "ms",
+  "El valor absoluto de esas muestras no puede separarse más que esto. Si oscilan, no es un reloj movido.",
+  "Prueba de campo 19 oct 2026: en el mismo minuto había CLOCK_DRIFT y CLOCK_SAMPLE mezclados.",
 );
 
 const traceRetentionDays = spec(
@@ -242,7 +282,15 @@ export const PROVISIONAL = {
   sites: { destinationLimit },
   heartbeat: { gapMs: heartbeatGapMs },
   exit: { debounceMs: exitDebounceMs, decisionWindowMs: exitDecisionWindowMs },
-  clock: { driftThresholdMs: clockDriftThresholdMs, hostAgreementMs: timeSourceAgreementMs },
+  clock: {
+    driftThresholdMs: clockDriftThresholdMs,
+    hostAgreementMs: timeSourceAgreementMs,
+    maxSampleRttMs: clockSampleMaxRttMs,
+    sampleMinIntervalMs: clockSampleMinIntervalMs,
+    driftConfirmSamples: clockDriftConfirmSamples,
+    driftConfirmSpanMs: clockDriftConfirmSpanMs,
+    driftConsistencyMs: clockDriftConsistencyMs,
+  },
   retention: { days: traceRetentionDays },
   reports: { maxRangeMs: reportMaxRangeMs },
   portal: {
@@ -272,6 +320,11 @@ export const PROVISIONAL_SPECS: readonly ProvisionalSpec<unknown>[] = [
   exitDecisionWindowMs,
   clockDriftThresholdMs,
   timeSourceAgreementMs,
+  clockSampleMaxRttMs,
+  clockSampleMinIntervalMs,
+  clockDriftConfirmSamples,
+  clockDriftConfirmSpanMs,
+  clockDriftConsistencyMs,
   traceRetentionDays,
   reportMaxRangeMs,
   portalBackoffBaseMs,
@@ -299,6 +352,11 @@ export const DEFAULT_EXIT_DEBOUNCE_MS = exitDebounceMs.value;
 export const DEFAULT_EXIT_DECISION_WINDOW_MS = exitDecisionWindowMs.value;
 export const CLOCK_DRIFT_THRESHOLD_MS = clockDriftThresholdMs.value;
 export const TIME_SOURCE_AGREEMENT_MS = timeSourceAgreementMs.value;
+export const CLOCK_SAMPLE_MAX_RTT_MS = clockSampleMaxRttMs.value;
+export const CLOCK_SAMPLE_MIN_INTERVAL_MS = clockSampleMinIntervalMs.value;
+export const CLOCK_DRIFT_CONFIRM_SAMPLES = clockDriftConfirmSamples.value;
+export const CLOCK_DRIFT_CONFIRM_SPAN_MS = clockDriftConfirmSpanMs.value;
+export const CLOCK_DRIFT_CONSISTENCY_MS = clockDriftConsistencyMs.value;
 export const DEFAULT_TRACE_RETENTION_DAYS = traceRetentionDays.value;
 export const REPORT_MAX_RANGE_MS = reportMaxRangeMs.value;
 export const PORTAL_BACKOFF_BASE_MS = portalBackoffBaseMs.value;

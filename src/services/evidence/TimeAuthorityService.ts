@@ -11,10 +11,26 @@
  *
  * Origen: sustituye a src/utils/timeProvider.ts de GEOTrack.
  */
-import { CLOCK_DRIFT_THRESHOLD_MS, TIME_SOURCE_AGREEMENT_MS } from "../../config/provisional";
+import {
+  CLOCK_DRIFT_CONSISTENCY_MS,
+  CLOCK_DRIFT_CONFIRM_SAMPLES,
+  CLOCK_DRIFT_CONFIRM_SPAN_MS,
+  CLOCK_DRIFT_THRESHOLD_MS,
+  CLOCK_SAMPLE_MAX_RTT_MS,
+  CLOCK_SAMPLE_MIN_INTERVAL_MS,
+  TIME_SOURCE_AGREEMENT_MS,
+} from "../../config/provisional";
 import { parseTimestamp, toDateString } from "../../utils/dateUtils";
 
-export { CLOCK_DRIFT_THRESHOLD_MS, TIME_SOURCE_AGREEMENT_MS };
+export {
+  CLOCK_DRIFT_CONSISTENCY_MS,
+  CLOCK_DRIFT_CONFIRM_SAMPLES,
+  CLOCK_DRIFT_CONFIRM_SPAN_MS,
+  CLOCK_DRIFT_THRESHOLD_MS,
+  CLOCK_SAMPLE_MAX_RTT_MS,
+  CLOCK_SAMPLE_MIN_INTERVAL_MS,
+  TIME_SOURCE_AGREEMENT_MS,
+};
 
 const monotonicNow = (): number =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -23,7 +39,6 @@ const monotonicNow = (): number =>
 
 let wallAnchor = Date.now();
 let monoAnchor = monotonicNow();
-let lastReferenceOffsetMs: number | null = null;
 
 /**
  * Dos orígenes HTTPS conocidos. La deriva de red solo cuenta si los dos
@@ -46,7 +61,9 @@ export interface NetworkTimeSample {
   driftMs: number | null;
   agreed: boolean;
   offline: boolean;
-  hosts: { host: string; driftMs: number | null }[];
+  /** true si alguna respuesta llegó pero se tiró por ida y vuelta alta. */
+  discardedRtt: boolean;
+  hosts: { host: string; driftMs: number | null; rttMs: number | null }[];
 }
 
 export const TimeAuthorityService = {
@@ -89,20 +106,20 @@ export const TimeAuthorityService = {
     return wallElapsed - monoElapsed;
   },
 
-  /** Deriva máxima que puede bloquear: local, o de red solo si la última muestra llegó. */
+  /**
+   * Deriva local que puede bloquear VALIDADA. La hora de red no entra:
+   * una muestra de Google/Cloudflare avisa, no mueve este número.
+   */
   currentDriftMs(): number {
-    const local = Math.abs(TimeAuthorityService.measureLocalDriftMs());
-    const ref = lastSampleOnline && lastReferenceOffsetMs !== null ? Math.abs(lastReferenceOffsetMs) : 0;
-    return Math.max(local, ref);
+    return Math.abs(TimeAuthorityService.measureLocalDriftMs());
   },
 
   /**
-   * true si la deriva local, o la de red con la última muestra en línea,
-   * supera el umbral. Estar sin red no marca deriva.
+   * true solo si el reloj de pared saltó respecto del monótono. La hora de
+   * red no bloquea por sí sola (prueba de campo 19 oct 2026).
    */
   isDriftExceeded(): boolean {
-    if (Math.abs(TimeAuthorityService.measureLocalDriftMs()) > CLOCK_DRIFT_THRESHOLD_MS) return true;
-    return lastSampleOnline && lastReferenceOffsetMs !== null && Math.abs(lastReferenceOffsetMs) > CLOCK_DRIFT_THRESHOLD_MS;
+    return Math.abs(TimeAuthorityService.measureLocalDriftMs()) > CLOCK_DRIFT_THRESHOLD_MS;
   },
 
   /** Última muestra de red llegó (las dos fuentes concordaron, o la URL única respondió). */
@@ -128,44 +145,48 @@ export const TimeAuthorityService = {
   async checkReferenceTime(): Promise<number | null> {
     if (!referenceUrl) return null;
     const sample = await readHostDrift(referenceUrl);
-    if (sample === null) {
+    if (!sample || sample.driftMs === null) {
       lastSampleOnline = false;
       return null;
     }
     lastSampleOnline = true;
-    lastReferenceOffsetMs = sample;
-    return sample;
+    return sample.driftMs;
   },
 
   /**
-   * Dos hosts. Solo hay deriva de red si ambos responden y concuerdan.
-   * Offline, desacuerdo o una sola respuesta: no se actualiza el desfase que
-   * bloquea y `offline` o `agreed: false` lo dicen.
+   * Dos hosts. Hay lectura si ambos responden, la ida y vuelta cabe en el
+   * tope y las cabeceras concuerdan. El desfase es el punto medio de cada
+   * ida y vuelta. No bloquea VALIDADA: quien decide el aviso es observeClock.
    */
   async sampleTrustedTime(): Promise<NetworkTimeSample> {
     const hosts = trustedHosts.slice(0, 2);
-    const drifts = await Promise.all(hosts.map(async (host) => ({ host, driftMs: await readHostDrift(host) })));
-    const ok = drifts.filter((d): d is { host: string; driftMs: number } => d.driftMs !== null);
+    const drifts = await Promise.all(hosts.map(async (host) => ({ host, ...(await readHostDrift(host)) })));
+    const rows = drifts.map((d) => ({
+      host: d.host,
+      driftMs: d.driftMs,
+      rttMs: d.rttMs,
+    }));
+    const discardedRtt = drifts.some((d) => d.discardedRtt);
+    const ok = drifts.filter((d): d is { host: string; driftMs: number; rttMs: number; discardedRtt: false } => d.driftMs !== null && !d.discardedRtt);
     if (ok.length < 2) {
       lastSampleOnline = false;
-      return { driftMs: null, agreed: false, offline: ok.length === 0, hosts: drifts };
+      const answered = drifts.filter((d) => d.rttMs !== null || d.driftMs !== null).length;
+      return { driftMs: null, agreed: false, offline: answered === 0 && !discardedRtt, discardedRtt, hosts: rows };
     }
     const delta = Math.abs(ok[0].driftMs - ok[1].driftMs);
     if (delta > TIME_SOURCE_AGREEMENT_MS) {
       lastSampleOnline = false;
-      return { driftMs: null, agreed: false, offline: false, hosts: drifts };
+      return { driftMs: null, agreed: false, offline: false, discardedRtt, hosts: rows };
     }
     const driftMs = Math.round((ok[0].driftMs + ok[1].driftMs) / 2);
     lastSampleOnline = true;
-    lastReferenceOffsetMs = driftMs;
-    return { driftMs, agreed: true, offline: false, hosts: drifts };
+    return { driftMs, agreed: true, offline: false, discardedRtt, hosts: rows };
   },
 
   /** Solo tests: sin red y sin desfase de referencia. */
   __resetForTests(): void {
     referenceUrl = null;
     trustedHosts = TRUSTED_TIME_HOSTS;
-    lastReferenceOffsetMs = null;
     lastSampleOnline = false;
     fetchImpl = async () => {
       throw new Error("offline");
@@ -180,7 +201,20 @@ export const TimeAuthorityService = {
 
 const HOST_TIMEOUT_MS = 4_000;
 
-async function readHostDrift(url: string): Promise<number | null> {
+interface HostDrift {
+  driftMs: number | null;
+  rttMs: number | null;
+  discardedRtt: boolean;
+}
+
+const HOST_MISS: HostDrift = { driftMs: null, rttMs: null, discardedRtt: false };
+
+/**
+ * Desfase (dispositivo − cabecera Date) con el punto medio de la ida y
+ * vuelta. Una respuesta lenta se descarta: la cabecera solo tiene segundos
+ * y un RTT alto no es un reloj movido.
+ */
+async function readHostDrift(url: string): Promise<HostDrift> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const before = Date.now();
@@ -191,14 +225,16 @@ async function readHostDrift(url: string): Promise<number | null> {
       }),
     ]);
     const after = Date.now();
+    const rttMs = after - before;
+    if (rttMs > CLOCK_SAMPLE_MAX_RTT_MS) return { driftMs: null, rttMs, discardedRtt: true };
     const header = res.headers.get("date") ?? res.headers.get("Date");
-    if (!header) return null;
+    if (!header) return HOST_MISS;
     const refMs = parseTimestamp(header);
-    if (refMs === null) return null;
-    const deviceMid = before + (after - before) / 2;
-    return deviceMid - refMs;
+    if (refMs === null) return HOST_MISS;
+    const deviceMid = before + rttMs / 2;
+    return { driftMs: deviceMid - refMs, rttMs, discardedRtt: false };
   } catch {
-    return null;
+    return HOST_MISS;
   } finally {
     if (timer) clearTimeout(timer);
   }
