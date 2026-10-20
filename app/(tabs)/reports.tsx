@@ -17,9 +17,9 @@ import { useTheme } from "../../src/context/ThemeContext";
 import type { EvidencePack, PayrollStatement } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
-  allocateDisplayHundredths,
   displayStatement,
   formatHundredths,
+  minutesToHundredths,
   selectBackupAdvice,
   selectCalendarHistory,
   selectComputedSessions,
@@ -96,16 +96,14 @@ export default function ReportsScreen() {
     return weeks.flatMap((w) => selectPeriodSessionRows(state, w.start, w.end, nowMs).map((row) => ({ ...row, weekStart: w.start })));
   }, [state, nowMs, weeks]);
   const computedById = useMemo(() => new Map(selectComputedSessions(state, nowMs).map((c) => [c.session.id, c])), [state, nowMs]);
+  const hoursFor = (minutes: number) => `${formatHundredths(minutesToHundredths(minutes))} ${t("common.hours")}`;
   const hoursById = new Map((shown?.rows ?? []).map((r) => [r.sessionId, `${r.hours} ${t("common.hours")}`]));
-  const hourSource = single ? rows.filter((r) => !hoursById.has(r.session.id)) : rows;
-  const openHundredths = allocateDisplayHundredths(hourSource.map((r) => r.netMinutes ?? 0));
-  let openCursor = 0;
   const rowHours = new Map<string, string>();
   for (const r of rows) {
     const sealed = hoursById.get(r.session.id);
     const key = `${r.weekStart}:${r.session.id}`;
     if (sealed && single) rowHours.set(key, sealed);
-    else rowHours.set(key, `${formatHundredths(openHundredths[openCursor++] ?? 0)} ${t("common.hours")}`);
+    else rowHours.set(key, hoursFor(r.netMinutes ?? 0));
   }
 
   const weekStarts = new Set(weeks.map((w) => w.start));

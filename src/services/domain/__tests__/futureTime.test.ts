@@ -16,7 +16,7 @@ import { PayrollEngineService } from "../PayrollEngineService";
 import { CA_DAILY8_WEEKLY40_V2 } from "../payrollPolicies";
 import { SessionEngineService } from "../SessionEngineService";
 import { transition } from "../sessionMachine";
-import { FutureTimestampError, FUTURE_TIME_TOLERANCE_MS } from "../sessionTimeGuard";
+import { FixedLunchError, FutureTimestampError, FUTURE_TIME_TOLERANCE_MS } from "../sessionTimeGuard";
 import { COMPANY, HOUR, MIN, MONDAY_8AM, makeClosedSession, makeCtx, makeSession } from "../../../../test/fixtures/session.fixture";
 import { makeExit } from "../../../../test/fixtures/spatial.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
@@ -158,7 +158,13 @@ describe("hora futura", () => {
     expect(FeedbackService.render(sealToast, "en").message).toContain("cannot be sealed");
 
     const corrected = (await PersistenceService.getSession(id))!;
-    await PersistenceService.updateSession({ ...corrected, endAtMs: FIELD_SEAL });
+    await expect(PersistenceService.updateSession({ ...corrected, endAtMs: FIELD_SEAL })).rejects.toBeInstanceOf(FixedLunchError);
+    expect((await PersistenceService.getSession(id))!.endAtMs).toBe(FIELD_END);
+    await PersistenceService.updateSession({
+      ...corrected,
+      endAtMs: FIELD_SEAL,
+      lunch: { ...corrected.lunch, deductedMinutes: 0 },
+    });
     const sealed = await EvidencePackService.seal(period);
     expect(sealed.ok).toBe(true);
     if (!sealed.ok) return;

@@ -3,7 +3,7 @@ import { StyleSheet, Text } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
 import { t, useLanguage } from "../../i18n";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
-import { timePickerMaximum } from "../../services/domain/sessionTimeGuard";
+import { fixedLunchExceedsSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
 import { resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
 import { Button, Card, Input } from "../ui";
 import { useFormFocusChain } from "../ui/formChain";
@@ -18,12 +18,15 @@ export function OrphanReviewCard({
   startMs,
   nowMs,
   busy,
+  fixedLunchMinutes,
   onContinue,
   onConfirm,
 }: {
   startMs: number;
   nowMs: number;
   busy?: boolean;
+  /** Minutos de almuerzo fijo ya declarados. Si el fin no los cubre, no se confirma. */
+  fixedLunchMinutes?: number | null;
   onContinue: () => void;
   onConfirm: (endAtMs: number, note: string) => void;
 }) {
@@ -44,6 +47,13 @@ export function OrphanReviewCard({
     }
     if (resolved.end > ceilingMs) {
       setError(t("modals.futureTime"));
+      return;
+    }
+    if (
+      fixedLunchMinutes != null &&
+      fixedLunchExceedsSession({ startAtMs: null, endAtMs: null, deductedMinutes: fixedLunchMinutes }, startMs, resolved.end)
+    ) {
+      setError(t("modals.lunchMustFit"));
       return;
     }
     setError("");

@@ -4,9 +4,11 @@
  *
  *  - El pago es en centavos enteros: cada línea redondea half-up
  *    `(minutos × tarifaEnCentavos) / 60` y el bruto es la suma de esas líneas.
- *  - Las horas del documento son centésimas. La suma de las filas es el
- *    redondeo half-up del total de minutos (resto mayor), así el encabezado
- *    cuadra con las filas y el total sigue siendo el de los minutos reales.
+ *  - El encabezado (regular, extra, tránsito) reparte centésimas para que
+ *    sume el redondeo half-up del total de minutos.
+ *  - Cada jornada muestra el redondeo half-up de SUS minutos de pago
+ *    (`minutesToHundredths`). No se le suma el resto de otras jornadas:
+ *    5 min son 0.08 h, no 0.09. El statement sellado no guarda esas cadenas.
  *  - La nota en pantalla o en el PDF se recorta; el texto guardado no se toca.
  */
 import type { PayrollStatement } from "../../core/contracts";
@@ -83,7 +85,7 @@ const PAID: ReadonlySet<PayrollStatement["lines"][number]["kind"]> = new Set([
 export interface StatementRowDisplay {
   sessionId: number;
   workedMinutes: number;
-  /** Centésimas de hora ya repartidas para que la suma cuadre con el total. */
+  /** Centésimas half-up de los minutos de pago de esta jornada. */
   hundredths: number;
   hours: string;
   amountCents: number;
@@ -105,8 +107,9 @@ export interface StatementDisplay {
 }
 
 /**
- * Vista de un statement ya cerrado. No cambia los minutos ni los importes:
- * solo decide cómo se escriben para que filas y encabezado sumen lo mismo.
+ * Vista de un statement ya cerrado. No cambia los minutos ni los importes.
+ * El encabezado reparte centésimas entre regular, extra y tránsito. Cada
+ * jornada redondea sus propios minutos: no hereda el resto de otra fila.
  */
 export function displayStatement(st: PayrollStatement): StatementDisplay {
   const sumKind = (kinds: readonly string[]) =>
@@ -126,14 +129,14 @@ export function displayStatement(st: PayrollStatement): StatementDisplay {
     bySession.set(l.sessionId, row);
   }
   const ids = st.sessionIds.filter((id) => bySession.has(id));
-  const hundredths = allocateDisplayHundredths(ids.map((id) => bySession.get(id)!.minutes));
-  const rows: StatementRowDisplay[] = ids.map((id, i) => {
+  const rows: StatementRowDisplay[] = ids.map((id) => {
     const row = bySession.get(id)!;
+    const hundredths = minutesToHundredths(row.minutes);
     return {
       sessionId: id,
       workedMinutes: row.minutes,
-      hundredths: hundredths[i] ?? 0,
-      hours: formatHundredths(hundredths[i] ?? 0),
+      hundredths,
+      hours: formatHundredths(hundredths),
       amountCents: row.cents,
       amount: formatCents(row.cents),
     };

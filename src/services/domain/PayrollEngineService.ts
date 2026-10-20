@@ -34,7 +34,7 @@ import type {
 import { companyCalendar, legalFlags } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
 import { moneyCents } from "./payrollDisplay";
-import { computeSegmentMinutes, sessionEndMs } from "./segmentation";
+import { cappedFixedLunchMinutes, computeSegmentMinutes, sessionEndMs } from "./segmentation";
 import { getPayrollPolicy } from "./payrollPolicies";
 import { TransitPolicyService } from "./TransitPolicyService";
 
@@ -78,7 +78,11 @@ export function computeSessionMinutes(
   const warnings: string[] = [];
   const spanMinutes = Math.max(0, Math.round((endMs - startMs) / MS_PER_MIN));
 
-  // Almuerzo
+  // Pausas no-almuerzo. Van antes del almuerzo fijo: el tope es la jornada menos las pausas.
+  const openPause = b.lastPauseStartMs ? Math.max(0, nowMs - b.lastPauseStartMs) : 0;
+  const pauseMinutes = Math.round((session.totalPausedMs + openPause) / MS_PER_MIN);
+
+  // Almuerzo. Un fijo ya guardado no puede descontar más que la jornada (dato viejo).
   let lunchMinutes = 0;
   const l = session.lunch;
   if (l.startAtMs && l.endAtMs) {
@@ -86,14 +90,10 @@ export function computeSessionMinutes(
   } else if (l.startAtMs && !l.endAtMs && session.domainStatus === "PAUSADA") {
     lunchMinutes = Math.max(0, Math.round((nowMs - l.startAtMs) / MS_PER_MIN));
   } else if (l.deductedMinutes !== null && l.deductedMinutes !== undefined) {
-    lunchMinutes = Math.max(0, Math.round(l.deductedMinutes));
+    lunchMinutes = cappedFixedLunchMinutes(l.deductedMinutes, spanMinutes, pauseMinutes);
   } else if (l.taken) {
     warnings.push("LUNCH_DURATION_UNKNOWN");
   }
-
-  // Pausas no-almuerzo
-  const openPause = b.lastPauseStartMs ? Math.max(0, nowMs - b.lastPauseStartMs) : 0;
-  const pauseMinutes = Math.round((session.totalPausedMs + openPause) / MS_PER_MIN);
 
   // Tránsito
   let transitPaidMinutes = 0;

@@ -57,6 +57,22 @@ describe("PayrollEngineService", () => {
     expect(statement([s]).regularHours).toBe(8);
   });
 
+  test("un almuerzo fijo de 60 min en una jornada de 36 no pasa de la jornada ni de la jornada menos las pausas", () => {
+    const start = MONDAY_8AM;
+    const lunch = { taken: true, startAtMs: null, endAtMs: null, deductedMinutes: 60 };
+    const short = makeClosedSession(start, 0, { id: 3, endAtMs: start + 36 * MIN, lunch });
+    const st = statement([short]);
+    expect(kinds(st, "LUNCH_DEDUCTION")[0]).toMatchObject({ sessionId: 3, minutes: 36 });
+    expect(st.lunchMinutes).toBe(36);
+    expect(st.regularHours).toBe(0);
+    expect(st.warnings).toContain("NO_WORK_MINUTES#3");
+    const withPause = makeClosedSession(start, 0, { id: 3, endAtMs: start + 36 * MIN, totalPausedMs: 10 * MIN, lunch });
+    const minutes = computeSessionMinutes(withPause, COMPANY, start + HOUR)!;
+    expect(minutes.lunchMinutes).toBe(26);
+    expect(minutes.pauseMinutes).toBe(10);
+    expect(minutes.workMinutes).toBe(0);
+  });
+
   test("almuerzo tomado sin duración: advertencia, no se asumen 60 min", () => {
     const s = makeClosedSession(MONDAY_8AM, 9, { lunch: { taken: true, startAtMs: null, endAtMs: null, deductedMinutes: null } });
     const st = statement([s]);

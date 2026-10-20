@@ -16,9 +16,9 @@ import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { resolveWeekCursor } from "../../src/core/refresh/weekCursor";
 import {
-  allocateDisplayHundredths,
   formatCents,
   formatHundredths,
+  minutesToHundredths,
   selectCalendarHistory,
   selectComputedSessions,
   selectHasConflict,
@@ -61,9 +61,9 @@ export default function HistoryScreen() {
     const map = new Map(selectComputedSessions(state, nowMs).map((c) => [c.session.id, c]));
     return map;
   }, [state, nowMs]);
-  const weekHundredths = allocateDisplayHundredths(weekRows.map((r) => r.netMinutes ?? 0));
-  const hoursById = new Map(weekRows.map((r, i) => [r.session.id, `${formatHundredths(weekHundredths[i] ?? 0)} ${t("common.hours")}`]));
-  const weekHours = formatHundredths(weekHundredths.reduce((a, b) => a + b, 0));
+  const hoursFor = (minutes: number) => `${formatHundredths(minutesToHundredths(minutes))} ${t("common.hours")}`;
+  const hoursById = new Map(weekRows.map((r) => [r.session.id, hoursFor(r.netMinutes ?? 0)]));
+  const weekHours = formatHundredths(minutesToHundredths(weekRows.reduce((a, r) => a + (r.netMinutes ?? 0), 0)));
   const weekGrossCents = weekRows.reduce((a, r) => a + (r.grossCents ?? 0), 0);
   const counts = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
   weekRows.forEach((r) => {

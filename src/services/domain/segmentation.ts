@@ -66,6 +66,17 @@ export function cumulativeMinutes(intervals: readonly Interval[], segs: readonly
   });
 }
 
+/**
+ * Almuerzo fijo que la nómina puede descontar. No pasa de la jornada menos
+ * las pausas: un dato viejo de 60 min en una jornada de 36 no infla el almuerzo.
+ * Quien guarda rechaza ese caso; esto solo lee.
+ */
+export function cappedFixedLunchMinutes(deductedMinutes: number, spanMinutes: number, pauseMinutes: number): number {
+  const declared = Math.max(0, Math.round(deductedMinutes));
+  const room = Math.max(0, spanMinutes - Math.max(0, pauseMinutes));
+  return Math.min(declared, room);
+}
+
 /** Prorrateo por peso (minutos de segmento): floor y resto al primer segmento. */
 export function prorate(totalMinutes: number, weights: readonly number[]): number[] {
   const sum = weights.reduce((a, w) => a + w, 0);
@@ -114,21 +125,7 @@ export function computeSegmentMinutes(
   const n = segs.length;
   const warn: string[][] = segs.map(() => []);
 
-  // Almuerzo
-  let lunch = segs.map(() => 0);
-  const l = session.lunch;
-  const lunchEnd = l.startAtMs && !l.endAtMs && session.domainStatus === "PAUSADA" ? nowMs : l.endAtMs;
-  if (l.startAtMs && lunchEnd) {
-    lunch = n === 1 ? [Math.max(0, Math.round((lunchEnd - l.startAtMs) / MIN))] : cumulativeMinutes([[l.startAtMs, lunchEnd]], segs);
-  } else if (l.deductedMinutes !== null && l.deductedMinutes !== undefined) {
-    const total = Math.max(0, Math.round(l.deductedMinutes));
-    lunch = n === 1 ? [total] : prorate(total, spans);
-    if (n > 1 && total > 0) warn[0].push("LUNCH_PRORATED");
-  } else if (l.taken) {
-    warn[0].push("LUNCH_DURATION_UNKNOWN");
-  }
-
-  // Pausas no-almuerzo
+  // Pausas no-almuerzo (antes del almuerzo fijo: el tope es jornada − pausas).
   const openPause = b.lastPauseStartMs ? Math.max(0, nowMs - b.lastPauseStartMs) : 0;
   const pauseTotal = Math.round((session.totalPausedMs + openPause) / MIN);
   let pause = segs.map(() => 0);
@@ -147,6 +144,22 @@ export function computeSegmentMinutes(
     }
   }
   if (b.breaksClipped) warn[0].push("PAUSE_CLIPPED");
+
+  // Almuerzo
+  let lunch = segs.map(() => 0);
+  const l = session.lunch;
+  const lunchEnd = l.startAtMs && !l.endAtMs && session.domainStatus === "PAUSADA" ? nowMs : l.endAtMs;
+  if (l.startAtMs && lunchEnd) {
+    lunch = n === 1 ? [Math.max(0, Math.round((lunchEnd - l.startAtMs) / MIN))] : cumulativeMinutes([[l.startAtMs, lunchEnd]], segs);
+  } else if (l.deductedMinutes !== null && l.deductedMinutes !== undefined) {
+    const spanTotal = spans.reduce((a, x) => a + x, 0);
+    const pauseSum = pause.reduce((a, x) => a + x, 0);
+    const total = cappedFixedLunchMinutes(l.deductedMinutes, spanTotal, pauseSum);
+    lunch = n === 1 ? [total] : prorate(total, spans);
+    if (n > 1 && total > 0) warn[0].push("LUNCH_PRORATED");
+  } else if (l.taken) {
+    warn[0].push("LUNCH_DURATION_UNKNOWN");
+  }
 
   // Tránsito
   const paidOt: Interval[] = [];

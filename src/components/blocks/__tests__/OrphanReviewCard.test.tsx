@@ -17,4 +17,17 @@ describe("OrphanReviewCard", () => {
     expect(screen.getByText(t("modals.futureTime"))).toBeTruthy();
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  test("un fin que no cubre el almuerzo fijo no confirma", () => {
+    const onConfirm = jest.fn();
+    const startMs = Date.UTC(2026, 8, 26, 14, 25, 0);
+    render(
+      <OrphanReviewCard startMs={startMs} nowMs={TimeAuthorityService.now()} fixedLunchMinutes={60} onContinue={jest.fn()} onConfirm={onConfirm} />,
+    );
+    fireEvent.changeText(screen.getByTestId("orphan-end"), "0800");
+    fireEvent.changeText(screen.getByTestId("orphan-note"), "me fui");
+    fireEvent.press(screen.getByText(t("today.orphanConfirm")));
+    expect(screen.getByText(t("modals.lunchMustFit"))).toBeTruthy();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

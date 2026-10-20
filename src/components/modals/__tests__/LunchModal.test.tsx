@@ -48,6 +48,24 @@ describe("LunchModal", () => {
     expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
   });
 
+  test("un almuerzo fijo de 60 min no cabe en una jornada de 36", () => {
+    const sessionStartMs = Date.UTC(2026, 8, 21, 8, 25, 0);
+    const sessionEndMs = sessionStartMs + 36 * 60_000;
+    const onConfirm = jest.fn();
+    const props = { visible: true as const, mode: "close" as const, sessionStartMs, sessionEndMs, onCancel: jest.fn(), onConfirm };
+    const { rerender } = render(<LunchModal {...props} />);
+    fireEvent.press(screen.getByLabelText(`60 ${t("common.minutes")}`));
+    expect(screen.getByText(t("modals.lunchMustFit"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByText(t("common.confirm")));
+    expect(onConfirm).not.toHaveBeenCalled();
+    setLanguage("en");
+    rerender(<LunchModal {...props} />);
+    fireEvent.press(screen.getByLabelText(`60 ${t("common.minutes")}`));
+    expect(screen.getByText("Lunch must fit within the shift.")).toBeTruthy();
+    setLanguage("es");
+  });
+
   test("el aviso de almuerzo fuera de la jornada también está en inglés", () => {
     setLanguage("en");
     const sessionStartMs = Date.UTC(2026, 8, 26, 13, 0, 0);

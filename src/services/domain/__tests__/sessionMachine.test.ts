@@ -100,6 +100,15 @@ describe("sessionMachine", () => {
     expect(code(makeSession(), { type: "STAY_WORKING" })).toBe("ILLEGAL_TRANSITION");
   });
 
+  test("CLOSE_DAY rechaza un almuerzo fijo más largo que la jornada", () => {
+    const open = makeSession();
+    const end = MONDAY_8AM + 36 * MIN;
+    const rejected = transition(open, { type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 60 }, makeCtx({ nowMs: end }));
+    expect(rejected).toMatchObject({ ok: false, code: "INVALID_TIMES", detail: "LUNCH_EXCEEDS_SESSION" });
+    const ok = okNext(open, { type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 30 }, makeCtx({ nowMs: end }));
+    expect(ok.next.lunch.deductedMinutes).toBe(30);
+  });
+
   test("CLOSE_DAY desde SALIDA cierra en la primera salida", () => {
     const firstExit = MONDAY_8AM + 8 * HOUR;
     const open = makeSession({ domainStatus: "SALIDA", bookkeeping: { firstExitAtMs: firstExit, firstExitReliable: true } });
@@ -249,6 +258,19 @@ describe("sessionMachine", () => {
   });
 
   describe("MANUAL_PATCH", () => {
+    test("rechaza acortar la jornada por debajo de un almuerzo fijo", () => {
+      const closed = makeClosedSession(MONDAY_8AM, 8, {
+        lunch: { taken: true, startAtMs: null, endAtMs: null, deductedMinutes: 60 },
+      });
+      const r = transition(
+        null,
+        { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + 36 * MIN, note: "recorte" },
+        makeCtx({ nowMs: MONDAY_8AM + 9 * HOUR }),
+        closed,
+      );
+      expect(r).toMatchObject({ ok: false, code: "INVALID_TIMES", detail: "LUNCH_EXCEEDS_SESSION" });
+    });
+
     const closed = makeClosedSession(MONDAY_8AM, 8);
     const later = makeCtx({ nowMs: MONDAY_8AM + 9 * HOUR });
     test("exige nota, sesión cerrada y sin solape; conserva el original", () => {
