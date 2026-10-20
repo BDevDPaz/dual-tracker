@@ -54,11 +54,25 @@ describe("TraceRecorderService", () => {
     expect(sunk[0]).toMatchObject({ type: "ACCURACY_DROP", lat: null, lon: null, reliable: false });
   });
 
-  test("profileFor: sin muestreo en CERRADA/NO_INICIADA", () => {
+  test("profileFor: sin muestreo en CERRADA/NO_INICIADA; el almuerzo no graba pero el servicio tiene perfil", () => {
     expect(TraceRecorderService.profileFor("CERRADA", "BREADCRUMB")).toBeNull();
     expect(TraceRecorderService.profileFor("NO_INICIADA", "BREADCRUMB")).toBeNull();
     expect(TraceRecorderService.profileFor("TRASLADO", "PERIMETER")).not.toBeNull();
     expect(TraceRecorderService.profileFor("SALIDA", "PERIMETER")).not.toBeNull();
+    expect(TraceRecorderService.profileFor("PAUSADA", "BREADCRUMB")).not.toBeNull();
+    expect(TraceRecorderService.shouldRecord("PAUSADA", "BREADCRUMB")).toBe(false);
+  });
+
+  test("en sitio la distancia es 0 para que el reloj muestree quieto; la batería baja alarga el intervalo", () => {
+    const onSite = TraceRecorderService.profileFor("ACTIVA", "BREADCRUMB")!;
+    expect(onSite.distanceIntervalM).toBe(0);
+    expect(onSite.timeIntervalMs).toBeGreaterThan(0);
+    const low = TraceRecorderService.profileFor("ACTIVA", "BREADCRUMB", 0.1)!;
+    expect(low.timeIntervalMs).toBe(onSite.timeIntervalMs * 3);
+    expect(low.distanceIntervalM).toBe(0);
+    const mid = TraceRecorderService.profileFor("ACTIVA", "BREADCRUMB", 0.3)!;
+    expect(mid.timeIntervalMs).toBe(onSite.timeIntervalMs * 2);
+    expect(TraceRecorderService.profileFor("ACTIVA", "BREADCRUMB", 0.8)!.timeIntervalMs).toBe(onSite.timeIntervalMs);
   });
 
   test("summarize y distanceMeters sobre persistencia real", async () => {

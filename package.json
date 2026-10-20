@@ -24,6 +24,11 @@
     "build:android:d11": "npx eas-cli@latest build --profile preview-d11 --platform android",
     "build:ios:d11": "npx eas-cli@latest build --profile preview-d11 --platform ios"
   },
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",

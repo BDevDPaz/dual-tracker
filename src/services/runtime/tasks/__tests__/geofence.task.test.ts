@@ -186,6 +186,20 @@ describe("geofence.task", () => {
     expect(row?.reason).toBe("EXIT_UNRELIABLE:HYSTERESIS");
   });
 
+  test("un ENTER no fiable a los milisegundos de un EXIT no se anota", async () => {
+    const { siteA } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 400);
+    time.travel(2);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    const facts = await PersistenceService.listSpatialFacts(s.id);
+    expect(facts.filter((f) => f.type === "ENTER")).toHaveLength(0);
+    expect(facts.filter((f) => f.type === "EXIT")).toHaveLength(1);
+  });
+
   test("anti-rebote: dos ENTER en < 5 s producen un solo hecho", async () => {
     const { siteA } = await seedWorld();
     const s = await startAndArrive(siteA);

@@ -31,6 +31,13 @@ export function centroidOf(points: readonly LatLon[]): LatLon | null {
   return { lat, lon };
 }
 
+export interface PlaneInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 export interface ViewFit {
   origin: LatLon;
   minX: number;
@@ -41,12 +48,18 @@ export interface ViewFit {
   scale: number;
   width: number;
   height: number;
-  pad: number;
+  inset: PlaneInsets;
 }
 
-export function fitLocalPlane(points: readonly LatLon[], width: number, height: number, pad = 28): ViewFit | null {
+function asInset(pad: number | PlaneInsets): PlaneInsets {
+  if (typeof pad === "number") return { top: pad, right: pad, bottom: pad, left: pad };
+  return pad;
+}
+
+export function fitLocalPlane(points: readonly LatLon[], width: number, height: number, pad: number | PlaneInsets = 28): ViewFit | null {
+  const inset = asInset(pad);
   const origin = centroidOf(points);
-  if (!origin || width <= pad * 2 || height <= pad * 2) return null;
+  if (!origin || width <= inset.left + inset.right || height <= inset.top + inset.bottom) return null;
   const meters = points.map((p) => projectEquirectangular(p, origin));
   let minX = Math.min(...meters.map((p) => p.x));
   let maxX = Math.max(...meters.map((p) => p.x));
@@ -62,15 +75,15 @@ export function fitLocalPlane(points: readonly LatLon[], width: number, height: 
   }
   const spanX = maxX - minX;
   const spanY = maxY - minY;
-  const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
-  return { origin, minX, minY, spanX, spanY, scale, width, height, pad };
+  const scale = Math.min((width - inset.left - inset.right) / spanX, (height - inset.top - inset.bottom) / spanY);
+  return { origin, minX, minY, spanX, spanY, scale, width, height, inset };
 }
 
 /** Norte arriba: y de pantalla crece hacia abajo. */
 export function toScreen(meters: PlaneMeters, fit: ViewFit): { x: number; y: number } {
   return {
-    x: fit.pad + (meters.x - fit.minX) * fit.scale,
-    y: fit.height - fit.pad - (meters.y - fit.minY) * fit.scale,
+    x: fit.inset.left + (meters.x - fit.minX) * fit.scale,
+    y: fit.height - fit.inset.bottom - (meters.y - fit.minY) * fit.scale,
   };
 }
 

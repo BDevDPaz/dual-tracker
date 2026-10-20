@@ -186,6 +186,15 @@ export async function degradeOpenSessionIfBlocked(open: SessionRecord | null): P
   if (!open || open.integrityClass === "CONFLICT") return;
   const reason = blockingIntegrityReason(Store.getState().health, true);
   if (!reason || reason === "CLEAN") return;
+  // El operario ya resolvió, o siguió tras un corte. Volver a marcar el mismo
+  // servicio parado deshace el primer toque (prueba de campo 20 oct: cuatro
+  // RESOLVE_MANUAL y la jornada seguía en Revisar). Otro sensor sí degrada.
+  if (
+    reason === "FOREGROUND_SERVICE_STOPPED" &&
+    (open.bookkeeping.integrityReason === "CONFLICT_RESOLVED" || open.bookkeeping.integrityReason === "ORPHAN_CONTINUED")
+  ) {
+    return;
+  }
   if (reason === "CLOCK_DRIFT" || reason === "BACKGROUND_PERMISSION_MISSING" || reason === "LOCATION_FOREGROUND_MISSING" || reason === "LOCATION_SERVICES_DISABLED" || reason === "FOREGROUND_SERVICE_STOPPED") {
     await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: reason }, "SYSTEM");
   }

@@ -24,10 +24,18 @@ export const MAX_EXIT_SPEED_KMH = 25;
 export const GEOFENCE_ANTI_REBOUNCE_MS = 5_000;
 /**
  * Un ENTER de la misma región dentro de esta ventana no se vuelve a anotar.
+ * La ventana es absoluta: el libro no inserta los hechos en orden de timestamp.
  * El ledger sigue siendo append-only: el duplicado no se escribe.
- * Prueba de campo 19 oct 2026: 2–3 ENTER en el mismo minuto.
+ * Prueba de campo 19 oct: 2–3 ENTER en el mismo minuto (90 s).
+ * Prueba de campo 20 oct: ráfagas fiables a ~2 min y timestamps fuera de orden.
  */
-export const GEOFENCE_ENTER_COALESCE_MS = 90_000;
+export const GEOFENCE_ENTER_COALESCE_MS = 150_000;
+/**
+ * Un ENTER no fiable a los pocos segundos de un EXIT de la misma región es el
+ * borde (el teléfono aún no salió), no una reentrada. 2 ms y 764 ms en la
+ * prueba del 20 oct. Un ENTER fiable sí se anota: la evidencia mejora.
+ */
+export const GEOFENCE_ENTER_AFTER_EXIT_MS = 5_000;
 /** Salto instantáneo sospechoso entre dos fixes (GEOTrack). */
 export const MAX_INSTANT_LOCATION_JUMP_METERS = 500;
 /** Velocidad físicamente imposible para un operario (GEOTrack). */

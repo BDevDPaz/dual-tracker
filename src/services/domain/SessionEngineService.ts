@@ -35,11 +35,13 @@ import type {
 import { ORIGIN_TO_ACTOR } from "../../core/contracts";
 import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
-import { GEOFENCE_ENTER_COALESCE_MS } from "../../constants/geolocation";
+import { GEOFENCE_ENTER_AFTER_EXIT_MS, GEOFENCE_ENTER_COALESCE_MS } from "../../constants/geolocation";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
+import { deviceOffGap } from "../evidence/deviceOffGap";
+import { readDeviceUptimeMs } from "../runtime/deviceUptime";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService, type WriteReport } from "../persistence/PersistenceService";
@@ -165,19 +167,31 @@ async function ledgerData(intent: SessionIntent): Promise<Record<string, unknown
 
 /**
  * ENTER repetido de la misma región dentro de la ventana: no se escribe otro
- * asiento. Un ENTER fiable después de uno no fiable sí se anota (mejora la
- * evidencia). El ledger no se reescribe.
+ * asiento. La ventana mira hacia atrás y hacia adelante: los timestamps del
+ * libro no llegan en orden. Un ENTER fiable después de uno no fiable sí se
+ * anota (mejora la evidencia). Un ENTER no fiable pegado a un EXIT de la
+ * misma región se descarta (borde, no reentrada). El ledger no se reescribe.
  */
 async function coalescedEnterId(db: SQLite.SQLiteDatabase, fact: SpatialFact): Promise<number | null> {
   if (fact.type !== "ENTER") return null;
   const siteId = fact.siteId ?? null;
+  if (!fact.reliable) {
+    const exit = await db.getFirstAsync<{ id: number }>(
+      `SELECT id FROM spatial_facts
+       WHERE session_id = ? AND type = 'EXIT' AND site_id IS ?
+         AND ABS(timestamp_ms - ?) <= ?
+       LIMIT 1`,
+      [fact.sessionId, siteId, fact.timestampMs, GEOFENCE_ENTER_AFTER_EXIT_MS],
+    );
+    if (exit) return exit.id;
+  }
   const row = await db.getFirstAsync<{ id: number; reliable: number | null }>(
     `SELECT id, reliable FROM spatial_facts
-     WHERE session_id = ? AND type = 'ENTER' AND timestamp_ms BETWEEN ? AND ?
-       AND site_id IS ?
+     WHERE session_id = ? AND type = 'ENTER' AND site_id IS ?
+       AND ABS(timestamp_ms - ?) <= ?
      ORDER BY reliable DESC, timestamp_ms DESC
      LIMIT 1`,
-    [fact.sessionId, fact.timestampMs - GEOFENCE_ENTER_COALESCE_MS, fact.timestampMs, siteId],
+    [fact.sessionId, siteId, fact.timestampMs, GEOFENCE_ENTER_COALESCE_MS],
   );
   if (!row) return null;
   if (row.reliable === 1) return row.id;
@@ -434,9 +448,12 @@ export const SessionEngineService = {
   /**
    * Heartbeat roto al rehidratar (§5.8): se anota OS_KILL en el ledger sin
    * duplicar ni alterar la sesión (criterio de aceptación §10).
+   * Si se conoce el arranque del teléfono, el asiento separa el apagado
+   * (último latido → reinicio) del hueco hasta que la app volvió.
    */
   async recordOsKill(session: SessionRecord, lastHeartbeatMs: number): Promise<void> {
     const nowMs = TimeAuthorityService.now();
+    const gap = deviceOffGap(lastHeartbeatMs, { nowMs, uptimeMs: await readDeviceUptimeMs() });
     await PersistenceService.transaction(async (db) => {
       await IntegrityLedgerService.append(
         {
@@ -448,7 +465,13 @@ export const SessionEngineService = {
           reason: "HEARTBEAT_GAP",
           timestampMs: nowMs,
           integrityClass: session.integrityClass,
-          data: { lastHeartbeatMs, gapMs: nowMs - lastHeartbeatMs },
+          data: {
+            lastHeartbeatMs: gap.lastHeartbeatMs,
+            gapMs: gap.gapMs,
+            resumedAtMs: gap.resumedAtMs,
+            ...(gap.bootAtMs !== null ? { bootAtMs: gap.bootAtMs } : {}),
+            ...(gap.deviceOffMs !== null ? { deviceOffMs: gap.deviceOffMs } : {}),
+          },
         },
         db,
       );

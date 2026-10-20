@@ -8,6 +8,7 @@ import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
 import { makeExit } from "../../../../test/fixtures/spatial.fixture";
 import { acceptDisclosure, mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
+import { setDeviceUptimeReader } from "../../runtime/deviceUptime";
 
 function fakePorts() {
   const calls: string[] = [];
@@ -169,6 +170,71 @@ describe("SessionEngineService", () => {
     expect(spatial).toHaveLength(3);
   });
 
+  test("ENTER no fiable pegado a un EXIT no se anota; uno fiable sí; la ventana es absoluta", async () => {
+    const s = await mustDispatch({ type: "START_DAY", siteId: sites.siteA });
+    const exitAt = time.now();
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "EXIT",
+      lat: 1,
+      lon: 1,
+      accuracyM: 5,
+      timestampMs: exitAt,
+      source: "gps",
+      reliable: true,
+      siteId: sites.siteA,
+    });
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "ENTER",
+      lat: 1,
+      lon: 1,
+      accuracyM: 80,
+      timestampMs: exitAt + 2,
+      source: "network",
+      reliable: false,
+      reason: "OUTSIDE_RADIUS",
+      siteId: sites.siteA,
+    });
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "ENTER",
+      lat: 1,
+      lon: 1,
+      accuracyM: 5,
+      timestampMs: exitAt + 60_000,
+      source: "gps",
+      reliable: true,
+      siteId: sites.siteA,
+    });
+    const later = exitAt + 400_000;
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "ENTER",
+      lat: 1,
+      lon: 1,
+      accuracyM: 5,
+      timestampMs: later,
+      source: "gps",
+      reliable: true,
+      siteId: sites.siteA,
+    });
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "ENTER",
+      lat: 1,
+      lon: 1,
+      accuracyM: 5,
+      timestampMs: later - 90_000,
+      source: "gps",
+      reliable: true,
+      siteId: sites.siteA,
+    });
+    const enters = await PersistenceService.listSpatialFacts(s.id, ["ENTER"]);
+    expect(enters.map((f) => f.reliable)).toEqual([true, true]);
+    expect(enters.some((f) => !f.reliable)).toBe(false);
+  });
+
   test("recordSpatialFact: ENTER deja asiento; BREADCRUMB no", async () => {
     const s = await mustDispatch({ type: "START_DAY", siteId: sites.siteA });
     await SessionEngineService.recordSpatialFact({ sessionId: s.id, type: "ENTER", lat: 1, lon: 1, accuracyM: 5, timestampMs: time.now(), source: "gps", reliable: true });
@@ -180,9 +246,28 @@ describe("SessionEngineService", () => {
 
   test("recordOsKill anota HEARTBEAT_GAP sin alterar la sesión", async () => {
     const s = await startAndArrive(sites.siteA);
-    await SessionEngineService.recordOsKill(s, time.now() - 20 * MIN);
+    const lastHb = time.now() - 20 * MIN;
+    setDeviceUptimeReader(async () => 3 * MIN);
+    await SessionEngineService.recordOsKill(s, lastHb);
+    setDeviceUptimeReader(null);
     const last = (await IntegrityLedgerService.listForSession(s.id)).pop()!;
     expect(last.intent).toBe("OS_KILL");
+    expect(last.reason).toBe("HEARTBEAT_GAP");
+    const data = (JSON.parse(last.payloadJson) as { data: Record<string, number> }).data;
+    expect(data.gapMs).toBe(20 * MIN);
+    expect(data.deviceOffMs).toBe(17 * MIN);
+    expect(data.bootAtMs).toBe(time.now() - 3 * MIN);
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("recordOsKill sin reinicio no inventa un apagado", async () => {
+    const s = await startAndArrive(sites.siteA);
+    setDeviceUptimeReader(async () => 5 * 60 * MIN);
+    await SessionEngineService.recordOsKill(s, time.now() - 20 * MIN);
+    setDeviceUptimeReader(null);
+    const last = (await IntegrityLedgerService.listForSession(s.id)).pop()!;
+    const data = (JSON.parse(last.payloadJson) as { data: Record<string, unknown> }).data;
+    expect(data.deviceOffMs).toBeUndefined();
+    expect(data.gapMs).toBe(20 * MIN);
   });
 });

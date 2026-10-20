@@ -10,6 +10,7 @@ import { serializeError } from "../../../utils/serializeError";
 import { SiteRegistryService } from "../../domain/SiteRegistryService";
 import { observeClock } from "../../evidence/clockSample";
 import { TraceRecorderService } from "../../evidence/TraceRecorderService";
+import { ForegroundWorkService } from "../ForegroundWorkService";
 import { LoggingService } from "../../persistence/LoggingService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { SettingsService } from "../../persistence/SettingsService";
@@ -31,6 +32,7 @@ export async function runBreadcrumbTask(
     const site = session.siteId !== null ? await PersistenceService.getSite(session.siteId) : null;
     const radiusM = SiteRegistryService.effectiveRadius(site, settings.company);
     const battery = await Battery.getBatteryLevelAsync().catch(() => null);
+    const level = battery !== null && battery >= 0 ? battery : null;
     const samples = body.data.locations.map((l) => ({
       lat: l.coords.latitude,
       lon: l.coords.longitude,
@@ -40,7 +42,9 @@ export async function runBreadcrumbTask(
       timestampMs: l.timestamp,
       source: (l.coords.accuracy ?? 999) <= 50 ? ("gps" as const) : ("network" as const),
     }));
-    await TraceRecorderService.ingest(session, samples, { mode: settings.company.traceMode, radiusM, battery: battery !== null && battery >= 0 ? battery : null });
+    await TraceRecorderService.ingest(session, samples, { mode: settings.company.traceMode, radiusM, battery: level });
+    // Solo reinicia el servicio si la banda de batería cambió el intervalo.
+    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, { battery: level }).catch(() => {});
     const last = samples[samples.length - 1];
     await GeofenceRuntimeService.observeSample({
       lat: last.lat,

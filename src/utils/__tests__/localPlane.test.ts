@@ -27,4 +27,21 @@ describe("plano local", () => {
     expect(north.y).toBeLessThan(south.y);
     expect(niceScaleMeters(320, 1 / fit!.scale)).toBeGreaterThan(0);
   });
+
+  test("un encuadre asimétrico deja los puntos dentro del hueco", () => {
+    const points = [
+      { lat: 34.22, lon: -118.52 },
+      { lat: 34.18, lon: -118.46 },
+    ];
+    const inset = { top: 72, right: 46, bottom: 40, left: 22 };
+    const fit = fitLocalPlane(points, 360, 280, inset);
+    expect(fit).not.toBeNull();
+    for (const p of points) {
+      const s = toScreen(projectEquirectangular(p, fit!.origin), fit!);
+      expect(s.x).toBeGreaterThanOrEqual(inset.left - 0.01);
+      expect(s.x).toBeLessThanOrEqual(360 - inset.right + 0.01);
+      expect(s.y).toBeGreaterThanOrEqual(inset.top - 0.01);
+      expect(s.y).toBeLessThanOrEqual(280 - inset.bottom + 0.01);
+    }
+  });
 });
