@@ -15,7 +15,8 @@
  *
  * Base: startActiveTracking de LEDTracker (startLocationUpdatesAsync con
  * foregroundService), con perfiles adaptativos y copy de la propuesta.
- * En iOS no hay FGS: se usa significant-change + geofence (TaskOrchestrator).
+ * En iOS no hay FGS: deferred updates (significant-change de Expo) más la
+ * geocerca. Sin validar en un iPhone.
  */
 import * as Location from "expo-location";
 import { Platform } from "react-native";
@@ -53,7 +54,7 @@ export const ForegroundWorkService = {
       await ForegroundWorkService.stop();
       return "stopped";
     }
-    const key = `${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
+    const key = `${Platform.OS}:${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
     const running = await ForegroundWorkService.isRunning();
     if (running && key === currentProfileKey && !opts?.relabel) return "running";
     try {
@@ -63,6 +64,7 @@ export const ForegroundWorkService = {
         return "stopped";
       }
       if (running) await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
+      const ios = Platform.OS === "ios";
       await Location.startLocationUpdatesAsync(BREADCRUMB_TASK_NAME, {
         accuracy: status === "TRASLADO" ? Location.Accuracy.High : Location.Accuracy.Balanced,
         timeInterval: profile.timeIntervalMs,
@@ -70,11 +72,20 @@ export const ForegroundWorkService = {
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
         activityType: Location.ActivityType.Other,
-        foregroundService: {
-          notificationTitle: t("notifications.fgsTitle"),
-          notificationBody: t("notifications.fgsBody"),
-          killServiceOnDestroy: false,
-        },
+        // iOS: deferred updates es el significant-change que Expo expone aquí.
+        // No se ha medido en un iPhone.
+        ...(ios
+          ? {
+              deferredUpdatesInterval: profile.timeIntervalMs,
+              deferredUpdatesDistance: profile.distanceIntervalM,
+            }
+          : {
+              foregroundService: {
+                notificationTitle: t("notifications.fgsTitle"),
+                notificationBody: t("notifications.fgsBody"),
+                killServiceOnDestroy: false,
+              },
+            }),
       });
       currentProfileKey = key;
       LoggingService.log("VERDE", "SERVICIOS_ACTIVOS", "INFO", "Servicio en primer plano activo", { status, platform: Platform.OS });

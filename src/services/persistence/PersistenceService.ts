@@ -31,12 +31,14 @@ import { FixedLunchError, FutureTimestampError, introducesFixedLunchOverflow, ne
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
+import { ensureForeignKeys } from "./foreignKeyMigration";
 import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SITE_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
   DbSpatialRow,
   SESSION_COLUMNS,
+  isKnownPersistedStatus,
   rowToSession,
   rowToSite,
   rowToSpatialFact,
@@ -71,6 +73,8 @@ let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let ready = false;
 /** Serializa transacciones en esta conexión (evita BEGIN anidados). */
 let txChain: Promise<unknown> = Promise.resolve();
+/** > 0 mientras esta conexión tiene un BEGIN abierto. */
+let txDepth = 0;
 
 async function configure(database: SQLite.SQLiteDatabase): Promise<void> {
   const wal = await database.getFirstAsync<{ journal_mode?: string }>("PRAGMA journal_mode = WAL");
@@ -212,6 +216,7 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   await repairInvalidDateStrings(database);
   // Paso de datos sin clave: pausas antiguas desde el ledger (una vez).
   await backfillPausesFromLedger(database);
+  await ensureForeignKeys(database);
   await database.runAsync(
     `INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`,
     [KV_KEYS.SCHEMA_VERSION, JSON.stringify(SCHEMA_VERSION), TimeAuthorityService.now()],
@@ -260,6 +265,67 @@ async function ensureReady(): Promise<SQLite.SQLiteDatabase> {
   return PersistenceService.init();
 }
 
+const KNOWN_STATUS_SQL = [
+  "ESPERANDO",
+  "ACTIVA",
+  "PAUSADA",
+  "TRASLADO",
+  "SALIDA",
+  "CERRADA",
+  "CUARENTENA",
+  "GEOFENCE_CREATED",
+  "ACTIVE_WORK",
+  "active",
+  "PAUSED",
+  "TRAVEL",
+  "travel",
+  "PENDING_EXIT_CONFIRMATION",
+  "CLOSED",
+  "completed",
+];
+
+/**
+ * Un domain_status que no está en la máquina ni en los alias conocidos no se
+ * lee como CERRADA. Se asienta una vez y la fila queda en CUARENTENA.
+ * Dentro de una transacción no se escribe (BEGIN anidado): el mapeo en
+ * memoria ya devuelve CUARENTENA.
+ */
+async function quarantineUnknownSessions(): Promise<void> {
+  if (txDepth > 0) return;
+  const d = await ensureReady();
+  const marks = KNOWN_STATUS_SQL.map(() => "?").join(", ");
+  const unknown = await d.getAllAsync<{ id: number; domain_status: string }>(
+    `SELECT id, domain_status FROM sessions WHERE domain_status NOT IN (${marks})`,
+    KNOWN_STATUS_SQL,
+  );
+  if (!unknown.length) return;
+  // IntegrityLedgerService importa este módulo. Un import estático cicla la carga.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { IntegrityLedgerService } = require("../domain/IntegrityLedgerService") as typeof import("../domain/IntegrityLedgerService");
+  const now = TimeAuthorityService.now();
+  await PersistenceService.transaction(async (db) => {
+    for (const row of unknown) {
+      const current = await db.getFirstAsync<{ domain_status: string }>(`SELECT domain_status FROM sessions WHERE id = ?`, [row.id]);
+      if (!current || isKnownPersistedStatus(current.domain_status)) continue;
+      await IntegrityLedgerService.append(
+        {
+          sessionId: row.id,
+          actor: "SYSTEM",
+          intent: "SESSION_QUARANTINED",
+          fromState: null,
+          toState: "CUARENTENA",
+          reason: "STATUS_UNKNOWN",
+          timestampMs: now,
+          integrityClass: null,
+          data: { rawStatus: current.domain_status },
+        },
+        db,
+      );
+      await db.runAsync(`UPDATE sessions SET domain_status = 'CUARENTENA', updated_at_ms = ? WHERE id = ?`, [now, row.id]);
+    }
+  });
+}
+
 export const PersistenceService = {
   // -------------------------------------------------------------------------
   // Ciclo de vida
@@ -303,21 +369,26 @@ export const PersistenceService = {
   async transaction<T>(work: (database: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
     const run = async (): Promise<T> => {
       const database = await ensureReady();
-      await database.execAsync("BEGIN IMMEDIATE TRANSACTION");
-      beginWriteBuffer();
+      txDepth++;
       try {
-        const result = await work(database);
-        await database.execAsync("COMMIT");
-        flushWriteBuffer();
-        return result;
-      } catch (error) {
-        abortWriteBuffer();
+        await database.execAsync("BEGIN IMMEDIATE TRANSACTION");
+        beginWriteBuffer();
         try {
-          await database.execAsync("ROLLBACK");
-        } catch {
-          // rollback secundario ignorado
+          const result = await work(database);
+          await database.execAsync("COMMIT");
+          flushWriteBuffer();
+          return result;
+        } catch (error) {
+          abortWriteBuffer();
+          try {
+            await database.execAsync("ROLLBACK");
+          } catch {
+            // rollback secundario ignorado
+          }
+          throw error;
         }
-        throw error;
+      } finally {
+        txDepth--;
       }
     };
     const next = txChain.then(run, run);
@@ -393,6 +464,7 @@ export const PersistenceService = {
   },
 
   async getSession(id: number): Promise<SessionRecord | null> {
+    await quarantineUnknownSessions();
     const d = await ensureReady();
     const row = await d.getFirstAsync<DbSessionRow>(`SELECT * FROM sessions WHERE id = ?`, [id]);
     return row ? rowToSession(row) : null;
@@ -422,6 +494,7 @@ export const PersistenceService = {
   },
 
   async listSessions(opts: { from?: number; to?: number; includeDeleted?: boolean; overlapping?: boolean } = {}): Promise<SessionRecord[]> {
+    await quarantineUnknownSessions();
     const d = await ensureReady();
     const where: string[] = [];
     const params: SqlParam[] = [];
@@ -752,8 +825,8 @@ export const PersistenceService = {
   // -------------------------------------------------------------------------
   // Evidence packs + cola offline
   // -------------------------------------------------------------------------
-  async insertPack(pack: EvidencePack): Promise<void> {
-    const d = await ensureReady();
+  async insertPack(pack: EvidencePack, database?: SQLite.SQLiteDatabase): Promise<void> {
+    const d = database ?? (await ensureReady());
     // INSERT (no REPLACE): dos packs nunca se sobrescriben (§9 criterios app).
     await d.runAsync(
       `INSERT INTO evidence_packs (id, period_start, period_end, pack_hash, policy_id, manifest_json, statement_json, evidence_json,
@@ -810,8 +883,8 @@ export const PersistenceService = {
     return row ? mapPackRow(row) : null;
   },
 
-  async enqueueOffline(packId: string, idempotencyKey: string | null = null): Promise<number> {
-    const d = await ensureReady();
+  async enqueueOffline(packId: string, idempotencyKey: string | null = null, database?: SQLite.SQLiteDatabase): Promise<number> {
+    const d = database ?? (await ensureReady());
     const now = TimeAuthorityService.now();
     const res = await d.runAsync(
       `INSERT INTO offline_queue (pack_id, status, attempts, last_error, created_at_ms, updated_at_ms, idempotency_key, next_attempt_at_ms)

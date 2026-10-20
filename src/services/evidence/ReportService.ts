@@ -99,12 +99,12 @@ export const ReportService = {
     if (!(await MailComposer.isAvailableAsync())) {
       return uris.length ? ReportService.share(uris[0]) : false;
     }
-    await MailComposer.composeAsync({
+    const composed = await MailComposer.composeAsync({
       recipients: to ? [to] : [],
       subject: `Nómina ${subjectSuffix} - ${employeeName}`,
       body: `Hola,\n\nAdjunto el expediente de horas del periodo.\n\nAtentamente,\n${employeeName}`,
       attachments: uris,
     });
-    return true;
+    return composed.status === "sent";
   },
 };

@@ -7,6 +7,7 @@
  * Cada fallo deja el ítem en FAILED con espera exponencial. La clave de
  * idempotencia de cada POST es el packHash.
  */
+import type * as SQLite from "expo-sqlite";
 import { PORTAL_MAX_ATTEMPTS } from "../../config/provisional";
 import type { OfflineQueueItem } from "../../core/contracts";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
@@ -23,8 +24,8 @@ export interface FlushResult {
 }
 
 export const OfflineQueueService = {
-  async enqueue(packId: string, idempotencyKey: string | null = null): Promise<number> {
-    return PersistenceService.enqueueOffline(packId, idempotencyKey);
+  async enqueue(packId: string, idempotencyKey: string | null = null, database?: SQLite.SQLiteDatabase): Promise<number> {
+    return PersistenceService.enqueueOffline(packId, idempotencyKey, database);
   },
 
   async list(): Promise<OfflineQueueItem[]> {

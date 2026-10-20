@@ -26,7 +26,7 @@ import type {
   TransitSegment,
   PauseInterval,
 } from "../../core/contracts";
-import { companyCalendar } from "../../utils/companyPolicy";
+import { companyCalendar, companyTimezone } from "../../utils/companyPolicy";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
 import { siteCheckedInBefore } from "./siteVisits";
 import { fixedLunchExceedsSession, isFutureInstant, lunchOutsideSession, recordedPauseMinutes, sessionSpanMinutes, FUTURE_TIME_TOLERANCE_MS } from "./sessionTimeGuard";
@@ -446,7 +446,8 @@ function splitSession(
     integrityClass: ib.integrityClass,
     bookkeeping: {
       ...s.bookkeeping,
-      dateString: workdayDateString(at, companyCalendar(ctx.company)),
+      dateString: workdayDateString(at, companyCalendar(ctx.company), s.bookkeeping.recordedTimeZone ?? companyTimezone(ctx.company)),
+      recordedTimeZone: s.bookkeeping.recordedTimeZone ?? companyTimezone(ctx.company),
       pauses: pausesB,
       firstExitAtMs: feInB ? fe : null,
       firstExitReliable: feInB ? s.bookkeeping.firstExitReliable : null,
@@ -499,8 +500,10 @@ export function transition(
         integrityClass: "VALID",
         policyId: ctx.policyId,
         bookkeeping: {
-          // Jornada de inicio bajo el calendario vigente (spec v1.3 §5.1 / §5.2 N4).
-          dateString: workdayDateString(now, companyCalendar(ctx.company)),
+          // Jornada de inicio bajo el calendario vigente (spec v1.3 §5.1 / §5.2 N4),
+          // en la zona de la empresa en este instante. Queda guardada en la fila.
+          dateString: workdayDateString(now, companyCalendar(ctx.company), companyTimezone(ctx.company)),
+          recordedTimeZone: companyTimezone(ctx.company),
           isDeleted: false,
           cancelled: false,
           lastPauseStartMs: null,

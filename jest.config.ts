@@ -1,7 +1,8 @@
 /**
  * Jest — cuarta puerta de Dual Tracker (Propuesta de calidad "Integración de Jest").
  * Se prueba la AUTORIDAD (dominio, aplicación, evidencia, persistencia,
- * runtime con dobles), no el JSX de app/. Ver README → "Pruebas".
+ * runtime con dobles) y los flujos críticos de app/ (fichar, cerrar,
+ * almuerzo, sellar, ajustes, PIN). Ver README → "Pruebas".
  */
 import type { Config } from "jest";
 
@@ -10,7 +11,7 @@ process.env.TZ = "UTC";
 
 const config: Config = {
   preset: "jest-expo",
-  roots: ["<rootDir>/src", "<rootDir>/test"],
+  roots: ["<rootDir>/src", "<rootDir>/test", "<rootDir>/app"],
   testMatch: ["**/__tests__/**/*.test.ts?(x)"],
   setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
   // Sin alias @/ en tsconfig: imports relativos como el árbol actual.

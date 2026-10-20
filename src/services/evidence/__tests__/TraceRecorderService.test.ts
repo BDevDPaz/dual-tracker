@@ -3,6 +3,7 @@ import type { SpatialFact } from "../../../core/contracts";
 import type { RawLocationSample } from "../TraceRecorderService";
 import { TraceRecorderService } from "../TraceRecorderService";
 import { PersistenceService } from "../../persistence/PersistenceService";
+import { seedSite } from "../../../../test/helpers";
 import { MIN, MONDAY_8AM, makeSession } from "../../../../test/fixtures/session.fixture";
 import { SITE_LAT, SITE_LON, makeBreadcrumb, makeEnter, makeExit } from "../../../../test/fixtures/spatial.fixture";
 
@@ -77,6 +78,8 @@ describe("TraceRecorderService", () => {
 
   test("summarize y distanceMeters sobre persistencia real", async () => {
     await PersistenceService.init();
+    await seedSite();
+    await PersistenceService.insertSession(makeSession({ endAtMs: MONDAY_8AM + 8 * 60 * MIN, domainStatus: "CERRADA" }));
     TraceRecorderService.setSink(null);
     await PersistenceService.insertSpatialFact(makeEnter());
     await PersistenceService.insertSpatialFact(makeBreadcrumb({ timestampMs: MONDAY_8AM + MIN }));
@@ -92,6 +95,8 @@ describe("TraceRecorderService", () => {
 
   test("purgeExpired no borra sin expediente y, con periodo sellado y plazo cumplido, borra la miga", async () => {
     await PersistenceService.init();
+    await seedSite();
+    await PersistenceService.insertSession(makeSession({ domainStatus: "CERRADA", endAtMs: MONDAY_8AM }));
     TraceRecorderService.setSink(null);
     const old = Date.parse("2026-01-01T00:00:00Z");
     await PersistenceService.insertSpatialFact(makeEnter({ timestampMs: old }));

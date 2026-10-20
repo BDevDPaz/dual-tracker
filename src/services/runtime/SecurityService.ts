@@ -115,6 +115,38 @@ async function readPinnedKey(): Promise<PinnedEmployerKey | null> {
   return parsed;
 }
 
+export interface ProvisionSnapshot {
+  pin: string | null;
+  employerKey: string | null;
+  nonces: string | null;
+  lockout: string | null;
+}
+
+async function readRaw(key: string): Promise<string | null> {
+  return SecureStore.getItemAsync(key);
+}
+
+async function writeRaw(key: string, value: string | null): Promise<void> {
+  if (value === null) await SecureStore.deleteItemAsync(key);
+  else await SecureStore.setItemAsync(key, value);
+}
+
+async function captureProvisionSnapshot(): Promise<ProvisionSnapshot> {
+  return {
+    pin: await readRaw(PIN_KEY),
+    employerKey: await readRaw(EMPLOYER_KEY_STORE_KEY),
+    nonces: await readRaw(USED_NONCES_KEY),
+    lockout: await readRaw(LOCKOUT_KEY),
+  };
+}
+
+async function restoreProvisionSnapshot(snapshot: ProvisionSnapshot): Promise<void> {
+  await writeRaw(PIN_KEY, snapshot.pin);
+  await writeRaw(EMPLOYER_KEY_STORE_KEY, snapshot.employerKey);
+  await writeRaw(USED_NONCES_KEY, snapshot.nonces);
+  await writeRaw(LOCKOUT_KEY, snapshot.lockout);
+}
+
 function storedFromPayload(payload: PinProvisionPayload, nowMs: number): StoredPin {
   if (payload.v === 2) {
     return { salt: payload.salt, hash: payload.hash, kdf: "scrypt", provision: "EMPLOYER", provisionNonce: payload.nonce, provisionedAtMs: nowMs };
@@ -182,7 +214,15 @@ export const SecurityService = {
   async provisionFromCode(
     code: string,
   ): Promise<
-    | { ok: true; nonce: string; expiresAtMs: number; keyId: string; previousKeyId: string | null; keyAction: EmployerKeyAction }
+    | {
+        ok: true;
+        nonce: string;
+        expiresAtMs: number;
+        keyId: string;
+        previousKeyId: string | null;
+        keyAction: EmployerKeyAction;
+        snapshot: ProvisionSnapshot;
+      }
     | { ok: false; code: "CODE_INVALID" | "CODE_EXPIRED" | "CODE_USED" | "ALREADY_PROVISIONED" | "EMPLOYER_KEY_MISMATCH" | "ERROR" }
   > {
     const assessed = assessProvisionCode(code, TimeAuthorityService.now());
@@ -203,19 +243,34 @@ export const SecurityService = {
       const current = await readStoredPin();
       if (current?.provision === "EMPLOYER" && !SecurityService.isUnlocked()) return { ok: false, code: "ALREADY_PROVISIONED" };
       const nowMs = TimeAuthorityService.now();
-      await SecureStore.setItemAsync(PIN_KEY, JSON.stringify(storedFromPayload(assessed.payload, nowMs)));
-      if (keyAction !== "UNCHANGED") {
-        await SecureStore.setItemAsync(EMPLOYER_KEY_STORE_KEY, JSON.stringify({ pub: assessed.payload.pub, keyId } satisfies PinnedEmployerKey));
+      const snapshot = await captureProvisionSnapshot();
+      try {
+        await SecureStore.setItemAsync(PIN_KEY, JSON.stringify(storedFromPayload(assessed.payload, nowMs)));
+        if (keyAction !== "UNCHANGED") {
+          await SecureStore.setItemAsync(EMPLOYER_KEY_STORE_KEY, JSON.stringify({ pub: assessed.payload.pub, keyId } satisfies PinnedEmployerKey));
+        }
+        await SecureStore.setItemAsync(USED_NONCES_KEY, JSON.stringify([...used, assessed.payload.nonce]));
+        await SecureStore.deleteItemAsync(LOCKOUT_KEY);
+      } catch (error) {
+        await restoreProvisionSnapshot(snapshot).catch(() => undefined);
+        throw error;
       }
-      await SecureStore.setItemAsync(USED_NONCES_KEY, JSON.stringify([...used, assessed.payload.nonce]));
-      await SecureStore.deleteItemAsync(LOCKOUT_KEY);
-      StoreActions.adminUpdated({ hasPin: true, pinOrigin: "EMPLOYER", isUnlocked: false, unlockedUntilMs: null, status: "IDLE" });
-      LoggingService.audit({ sessionId: null, actionType: "ADMIN_PIN_SET", details: "PIN aprovisionado por el empleador" }).catch(() => {});
-      return { ok: true, nonce: assessed.payload.nonce, expiresAtMs: assessed.payload.exp, keyId, previousKeyId, keyAction };
+      return { ok: true, nonce: assessed.payload.nonce, expiresAtMs: assessed.payload.exp, keyId, previousKeyId, keyAction, snapshot };
     } catch (error) {
       LoggingService.log("ROJO", "SEGURIDAD", "ERROR", "Fallo aprovisionando PIN", serializeError(error));
       return { ok: false, code: "ERROR" };
     }
+  },
+
+  /** Deshace beginProvision si el asiento de ledger no se pudo escribir. */
+  async rollbackProvision(snapshot: ProvisionSnapshot): Promise<void> {
+    await restoreProvisionSnapshot(snapshot);
+  },
+
+  /** El PIN y el ledger ya coinciden: ahora sí se publica en la UI. */
+  publishProvisionedPin(): void {
+    StoreActions.adminUpdated({ hasPin: true, pinOrigin: "EMPLOYER", isUnlocked: false, unlockedUntilMs: null, status: "IDLE" });
+    LoggingService.audit({ sessionId: null, actionType: "ADMIN_PIN_SET", details: "PIN aprovisionado por el empleador" }).catch(() => {});
   },
 
   /** Valida el PIN y, si procede, abre la sesión admin con caducidad. */

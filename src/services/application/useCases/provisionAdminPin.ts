@@ -64,8 +64,10 @@ export async function provisionAdminPin(code: string): Promise<IntentResult<{ no
       }
     });
   } catch (error) {
-    LoggingService.log("ROJO", "SEGURIDAD", "ERROR", "PIN aprovisionado sin asiento de ledger", serializeError(error));
+    await SecurityService.rollbackProvision(installed.snapshot);
+    LoggingService.log("ROJO", "SEGURIDAD", "ERROR", "Aprovisionamiento de PIN deshecho: el ledger no se escribió", serializeError(error));
     return { ok: false, code: "PERSISTENCE_ERROR" };
   }
+  SecurityService.publishProvisionedPin();
   return { ok: true, data: { nonce: installed.nonce } };
 }

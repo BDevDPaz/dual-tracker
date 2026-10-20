@@ -27,7 +27,9 @@ import {
   DEFAULT_TRACE_RETENTION_DAYS,
 } from "../../config/provisional";
 import { bootstrapLocaleTag, resolveInitialLanguage } from "../../i18n/locale";
+import { invalidCompanyFields, sanitizeCompanyPolicy } from "../domain/policyValidation";
 import { DEFAULT_PAYROLL_POLICY_ID } from "../domain/payrollPolicies";
+import { setCorporateTimezone } from "../../utils/dateUtils";
 import { markPersisted } from "../../core/refresh/dataRevision";
 import { FieldCryptoService } from "./FieldCryptoService";
 import { PersistenceService } from "./PersistenceService";
@@ -66,6 +68,7 @@ export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
   transitPaid: true,
   transitRateMultiplier: 1,
   transitCountsTowardOvertime: true,
+  timezone: "America/Los_Angeles",
 };
 
 export const DEFAULT_DEVICE_PREFS: DevicePreferences = {
@@ -87,12 +90,15 @@ export const SettingsService = {
     let company: CompanyPolicy = DEFAULT_COMPANY_POLICY;
     if (storedCompany) {
       const { companyEmailSealed, ...rest } = storedCompany;
-      company = {
-        ...DEFAULT_COMPANY_POLICY,
-        ...rest,
-        companyEmail: (await FieldCryptoService.decrypt("settings.companyEmail", KV_KEYS.COMPANY, companyEmailSealed).catch(() => null)) ?? "",
-      };
+      company = sanitizeCompanyPolicy(
+        {
+          ...rest,
+          companyEmail: (await FieldCryptoService.decrypt("settings.companyEmail", KV_KEYS.COMPANY, companyEmailSealed).catch(() => null)) ?? "",
+        },
+        DEFAULT_COMPANY_POLICY,
+      );
     }
+    setCorporateTimezone(company.timezone);
 
     return {
       profile: {
@@ -111,6 +117,9 @@ export const SettingsService = {
   },
 
   async saveCompany(company: CompanyPolicy, database?: SQLite.SQLiteDatabase): Promise<void> {
+    const invalid = invalidCompanyFields(company);
+    if (invalid.length) throw new Error(`INVALID_COMPANY_POLICY:${invalid.join(",")}`);
+    setCorporateTimezone(company.timezone);
     const { companyEmail, ...rest } = company;
     const stored: StoredCompany = {
       ...rest,
@@ -147,10 +156,9 @@ export const SettingsService = {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(next.profile.dailyReminderTime)) {
       return { ok: false, code: "INVALID_VALUE" };
     }
-    if (!(next.profile.hourlyRate >= 0) || !(next.company.overtimeMultiplier >= 1)) {
-      return { ok: false, code: "INVALID_VALUE" };
-    }
-    if (!(next.company.defaultRadiusM > 0)) return { ok: false, code: "INVALID_VALUE" };
+    if (!Number.isFinite(next.profile.hourlyRate) || next.profile.hourlyRate < 0) return { ok: false, code: "INVALID_VALUE" };
+    if (next.profile.language !== "es" && next.profile.language !== "en") return { ok: false, code: "INVALID_VALUE" };
+    if (invalidCompanyFields(next.company).length) return { ok: false, code: "INVALID_VALUE" };
     const portalUrl = next.company.employerPortalUrl ?? "";
     const portalParsed = parsePortalUrl(portalUrl);
     if (portalUrl.trim() && !portalParsed.ok) return { ok: false, code: "PORTAL_URL_INVALID" };

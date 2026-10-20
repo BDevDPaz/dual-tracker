@@ -14,7 +14,8 @@
  */
 export const DB_NAME = "dual_tracker_v1.db";
 // v2: reparación de date_string; v3: FieldCrypto v1.3 (DDL sin clave + paso de datos con clave, §7).
-export const SCHEMA_VERSION = 3;
+// v4: claves foráneas (reconstrucción de tablas) y recorded_timezone.
+export const SCHEMA_VERSION = 4;
 
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
@@ -23,6 +24,7 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["breaks_clipped", "INTEGER NOT NULL DEFAULT 0"],
   ["split_from_session_id", "INTEGER"], // P4 RESOLVE_SPLIT (§5.4)
   ["cert_blockers_json", "TEXT NOT NULL DEFAULT '[]'"], // FieldCrypto §12
+  ["recorded_timezone", "TEXT"],
 ];
 
 /** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. */
@@ -41,7 +43,7 @@ export const CREATE_TABLES_SQL = `
     actual_start_ms INTEGER,
     end_ms INTEGER,
     domain_status TEXT NOT NULL,
-    site_id INTEGER,
+    site_id INTEGER REFERENCES sites(id) ON DELETE SET NULL,
     client_id TEXT,
     lunch_taken INTEGER NOT NULL DEFAULT 0,
     lunch_start_ms INTEGER,
@@ -64,8 +66,9 @@ export const CREATE_TABLES_SQL = `
     pauses_json TEXT NOT NULL DEFAULT '[]',
     pauses_source TEXT NOT NULL DEFAULT 'RECORDED',
     breaks_clipped INTEGER NOT NULL DEFAULT 0,
-    split_from_session_id INTEGER,
-    cert_blockers_json TEXT NOT NULL DEFAULT '[]'
+    split_from_session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+    cert_blockers_json TEXT NOT NULL DEFAULT '[]',
+    recorded_timezone TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_start ON sessions(declared_start_ms);
   CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(domain_status);
@@ -87,7 +90,7 @@ export const CREATE_TABLES_SQL = `
 
   CREATE TABLE IF NOT EXISTS ledger_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id INTEGER,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE RESTRICT,
     prev_hash TEXT NOT NULL,
     hash TEXT NOT NULL UNIQUE,
     actor TEXT NOT NULL,
@@ -111,8 +114,8 @@ export const CREATE_TABLES_SQL = `
 
   CREATE TABLE IF NOT EXISTS spatial_facts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id INTEGER NOT NULL,
-    site_id INTEGER,
+    session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE RESTRICT,
+    site_id INTEGER REFERENCES sites(id) ON DELETE SET NULL,
     type TEXT NOT NULL,
     coords_sealed TEXT,
     accuracy_m REAL,
@@ -141,7 +144,7 @@ export const CREATE_TABLES_SQL = `
 
   CREATE TABLE IF NOT EXISTS offline_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pack_id TEXT NOT NULL,
+    pack_id TEXT NOT NULL REFERENCES evidence_packs(id) ON DELETE RESTRICT,
     status TEXT NOT NULL DEFAULT 'PENDING',
     attempts INTEGER NOT NULL DEFAULT 0,
     last_error TEXT,
@@ -159,7 +162,7 @@ export const CREATE_TABLES_SQL = `
 
   CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id INTEGER,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
     action_type TEXT,
     details TEXT,
     timestamp INTEGER
@@ -174,13 +177,42 @@ export const CREATE_TABLES_SQL = `
     severidad TEXT,
     mensaje TEXT,
     metadata TEXT,
-    session_id INTEGER,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
     event_type TEXT,
     trigger_source TEXT,
     reason TEXT,
     from_state TEXT,
     to_state TEXT,
     sync_status TEXT DEFAULT 'PENDING'
+  );
+
+  -- Filas que no caben en una foránea. Se conservan; no entran en la nómina.
+  CREATE TABLE IF NOT EXISTS spatial_facts_orphans (
+    id INTEGER PRIMARY KEY,
+    session_id INTEGER NOT NULL,
+    site_id INTEGER,
+    type TEXT NOT NULL,
+    coords_sealed TEXT,
+    accuracy_m REAL,
+    source TEXT NOT NULL,
+    reliable INTEGER NOT NULL,
+    reason TEXT,
+    battery REAL,
+    timestamp_ms INTEGER NOT NULL,
+    orphan_reason TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS offline_queue_orphans (
+    id INTEGER PRIMARY KEY,
+    pack_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    attempts INTEGER NOT NULL,
+    last_error TEXT,
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    idempotency_key TEXT,
+    next_attempt_at_ms INTEGER,
+    orphan_reason TEXT NOT NULL
   );
 `;
 

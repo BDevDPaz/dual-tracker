@@ -58,6 +58,7 @@ export function SessionListItem({
           <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}</Text>
         ) : null}
         {zero ? <Text style={[styles.range, { color: colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
+        {s.domainStatus === "CUARENTENA" ? <Text style={[styles.range, { color: colors.status.warning }]}>{t("session.quarantineNotice")}</Text> : null}
         {reason ? <Text style={[styles.range, { color: colors.status.warning }]}>{reason}</Text> : null}
       </View>
       <View style={styles.side}>

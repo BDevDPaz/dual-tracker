@@ -43,7 +43,12 @@ export type LedgerIntent =
   /** Primera clave Ed25519 del empleador fijada en el teléfono (TOFU). Solo el id, no la clave. */
   | "EMPLOYER_KEY_PINNED"
   /** La zona admin desbloqueada sustituyó la clave fijada. Solo ids. */
-  | "EMPLOYER_KEY_REPINNED";
+  | "EMPLOYER_KEY_REPINNED"
+  /**
+   * domain_status ilegible. La jornada queda en CUARENTENA, fuera de la nómina,
+   * hasta que alguien la revise. El payload guarda el texto original.
+   */
+  | "SESSION_QUARANTINED";
 
 export interface LedgerEntry {
   id: number;

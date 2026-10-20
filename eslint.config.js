@@ -11,6 +11,7 @@ module.exports = defineConfig([
   {
     // Propuesta de Producto §1 y §4: las rutas no importan servicios ni APIs nativas de datos.
     files: ["app/**/*.{ts,tsx}"],
+    ignores: ["**/__tests__/**"],
     rules: {
       "no-restricted-imports": [
         "error",

@@ -112,6 +112,7 @@ export default function SessionDetailScreen() {
       <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HeaderActions screen="session" /> }} />
         <ScreenTips screen="session" sessionState={session.domainStatus} siteCount={0} batteryRestricted={false} provisionalSeal={false} hasSplitRow={false} hasZeroOmitted={false} />
         {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
+        {session.domainStatus === "CUARENTENA" && !deleted ? <ScreenStatusBanner status="conflict" message={t("session.quarantineNotice")} /> : null}
         {session.bookkeeping.integrityReason === "ORPHAN_SESSION" && !deleted ? (
           <OrphanReviewCard
             startMs={start}
