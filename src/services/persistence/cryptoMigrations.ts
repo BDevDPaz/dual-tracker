@@ -117,11 +117,13 @@ export async function sweepPlaintext(limit = 500): Promise<SweepResult> {
     if (typeof sealed === "string" && !FieldCryptoService.isCipher(sealed)) {
       const plain = await FieldCryptoService.decrypt("settings.companyEmail", KV_KEYS.COMPANY, sealed);
       const enc = await FieldCryptoService.encrypt("settings.companyEmail", KV_KEYS.COMPANY, plain);
+      if (enc.degraded) return { rewritten, remaining: -1 };
       await PersistenceService.setKv(KV_KEYS.COMPANY, { ...company, companyEmailSealed: enc.stored });
       rewritten++;
+      budget--;
     }
     const fix = await PersistenceService.getKv<unknown>(KV_KEYS.LAST_FIX);
-    if (fix !== null && !(typeof fix === "string" && FieldCryptoService.isCipher(fix))) {
+    if (budget > 0 && fix !== null && !(typeof fix === "string" && FieldCryptoService.isCipher(fix))) {
       const value = typeof fix === "string" ? safeJson((await FieldCryptoService.decrypt("kv.lastFix", KV_KEYS.LAST_FIX, fix)) ?? "null") : fix;
       if (value && typeof value === "object") await PersistenceService.setLastFix(value as { lat: number; lon: number; timestampMs: number });
       rewritten++;
@@ -130,6 +132,12 @@ export async function sweepPlaintext(limit = 500): Promise<SweepResult> {
   const remaining = await countPlaintext();
   if (remaining === 0) await PersistenceService.setKv(KV_KEYS.CRYPTO_SWEEP, "done");
   return { rewritten, remaining };
+}
+
+function kvValueIsPlain(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.length > 0 && !FieldCryptoService.isCipher(value);
+  return typeof value === "object";
 }
 
 async function countPlaintext(): Promise<number> {
@@ -141,6 +149,10 @@ async function countPlaintext(): Promise<number> {
     );
     n += r?.n ?? 0;
   }
+  const company = await PersistenceService.getKv<Record<string, unknown>>(KV_KEYS.COMPANY);
+  if (kvValueIsPlain(company?.companyEmailSealed)) n += 1;
+  const fix = await PersistenceService.getKv<unknown>(KV_KEYS.LAST_FIX);
+  if (kvValueIsPlain(fix)) n += 1;
   return n;
 }
 

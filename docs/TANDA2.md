@@ -2,7 +2,7 @@
 
 Build de desarrollo, sin APK de tienda. Español al empezar. Anota versión, compilación y guía `soporte.v5`.
 
-No hace falta portal real ni clave de mapas. El código de PIN se genera en un ordenador con `npx tsx scripts/provision-admin-pin.ts --pin …… --hours 1` y se pega en el teléfono. El PIN se dice aparte: no está dentro del código.
+No hace falta portal real ni clave de mapas. El código de PIN se genera en un ordenador con `printf '%s\n' '……' > /tmp/dt-pin && npx tsx scripts/provision-admin-pin.ts --pin-file /tmp/dt-pin --hours 1` y se pega en el teléfono. El PIN se dice aparte: no está dentro del código. `--pin` avisa: deja el secreto en el historial del shell.
 
 | Caso | Pasos | Esperado |
 | --- | --- | --- |

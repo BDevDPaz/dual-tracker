@@ -80,6 +80,7 @@ export interface DbSessionRow {
   breaks_clipped?: number | null;
   split_from_session_id?: number | null;
   cert_blockers_json?: string | null;
+  recorded_timezone?: string | null;
 }
 
 export interface DbSiteRow {
@@ -118,7 +119,26 @@ const RECORD_STATUSES: readonly SessionRecordStatus[] = [
   "TRASLADO",
   "SALIDA",
   "CERRADA",
+  "CUARENTENA",
 ];
+
+/** Textos que ya sabemos traducir. Cualquier otro no es CERRADA. */
+const LEGACY_STATUS_ALIASES = [
+  "GEOFENCE_CREATED",
+  "ACTIVE_WORK",
+  "active",
+  "PAUSED",
+  "TRAVEL",
+  "travel",
+  "PENDING_EXIT_CONFIRMATION",
+  "CLOSED",
+  "completed",
+] as const;
+
+export function isKnownPersistedStatus(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  return (RECORD_STATUSES as readonly string[]).includes(raw) || (LEGACY_STATUS_ALIASES as readonly string[]).includes(raw);
+}
 
 /**
  * Traduce estados del linaje GEOTrack/LEDTracker al vocabulario canónico.
@@ -142,7 +162,7 @@ export function mapLegacyStatus(raw: string | null | undefined): SessionRecordSt
     case "completed":
       return "CERRADA";
     default:
-      return "CERRADA";
+      return "CUARENTENA";
   }
 }
 
@@ -207,6 +227,7 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
     policyId: row.policy_id,
     bookkeeping: {
       dateString: repairDateString(row.date_string, actualStartAtMs ?? declaredStartAtMs),
+      ...(typeof row.recorded_timezone === "string" && row.recorded_timezone ? { recordedTimeZone: row.recorded_timezone } : {}),
       isDeleted: Boolean(row.is_deleted),
       cancelled: Boolean(row.cancelled),
       lastPauseStartMs: ms(row.last_pause_start_ms),
@@ -255,6 +276,7 @@ export const SESSION_COLUMNS = [
   "breaks_clipped",
   "split_from_session_id",
   "cert_blockers_json",
+  "recorded_timezone",
 ] as const;
 
 /**
@@ -293,6 +315,7 @@ export function sessionToParams(s: SessionRecord, noteStored: string | null): (s
     b.breaksClipped ? 1 : 0,
     b.splitFromSessionId ?? null,
     JSON.stringify(b.certificationBlockers ?? []),
+    b.recordedTimeZone ?? null,
   ];
 }
 

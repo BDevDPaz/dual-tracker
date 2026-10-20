@@ -16,7 +16,7 @@
  */
 import type { CompanyPolicy, SessionRecord } from "../../core/contracts";
 import { companyCalendar } from "../../utils/companyPolicy";
-import { nextWorkdayBoundary, toDateString, workdayStartAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
+import { nextWorkdayBoundary, toDateString, withCorporateZone, workdayStartAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
 import { TransitPolicyService } from "./TransitPolicyService";
 
 const MIN = 60_000;
@@ -33,8 +33,12 @@ export interface DaySegment {
   weekStartMs: number;
 }
 
-/** Parte [startMs, endMs) en jornadas. Un intervalo vacío devuelve un segmento vacío. */
-export function segmentInterval(startMs: number, endMs: number, history: CalendarHistory): DaySegment[] {
+/** Parte [startMs, endMs) en jornadas. Un intervalo vacío devuelve un segmento vacío. `zone` es la zona en que se registró la jornada. */
+export function segmentInterval(startMs: number, endMs: number, history: CalendarHistory, zone?: string | null): DaySegment[] {
+  return withCorporateZone(zone, () => segmentIntervalInZone(startMs, endMs, history));
+}
+
+function segmentIntervalInZone(startMs: number, endMs: number, history: CalendarHistory): DaySegment[] {
   const mk = (index: number, s: number, e: number): DaySegment => {
     const workdayStartMs = workdayStartAt(s, history);
     return { index, startMs: s, endMs: e, workdayStartMs, dateString: toDateString(workdayStartMs), weekStartMs: workweekStartAt(s, history) };
@@ -120,7 +124,7 @@ export function computeSegmentMinutes(
   if (b.isDeleted || b.cancelled) return null;
   const startMs = session.actualStartAtMs ?? session.declaredStartAtMs;
   const endMs = sessionEndMs(session, nowMs);
-  const segs = segmentInterval(startMs, endMs, history);
+  const segs = segmentInterval(startMs, endMs, history, b.recordedTimeZone);
   const spans = cumulativeMinutes([[startMs, endMs]], segs);
   const n = segs.length;
   const warn: string[][] = segs.map(() => []);

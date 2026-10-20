@@ -4,11 +4,14 @@ import { FixedLunchError } from "../../domain/sessionTimeGuard";
 import { SessionEngineService } from "../../domain/SessionEngineService";
 import { HOUR, MIN, MONDAY_8AM, makeClosedSession, makeSegment, makeSession } from "../../../../test/fixtures/session.fixture";
 import { makeBreadcrumb } from "../../../../test/fixtures/spatial.fixture";
-import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
+import { mustDispatch, seedSite, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 
 describe("PersistenceService", () => {
-  beforeEach(() => PersistenceService.init());
+  beforeEach(async () => {
+    await PersistenceService.init();
+    await seedSite();
+  });
 
   describe("checkOverlap", () => {
     beforeEach(async () => {

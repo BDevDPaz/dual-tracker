@@ -459,9 +459,9 @@ export const EvidencePackService = {
           },
           db,
         );
+        await PersistenceService.insertPack(pack, db);
+        await OfflineQueueService.enqueue(packId, packHash, db);
       });
-      await PersistenceService.insertPack(pack);
-      await OfflineQueueService.enqueue(packId, packHash);
       StoreActions.packUpserted(pack);
       return { ok: true, data: pack, reused: false };
     } catch (error) {

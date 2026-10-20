@@ -97,6 +97,12 @@ export interface CompanyPolicy {
   calendarHistory?: CalendarEntry[];
   /** Banderas de criterios pendientes de asesoría legal (ausente = valores por defecto). */
   payrollLegalFlags?: Partial<PayrollLegalFlags>;
+  /**
+   * Zona IANA del reloj de pared de la nómina. Ausente = America/Los_Angeles.
+   * No cambia las reglas de horas extra: siguen siendo las de California.
+   * Cada jornada guarda la zona con la que se registró.
+   */
+  timezone?: string;
 }
 
 /** Preferencias de dispositivo (no sensibles). */

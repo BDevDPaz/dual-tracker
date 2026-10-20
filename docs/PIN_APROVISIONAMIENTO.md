@@ -33,8 +33,11 @@ Cambiar la clave fijada exige la zona admin abierta con el PIN de ahora. El regi
 En la raíz del repo, sin red y sin servidor:
 
 ```bash
-npx tsx scripts/provision-admin-pin.ts --pin 123456 --hours 72
+printf '%s\n' '123456' > /tmp/dt-pin
+npx tsx scripts/provision-admin-pin.ts --pin-file /tmp/dt-pin --hours 72
 ```
+
+El PIN también puede ir en `DT_PIN` o en `DT_PIN_FILE`, o teclearse en la terminal (sin eco) si hay un TTY. `--pin` sigue funcionando y escribe un aviso en stderr: el valor queda en el historial del shell y en la lista de procesos. No lo uses.
 
 La primera vez crea `employer-key.json` (modo 0600) con el secreto, la clave pública, el id y la fecha. Las veces siguientes reutilizan ese archivo, así que todos los teléfonos quedan fijados a la misma clave. `--key otra-ruta.json` cambia el archivo. `--hours` es opcional; si no se pone, caduca a las 72 h (`PIN_PROVISION_DEFAULT_TTL_MS`).
 
@@ -44,7 +47,7 @@ El PIN tiene al menos 6 caracteres. Los escalones de bloqueo no cambian: 3 fallo
 
 ## Rotar la clave
 
-1. En el ordenador, con el PIN nuevo: `npx tsx scripts/provision-admin-pin.ts --pin …… --hours 72 --rotate`. El archivo actual pasa a `employer-key.retired-<fecha>.json` y se crea una clave nueva.
+1. En el ordenador, con el PIN nuevo en un archivo: `DT_PIN_FILE=/tmp/dt-pin npx tsx scripts/provision-admin-pin.ts --hours 72 --rotate`. El archivo actual pasa a `employer-key.retired-<fecha>.json` y se crea una clave nueva. `--pin` avisa y no es el camino.
 2. En cada teléfono que ya tenga la clave anterior: desbloquea la zona admin con el PIN de ahora, pega el código nuevo y comprueba que el PIN nuevo abre. El registro escribe `EMPLOYER_KEY_REPINNED` (motivo `ROTATION`) con el id nuevo y el anterior.
 3. Un teléfono que todavía no tiene clave fijada acepta el código nuevo como el primero (`EMPLOYER_KEY_PINNED`, motivo `TOFU`).
 4. Conserva el archivo retirado hasta que todos los teléfonos hayan aceptado la clave nueva. Si lo borras antes, no podrás firmar un código que esos teléfonos todavía esperan. Después de eso, el archivo retirado se puede borrar. No hace falta para el día a día.

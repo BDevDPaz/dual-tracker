@@ -20,6 +20,8 @@
  *   TRASLADO    ↔ TRAVEL
  *   SALIDA      ↔ PENDING_EXIT_CONFIRMATION
  *   CERRADA     ↔ CLOSED
+ *   CUARENTENA  estado persistido de una fila cuyo domain_status no se reconoce.
+ *               No es un estado de la máquina: no se entra por una intención.
  */
 export type SessionState =
   | "NO_INICIADA"
@@ -28,7 +30,8 @@ export type SessionState =
   | "PAUSADA"
   | "TRASLADO"
   | "SALIDA"
-  | "CERRADA";
+  | "CERRADA"
+  | "CUARENTENA";
 
 /** Estados que puede tener un registro persistido (NO_INICIADA es solo de vista). */
 export type SessionRecordStatus = Exclude<SessionState, "NO_INICIADA">;
@@ -155,8 +158,13 @@ export interface SessionRecord {
 
   // ---- Soporte (no forma parte del contrato mínimo) ----
   bookkeeping: {
-    /** YYYY-MM-DD en zona corporativa. */
+    /** YYYY-MM-DD en la zona en que se registró la jornada. */
     dateString: string;
+    /**
+     * Zona IANA con la que se calculó dateString. Ausente en jornadas
+     * anteriores al campo: se leen como America/Los_Angeles.
+     */
+    recordedTimeZone?: string;
     isDeleted: boolean;
     /** Cancelada antes de llegar (CANCEL_DAY desde ESPERANDO). No genera nómina. */
     cancelled: boolean;

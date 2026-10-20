@@ -24,7 +24,9 @@ describe("mappers", () => {
     expect(mapLegacyStatus("travel")).toBe("TRASLADO");
     expect(mapLegacyStatus("PENDING_EXIT_CONFIRMATION")).toBe("SALIDA");
     expect(mapLegacyStatus("completed")).toBe("CERRADA");
-    expect(mapLegacyStatus(undefined)).toBe("CERRADA");
+    expect(mapLegacyStatus(undefined)).toBe("CUARENTENA");
+    expect(mapLegacyStatus("NO_SUCH")).toBe("CUARENTENA");
+    expect(mapLegacyStatus("ACTIVE")).toBe("CUARENTENA");
   });
 
   test("repairDateString repara 'Invalid Date' desde el inicio", () => {

@@ -4,12 +4,14 @@ import { HOUR, MIN, MONDAY_8AM, makeClosedSession } from "../../../../../test/fi
 import { getWeekEnd, getWeekStart, shiftWeek } from "../../../../utils/dateUtils";
 import { combineWeekStatements } from "../../../../utils/reportRange";
 import { time } from "../../../../../test/time";
+import { seedSite } from "../../../../../test/helpers";
 import { previewPayrollRange } from "../generateWeeklyPayroll";
 
 describe("previewPayrollRange", () => {
   beforeEach(() => PersistenceService.init());
 
   test("cada semana laboral pasa por el motor por separado", async () => {
+    await seedSite();
     const week1 = getWeekStart(MONDAY_8AM);
     const week2 = shiftWeek(week1, 1);
     const latestEnd = week2 + 4 * 24 * HOUR + 15 * HOUR + 8 * HOUR;

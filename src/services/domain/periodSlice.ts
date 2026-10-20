@@ -38,7 +38,7 @@ export function periodSliceOf(
 ): PeriodSlice | null {
   const startMs = session.actualStartAtMs ?? session.declaredStartAtMs;
   const endMs = sessionEndMs(session, nowMs);
-  const segs = segmentInterval(startMs, endMs, history).filter((seg) => seg.startMs >= periodStart && seg.startMs <= periodEnd);
+  const segs = segmentInterval(startMs, endMs, history, session.bookkeeping.recordedTimeZone).filter((seg) => seg.startMs >= periodStart && seg.startMs <= periodEnd);
   if (!segs.length) return null;
   const displayStartMs = segs[0].startMs;
   const displayEndMs = segs[segs.length - 1].endMs;

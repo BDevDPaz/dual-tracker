@@ -6,8 +6,7 @@
  *  - Inventario: GEOFENCE, BREADCRUMB, SESSION_WATCHDOG, EXIT_DECISION_TIMER,
  *    DAILY_REMINDER, INTEGRITY_SWEEP, PAYROLL_EXPORT (src/constants/tasks.ts).
  *  - Android: FGS de ubicación mientras hay jornada abierta (ForegroundWork).
- *    iOS: geofence + background task. TODO(iOS): significant-change
- *    (Location.startLocationUpdatesAsync con deferred updates) no cableado.
+ *    iOS: geocerca + deferred updates (significant-change). Sin validar en un iPhone.
  *  - Idempotencia: una tarea no vuelve a cerrar una sesión ya cerrada (el
  *    engine rechaza; además cada tarea comprueba estado).
  *  - Heartbeat: KV runtime.heartbeat; al rehidratar, un hueco grande con

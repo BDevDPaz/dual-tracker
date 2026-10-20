@@ -172,12 +172,15 @@ describe("intentRouter", () => {
   });
 
   test("la UI no puede saltarse el router: app/ no importa motor, máquina ni persistencia", () => {
+    // Los __tests__ de app/ observan el resultado; la regla es de las pantallas.
     const root = path.resolve(__dirname, "../../../../app");
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
-        if (e.isDirectory()) walk(p);
+        if (e.isDirectory()) {
+          if (e.name !== "__tests__") walk(p);
+        }
         else if (/\.tsx?$/.test(e.name)) {
           const src = fs.readFileSync(p, "utf8");
           if (/from\s+["'][^"']*(SessionEngineService|sessionMachine|PersistenceService|ConcurrencyGuardService|IntegrityLedgerService)["']/.test(src)) offenders.push(path.relative(root, p));

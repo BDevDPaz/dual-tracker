@@ -12,23 +12,65 @@
  * Este módulo NO depende de dayjs ni de parseo de cadenas de `Date`:
  *  - `parseTimestamp` es el ÚNICO parser: epoch ms/s (número o cadena), Date,
  *    ISO 8601, formato SQLite "YYYY-MM-DD HH:MM:SS" y RFC 1123 (cabecera HTTP).
- *  - La zona corporativa se resuelve con `Intl.DateTimeFormat#formatToParts`
- *    cuando existe y responde coherente; si no, reglas DST de EE. UU. para
- *    America/Los_Angeles (fallback aritmético puro).
+ *  - La zona de nómina se resuelve con `Intl.DateTimeFormat#formatToParts`
+ *    cuando existe y responde coherente; si no, el desfase fijo o las reglas
+ *    DST de EE. UU. de esa zona (fallback aritmético puro).
  *  - Toda la aritmética de calendario se hace con Date.UTC/getUTC* sobre el
  *    "reloj de pared" corporativo.
  *  - Los formateadores nunca devuelven "Invalid Date": fallback "—".
  */
 
 /**
- * Zona horaria corporativa (sede física) para estandarizar reportes,
- * independiente de la ubicación del dispositivo. Heredado de GEOTrack.
- * TODO: mover a CompanyPolicy.timezone cuando exista el campo en la zona admin.
+ * Zona por defecto de la nómina (sede del Pacífico). Heredado de GEOTrack.
+ * La empresa puede elegir otra en CompanyPolicy.timezone. El reloj de pared
+ * cambia; las reglas de horas extra siguen siendo las de California.
  */
 import type { CalendarEntry } from "../core/contracts/settings";
 import { getLanguage, type Language } from "../i18n";
 
 export const CORPORATE_TIMEZONE = "America/Los_Angeles";
+
+/** Zonas que Ajustes puede guardar. El id es IANA. */
+export const PAYROLL_TIMEZONES = [
+  "America/Los_Angeles",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Chicago",
+  "America/New_York",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Guatemala",
+  "America/El_Salvador",
+  "America/Tegucigalpa",
+  "America/Managua",
+  "America/Costa_Rica",
+  "America/Panama",
+  "America/Belize",
+] as const;
+
+export type PayrollTimezone = (typeof PAYROLL_TIMEZONES)[number];
+
+/** Desfase estándar en minutos (UTC → pared) y si observa el DST de EE. UU. */
+const ZONE_RULES: Record<PayrollTimezone, { standard: number; dst: boolean }> = {
+  "America/Los_Angeles": { standard: -480, dst: true },
+  "America/Denver": { standard: -420, dst: true },
+  "America/Phoenix": { standard: -420, dst: false },
+  "America/Chicago": { standard: -360, dst: true },
+  "America/New_York": { standard: -300, dst: true },
+  "America/Anchorage": { standard: -540, dst: true },
+  "Pacific/Honolulu": { standard: -600, dst: false },
+  "America/Guatemala": { standard: -360, dst: false },
+  "America/El_Salvador": { standard: -360, dst: false },
+  "America/Tegucigalpa": { standard: -360, dst: false },
+  "America/Managua": { standard: -360, dst: false },
+  "America/Costa_Rica": { standard: -360, dst: false },
+  "America/Panama": { standard: -300, dst: false },
+  "America/Belize": { standard: -360, dst: false },
+};
+
+export function isPayrollTimezone(zone: unknown): zone is PayrollTimezone {
+  return typeof zone === "string" && Object.prototype.hasOwnProperty.call(ZONE_RULES, zone);
+}
 
 /** Texto que se muestra cuando una fecha no es válida o no existe. */
 export const DATE_FALLBACK = "—";
@@ -129,15 +171,16 @@ export const isValidTimestamp = (input: unknown): boolean => parseTimestamp(inpu
 // Zona corporativa (sin parseo de cadenas)
 // ---------------------------------------------------------------------------
 type Dtf = { formatToParts: (d: Date) => { type: string; value: string }[] };
-let dtf: Dtf | null | undefined; // undefined = aún no probado; null = no disponible
+const dtfByZone = new Map<string, Dtf | null>();
 
-function getDtf(): Dtf | null {
-  if (dtf !== undefined) return dtf;
-  dtf = null;
+function getDtf(zone: string): Dtf | null {
+  const cached = dtfByZone.get(zone);
+  if (cached !== undefined) return cached;
+  let dtf: Dtf | null = null;
   try {
     if (typeof Intl !== "undefined" && typeof Intl.DateTimeFormat === "function") {
       const f = new Intl.DateTimeFormat("en-US", {
-        timeZone: CORPORATE_TIMEZONE,
+        timeZone: zone,
         hour12: false,
         year: "numeric",
         month: "numeric",
@@ -151,11 +194,12 @@ function getDtf(): Dtf | null {
   } catch {
     dtf = null;
   }
+  dtfByZone.set(zone, dtf);
   return dtf;
 }
 
-function intlOffsetMinutes(ts: number): number | null {
-  const f = getDtf();
+function intlOffsetMinutes(ts: number, zone: string): number | null {
+  const f = getDtf(zone);
   if (!f) return null;
   try {
     const parts = f.formatToParts(new Date(ts));
@@ -190,15 +234,58 @@ export function pacificOffsetMinutes(ts: number): number {
   return ts >= dstStart && ts < dstEnd ? -420 : -480;
 }
 
-const offsetCache = new Map<number, number>();
+const offsetCache = new Map<string, number>();
+let activeZone: PayrollTimezone = CORPORATE_TIMEZONE;
 
-/** Desfase (minutos, UTC→corporativo) vigente en `ts`. */
+/** Zona de pared activa (la de la empresa, o Los Ángeles si aún no se cargó). */
+export function activeCorporateTimezone(): PayrollTimezone {
+  return activeZone;
+}
+
+/** Fija la zona de los cálculos que no reciben una zona propia. Ignora un id desconocido. */
+export function setCorporateTimezone(zone: string | null | undefined): void {
+  if (isPayrollTimezone(zone)) activeZone = zone;
+}
+
+/**
+ * Ejecuta `fn` con otra zona de pared y restaura la anterior.
+ * Una zona ausente o desconocida no cambia la activa.
+ */
+export function withCorporateZone<T>(zone: string | null | undefined, fn: () => T): T {
+  if (!isPayrollTimezone(zone) || zone === activeZone) return fn();
+  const prev = activeZone;
+  activeZone = zone;
+  try {
+    return fn();
+  } finally {
+    activeZone = prev;
+  }
+}
+
+/** DST de EE. UU. (desde 2007) aplicado a un desfase estándar en minutos. */
+function usDstOffset(ts: number, standardMin: number): number {
+  const dstMin = standardMin + 60;
+  const y = new Date(ts).getUTCFullYear();
+  const dstStart = Date.UTC(y, 2, nthSunday(y, 2, 2), 2 - standardMin / 60);
+  const dstEnd = Date.UTC(y, 10, nthSunday(y, 10, 1), 2 - dstMin / 60);
+  return ts >= dstStart && ts < dstEnd ? dstMin : standardMin;
+}
+
+function fallbackOffset(ts: number, zone: PayrollTimezone): number {
+  const rule = ZONE_RULES[zone];
+  if (!rule.dst) return rule.standard;
+  if (zone === "America/Los_Angeles") return pacificOffsetMinutes(ts);
+  return usDstOffset(ts, rule.standard);
+}
+
+/** Desfase (minutos, UTC→zona activa) vigente en `ts`. */
 export function corporateOffsetMinutes(ts: number): number {
-  const bucket = Math.floor(ts / (15 * MS_MIN)); // los cambios de hora caen en cuartos de hora
+  const zone = activeZone;
+  const bucket = `${zone}:${Math.floor(ts / (15 * MS_MIN))}`; // los cambios de hora caen en cuartos de hora
   const hit = offsetCache.get(bucket);
   if (hit !== undefined) return hit;
-  const off = intlOffsetMinutes(ts) ?? pacificOffsetMinutes(ts);
-  if (offsetCache.size > 2000) offsetCache.clear();
+  const off = intlOffsetMinutes(ts, zone) ?? fallbackOffset(ts, zone);
+  if (offsetCache.size > 4000) offsetCache.clear();
   offsetCache.set(bucket, off);
   return off;
 }
@@ -438,8 +525,9 @@ export const nextWorkdayBoundary = (ts: number, history?: CalendarHistory | null
   return next;
 };
 
-/** "YYYY-MM-DD" de la jornada que contiene `ts` (fecha de su inicio). */
-export const workdayDateString = (ts: number, history?: CalendarHistory | null): string => toDateString(workdayStartAt(ts, history));
+/** "YYYY-MM-DD" de la jornada que contiene `ts` (fecha de su inicio, en `zone` si se pasa). */
+export const workdayDateString = (ts: number, history?: CalendarHistory | null, zone?: string | null): string =>
+  withCorporateZone(zone, () => toDateString(workdayStartAt(ts, history)));
 
 /** Inicio de semana laboral sin acotar (bajo el calendario `c`). */
 function rawWorkweekStart(ts: number, c: CalendarEntry): number {

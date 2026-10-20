@@ -400,8 +400,11 @@ export const PayrollEngineService = {
         const end = sessionEndMs(s, input.nowMs);
         return start <= input.periodEnd && (end > input.periodStart || (end === start && start >= input.periodStart));
       });
-      const closedAll = overlapping.filter((s) => s.domainStatus === "CERRADA");
-      if (closedAll.length !== overlapping.length) warnings.push("OPEN_SESSION_EXCLUDED");
+      const quarantined = overlapping.filter((s) => s.domainStatus === "CUARENTENA");
+      const payable = overlapping.filter((s) => s.domainStatus !== "CUARENTENA");
+      const closedAll = payable.filter((s) => s.domainStatus === "CERRADA");
+      if (closedAll.length !== payable.length) warnings.push("OPEN_SESSION_EXCLUDED");
+      if (quarantined.length) warnings.push("QUARANTINED_SESSION_EXCLUDED");
       items = closedAll
         .flatMap((s) => segmentItems(s, input.company, input.nowMs, history))
         .filter((it) => it.startMs >= input.periodStart && it.startMs <= input.periodEnd)
@@ -413,8 +416,11 @@ export const PayrollEngineService = {
         const start = s.actualStartAtMs ?? s.declaredStartAtMs;
         return start >= input.periodStart && start <= input.periodEnd && !s.bookkeeping.isDeleted;
       });
-      closed = inPeriod.filter((s) => s.domainStatus === "CERRADA");
-      if (closed.length !== inPeriod.length) warnings.push("OPEN_SESSION_EXCLUDED");
+      const quarantined = inPeriod.filter((s) => s.domainStatus === "CUARENTENA");
+      const payable = inPeriod.filter((s) => s.domainStatus !== "CUARENTENA");
+      closed = payable.filter((s) => s.domainStatus === "CERRADA");
+      if (closed.length !== payable.length) warnings.push("OPEN_SESSION_EXCLUDED");
+      if (quarantined.length) warnings.push("QUARANTINED_SESSION_EXCLUDED");
       const minutes = closed
         .map((s) => computeSessionMinutes(s, input.company, input.nowMs))
         .filter((x): x is SessionMinutes => x !== null)

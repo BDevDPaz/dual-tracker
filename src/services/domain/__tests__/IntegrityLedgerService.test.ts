@@ -4,7 +4,7 @@ import { verifyChain } from "../../evidence/HashChain";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { IntegrityLedgerService } from "../IntegrityLedgerService";
 import { HOUR, MIN, makeClosedSession, MONDAY_8AM } from "../../../../test/fixtures/session.fixture";
-import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
+import { mustDispatch, seedSite, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 
 const draft = (reason: string) => ({
@@ -19,7 +19,11 @@ const draft = (reason: string) => ({
 });
 
 describe("IntegrityLedgerService", () => {
-  beforeEach(() => PersistenceService.init());
+  beforeEach(async () => {
+    await PersistenceService.init();
+    await seedSite();
+    await PersistenceService.insertSession(makeClosedSession(MONDAY_8AM - 7 * 24 * HOUR, 1));
+  });
 
   test("hash encadenado desde GENESIS y verify() íntegro", async () => {
     const a = await IntegrityLedgerService.append(draft("A"));

@@ -130,7 +130,7 @@ export default function ReportsScreen() {
   };
 
   const closedCount = combined?.sessionIds.length ?? 0;
-  const openCount = rows.filter((c) => c.session.domainStatus !== "CERRADA" && !c.session.bookkeeping.cancelled).length;
+  const openCount = rows.filter((c) => c.session.domainStatus !== "CERRADA" && c.session.domainStatus !== "CUARENTENA" && !c.session.bookkeeping.cancelled).length;
   const status = !requested || customError ? "ready" : preview.loading && !preview.data ? "loading" : rows.length === 0 && weeks.every((w) => w.statement.sessionIds.length === 0) ? "empty" : "ready";
   const fresh = freshness.data;
   const canSealWeek = (st: PayrollStatement) => st.sessionIds.length > 0 && !sealing;

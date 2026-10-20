@@ -30,10 +30,27 @@ import {
   selectSettings,
   selectSystemHealth,
 } from "../../src/core/selectors";
-import { legalFlags } from "../../src/utils/companyPolicy";
-import { calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
+import { companyTimezone, legalFlags } from "../../src/utils/companyPolicy";
+import { PAYROLL_TIMEZONES, calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
 import { getLanguage, t, tHealthValue, useLanguage } from "../../src/i18n";
 import { currentVersionLine } from "../../src/support/versionLine";
+
+const TIMEZONE_LABEL: Record<(typeof PAYROLL_TIMEZONES)[number], string> = {
+  "America/Los_Angeles": "pacific",
+  "America/Denver": "mountain",
+  "America/Phoenix": "arizona",
+  "America/Chicago": "central",
+  "America/New_York": "eastern",
+  "America/Anchorage": "alaska",
+  "Pacific/Honolulu": "hawaii",
+  "America/Guatemala": "guatemala",
+  "America/El_Salvador": "elSalvador",
+  "America/Tegucigalpa": "honduras",
+  "America/Managua": "nicaragua",
+  "America/Costa_Rica": "costaRica",
+  "America/Panama": "panama",
+  "America/Belize": "belize",
+};
 
 interface Draft {
   employeeName: string;
@@ -48,6 +65,7 @@ interface Draft {
   defaultRadiusM: string;
   portalUrl: string;
   portalEnabled: boolean;
+  timezone: string;
 }
 
 export default function SettingsScreen() {
@@ -79,6 +97,7 @@ export default function SettingsScreen() {
       defaultRadiusM: String(settings.company.defaultRadiusM),
       portalUrl: settings.company.employerPortalUrl ?? "",
       portalEnabled: settings.company.employerPortalEnabled === true,
+      timezone: companyTimezone(settings.company),
     }),
     [settings],
   );
@@ -122,6 +141,7 @@ export default function SettingsScreen() {
         defaultRadiusM: Math.round(num(draft.defaultRadiusM)),
         employerPortalUrl: draft.portalUrl.trim() ? draft.portalUrl.trim() : null,
         employerPortalEnabled: draft.portalEnabled,
+        timezone: draft.timezone,
       };
     }
     setBusy(true);
@@ -271,6 +291,18 @@ export default function SettingsScreen() {
                   <Chip key={m} label={t(`settings.traceModes.${m}`)} selected={draft.traceMode === m} onPress={() => set("traceMode", m)} />
                 ))}
               </View>
+              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.timezone")}</Text>
+              <View style={styles.row}>
+                {PAYROLL_TIMEZONES.map((zone) => (
+                  <Chip
+                    key={zone}
+                    label={t(`settings.timezones.${TIMEZONE_LABEL[zone]}`)}
+                    selected={draft.timezone === zone}
+                    onPress={() => set("timezone", zone)}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.timezoneHint")}</Text>
               <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} />
               <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} />
               <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />

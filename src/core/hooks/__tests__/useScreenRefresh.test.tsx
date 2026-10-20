@@ -8,6 +8,7 @@ import { ReduceMotionPref } from "../../../components/ui/motion";
 import { makeSession } from "../../../../test/fixtures/session.fixture";
 import { t } from "../../../i18n";
 import { PersistenceService } from "../../../services/persistence/PersistenceService";
+import { seedSite } from "../../../../test/helpers";
 import { SettingsService } from "../../../services/persistence/SettingsService";
 import { useAutoRefresh, usePullToRefresh } from "../useScreenRefresh";
 
@@ -91,7 +92,8 @@ describe("usePullToRefresh", () => {
   test("el gesto relee una sesión que el store no tenía", async () => {
     render(<Harness />);
     await hydrateEmpty();
-    const id = await PersistenceService.insertSession(makeSession({ siteId: 3 }));
+    const siteId = await seedSite();
+    const id = await PersistenceService.insertSession(makeSession({ siteId }));
     expect(Store.getState().sessions.byId[String(id)]).toBeUndefined();
     await act(async () => {
       controlProps().onRefresh();
