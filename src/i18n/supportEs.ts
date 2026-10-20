@@ -447,7 +447,7 @@ export const supportEs = {
     },
     clockDrift: {
       q: "¿Qué pasa si el reloj del teléfono no coincide con la hora de red?",
-      a: "Cuando hay red, la app compara el reloj con dos sitios conocidos. Si concuerdan y la diferencia supera el umbral, la jornada queda para revisión y el desfase queda en el registro. Sin red no se bloquea por este motivo.",
+      a: "Con red, la app compara el reloj con dos sitios conocidos. Usa el punto medio de la ida y vuelta y descarta una muestra lenta. Solo anota deriva si varias lecturas separadas coinciden, y lo hace una vez por jornada. Si la ubicación de esa jornada es buena, queda como aviso y no quita el estado validado. Un salto del reloj del teléfono sí deja la jornada en revisión. Sin red no se bloquea por la hora de red.",
     },
     packSignature: {
       q: "¿El expediente va firmado?",

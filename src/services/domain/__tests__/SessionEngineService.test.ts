@@ -141,6 +141,34 @@ describe("SessionEngineService", () => {
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
   });
 
+  test("ENTER de la misma región dentro de la ventana se anota una vez; otro sitio, o uno fiable tras uno no fiable, sí", async () => {
+    const s = await mustDispatch({ type: "START_DAY", siteId: sites.siteA });
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "ENTER",
+      lat: 1,
+      lon: 1,
+      accuracyM: 5,
+      timestampMs: time.now(),
+      source: "gps",
+      reliable: false,
+      reason: "HYSTERESIS",
+      siteId: sites.siteA,
+    });
+    time.travel(15_000);
+    await SessionEngineService.recordSpatialFact({ sessionId: s.id, type: "ENTER", lat: 1, lon: 1, accuracyM: 5, timestampMs: time.now(), source: "gps", reliable: true, siteId: sites.siteA });
+    time.travel(20_000);
+    await SessionEngineService.recordSpatialFact({ sessionId: s.id, type: "ENTER", lat: 1, lon: 1, accuracyM: 5, timestampMs: time.now(), source: "gps", reliable: true, siteId: sites.siteA });
+    time.travel(20_000);
+    await SessionEngineService.recordSpatialFact({ sessionId: s.id, type: "ENTER", lat: 1, lon: 1, accuracyM: 5, timestampMs: time.now(), source: "gps", reliable: true, siteId: sites.siteA });
+    await SessionEngineService.recordSpatialFact({ sessionId: s.id, type: "ENTER", lat: 2, lon: 2, accuracyM: 5, timestampMs: time.now(), source: "gps", reliable: true, siteId: sites.siteB });
+    const enters = await PersistenceService.listSpatialFacts(s.id, ["ENTER"]);
+    expect(enters.filter((f) => f.siteId === sites.siteA).map((f) => f.reliable)).toEqual([false, true]);
+    expect(enters.filter((f) => f.siteId === sites.siteB)).toHaveLength(1);
+    const spatial = (await IntegrityLedgerService.listForSession(s.id)).filter((e) => e.intent === "SPATIAL_FACT");
+    expect(spatial).toHaveLength(3);
+  });
+
   test("recordSpatialFact: ENTER deja asiento; BREADCRUMB no", async () => {
     const s = await mustDispatch({ type: "START_DAY", siteId: sites.siteA });
     await SessionEngineService.recordSpatialFact({ sessionId: s.id, type: "ENTER", lat: 1, lon: 1, accuracyM: 5, timestampMs: time.now(), source: "gps", reliable: true });

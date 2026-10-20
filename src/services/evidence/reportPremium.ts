@@ -73,9 +73,11 @@ function css(theme: "light" | "dark"): string {
     .watermark span { font-size: 84px; font-weight: 700; letter-spacing: 8px; color: ${p.ink}; opacity: 0.08; transform: rotate(-18deg); }
     .brand-row { display: flex; align-items: center; gap: 14px; }
     .mark { width: 42px; height: 42px; flex: 0 0 auto; }
+    .brand-copy { min-width: 0; flex: 1 1 auto; }
     .brand-name { font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: ${GOLD}; font-weight: 700; }
     .doc-title { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; margin-top: 2px; }
-    .stamp-seal { margin-left: auto; border: 2.5px solid ${GOLD}; color: ${GOLD}; font-weight: 800; letter-spacing: 3px; font-size: 13px; padding: 6px 12px; transform: rotate(-8deg); }
+    .stamp-slot { margin-left: auto; flex: 0 0 auto; padding: 14px 16px 8px 10px; }
+    .stamp-seal { display: inline-block; white-space:nowrap; border: 2.5px solid ${GOLD}; color: ${GOLD}; font-weight: 800; letter-spacing: 1px; font-size: 12px; line-height: 1; padding: 6px 10px; transform: rotate(-8deg); transform-origin: right center; }
     .gold-rule { height: 2px; background: ${GOLD}; border: 0; margin: 10px 0 12px; }
     .meta { display: flex; gap: 14px; margin-bottom: 12px; }
     .meta-col { width: 50%; background: ${p.card}; border: 1px solid ${p.line}; border-radius: 10px; padding: 10px 12px; }
@@ -167,11 +169,11 @@ function headerBlock(input: ReportInput, role: PremiumRole, lang: Language): str
   return `
     <div class="brand-row">
       ${MARK}
-      <div>
+      <div class="brand-copy">
         <div class="brand-name">Dual Tracker</div>
         <div class="doc-title">${escapeHtml(title)}</div>
       </div>
-      <div class="stamp-seal">${escapeHtml(t("comprobante.seal", {}, lang))}</div>
+      <div class="stamp-slot"><div class="stamp-seal">${escapeHtml(t("comprobante.seal", {}, lang))}</div></div>
     </div>
     <div class="gold-rule"></div>
     <div class="meta">

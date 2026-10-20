@@ -157,6 +157,35 @@ describe("geofence.task", () => {
     expect(await PersistenceService.listSpatialFacts(s.id)).toHaveLength(0);
   });
 
+  test("tres ENTER de la misma región en un minuto dejan un solo hecho y una sola llegada", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 12);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    time.travel(20_000);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    time.travel(25_000);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    expect(await PersistenceService.listSpatialFacts(s.id, ["ENTER"])).toHaveLength(1);
+    const spatial = (await IntegrityLedgerService.listForSession(s.id)).filter((e) => e.intent === "SPATIAL_FACT" && e.reason === "ENTER");
+    expect(spatial).toHaveLength(1);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("EXIT en la banda de histéresis se anota no fiable y no arma salida", async () => {
+    const { siteA } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(2 * HOUR);
+    LocationMock.__setPosition(SITE_LAT + 120 / 111_320, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    expect(await GeofenceRuntimeService.getPendingExit()).toBeNull();
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+    const [exit] = await PersistenceService.listSpatialFacts(s.id, ["EXIT"]);
+    expect(exit).toMatchObject({ reliable: false, reason: "HYSTERESIS" });
+    const row = (await IntegrityLedgerService.listForSession(s.id)).find((e) => e.intent === "SPATIAL_FACT" && String(e.reason).startsWith("EXIT"));
+    expect(row?.reason).toBe("EXIT_UNRELIABLE:HYSTERESIS");
+  });
+
   test("anti-rebote: dos ENTER en < 5 s producen un solo hecho", async () => {
     const { siteA } = await seedWorld();
     const s = await startAndArrive(siteA);

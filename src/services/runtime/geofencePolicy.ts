@@ -64,10 +64,10 @@ export type ExitGate = "clear" | "wait" | "confirm";
  * Qué hacer con una salida pendiente.
  *  - Dentro, o rebote recién llegado: se tira.
  *  - Aún no vence el debounce ni hay strikes: se espera.
- *  - Fuera con histéresis: se confirma.
- *  - GPS incierto pero el EXIT original era fiable y ya venció el debounce:
- *    se confirma para que el operario vea el aviso (la clase AUTO exige un
- *    fix posterior fuera de verdad; un rebote no cierra solo).
+ *  - Claramente fuera (histéresis superada): se confirma.
+ *  - Sigue en la banda de histéresis: no se confirma. Si el EXIT original no
+ *    era fiable, se tira (rebote de borde). Si lo era, se espera un fix
+ *    que quede de verdad fuera. El hecho, si se anotó, sigue siendo no fiable.
  */
 export function confirmExitDecision(opts: {
   zone: PresenceZone;
@@ -82,14 +82,18 @@ export function confirmExitDecision(opts: {
   if (opts.dwellMs < MIN_DWELL_BEFORE_EXIT_MS && !opts.far) return "clear";
   const due = opts.elapsedMs >= opts.debounceMs || opts.strikes >= EXIT_CONFIRM_STRIKES;
   if (!due) return "wait";
-  if (opts.zone === "outside") return "confirm";
-  if (opts.pendingReliable) return "confirm";
+  if (opts.zone === "outside" || opts.far) return "confirm";
+  if (!opts.pendingReliable) return "clear";
   return "wait";
 }
 
-/** ¿Se guarda la primera salida, a la espera del debounce? */
+/**
+ * ¿Se guarda la primera salida, a la espera del debounce?
+ * La banda de histéresis no arma: rozar el borde no es una salida.
+ */
 export function shouldArmExit(opts: { zone: PresenceZone; far: boolean; dwellMs: number }): boolean {
   if (opts.zone === "inside") return false;
+  if (opts.zone !== "outside" && !opts.far) return false;
   if (opts.dwellMs < MIN_DWELL_BEFORE_EXIT_MS && !opts.far) return false;
   return true;
 }

@@ -1,5 +1,5 @@
 /** Histéresis y radio mínimo del SO: sin geocerca nativa. */
-import { ANDROID_MIN_OS_RADIUS_M, confirmExitDecision, isFarOutside, movementIssue, osGeofenceRadius, presenceZone } from "../geofencePolicy";
+import { ANDROID_MIN_OS_RADIUS_M, confirmExitDecision, isFarOutside, movementIssue, osGeofenceRadius, presenceZone, shouldArmExit } from "../geofencePolicy";
 
 describe("geofencePolicy", () => {
   test("Android no registra por debajo de 100 m; iOS conserva el radio lógico", () => {
@@ -22,6 +22,17 @@ describe("geofencePolicy", () => {
     expect(confirmExitDecision({ zone: "inside", far: false, dwellMs: 8 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: true })).toBe("clear");
     expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 10_000, debounceMs: 120_000, strikes: 0, pendingReliable: true })).toBe("wait");
     expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 130_000, debounceMs: 120_000, strikes: 0, pendingReliable: true })).toBe("confirm");
+  });
+
+  test("la banda de histéresis no confirma ni arma, aunque lleve rato fuera del centro", () => {
+    expect(shouldArmExit({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000 })).toBe(false);
+    expect(shouldArmExit({ zone: "outside", far: false, dwellMs: 2 * 3_600_000 })).toBe(true);
+    expect(
+      confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: true }),
+    ).toBe("wait");
+    expect(
+      confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: false }),
+    ).toBe("clear");
   });
 
   test("40 km/h no es imposible; un teleport de 10 km en 5 s sí", () => {

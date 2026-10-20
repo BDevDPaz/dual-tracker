@@ -89,6 +89,9 @@ describe("comprobante premium", () => {
     expect(signed).not.toContain("data-seal-indicator");
     expect(signed).toContain("SELLADO");
     expect(signed).toContain("#C5A059");
+    expect(signed).toContain("white-space:nowrap");
+    expect(signed).toMatch(/<div class="stamp-seal">SELLADO<\/div>/);
+    expect(signed).not.toMatch(/SELL<br|SELL<\/div>[\s\S]*ADO/);
 
     const unsigned = ReportService.renderHtml("EMPLOYEE_RECEIPT", base({ manifest: { ...base().manifest, signature: undefined } }));
     expect(unsigned).toContain("Sin firma del dispositivo");

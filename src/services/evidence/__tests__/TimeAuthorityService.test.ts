@@ -73,7 +73,7 @@ describe("TimeAuthorityService", () => {
     TimeAuthorityService.__setFetch(async () => header(ref));
     TimeAuthorityService.configureReference("https://example.test");
     expect(await TimeAuthorityService.checkReferenceTime()).toBe(5 * MIN);
-    expect(TimeAuthorityService.isDriftExceeded()).toBe(true);
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
     TimeAuthorityService.__setFetch(async () => {
       throw new Error("offline");
     });
@@ -84,14 +84,15 @@ describe("TimeAuthorityService", () => {
     TimeAuthorityService.configureReference(null);
   });
 
-  test("dos hosts que concuerdan marcan deriva; el desacuerdo y la caída no bloquean", async () => {
+  test("dos hosts que concuerdan informan el desfase; el desacuerdo y la caída no bloquean", async () => {
     const header = (ms: number) => ({ headers: { get: (k: string) => (k.toLowerCase() === "date" ? new Date(ms).toUTCString() : null) } });
     TimeAuthorityService.__setFetch(async () => header(time.now() - 4 * MIN));
     const agreed = await TimeAuthorityService.sampleTrustedTime();
     expect(agreed.agreed).toBe(true);
     expect(agreed.offline).toBe(false);
+    expect(agreed.discardedRtt).toBe(false);
     expect(agreed.driftMs).toBe(4 * MIN);
-    expect(TimeAuthorityService.isDriftExceeded()).toBe(true);
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
 
     TimeAuthorityService.__setFetch(async (url) => header(url.includes("cloudflare") ? time.now() - 4 * MIN : time.now()));
     const split = await TimeAuthorityService.sampleTrustedTime();
@@ -107,5 +108,24 @@ describe("TimeAuthorityService", () => {
     expect(offline.offline).toBe(true);
     expect(offline.agreed).toBe(false);
     expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
+  });
+
+  test("el punto medio corrige la ida y vuelta; una RTT alta no es deriva", async () => {
+    const header = (ms: number) => ({ headers: { get: (k: string) => (k.toLowerCase() === "date" ? new Date(ms).toUTCString() : null) } });
+    TimeAuthorityService.configureReference("https://example.test");
+    TimeAuthorityService.__setFetch(async () => {
+      const sent = time.now();
+      time.travel(1_000);
+      return header(sent + 1_000);
+    });
+    expect(await TimeAuthorityService.checkReferenceTime()).toBe(-500);
+
+    TimeAuthorityService.__setFetch(async () => {
+      time.travel(3_000);
+      return header(time.now());
+    });
+    expect(await TimeAuthorityService.checkReferenceTime()).toBeNull();
+    expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
+    TimeAuthorityService.configureReference(null);
   });
 });
