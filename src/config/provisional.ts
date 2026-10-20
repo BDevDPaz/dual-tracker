@@ -216,6 +216,14 @@ const clockDriftConsistencyMs = spec(
   "Prueba de campo 19 oct 2026: en el mismo minuto había CLOCK_DRIFT y CLOCK_SAMPLE mezclados.",
 );
 
+const futureTimeToleranceMs = spec(
+  "clock.futureTimeToleranceMs",
+  2 * 60 * 1000,
+  "ms",
+  "Un inicio, un fin, un almuerzo o un traslado puede quedar hasta esto por delante de la hora de confianza (el máximo entre el reloj del teléfono y la hora de red validada). Más allá se rechaza: no se paga tiempo que todavía no ha pasado.",
+  "Prueba de campo 20 oct 2026, expediente W2026-10-19-a2db0ad6: la sesión 3 se editó hasta las 23:58 con el sello a las 00:29.",
+);
+
 const traceRetentionDays = spec(
   "retention.days",
   90,
@@ -293,6 +301,7 @@ export const PROVISIONAL = {
     driftConfirmSamples: clockDriftConfirmSamples,
     driftConfirmSpanMs: clockDriftConfirmSpanMs,
     driftConsistencyMs: clockDriftConsistencyMs,
+    futureTimeToleranceMs: futureTimeToleranceMs,
   },
   retention: { days: traceRetentionDays },
   reports: { maxRangeMs: reportMaxRangeMs },
@@ -328,6 +337,7 @@ export const PROVISIONAL_SPECS: readonly ProvisionalSpec<unknown>[] = [
   clockDriftConfirmSamples,
   clockDriftConfirmSpanMs,
   clockDriftConsistencyMs,
+  futureTimeToleranceMs,
   traceRetentionDays,
   reportMaxRangeMs,
   portalBackoffBaseMs,
@@ -360,6 +370,7 @@ export const CLOCK_SAMPLE_MIN_INTERVAL_MS = clockSampleMinIntervalMs.value;
 export const CLOCK_DRIFT_CONFIRM_SAMPLES = clockDriftConfirmSamples.value;
 export const CLOCK_DRIFT_CONFIRM_SPAN_MS = clockDriftConfirmSpanMs.value;
 export const CLOCK_DRIFT_CONSISTENCY_MS = clockDriftConsistencyMs.value;
+export const FUTURE_TIME_TOLERANCE_MS = futureTimeToleranceMs.value;
 export const DEFAULT_TRACE_RETENTION_DAYS = traceRetentionDays.value;
 export const REPORT_MAX_RANGE_MS = reportMaxRangeMs.value;
 export const PORTAL_BACKOFF_BASE_MS = portalBackoffBaseMs.value;

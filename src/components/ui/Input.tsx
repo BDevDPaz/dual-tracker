@@ -35,6 +35,12 @@ interface InputProps extends TextInputProps {
   mask?: "HH:mm";
   /** Mensaje para `mask` cuando la hora no es válida (por defecto t("common.invalidTime")). */
   invalidMessage?: string;
+  /**
+   * Tope del control de hora (instante, no HH:mm). Se anuncia como máximo
+   * del campo. La regla de medianoche puede resolver el texto al día
+   * siguiente: quien valida el epoch es el modal, con este mismo tope.
+   */
+  maximumDate?: Date;
 }
 
 export const Input = React.forwardRef<TextInput, InputProps>(function Input(
@@ -48,6 +54,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
   secureToggle = false,
   mask,
   invalidMessage,
+  maximumDate,
   onChangeText,
   onFocus,
   onBlur,
@@ -116,6 +123,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
           {...props}
           placeholder={props.placeholder ?? (mask === "HH:mm" ? "HH:mm" : undefined)}
           {...(mask === "HH:mm" ? { keyboardType: "number-pad" as const, maxLength: 5 } : null)}
+          {...(maximumDate ? { accessibilityValue: { max: maximumDate.getTime(), text: shownError } } : null)}
           secureTextEntry={secureToggle ? !revealed : props.secureTextEntry}
           accessibilityHint={shownError ?? props.accessibilityHint}
         />

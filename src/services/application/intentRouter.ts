@@ -31,6 +31,7 @@ import { GeofenceRuntimeService } from "../runtime/GeofenceRuntimeService";
 import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
 import { SecurityService } from "../runtime/SecurityService";
+import { MICROCOPY_REJECTIONS } from "../../i18n/microcopy";
 import { FeedbackService } from "./FeedbackService";
 import {
   acknowledgeLedgerBreak,
@@ -100,7 +101,10 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
 }
 
 function report<T>(r: IntentResult<T>): IntentResult<T> {
-  if (!r.ok) FeedbackService.rejected(String(r.code));
+  if (!r.ok) {
+    const detail = r.detail && r.detail in MICROCOPY_REJECTIONS.es ? r.detail : r.code;
+    FeedbackService.rejected(String(detail));
+  }
   return r;
 }
 

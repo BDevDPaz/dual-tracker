@@ -4,7 +4,8 @@
  */
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { t } from "../../../i18n";
+import { setLanguage, t } from "../../../i18n";
+import { TimeAuthorityService } from "../../../services/evidence/TimeAuthorityService";
 import { atTimeOfDayAfter } from "../../../utils/dateUtils";
 import { makeClosedSession } from "../../../../test/fixtures/session.fixture";
 import { EditSessionModal } from "../EditSessionModal";
@@ -85,6 +86,39 @@ describe("EditSessionModal", () => {
     const { onSave } = renderEdit(makeClosedSession(start, 0, { endAtMs: end }));
     expect(screen.getByText(t("modals.endsNextDay"))).toBeTruthy();
     fireEvent.changeText(screen.getByTestId("edit-note"), "ya cruzaba la medianoche");
+    expect(saveButton().props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(saveButton());
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  test("un fin posterior a ahora se explica en es y en en, y Guardar queda deshabilitado", () => {
+    const start = Date.UTC(2026, 8, 26, 14, 0, 0);
+    const end = Date.UTC(2026, 8, 26, 14, 30, 0);
+    const { onSave } = renderEdit(makeClosedSession(start, 0, { endAtMs: end }));
+    fireEvent.changeText(screen.getByTestId("edit-end"), "0900");
+    fireEvent.changeText(screen.getByTestId("edit-note"), "todavía no");
+    expect(screen.getByText(t("modals.futureTime"))).toBeTruthy();
+    expect(screen.getByTestId("edit-end").props.accessibilityValue.max).toBe(TimeAuthorityService.futureCeiling());
+    expect(saveButton().props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(saveButton());
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  test("el aviso de hora futura también está en inglés", () => {
+    setLanguage("en");
+    const start = Date.UTC(2026, 8, 26, 14, 0, 0);
+    const end = Date.UTC(2026, 8, 26, 14, 30, 0);
+    renderEdit(makeClosedSession(start, 0, { endAtMs: end }));
+    fireEvent.changeText(screen.getByTestId("edit-end"), "0900");
+    expect(screen.getByText(t("modals.futureTime"))).toBeTruthy();
+    expect(screen.getByText("That time is later than now. Time that has not happened yet cannot be recorded.")).toBeTruthy();
+  });
+
+  test("fin ≤ inicio, sin la regla de medianoche, se explica y no se guarda", () => {
+    const start = Date.UTC(2026, 8, 21, 15, 0, 0);
+    const { onSave } = renderEdit(makeClosedSession(start, 0, { endAtMs: start }));
+    expect(screen.getByText(t("modals.endNotAfterStart"))).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId("edit-note"), "mismo instante");
     expect(saveButton().props.accessibilityState.disabled).toBe(true);
     fireEvent.press(saveButton());
     expect(onSave).not.toHaveBeenCalled();

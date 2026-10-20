@@ -259,6 +259,10 @@ export default function TodayScreen() {
         visible={modal === "LUNCH_CLOSE_DAY" || modal === "LUNCH_CLOSE_EXIT"}
         mode="close"
         askStartTime={selectActiveCrossesWorkday(state, nowMs)}
+        sessionStartMs={active ? (active.actualStartAtMs ?? active.declaredStartAtMs) : undefined}
+        sessionEndMs={
+          active?.domainStatus === "SALIDA" && active.bookkeeping.firstExitAtMs ? active.bookkeeping.firstExitAtMs : nowMs
+        }
         onCancel={() => setModal(null)}
         onConfirm={(minutes, startHHmm) => {
           // "HH:mm" → primer instante ≥ inicio de la jornada con esa hora de pared (§5.3).

@@ -29,6 +29,7 @@ import type {
 import { companyCalendar } from "../../utils/companyPolicy";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
 import { siteCheckedInBefore } from "./siteVisits";
+import { isFutureInstant, lunchOutsideSession, FUTURE_TIME_TOLERANCE_MS } from "./sessionTimeGuard";
 import { TransitPolicyService } from "./TransitPolicyService";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,11 @@ import { TransitPolicyService } from "./TransitPolicyService";
 
 export interface TransitionContext {
   nowMs: number;
+  /**
+   * Último instante anotable (hora de confianza + tolerancia). Si falta, es
+   * nowMs más la tolerancia: el reloj de la transición es el del dispositivo.
+   */
+  notAfterMs?: number;
   actor: LedgerActor;
   policyId: string;
   company: CompanyPolicy;
@@ -150,6 +156,14 @@ function sync(s: SessionRecord, geofenceSiteId: number | null): EngineEffect {
 
 function touch(s: SessionRecord, nowMs: number): SessionRecord {
   return { ...s, bookkeeping: { ...s.bookkeeping, updatedAtMs: nowMs } };
+}
+
+function notAfter(ctx: TransitionContext): number {
+  return ctx.notAfterMs ?? ctx.nowMs + FUTURE_TIME_TOLERANCE_MS;
+}
+
+function future(ts: number | null | undefined, ctx: TransitionContext): boolean {
+  return isFutureInstant(ts, notAfter(ctx));
 }
 
 /**
@@ -543,6 +557,7 @@ export function transition(
       if (open.domainStatus !== "ACTIVA" && open.domainStatus !== "SALIDA") return reject("ILLEGAL_TRANSITION");
       const fromExit = open.domainStatus === "SALIDA";
       const at = fromExit && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
+      if (future(at, ctx)) return reject("FUTURE_TIME");
       const cleared = fromExit ? { firstExitAtMs: null, firstExitReliable: null } : {};
       // Primera pausa = almuerzo (línea explícita). Pausas siguientes = pausa genérica.
       const next: SessionRecord = open.lunch.taken
@@ -573,6 +588,10 @@ export function transition(
       if (open.domainStatus !== "PAUSADA") return reject("ILLEGAL_TRANSITION");
       let next: SessionRecord;
       if (open.lunch.startAtMs && !open.lunch.endAtMs) {
+        const sessionStart = open.actualStartAtMs ?? open.declaredStartAtMs;
+        if (future(now, ctx)) return reject("FUTURE_TIME");
+        if (now <= open.lunch.startAtMs) return reject("INVALID_TIMES", "END_NOT_AFTER_START");
+        if (lunchOutsideSession(sessionStart, now, open.lunch.startAtMs, now)) return reject("INVALID_TIMES", "LUNCH_OUTSIDE_SESSION");
         next = { ...open, domainStatus: "ACTIVA", lunch: { ...open.lunch, endAtMs: now } };
       } else {
         const extra = open.bookkeeping.lastPauseStartMs ? Math.max(0, now - open.bookkeeping.lastPauseStartMs) : 0;
@@ -595,6 +614,7 @@ export function transition(
       if (ctx.siteExists && !ctx.siteExists(intent.toSiteId)) return reject("SITE_NOT_FOUND");
       // El trayecto empieza en la primera salida si venimos de SALIDA.
       const startAt = open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
+      if (future(startAt, ctx)) return reject("FUTURE_TIME");
       const seg: TransitSegment = {
         id: ctx.newId(),
         fromSiteId: open.siteId,
@@ -671,6 +691,12 @@ export function transition(
       // "El tiempo mostrado es la primera salida, no la última."
       const endMs =
         open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
+      if (future(endMs, ctx)) return reject("FUTURE_TIME");
+      // Cerrar «ahora» puede durar 0 min (fin == inicio). Un fin tecleado no:
+      // eso lo rechaza MANUAL_PATCH / CONFIRM_ORPHAN_END (fin ≤ inicio), salvo
+      // la regla de medianoche que ya dejó el epoch en el día siguiente.
+      const sessionStart = open.actualStartAtMs ?? open.declaredStartAtMs;
+      if (endMs < sessionStart) return reject("INVALID_TIMES", "END_NOT_AFTER_START");
       let next = closeRecord(open, endMs, ctx.company);
       const declared = intent.lunchDeductedMinutes;
       if (declared !== undefined && declared !== null && !next.lunch.startAtMs) {
@@ -681,8 +707,10 @@ export function transition(
           const crosses = nextWorkdayBoundary(start, companyCalendar(ctx.company)) < endMs;
           const ls = intent.lunchStartAtMs;
           if (ls !== undefined && ls !== null) {
-            if (!Number.isFinite(ls) || ls < start || ls + declared * 60_000 > endMs) return reject("INVALID_TIMES", "LUNCH_OUTSIDE_SESSION");
-            lunch = { ...lunch, startAtMs: ls, endAtMs: ls + declared * 60_000 };
+            const lunchEnd = ls + declared * 60_000;
+            if (future(ls, ctx) || future(lunchEnd, ctx)) return reject("FUTURE_TIME");
+            if (lunchOutsideSession(start, endMs, ls, lunchEnd)) return reject("INVALID_TIMES", "LUNCH_OUTSIDE_SESSION");
+            lunch = { ...lunch, startAtMs: ls, endAtMs: lunchEnd };
           } else if (crosses && ctx.actor === "USER") {
             return reject("LUNCH_START_REQUIRED");
           }
@@ -759,9 +787,10 @@ export function transition(
       if (!s) return reject("SESSION_NOT_FOUND");
       if (s.bookkeeping.isDeleted) return reject("SESSION_DELETED");
       const { declaredStartAtMs: start, endAtMs: end, note } = intent;
-      if (!Number.isFinite(start) || (end !== null && (!Number.isFinite(end) || end <= start))) {
-        return reject("INVALID_TIMES");
-      }
+      if (!Number.isFinite(start) || (end !== null && !Number.isFinite(end))) return reject("INVALID_TIMES");
+      // Igualdad de reloj ya cruzó la medianoche en el modal (N6). Aquí fin ≤ inicio es duración vacía.
+      if (end !== null && end <= start) return reject("INVALID_TIMES", "END_NOT_AFTER_START");
+      if (future(start, ctx) || (end !== null && future(end, ctx))) return reject("FUTURE_TIME");
       // Tope de 24 h por edición (spec v1.3 §5.2 N6).
       if (end !== null && end - start > 24 * 60 * 60 * 1000) return reject("INVALID_TIMES", "MAX_24H");
       if (end === null && s.domainStatus === "CERRADA") return reject("INVALID_TIMES");
@@ -901,7 +930,8 @@ export function transition(
       if (!(intent.note ?? "").trim()) return reject("NOTE_REQUIRED");
       const start = open.actualStartAtMs ?? open.declaredStartAtMs;
       const end = intent.endAtMs;
-      if (!Number.isFinite(end) || end < start || end > ctx.nowMs) return reject("INVALID_TIMES");
+      if (!Number.isFinite(end) || end <= start) return reject("INVALID_TIMES", "END_NOT_AFTER_START");
+      if (future(end, ctx)) return reject("FUTURE_TIME");
       let next = closeRecord(open, end, ctx.company);
       next = {
         ...next,

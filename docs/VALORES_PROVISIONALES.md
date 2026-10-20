@@ -31,6 +31,7 @@ Cada entrada del módulo tiene unidad, motivo y fuente. Esta tabla es el mismo c
 | `clock.driftConfirmSamples` | 3 | muestras | Todas por encima del umbral y del mismo signo | Prueba de campo 19 oct 2026 |
 | `clock.driftConfirmSpanMs` | 90 s | ms | Esas muestras tienen que cubrir al menos este lapso | Prueba de campo 19 oct 2026 |
 | `clock.driftConsistencyMs` | 60 s | ms | Si el desfase oscila más que esto, no se anota deriva | Prueba de campo 19 oct 2026 |
+| `clock.futureTimeToleranceMs` | 2 min | ms | Tope por delante de la hora de confianza para anotar inicio, fin, almuerzo o traslado | Prueba de campo 20 oct 2026 (`W2026-10-19-a2db0ad6`) |
 | `retention.days` | 90 | días | Mínimo tras el fin del periodo exportado | Técnica §5.4 («por ejemplo 90 días»). Hacen falta las dos condiciones |
 | `reports.maxRangeMs` | 366 días | ms | Tope del rango libre, para cubrir un bisiesto | Tanda 2 |
 | `portal.backoffBaseMs` | 30 s | ms | Primera espera tras un fallo de envío | Tanda 2 |

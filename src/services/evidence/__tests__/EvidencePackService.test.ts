@@ -192,6 +192,7 @@ describe("EvidencePackService", () => {
     expect(fresh1.matches).toBe(true);
     expect(fresh1.sealedBeforePeriodEnd).toBe(false);
 
+    time.travel(2 * HOUR);
     await mustDispatch({
       type: "MANUAL_PATCH",
       sessionId: session.id,
