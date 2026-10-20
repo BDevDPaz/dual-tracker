@@ -10,7 +10,7 @@ import { useTheme } from "../../context/ThemeContext";
 import type { SessionRecord } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
-import { timePickerMaximum } from "../../services/domain/sessionTimeGuard";
+import { fixedLunchExceedsSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
 import { resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
 
 /**
@@ -69,8 +69,17 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
   const endFuture = end !== null && end > ceilingMs;
   const future = startFuture || endFuture;
   const orderError = start !== null && end !== null && end <= start;
+  const lunchTooLong = !!session && start !== null && end !== null && fixedLunchExceedsSession(session.lunch, start, end);
   const startError = invalidStart ? t("common.invalidTime") : startFuture ? t("modals.futureTime") : undefined;
-  const endError = invalidEnd ? t("common.invalidTime") : endFuture ? t("modals.futureTime") : orderError ? t("modals.endNotAfterStart") : undefined;
+  const endError = invalidEnd
+    ? t("common.invalidTime")
+    : endFuture
+      ? t("modals.futureTime")
+      : orderError
+        ? t("modals.endNotAfterStart")
+        : lunchTooLong
+          ? t("modals.lunchMustFit")
+          : undefined;
 
   useEffect(() => {
     let alive = true;
@@ -83,7 +92,7 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
     };
   }, [session, start, end, invalidEnd, checkOverlap]);
 
-  const canSave = !!session && start !== null && !invalidEnd && !future && !orderError && changed && note.trim().length > 0 && !overlap;
+  const canSave = !!session && start !== null && !invalidEnd && !future && !orderError && !lunchTooLong && changed && note.trim().length > 0 && !overlap;
   const chain = useFormFocusChain(FORM_FIELDS.editSession, {
     canSubmit: canSave && !busy,
     onSubmit: () => {

@@ -48,6 +48,27 @@ describe("payrollDisplay — centavos y horas", () => {
     }
   });
 
+  test("5 min se muestran como 0.08 h, el redondeo de esos minutos, no 0.09", () => {
+    const line = (sessionId: number) => ({
+      sessionId,
+      dateString: "2026-10-19",
+      siteId: 1,
+      kind: "REGULAR" as const,
+      minutes: 5,
+      rate: 20,
+      amount: moneyCents(5, 20) / 100,
+      warnings: [] as string[],
+    });
+    const st = makeStatement({ regularHours: 0, sessionIds: [4, 5] });
+    const d = displayStatement({ ...st, lines: [line(4), line(5)], sessionIds: [4, 5] });
+    expect(d.rows.map((r) => [r.sessionId, r.workedMinutes, r.hours])).toEqual([
+      [4, 5, "0.08"],
+      [5, 5, "0.08"],
+    ]);
+    expect(minutesToHundredths(5)).toBe(8);
+    expect(d.worked).toBe("0.17");
+  });
+
   test("encabezado y filas del statement suman las mismas centésimas y los mismos centavos", () => {
     const st = makeStatement({ regularHours: 8, overtimeHours: 1 });
     const d = displayStatement(st);

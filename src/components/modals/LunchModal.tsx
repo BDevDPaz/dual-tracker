@@ -10,7 +10,7 @@ import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
-import { lunchOutsideSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
+import { fixedLunchExceedsSession, lunchOutsideSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
 import { wallMinutesOnOrAfter } from "../../utils/dateUtils";
 
 /**
@@ -55,7 +55,15 @@ export function LunchModal(props: LunchModalProps) {
   const ceilingMs = TimeAuthorityService.futureCeiling();
   const maximumDate = timePickerMaximum(ceilingMs);
   let lunchError: string | undefined;
-  if (props.mode === "close" && needsStart && startValid && props.sessionStartMs != null && props.sessionEndMs != null) {
+  const fixedTooLong =
+    props.mode === "close" &&
+    selected != null &&
+    selected > 0 &&
+    props.sessionStartMs != null &&
+    props.sessionEndMs != null &&
+    fixedLunchExceedsSession({ startAtMs: null, endAtMs: null, deductedMinutes: selected }, props.sessionStartMs, props.sessionEndMs);
+  if (fixedTooLong) lunchError = t("modals.lunchMustFit");
+  if (!lunchError && props.mode === "close" && needsStart && startValid && props.sessionStartMs != null && props.sessionEndMs != null) {
     const [h, m] = startHHmm.trim().split(":").map(Number);
     const lunchStart = wallMinutesOnOrAfter(props.sessionStartMs, h * 60 + m);
     const lunchEnd = lunchStart + (selected ?? 0) * 60_000;
@@ -110,6 +118,7 @@ export function LunchModal(props: LunchModalProps) {
           />
         ))}
       </View>
+      {lunchError && !needsStart ? <Text style={[styles.hint, { color: colors.status.warning }]}>{lunchError}</Text> : null}
       {needsStart ? (
         <View style={styles.startRow}>
           <Input {...chain.props("start")} label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" maximumDate={maximumDate} error={lunchError} testID="lunch-start" />

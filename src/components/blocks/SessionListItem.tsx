@@ -24,7 +24,7 @@ export function SessionListItem({
   item: ComputedSession;
   onPress?: () => void;
   slice?: PeriodSessionRow;
-  /** Horas ya repartidas para que la suma de la lista cuadre con el total. */
+  /** Horas de los minutos de pago de esta jornada. */
   hoursText?: string;
 }) {
   const language = useLanguage();

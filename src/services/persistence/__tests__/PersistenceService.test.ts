@@ -1,5 +1,6 @@
 /** T4 — PersistenceService sobre SQLite en memoria (sql.js) — "dos rangos no se pisan". */
 import { PersistenceService } from "../PersistenceService";
+import { FixedLunchError } from "../../domain/sessionTimeGuard";
 import { SessionEngineService } from "../../domain/SessionEngineService";
 import { HOUR, MIN, MONDAY_8AM, makeClosedSession, makeSegment, makeSession } from "../../../../test/fixtures/session.fixture";
 import { makeBreadcrumb } from "../../../../test/fixtures/spatial.fixture";
@@ -30,6 +31,26 @@ describe("PersistenceService", () => {
       expect(await PersistenceService.checkOverlap(MONDAY_8AM + 25 * HOUR, MONDAY_8AM + 26 * HOUR, null)).toBe(false);
       expect(await PersistenceService.checkOverlap(MONDAY_8AM + 49 * HOUR, MONDAY_8AM + 50 * HOUR, null)).toBe(false);
     });
+  });
+
+  test("un almuerzo fijo más largo que la jornada no se inserta; una fila vieja sí se puede anotar", async () => {
+    const start = MONDAY_8AM;
+    const bad = makeClosedSession(start, 0, {
+      endAtMs: start + 36 * MIN,
+      lunch: { taken: true, startAtMs: null, endAtMs: null, deductedMinutes: 60 },
+    });
+    await expect(PersistenceService.insertSession(bad)).rejects.toBeInstanceOf(FixedLunchError);
+    const id = await PersistenceService.insertSession(
+      makeClosedSession(start + 48 * HOUR, 2, { lunch: { taken: true, startAtMs: null, endAtMs: null, deductedMinutes: 60 } }),
+    );
+    const db = await PersistenceService.init();
+    await db.runAsync(`UPDATE sessions SET end_ms = ? WHERE id = ?`, [start + 48 * HOUR + 36 * MIN, id]);
+    const stored = (await PersistenceService.getSession(id))!;
+    await PersistenceService.updateSession({ ...stored, bookkeeping: { ...stored.bookkeeping, manualNote: "ya estaba" } });
+    expect((await PersistenceService.getSession(id))!.bookkeeping.manualNote).toBe("ya estaba");
+    await expect(
+      PersistenceService.updateSession({ ...stored, endAtMs: start + 48 * HOUR + 20 * MIN }),
+    ).rejects.toBeInstanceOf(FixedLunchError);
   });
 
   test("MANUAL_PATCH que pisa otra jornada se rechaza con OVERLAP", async () => {

@@ -50,7 +50,7 @@ import { ConcurrencyGuardService, MutexBusyError } from "./ConcurrencyGuardServi
 import { DualDisclosureService } from "./DualDisclosureService";
 import { IntegrityLedgerService } from "./IntegrityLedgerService";
 import { PayrollEngineService } from "./PayrollEngineService";
-import { FutureTimestampError } from "./sessionTimeGuard";
+import { FixedLunchError, FutureTimestampError } from "./sessionTimeGuard";
 import type { EngineEffect, TransitionContext } from "./sessionMachine";
 import { transition } from "./sessionMachine";
 
@@ -394,6 +394,10 @@ export const SessionEngineService = {
       if (error instanceof FutureTimestampError) {
         LoggingService.log("AMARILLO", "INTENCION_RECHAZADA", "WARN", `${intent.type} rechazada: FUTURE_TIME`);
         return { ok: false, code: "FUTURE_TIME" };
+      }
+      if (error instanceof FixedLunchError) {
+        LoggingService.log("AMARILLO", "INTENCION_RECHAZADA", "WARN", `${intent.type} rechazada: LUNCH_EXCEEDS_SESSION`);
+        return { ok: false, code: "INVALID_TIMES", detail: "LUNCH_EXCEEDS_SESSION" };
       }
       if (error instanceof MutexBusyError) {
         LoggingService.log("NARANJA", "MUTEX", "WARN", `${intent.type} rechazada: candado de ${error.heldBy}`);

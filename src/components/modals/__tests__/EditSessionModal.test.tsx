@@ -27,6 +27,20 @@ function saveButton() {
 }
 
 describe("EditSessionModal", () => {
+  test("no deja guardar un fin que deja el almuerzo fijo fuera de la jornada", () => {
+    const start = Date.UTC(2026, 8, 21, 8, 25, 0);
+    const session = makeClosedSession(start, 0, {
+      endAtMs: start + 36 * 60_000,
+      lunch: { taken: true, startAtMs: null, endAtMs: null, deductedMinutes: 60 },
+    });
+    const { onSave } = renderEdit(session);
+    expect(screen.getByText(t("modals.lunchMustFit"))).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId("edit-note"), "la acorté");
+    expect(saveButton().props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(saveButton());
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   test("sesión del mismo minuto: la nota no anuncia el día siguiente ni habilita Guardar", () => {
     const session = makeClosedSession(SAME_MIN_START, 0, { endAtMs: SAME_MIN_END });
     const { onSave } = renderEdit(session);

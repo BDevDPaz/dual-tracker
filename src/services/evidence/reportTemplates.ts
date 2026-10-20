@@ -24,7 +24,7 @@ import { t } from "../../i18n";
 import { renderPremiumDocument } from "./reportPremium";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
-import { displayStatement, formatSiteName, noteToHtml } from "../domain/payrollDisplay";
+import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
 import type { PowerOffNote } from "./deviceOffGap";
 import { periodSliceOf } from "../domain/periodSlice";
 import { getPayrollPolicy } from "../domain/payrollPolicies";
@@ -223,6 +223,7 @@ function sessionRows(input: ReportInput, omitZeroPay: boolean): { html: string; 
       if (!s) return "";
       const row = bySession.get(id);
       const minutes = row?.workedMinutes ?? 0;
+      const hours = formatHundredths(minutesToHundredths(minutes));
       const amountCents = row?.amountCents ?? 0;
       if (omitZeroPay && isZeroPayRow(minutes, amountCents)) {
         omitted += 1;
@@ -243,7 +244,7 @@ function sessionRows(input: ReportInput, omitZeroPay: boolean): { html: string; 
           <td>${sessionSitesLabel(s, input.sites)}
             ${note ? `<span class="notes">"${note}"</span>` : ""}</td>
           <td>${formatTime(from, ES)} - ${to != null ? formatTime(to, ES) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">Duración cero: no suma al pago. Conservada para auditoría.</span>` : ""}</td>
-          <td><strong>${row?.hours ?? "0.00"}</strong><span class="mins">${minutes} min</span></td>
+          <td><strong>${hours}</strong><span class="mins">${minutes} min</span></td>
           <td>${row?.amount ?? formatCurrency(0)}</td>
           <td><span class="badge b-${s.integrityClass}">${integrityLabelEs(s)}</span></td>
         </tr>`;

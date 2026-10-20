@@ -632,6 +632,7 @@ export const en: Dictionary = {
     futureTime: "That time is later than now. Time that has not happened yet cannot be recorded.",
     endNotAfterStart: "The end time has to be after the start. If the shift crosses midnight, the end is the next day.",
     lunchOutside: "Lunch has to start and end inside the shift.",
+    lunchMustFit: "Lunch must fit within the shift.",
     lunchStartQuestion: "What time did lunch start?",
     lunchStartHint: "Your shift crosses the start of another workday; the time is used to deduct it on the right day.",
     lunchSupervisorTitle: "Lunch in progress",

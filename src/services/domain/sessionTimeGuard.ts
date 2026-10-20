@@ -73,10 +73,63 @@ export class FutureTimestampError extends Error {
   }
 }
 
-/** Almuerzo declarado: tiene que caber en [inicio, fin] y durar más de cero. */
+/** Almuerzo fijo más largo que la jornada. El libro no se reescribe: quien llama rechaza la escritura. */
+export class FixedLunchError extends Error {
+  readonly code = "LUNCH_EXCEEDS_SESSION" as const;
+  constructor() {
+    super("LUNCH_EXCEEDS_SESSION");
+    this.name = "FixedLunchError";
+  }
+}
+
+/** Almuerzo declarado con hora: tiene que caber en [inicio, fin] y durar más de cero. */
 export function lunchOutsideSession(sessionStartMs: number, sessionEndMs: number, lunchStartMs: number, lunchEndMs: number): boolean {
   if (!Number.isFinite(lunchStartMs) || !Number.isFinite(lunchEndMs)) return true;
   if (lunchEndMs <= lunchStartMs) return true;
   if (lunchStartMs < sessionStartMs || lunchEndMs > sessionEndMs) return true;
   return false;
+}
+
+const SPAN_MS = 60_000;
+
+/** Minutos enteros de [inicio, fin]. Un fin que no es posterior al inicio dura 0. */
+export function sessionSpanMinutes(startMs: number, endMs: number): number {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return 0;
+  return Math.max(0, Math.round((endMs - startMs) / SPAN_MS));
+}
+
+type FixedLunch = { startAtMs: number | null; endAtMs: number | null; deductedMinutes: number | null };
+
+/**
+ * Almuerzo fijo (minutos declarados, sin intervalo). Más largo que la jornada
+ * no se puede guardar. Un almuerzo con inicio y fin lo mira lunchOutsideSession.
+ */
+export function fixedLunchExceedsSession(lunch: FixedLunch, startMs: number, endMs: number): boolean {
+  if (lunch.startAtMs != null && lunch.endAtMs != null) return false;
+  const minutes = lunch.deductedMinutes;
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return false;
+  return Math.round(minutes) > sessionSpanMinutes(startMs, endMs);
+}
+
+export function sessionFixedLunchExceeds(record: SessionRecord): boolean {
+  if (record.endAtMs == null) return false;
+  const start = record.actualStartAtMs ?? record.declaredStartAtMs;
+  return fixedLunchExceedsSession(record.lunch, start, record.endAtMs);
+}
+
+/**
+ * La escritura introduce un almuerzo fijo que no cabe. Un dato ya guardado así
+ * se puede anotar o borrar: no se reescribe el expediente sellado ni se bloquea
+ * la fila vieja si las horas y los minutos no cambian.
+ */
+export function introducesFixedLunchOverflow(next: SessionRecord, previous: SessionRecord | null): boolean {
+  if (!sessionFixedLunchExceeds(next)) return false;
+  if (!previous || !sessionFixedLunchExceeds(previous)) return true;
+  const sameLunch =
+    previous.lunch.deductedMinutes === next.lunch.deductedMinutes &&
+    previous.lunch.startAtMs === next.lunch.startAtMs &&
+    previous.lunch.endAtMs === next.lunch.endAtMs;
+  const prevStart = previous.actualStartAtMs ?? previous.declaredStartAtMs;
+  const nextStart = next.actualStartAtMs ?? next.declaredStartAtMs;
+  return !(sameLunch && prevStart === nextStart && previous.endAtMs === next.endAtMs);
 }

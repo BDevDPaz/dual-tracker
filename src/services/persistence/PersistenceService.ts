@@ -27,7 +27,7 @@ import type {
 import { OPEN_SESSION_STATES } from "../../core/contracts";
 import { abortWriteBuffer, beginWriteBuffer, flushWriteBuffer, markPersisted } from "../../core/refresh/dataRevision";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
-import { FutureTimestampError, newFutureInstants } from "../domain/sessionTimeGuard";
+import { FixedLunchError, FutureTimestampError, introducesFixedLunchOverflow, newFutureInstants } from "../domain/sessionTimeGuard";
 import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtils";
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
@@ -330,6 +330,7 @@ export const PersistenceService = {
   // -------------------------------------------------------------------------
   async insertSession(record: SessionRecord, database?: SQLite.SQLiteDatabase, report?: WriteReport): Promise<number> {
     if (newFutureInstants(record, null, TimeAuthorityService.futureCeiling()).length) throw new FutureTimestampError();
+    if (introducesFixedLunchOverflow(record, null)) throw new FixedLunchError();
     const d = database ?? (await ensureReady());
     // §8: INSERT con la columna sensible en NULL → lastInsertRowId → encrypt(rowId) → UPDATE.
     const params = sessionToParams(record, null);
@@ -361,6 +362,7 @@ export const PersistenceService = {
     const existing = await d.getFirstAsync<DbSessionRow>(`SELECT * FROM sessions WHERE id = ?`, [record.id]);
     const previous = existing ? await rowToSession(existing) : null;
     if (newFutureInstants(record, previous, TimeAuthorityService.futureCeiling()).length) throw new FutureTimestampError();
+    if (introducesFixedLunchOverflow(record, previous)) throw new FixedLunchError();
     const keepNote = !!record.bookkeeping.unreadableFields?.includes("note") && record.bookkeeping.manualNote === null;
     const enc = keepNote ? { stored: null, degraded: false } : await FieldCryptoService.encrypt("session.note", record.id, record.bookkeeping.manualNote);
     if (enc.degraded) report?.degradedFields.push("session.note");

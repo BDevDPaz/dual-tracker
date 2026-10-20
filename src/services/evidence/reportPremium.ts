@@ -8,7 +8,7 @@ import type { IntegrityClass, PayrollLine, SessionRecord, Site } from "../../cor
 import { t, type Language } from "../../i18n";
 import { formatCurrency, formatDate, formatDateTime, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
-import { displayStatement, formatSiteName, noteToHtml } from "../domain/payrollDisplay";
+import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
 import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { periodSliceOf } from "../domain/periodSlice";
 import { checkedInSiteIds } from "../domain/siteVisits";
@@ -283,6 +283,7 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
       if (!s) return "";
       const row = bySession.get(id);
       const minutes = row?.workedMinutes ?? 0;
+      const hours = formatHundredths(minutesToHundredths(minutes));
       const amountCents = row?.amountCents ?? 0;
       if (omitZeroPay && isZeroPayRow(minutes, amountCents)) {
         omitted += 1;
@@ -303,7 +304,7 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
           <td><strong>${escapeHtml(formatDate(from, fmt))}</strong></td>
           <td>${sessionSitesLabel(s, input.sites, lang)}${note ? `<span class="notes">"${note}"</span>` : ""}</td>
           <td>${escapeHtml(formatTime(from, fmt))} - ${to != null ? escapeHtml(formatTime(to, fmt)) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">${escapeHtml(t("comprobante.zeroDuration", {}, lang))}</span>` : ""}</td>
-          <td class="fig"><strong>${escapeHtml(row?.hours ?? "0.00")}</strong><span class="notes">${minutes} min</span></td>
+          <td class="fig"><strong>${escapeHtml(hours)}</strong><span class="notes">${minutes} min</span></td>
           <td class="fig">${escapeHtml(row?.amount ?? formatCurrency(0))}</td>
           <td><span class="badge b-${s.integrityClass}">${escapeHtml(badge)}</span></td>
         </tr>`;

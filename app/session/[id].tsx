@@ -117,6 +117,7 @@ export default function SessionDetailScreen() {
             startMs={start}
             nowMs={nowMs}
             busy={busy}
+            fixedLunchMinutes={session.lunch.startAtMs == null ? session.lunch.deductedMinutes : null}
             onContinue={() => void run({ type: "CONTINUE_ORPHAN" })}
             onConfirm={(endAtMs, note) => void run({ type: "CONFIRM_ORPHAN_END", endAtMs, note })}
           />

@@ -194,6 +194,34 @@ describe("ReportService", () => {
     expect(both).toContain("18144 Burbank Blvd");
   });
 
+  test("5 min de pago se imprimen como 0.08 h en las dos plantillas", () => {
+    const start = MONDAY_8AM;
+    const session = makeClosedSession(start, 0, { id: 4, endAtMs: start + 5 * 60_000 });
+    const st = PayrollEngineService.buildStatement({
+      periodStart: getWeekStart(start),
+      periodEnd: getWeekEnd(start),
+      sessions: [session],
+      rates: { hourlyRate: 20, overtimeMultiplier: 1.5 },
+      company: COMPANY,
+      policyId: COMPANY.overtimePolicyId,
+      nowMs: start + 8 * HOUR,
+    });
+    expect(st.lines.find((l) => l.kind === "REGULAR")?.minutes).toBe(5);
+    const base = { ...input(st), sessions: [session] };
+    for (const role of ["EMPLOYEE_RECEIPT", "EMPLOYER_DOSSIER"] as const) {
+      const v1 = ReportService.renderHtml(role, base);
+      const v2 = ReportService.renderHtml(role, {
+        ...base,
+        manifest: { ...base.manifest, documentVersion: 2, documentLocale: "es" },
+      });
+      for (const html of [v1, v2]) {
+        expect(html).toContain("0.08");
+        expect(html).toContain("5 min");
+        expect(html).not.toContain("0.09");
+      }
+    }
+  });
+
   test("share y email degradan con elegancia cuando no hay destino", async () => {
     jest.spyOn(Sharing, "isAvailableAsync").mockResolvedValue(false);
     expect(await ReportService.share("file:///x.pdf")).toBe(false);

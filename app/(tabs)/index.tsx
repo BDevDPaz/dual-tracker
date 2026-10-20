@@ -44,6 +44,8 @@ import {
   selectSystemHealth,
   selectTodaySummary,
   selectUiRequests,
+  formatHundredths,
+  minutesToHundredths,
   sessionSiteLabel,
   type HeroAction,
 } from "../../src/core/selectors";
@@ -171,6 +173,7 @@ export default function TodayScreen() {
             startMs={active.actualStartAtMs ?? active.declaredStartAtMs}
             nowMs={nowMs}
             busy={busy}
+            fixedLunchMinutes={active.lunch.startAtMs == null ? active.lunch.deductedMinutes : null}
             onContinue={() => void run({ type: "CONTINUE_ORPHAN" })}
             onConfirm={(endAtMs, note) => void run({ type: "CONFIRM_ORPHAN_END", endAtMs, note })}
           />
@@ -224,7 +227,7 @@ export default function TodayScreen() {
 
         {/* Resumen del día solo con la jornada cerrada: nunca junto al temporizador del hero. */}
         {sessionState === "CERRADA" ? (
-          <DailySummaryBlock hours={`${(summary.netMinutes / 60).toFixed(2)} ${t("common.hours")}`} earnings={formatCurrency(summary.grossEstimate)} />
+          <DailySummaryBlock hours={`${formatHundredths(minutesToHundredths(summary.netMinutes))} ${t("common.hours")}`} earnings={formatCurrency(summary.grossEstimate)} />
         ) : null}
 
         {visited.length > 1 ? (
