@@ -2,7 +2,8 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { t } from "../../../i18n";
+import { setLanguage, t } from "../../../i18n";
+import { TimeAuthorityService } from "../../../services/evidence/TimeAuthorityService";
 import { LunchModal } from "../LunchModal";
 
 describe("LunchModal", () => {
@@ -23,5 +24,37 @@ describe("LunchModal", () => {
     expect(screen.queryByText(t("common.invalidTime"))).toBeNull();
     fireEvent.press(screen.getByText(t("common.confirm")));
     expect(onConfirm).toHaveBeenCalledWith(30, "12:30");
+  });
+
+  test("un almuerzo posterior a ahora o fuera de la jornada no se confirma", () => {
+    const sessionStartMs = Date.UTC(2026, 8, 26, 13, 0, 0);
+    const sessionEndMs = Date.UTC(2026, 8, 26, 14, 0, 0);
+    const onConfirm = jest.fn();
+    const { rerender } = render(
+      <LunchModal visible mode="close" askStartTime sessionStartMs={sessionStartMs} sessionEndMs={Date.UTC(2026, 8, 26, 15, 0, 0)} onCancel={jest.fn()} onConfirm={onConfirm} />,
+    );
+    fireEvent.press(screen.getByLabelText(`60 ${t("common.minutes")}`));
+    fireEvent.changeText(screen.getByTestId("lunch-start"), "0730");
+    expect(screen.getByText(t("modals.futureTime"))).toBeTruthy();
+    expect(screen.getByTestId("lunch-start").props.accessibilityValue.max).toBe(TimeAuthorityService.futureCeiling());
+    expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByText(t("common.confirm")));
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    rerender(<LunchModal visible mode="close" askStartTime sessionStartMs={sessionStartMs} sessionEndMs={sessionEndMs} onCancel={jest.fn()} onConfirm={onConfirm} />);
+    fireEvent.press(screen.getByLabelText(`30 ${t("common.minutes")}`));
+    fireEvent.changeText(screen.getByTestId("lunch-start"), "0640");
+    expect(screen.getByText(t("modals.lunchOutside"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
+  });
+
+  test("el aviso de almuerzo fuera de la jornada también está en inglés", () => {
+    setLanguage("en");
+    const sessionStartMs = Date.UTC(2026, 8, 26, 13, 0, 0);
+    const sessionEndMs = Date.UTC(2026, 8, 26, 14, 0, 0);
+    render(<LunchModal visible mode="close" askStartTime sessionStartMs={sessionStartMs} sessionEndMs={sessionEndMs} onCancel={jest.fn()} onConfirm={jest.fn()} />);
+    fireEvent.press(screen.getByLabelText(`30 ${t("common.minutes")}`));
+    fireEvent.changeText(screen.getByTestId("lunch-start"), "0640");
+    expect(screen.getByText("Lunch has to start and end inside the shift.")).toBeTruthy();
   });
 });

@@ -50,6 +50,7 @@ import { ConcurrencyGuardService, MutexBusyError } from "./ConcurrencyGuardServi
 import { DualDisclosureService } from "./DualDisclosureService";
 import { IntegrityLedgerService } from "./IntegrityLedgerService";
 import { PayrollEngineService } from "./PayrollEngineService";
+import { FutureTimestampError } from "./sessionTimeGuard";
 import type { EngineEffect, TransitionContext } from "./sessionMachine";
 import { transition } from "./sessionMachine";
 
@@ -242,6 +243,7 @@ export const SessionEngineService = {
 
         const ctx: TransitionContext = {
           nowMs,
+          notAfterMs: TimeAuthorityService.futureCeiling(),
           actor,
           policyId: settings.company.overtimePolicyId,
           company: settings.company,
@@ -389,6 +391,10 @@ export const SessionEngineService = {
         return { ok: true as const, data: { session: saved, preview } };
       });
     } catch (error) {
+      if (error instanceof FutureTimestampError) {
+        LoggingService.log("AMARILLO", "INTENCION_RECHAZADA", "WARN", `${intent.type} rechazada: FUTURE_TIME`);
+        return { ok: false, code: "FUTURE_TIME" };
+      }
       if (error instanceof MutexBusyError) {
         LoggingService.log("NARANJA", "MUTEX", "WARN", `${intent.type} rechazada: candado de ${error.heldBy}`);
         return { ok: false, code: "MUTEX_BUSY", detail: error.heldBy };

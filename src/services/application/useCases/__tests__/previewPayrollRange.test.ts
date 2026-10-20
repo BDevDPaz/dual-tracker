@@ -1,8 +1,9 @@
 /** Dos semanas de 40 h no se funden en una sola bolsa de horas extra. */
 import { PersistenceService } from "../../../persistence/PersistenceService";
-import { HOUR, MONDAY_8AM, makeClosedSession } from "../../../../../test/fixtures/session.fixture";
+import { HOUR, MIN, MONDAY_8AM, makeClosedSession } from "../../../../../test/fixtures/session.fixture";
 import { getWeekEnd, getWeekStart, shiftWeek } from "../../../../utils/dateUtils";
 import { combineWeekStatements } from "../../../../utils/reportRange";
+import { time } from "../../../../../test/time";
 import { previewPayrollRange } from "../generateWeeklyPayroll";
 
 describe("previewPayrollRange", () => {
@@ -11,6 +12,8 @@ describe("previewPayrollRange", () => {
   test("cada semana laboral pasa por el motor por separado", async () => {
     const week1 = getWeekStart(MONDAY_8AM);
     const week2 = shiftWeek(week1, 1);
+    const latestEnd = week2 + 4 * 24 * HOUR + 15 * HOUR + 8 * HOUR;
+    time.set(latestEnd + MIN);
     for (const start of [week1, week2]) {
       for (let day = 0; day < 5; day++) {
         await PersistenceService.insertSession(makeClosedSession(start + day * 24 * HOUR + 15 * HOUR, 8));

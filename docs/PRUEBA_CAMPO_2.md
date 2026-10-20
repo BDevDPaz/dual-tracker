@@ -45,3 +45,17 @@ Mismo equipo (Samsung, español). Build nuevo, sin reutilizar el APK del 19 oct.
 | G6 | Apaga el teléfono con la jornada abierta, enciéndelo y abre la app. Elige seguir. Cierra tú la jornada. | El libro anota el corte. Si el build trae el reloj de arranque, el comprobante dice cuánto estuvo apagado el teléfono (último latido → reinicio) y a qué hora volvió la app. La jornada dice **Recuperada**, no Cierre automático. El rollup no la cuenta como cierre automático. |
 | G7 | Deja doble tiempo y séptimo día activados, pero no llegues a 12 h ni a siete días. Sella. | El PDF dice «activada», no «aplicada en este periodo», y cada regla sale una sola vez. |
 | G8 | Abre el expediente del 19 oct (`W2026-10-19-5a1d9a4e`) y comprueba el código. | Sigue verificando. El PDF que ya se selló no cambia. $87.08 no se recalcula. |
+
+## Reprueba — hora futura (`W2026-10-19-a2db0ad6`)
+
+El 20 oct la jornada 3 se editó a 12:25 a. m.–11:58 p. m. y el expediente se selló a las 12:29 a. m. El fin quedaba unas 23 h por delante y se pagó (1353 min, con doble tiempo). La nómina y `packHash` / `contentHash` no cambian. Un expediente ya sellado se verifica igual. No se reescribe el libro: la hora que todavía no ha pasado se rechaza.
+
+Hora de confianza: el máximo entre el reloj del teléfono y la hora de red en la que las dos fuentes concordaron, más 2 min. Sin red vale el reloj del teléfono.
+
+| Id | Qué hacer | Qué tiene que pasar |
+| --- | --- | --- |
+| H1 | Con una jornada ya cerrada, abre Editar sesión. Pon la salida en una hora posterior a ahora (si son las 12:30 a. m., 11:58 p. m.). Escribe una nota y toca Guardar. | El campo dice que esa hora es posterior a ahora. Guardar no se habilita. El libro no gana un asiento y el fin no cambia. |
+| H2 | Cierra a mano e indica un almuerzo que termine después de ahora, y otro que empiece antes de la jornada. | El primero avisa la hora futura. El segundo, que el almuerzo tiene que caber en la jornada. No se cierra. |
+| H3 | En una jornada en Revisar, confirma un fin posterior a ahora. Luego uno anterior al inicio, sin cruzar la medianoche. | No cierra. El primero avisa la hora futura. El segundo, que el fin tiene que ser posterior al inicio. Si la salida en el reloj es anterior a la entrada y el día siguiente ya pasó, sí se guarda. |
+| H4 | Si una jornada guardada termina después de ahora, sella el periodo. | No sella. Avisa que una jornada termina después de ahora. No aparece un expediente nuevo ni un asiento de sello. |
+| H5 | Corrige ese fin a una hora ya pasada y sella. Abre el expediente del 19 oct. | Sella. El expediente anterior sigue verificando. Los minutos de una jornada que sí duró hasta las 11:58 no se recalculan por este cambio. |

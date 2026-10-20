@@ -45,6 +45,8 @@ export type SealRejection =
   | "PERIOD_NOT_CERTIFIABLE"
   /** Cadena del ledger rota sin reconocer (spec v1.3 §5.5); también con allowUncertified. */
   | "LEDGER_BROKEN"
+  /** Una jornada del periodo termina después de la hora de confianza del sello. */
+  | "SESSION_ENDS_AFTER_SEAL"
   | "PERSISTENCE_ERROR";
 
 /** Resultado de seal: `reused` = se devolvió el pack existente con el mismo contentHash. */
@@ -329,6 +331,14 @@ export const EvidencePackService = {
       const assembled = await assemblePeriod(input);
       if (!assembled.ok) return assembled;
       const { statement, evidence, contentHash, included } = assembled;
+      // No sellar tiempo que todavía no ha pasado. El techo es el mismo que
+      // el de la escritura (hora de confianza + tolerancia), así que un cierre
+      // en el minuto actual sigue pudiendo sellarse. No cambia el hash.
+      const ceiling = TimeAuthorityService.futureCeiling();
+      const endsAfterSeal = included.filter((s) => s.endAtMs !== null && s.endAtMs > ceiling).map((s) => s.id);
+      if (endsAfterSeal.length) {
+        return { ok: false, code: "SESSION_ENDS_AFTER_SEAL", detail: endsAfterSeal.join(",") };
+      }
       if (statement.integrityRollup.hasConflict && !input.allowUncertified) return { ok: false, code: "PERIOD_HAS_CONFLICT" };
       if (!statement.integrityRollup.certified && !input.allowUncertified) return { ok: false, code: "PERIOD_NOT_CERTIFIABLE" };
       const previous = await latestPackForPeriod(input.periodStart, input.periodEnd);

@@ -209,7 +209,8 @@ describe("sessionMachine", () => {
       transitSegments: [makeSegment({ startAtMs: MONDAY_8AM + 6 * HOUR, endAtMs: MONDAY_8AM + 7 * HOUR })],
     });
     const end = MONDAY_8AM + 6 * HOUR + 30 * MIN;
-    const r = okNext(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: end, note: "corte" }, makeCtx(), closed);
+    const later = makeCtx({ nowMs: MONDAY_8AM + 9 * HOUR });
+    const r = okNext(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: end, note: "corte" }, later, closed);
     expect(r.next.transitSegments[0]).toMatchObject({ endAtMs: end, clipped: true });
     expect(r.ledgerExtra?.clippedTransits).toEqual([
       expect.objectContaining({ id: "tr-1", after: { startAtMs: MONDAY_8AM + 6 * HOUR, endAtMs: end } }),
@@ -217,7 +218,7 @@ describe("sessionMachine", () => {
     const dropped = okNext(
       null,
       { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + 2 * HOUR, note: "antes del trayecto" },
-      makeCtx(),
+      later,
       closed,
     );
     expect(dropped.next.transitSegments).toEqual([]);
@@ -249,19 +250,20 @@ describe("sessionMachine", () => {
 
   describe("MANUAL_PATCH", () => {
     const closed = makeClosedSession(MONDAY_8AM, 8);
+    const later = makeCtx({ nowMs: MONDAY_8AM + 9 * HOUR });
     test("exige nota, sesión cerrada y sin solape; conserva el original", () => {
       const intent = { type: "MANUAL_PATCH" as const, sessionId: 1, declaredStartAtMs: MONDAY_8AM - 30 * MIN, endAtMs: closed.endAtMs, note: "" };
-      expect(code(null, intent, makeCtx(), closed)).toBe("NOTE_REQUIRED");
-      expect(code(null, { ...intent, note: "olvidé fichar" }, makeCtx({ overlap: true }), closed)).toBe("OVERLAP");
-      const r = okNext(null, { ...intent, note: "olvidé fichar" }, makeCtx(), closed);
+      expect(code(null, intent, later, closed)).toBe("NOTE_REQUIRED");
+      expect(code(null, { ...intent, note: "olvidé fichar" }, makeCtx({ nowMs: later.nowMs, overlap: true }), closed)).toBe("OVERLAP");
+      const r = okNext(null, { ...intent, note: "olvidé fichar" }, later, closed);
       expect(r.next.integrityClass).toBe("MANUAL");
       expect(r.next.bookkeeping.original?.declaredStartAtMs).toBe(MONDAY_8AM);
       expect(r.next.actualStartAtMs).toBe(MONDAY_8AM - 30 * MIN);
     });
     test("rechaza tiempos inválidos, sin cambio o cerrar vía patch", () => {
       expect(code(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM - 1, note: "x" }, makeCtx(), closed)).toBe("INVALID_TIMES");
-      expect(code(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: closed.endAtMs, note: "x" }, makeCtx(), closed)).toBe("INVALID_TIMES");
-      expect(code(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + HOUR, note: "x" }, makeCtx(), makeSession())).toBe("INVALID_TIMES");
+      expect(code(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: closed.endAtMs, note: "x" }, later, closed)).toBe("INVALID_TIMES");
+      expect(code(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + HOUR, note: "x" }, makeCtx({ nowMs: MONDAY_8AM + 2 * HOUR }), makeSession())).toBe("INVALID_TIMES");
       expect(code(null, { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: null, note: "x" }, makeCtx(), null)).toBe("SESSION_NOT_FOUND");
     });
   });

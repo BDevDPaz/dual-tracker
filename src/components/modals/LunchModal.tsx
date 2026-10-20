@@ -9,6 +9,9 @@ import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
+import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
+import { lunchOutsideSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
+import { wallMinutesOnOrAfter } from "../../utils/dateUtils";
 
 /**
  * LunchModal — portado de GEOTrack con dos modos (Producto §7):
@@ -24,6 +27,9 @@ type LunchModalProps =
       mode: "close";
       /** La jornada cruza un límite de jornada: se pide la hora de inicio (spec v1.3 §5.3). */
       askStartTime?: boolean;
+      /** Inicio de la jornada y hora de cierre. Sirven para rechazar un almuerzo fuera o en el futuro. */
+      sessionStartMs?: number;
+      sessionEndMs?: number;
       onCancel: () => void;
       onConfirm: (minutes: number | null, startHHmm: string | null) => void;
     }
@@ -46,8 +52,18 @@ export function LunchModal(props: LunchModalProps) {
 
   const needsStart = props.mode === "close" && !!props.askStartTime && (selected ?? 0) > 0;
   const startValid = HHMM.test(startHHmm.trim());
+  const ceilingMs = TimeAuthorityService.futureCeiling();
+  const maximumDate = timePickerMaximum(ceilingMs);
+  let lunchError: string | undefined;
+  if (props.mode === "close" && needsStart && startValid && props.sessionStartMs != null && props.sessionEndMs != null) {
+    const [h, m] = startHHmm.trim().split(":").map(Number);
+    const lunchStart = wallMinutesOnOrAfter(props.sessionStartMs, h * 60 + m);
+    const lunchEnd = lunchStart + (selected ?? 0) * 60_000;
+    if (lunchStart > ceilingMs || lunchEnd > ceilingMs) lunchError = t("modals.futureTime");
+    else if (lunchOutsideSession(props.sessionStartMs, props.sessionEndMs, lunchStart, lunchEnd)) lunchError = t("modals.lunchOutside");
+  }
   const chain = useFormFocusChain(FORM_FIELDS.lunchStart, {
-    canSubmit: props.mode === "close" && selected !== null && (!needsStart || startValid),
+    canSubmit: props.mode === "close" && selected !== null && (!needsStart || startValid) && !lunchError,
     onSubmit: () => {
       if (props.mode !== "close" || selected === null || (needsStart && !startValid)) return;
       props.onConfirm(selected, needsStart ? startHHmm.trim() : null);
@@ -78,7 +94,7 @@ export function LunchModal(props: LunchModalProps) {
       primaryAction={{
         label: t("common.confirm"),
         onPress: () => props.onConfirm(selected, needsStart ? startHHmm.trim() : null),
-        disabled: selected === null || (needsStart && !HHMM.test(startHHmm.trim())),
+        disabled: selected === null || (needsStart && !HHMM.test(startHHmm.trim())) || !!lunchError,
       }}
       secondaryAction={{ label: t("common.cancel"), onPress: props.onCancel }}
     >
@@ -96,7 +112,7 @@ export function LunchModal(props: LunchModalProps) {
       </View>
       {needsStart ? (
         <View style={styles.startRow}>
-          <Input {...chain.props("start")} label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" testID="lunch-start" />
+          <Input {...chain.props("start")} label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" maximumDate={maximumDate} error={lunchError} testID="lunch-start" />
           <Text style={[styles.hint, { color: colors.text.muted }]}>{t("modals.lunchStartHint")}</Text>
         </View>
       ) : null}

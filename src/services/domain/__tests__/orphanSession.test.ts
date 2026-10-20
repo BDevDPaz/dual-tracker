@@ -26,8 +26,10 @@ describe("jornada huérfana", () => {
     const rejected = await SessionEngineService.dispatch({ type: "CONFIRM_ORPHAN_END", endAtMs: time.now() - MIN, note: "   " }, "UI");
     expect(rejected.ok).toBe(false);
     if (!rejected.ok) expect(rejected.code).toBe("NOTE_REQUIRED");
-    const future = await SessionEngineService.dispatch({ type: "CONFIRM_ORPHAN_END", endAtMs: time.now() + MIN, note: "me fui" }, "UI");
+    const future = await SessionEngineService.dispatch({ type: "CONFIRM_ORPHAN_END", endAtMs: time.now() + 3 * MIN, note: "me fui" }, "UI");
     expect(future.ok).toBe(false);
+    if (!future.ok) expect(future.code).toBe("FUTURE_TIME");
+    expect((await PersistenceService.getSession(session.id))!.endAtMs).toBeNull();
     const end = time.now() - 10 * MIN;
     const closed = await mustDispatch({ type: "CONFIRM_ORPHAN_END", endAtMs: end, note: "me fui a las diez" });
     expect(closed.domainStatus).toBe("CERRADA");

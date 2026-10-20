@@ -1,5 +1,6 @@
 /** T3 — TimeAuthority: now() inyectable; deriva > umbral marca CLOCK_DRIFT y bloquea VALID. */
 import { SessionEngineService } from "../../domain/SessionEngineService";
+import { FUTURE_TIME_TOLERANCE_MS } from "../../../config/provisional";
 import { CLOCK_DRIFT_THRESHOLD_MS, TimeAuthorityService } from "../TimeAuthorityService";
 import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
@@ -126,6 +127,30 @@ describe("TimeAuthorityService", () => {
     });
     expect(await TimeAuthorityService.checkReferenceTime()).toBeNull();
     expect(TimeAuthorityService.isDriftExceeded()).toBe(false);
+    TimeAuthorityService.configureReference(null);
+  });
+
+  test("la hora de confianza es el máximo del reloj y de la red en la que las dos fuentes concordaron", async () => {
+    const header = (ms: number) => ({ headers: { get: (k: string) => (k.toLowerCase() === "date" ? new Date(ms).toUTCString() : null) } });
+    const device = time.now();
+    TimeAuthorityService.configureReference("https://example.test");
+    TimeAuthorityService.__setFetch(async () => header(device + 30 * MIN));
+    expect(await TimeAuthorityService.checkReferenceTime()).toBeLessThan(0);
+    expect(TimeAuthorityService.trustedNow()).toBe(device);
+    expect(TimeAuthorityService.futureCeiling()).toBe(device + FUTURE_TIME_TOLERANCE_MS);
+
+    TimeAuthorityService.__setFetch(async (url) => header(url.includes("cloudflare") ? device + 30 * MIN : device));
+    expect((await TimeAuthorityService.sampleTrustedTime()).agreed).toBe(false);
+    expect(TimeAuthorityService.trustedNow()).toBe(device);
+
+    TimeAuthorityService.__setFetch(async () => header(device + 30 * MIN));
+    expect((await TimeAuthorityService.sampleTrustedTime()).agreed).toBe(true);
+    expect(TimeAuthorityService.trustedNow()).toBe(device + 30 * MIN);
+    expect(TimeAuthorityService.futureCeiling()).toBe(device + 30 * MIN + FUTURE_TIME_TOLERANCE_MS);
+
+    time.jumpWall(-2 * HOUR);
+    expect(TimeAuthorityService.now()).toBe(device - 2 * HOUR);
+    expect(TimeAuthorityService.trustedNow()).toBe(device + 30 * MIN);
     TimeAuthorityService.configureReference(null);
   });
 });

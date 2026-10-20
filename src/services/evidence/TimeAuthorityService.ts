@@ -18,6 +18,7 @@ import {
   CLOCK_DRIFT_THRESHOLD_MS,
   CLOCK_SAMPLE_MAX_RTT_MS,
   CLOCK_SAMPLE_MIN_INTERVAL_MS,
+  FUTURE_TIME_TOLERANCE_MS,
   TIME_SOURCE_AGREEMENT_MS,
 } from "../../config/provisional";
 import { parseTimestamp, toDateString } from "../../utils/dateUtils";
@@ -52,6 +53,19 @@ let referenceUrl: string | null = null;
 let trustedHosts: readonly string[] = TRUSTED_TIME_HOSTS;
 /** true solo tras una muestra de red que respondió. Offline no bloquea. */
 let lastSampleOnline = false;
+/**
+ * Última hora de red validada (las dos fuentes concordaron) y el reloj
+ * monótono en ese instante. Sirve para extrapolar sin seguir un salto del
+ * reloj de pared.
+ */
+let networkAtSampleMs: number | null = null;
+let monoAtSample: number | null = null;
+
+function rememberAgreedDrift(driftMs: number): void {
+  const device = Date.now();
+  networkAtSampleMs = device - driftMs;
+  monoAtSample = monotonicNow();
+}
 
 type HeaderResponse = { headers: { get(name: string): string | null } };
 let fetchImpl: (url: string) => Promise<HeaderResponse> = async (url) => fetch(url, { method: "HEAD" });
@@ -67,9 +81,26 @@ export interface NetworkTimeSample {
 }
 
 export const TimeAuthorityService = {
-  /** Timestamp canónico en ms. */
+  /** Timestamp canónico en ms (reloj del dispositivo). */
   now(): number {
     return Date.now();
+  },
+
+  /**
+   * Hora de confianza: el máximo entre el reloj del dispositivo y la hora de
+   * red validada (si hay una muestra en la que las dos fuentes concordaron).
+   * Sin red, es el reloj del dispositivo.
+   */
+  trustedNow(): number {
+    const device = Date.now();
+    if (networkAtSampleMs === null || monoAtSample === null) return device;
+    const network = networkAtSampleMs + (monotonicNow() - monoAtSample);
+    return Math.max(device, network);
+  },
+
+  /** Último instante que se puede anotar: hora de confianza más la tolerancia. */
+  futureCeiling(): number {
+    return TimeAuthorityService.trustedNow() + FUTURE_TIME_TOLERANCE_MS;
   },
 
   /** ISO 8601 UTC. */
@@ -180,6 +211,7 @@ export const TimeAuthorityService = {
     }
     const driftMs = Math.round((ok[0].driftMs + ok[1].driftMs) / 2);
     lastSampleOnline = true;
+    rememberAgreedDrift(driftMs);
     return { driftMs, agreed: true, offline: false, discardedRtt, hosts: rows };
   },
 
@@ -188,6 +220,8 @@ export const TimeAuthorityService = {
     referenceUrl = null;
     trustedHosts = TRUSTED_TIME_HOSTS;
     lastSampleOnline = false;
+    networkAtSampleMs = null;
+    monoAtSample = null;
     fetchImpl = async () => {
       throw new Error("offline");
     };

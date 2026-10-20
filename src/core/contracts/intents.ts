@@ -110,6 +110,8 @@ export type IntentRejection =
   | "SITE_NOT_FOUND"
   | "NOTE_REQUIRED"
   | "INVALID_TIMES"
+  /** Inicio, fin, almuerzo o traslado posterior a la hora de confianza. */
+  | "FUTURE_TIME"
   | "OVERLAP"
   | "MUTEX_BUSY"
   | "SESSION_DELETED"
