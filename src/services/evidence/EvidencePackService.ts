@@ -31,7 +31,7 @@ import { SettingsService } from "../persistence/SettingsService";
 import { powerOffsFromLedger } from "./deviceOffGap";
 import { sha256Hex } from "./HashChain";
 import { powerOffSentence } from "./reportPremium";
-import { canSignPacks, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
+import { canSignPacks, readPinnedPackSigningKey, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
 import { ReportService } from "./ReportService";
 import { TimeAuthorityService } from "./TimeAuthorityService";
 import { TraceRecorderService } from "./TraceRecorderService";
@@ -57,11 +57,12 @@ export interface PackVerification {
   /** Pack v1 sin contentHash: se verifica con el formato antiguo y no se comprueba contenido. */
   legacy: boolean;
   /**
-   * "Ed25519" si el manifiesto trae firma (v4). "unsigned-v1" si no: packs
-   * v1–v3 y un sello v4 sin llavero. Siguen siendo válidos si los hashes cuadran.
+   * "Ed25519" si el manifiesto trae una firma que cuadra con la clave pinada.
+   * "unsigned-v1" si no hay firma: packs v1–v3 y un sello v4 con PACK_UNSIGNED.
+   * Un v4 que nació firmado y llega sin firma no es unsigned válido.
    */
   scheme: "Ed25519" | "unsigned-v1";
-  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE). */
+  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE, SIGNATURE_KEY, SIGNATURE_MISSING). */
   failures: string[];
 }
 
@@ -92,10 +93,20 @@ function normalizeContent(value: unknown): unknown {
  *    cadena en el instante del sello) y solo con asientos de sesiones: los
  *    asientos sin sesión (PAYROLL_SEALED de sellos previos) no son contenido.
  */
+/**
+ * Statement que entra en statementHash y contentHash. `sessionClasses` es
+ * solo del preview (no contar dos veces una jornada partida): no cambia el
+ * hash de un pack ya sellado, que no trae el campo.
+ */
+export function statementForHash(statement: PayrollStatement): Omit<PayrollStatement, "sessionClasses"> {
+  const { sessionClasses: _sessionClasses, ...rest } = statement;
+  return rest;
+}
+
 export function contentOf(statement: PayrollStatement, evidence: EvidenceSummary): unknown {
   const ledger = evidence.ledgerHashes.filter((e) => e.sessionId !== null);
   return normalizeContent({
-    statement: { ...statement, packHash: null },
+    statement: { ...statementForHash(statement), packHash: null },
     evidence: {
       ledgerEntryCount: ledger.length,
       ledgerHashes: ledger,
@@ -306,7 +317,8 @@ export const EvidencePackService = {
       const assembled = await assemblePeriod({ periodStart, periodEnd });
       if (!assembled.ok) return { ...base, liveContentHash: null, matches: !latest };
       const live = assembled.contentHash;
-      const matches = !latest || (latest.manifest.contentHash != null && latest.manifest.contentHash === live);
+      const incident = await IntegrityLedgerService.getIncident();
+      const matches = !incident && (!latest || (latest.manifest.contentHash != null && latest.manifest.contentHash === live));
       return { ...base, liveContentHash: live, matches };
     } catch (error) {
       LoggingService.log("NARANJA", "PAYROLL", "WARN", "No se pudo comparar el expediente", serializeError(error));
@@ -341,16 +353,20 @@ export const EvidencePackService = {
       }
       if (statement.integrityRollup.hasConflict && !input.allowUncertified) return { ok: false, code: "PERIOD_HAS_CONFLICT" };
       if (!statement.integrityRollup.certified && !input.allowUncertified) return { ok: false, code: "PERIOD_NOT_CERTIFIABLE" };
+      // Antes de reutilizar: un contentHash igual no absuelve una cadena rota.
+      // contentHash no ata payload_json, así que el incidente manda.
+      if (!chain.valid || ledgerIncident) {
+        const breakAtId = ledgerIncident?.breakAtId ?? chain.brokenAtId;
+        return { ok: false, code: "LEDGER_BROKEN", detail: `breakAtId=${breakAtId}` };
+      }
       const previous = await latestPackForPeriod(input.periodStart, input.periodEnd);
       if (previous && previous.manifest.contentHash === contentHash && !input.reissue) {
         LoggingService.log("AZUL", "PAYROLL", "INFO", "Expediente reutilizado: mismo contenido", { packId: previous.id, contentHash });
         return { ok: true, data: previous, reused: true };
       }
-      // Ruptura sin reconocer: ningún sello nuevo, ni siquiera no certificado.
-      if (ledgerIncident) return { ok: false, code: "LEDGER_BROKEN", detail: `breakAtId=${ledgerIncident.breakAtId}` };
 
       const packId = `${periodIdAt(input.periodStart, companyCalendar(settings.company))}-${Crypto.randomUUID().slice(0, 8)}`;
-      const statementHash = await sha256Hex(canonicalJson({ ...statement, packHash: null }));
+      const statementHash = await sha256Hex(canonicalJson({ ...statementForHash(statement), packHash: null }));
       const evidenceHash = await sha256Hex(canonicalJson(evidence));
       const certified = statement.integrityRollup.certified;
       const baseWarnings = await sealWarningsFor(statement.sessionIds);
@@ -465,16 +481,28 @@ export const EvidencePackService = {
     const m = pack.manifest;
     const legacy = m.manifestVersion === undefined && m.contentHash === undefined;
     const failures: string[] = [];
-    if ((await sha256Hex(canonicalJson({ ...pack.statement, packHash: null }))) !== m.statementHash) failures.push("STATEMENT_HASH");
+    if ((await sha256Hex(canonicalJson({ ...statementForHash(pack.statement), packHash: null }))) !== m.statementHash) failures.push("STATEMENT_HASH");
     if ((await sha256Hex(canonicalJson(pack.evidence))) !== m.evidenceHash) failures.push("EVIDENCE_HASH");
     if (!legacy && (await computeContentHash(pack.statement, pack.evidence)) !== m.contentHash) failures.push("CONTENT_HASH");
     const { packHash, files: _files, signature, ...rest } = m;
     const body = packHashBody(rest);
     if ((await sha256Hex(canonicalJson(body))) !== packHash) failures.push("PACK_HASH");
     if (pack.statement.packHash !== packHash) failures.push("STATEMENT_PACK_HASH");
-    // v4 firma. Una firma ausente es unsigned-v1 (packs viejos y sello sin llavero).
-    const signed = (m.manifestVersion ?? 0) >= 4 && !!signature;
-    if (signed && signature && !verifyCanonicalBody(body, packHash, signature)) failures.push("SIGNATURE");
+    // v4. Sin firma solo vale si el propio packHash lleva PACK_UNSIGNED
+    // (sello sin llavero). Quitar la firma y rehacer los hashes no basta.
+    // Con firma, la clave tiene que ser la del llavero de este dispositivo
+    // cuando el pin existe. No se compara con la clave del código de
+    // aprovisionamiento: esa firma el PIN, no los packs. Los hashes no cambian.
+    const version = m.manifestVersion ?? 0;
+    const unsignedOnPurpose = (m.sealWarnings ?? []).some((w) => w.code === "PACK_UNSIGNED");
+    if (version >= 4 && signature) {
+      if (!verifyCanonicalBody(body, packHash, signature)) failures.push("SIGNATURE");
+      const pinned = await readPinnedPackSigningKey();
+      if (pinned && (signature.publicKey !== pinned.publicKey || signature.keyId !== pinned.keyId)) failures.push("SIGNATURE_KEY");
+    } else if (version >= 4 && !unsignedOnPurpose) {
+      failures.push("SIGNATURE_MISSING");
+    }
+    const signed = version >= 4 && !!signature && !failures.includes("SIGNATURE") && !failures.includes("SIGNATURE_KEY");
     return { valid: failures.length === 0, legacy, scheme: signed ? "Ed25519" : "unsigned-v1", failures };
   },
 

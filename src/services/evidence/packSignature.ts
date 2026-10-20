@@ -84,6 +84,27 @@ export async function canSignPacks(): Promise<boolean> {
 }
 
 /**
+ * Clave pública con la que este dispositivo firma los packs. No crea una
+ * clave nueva: si el slot está vacío, no hay pin. Los packs ya firmados con
+ * esta clave siguen verificando. Una firma de otra clave no.
+ */
+export async function readPinnedPackSigningKey(): Promise<{ keyId: string; publicKey: string } | null> {
+  if (!KeyStore.platformSupported) return null;
+  try {
+    const raw = await KeyStore.get(PACK_SIGNING_SLOT);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredKey;
+    if (parsed?.v !== 1 || typeof parsed.seed !== "string") return null;
+    const seed = b64urlDecode(parsed.seed);
+    if (seed.length !== 32) return null;
+    const publicKey = getPublicKey(seed);
+    return { keyId: keyIdOf(publicKey), publicKey: b64urlEncode(publicKey) };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Firma el cuerpo canónico que entra en packHash, más el propio packHash.
  * null = sin llavero: el sello sigue, marcado como unsigned-v1.
  */

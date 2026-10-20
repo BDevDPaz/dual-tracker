@@ -31,6 +31,9 @@ describe("geofencePolicy", () => {
       confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: true }),
     ).toBe("wait");
     expect(
+      confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 240_000, debounceMs: 120_000, strikes: 3, pendingReliable: true }),
+    ).toBe("confirm");
+    expect(
       confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: false }),
     ).toBe("clear");
   });

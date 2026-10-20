@@ -8,6 +8,7 @@ import type { PayrollStatement } from "../../../core/contracts";
 import { companyCalendar } from "../../../utils/companyPolicy";
 import { validateReportRange, workWeeksCovering, type ClosedRange, type RangeError } from "../../../utils/reportRange";
 import { PayrollEngineService } from "../../domain/PayrollEngineService";
+import { IntegrityLedgerService } from "../../domain/IntegrityLedgerService";
 import { EvidencePackService } from "../../evidence/EvidencePackService";
 import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
 import { PersistenceService } from "../../persistence/PersistenceService";
@@ -28,7 +29,8 @@ export async function previewPayroll(periodStart: number, periodEnd: number): Pr
   const settings = await SettingsService.load();
   const sessions = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
   const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? settings.company.overtimePolicyId;
-  return PayrollEngineService.buildStatement({
+  const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
+  const statement = PayrollEngineService.buildStatement({
     periodStart,
     periodEnd,
     sessions,
@@ -36,7 +38,18 @@ export async function previewPayroll(periodStart: number, periodEnd: number): Pr
     company: settings.company,
     policyId,
     nowMs: TimeAuthorityService.now(),
+    segmentedLedgerTimestamps,
   });
+  const byId = new Map(sessions.map((s) => [s.id, s]));
+  return {
+    ...statement,
+    sessionClasses: statement.sessionIds.flatMap((id) => {
+      const s = byId.get(id);
+      if (!s) return [];
+      const blocked = (s.bookkeeping.certificationBlockers ?? []).length > 0;
+      return [{ id, integrityClass: s.integrityClass, ...(blocked ? { blocked: true } : {}) }];
+    }),
+  };
 }
 
 /**

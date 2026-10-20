@@ -77,7 +77,7 @@ const LINE_KIND_KEY: Record<string, string> = {
   OVERTIME_DOUBLE: "reports.doubleTime",
   TRANSIT: "reports.transit",
   LUNCH_DEDUCTION: "reports.lunch",
-  PAUSE_DEDUCTION: "reports.lunch",
+  PAUSE_DEDUCTION: "reports.pause",
 };
 
 /** Tipo de línea de nómina (REGULAR, …) → etiqueta del idioma activo. */

@@ -327,6 +327,7 @@ export const es = {
     doubleTime: "Doble tiempo",
     transit: "Tránsito",
     lunch: "Almuerzo",
+    pause: "Pausa",
     total: "Total estimado",
     integrity: "Integridad",
     generate: "Generar expediente",

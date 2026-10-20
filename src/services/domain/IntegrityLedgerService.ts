@@ -239,16 +239,22 @@ export const IntegrityLedgerService = {
   },
 
   /**
-   * Verificación incremental desde KV ledger.verified_through (arranque).
-   * Sin marca previa hace una verificación completa.
+   * Verificación desde KV ledger.verified_through (arranque). La marca no
+   * prueba el prefijo: una edición offline del payload anterior deja la cola
+   * intacta. Se vuelve a hashear cada asiento hasta el ancla y, si cuadra,
+   * solo entonces la cola.
    */
   async verifyIncremental(): Promise<LedgerVerification> {
     const through = await PersistenceService.getKv<{ id: number; hash: string }>(LEDGER_KV.VERIFIED_THROUGH);
     if (!through) return IntegrityLedgerService.verify();
+    const prefix = await PersistenceService.listLedger({ toId: through.id });
+    const anchor = prefix.find((e) => e.id === through.id);
+    if (!anchor || anchor.hash !== through.hash) return IntegrityLedgerService.verify();
+    const prefixCheck = await verifySegments(prefix);
+    if (!prefixCheck.valid) return prefixCheck;
     const tail = await PersistenceService.listLedger({ afterId: through.id });
-    // Las rupturas reconocidas anteriores quedan fuera del tramo; solo importan asientos nuevos.
     const acked = acksOf(await PersistenceService.listLedger({ intent: "LEDGER_BREAK_ACKNOWLEDGED" })).length;
-    const r = await verifySegments(tail, through.hash, through);
+    const r = await verifySegments(tail, through.hash, { id: anchor.id, hash: anchor.hash });
     return { ...r, head: tail.length ? r.head : through.hash, acknowledgedBreaks: acked };
   },
 

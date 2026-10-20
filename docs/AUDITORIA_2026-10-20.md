@@ -1,6 +1,6 @@
 # Auditoría 2026-10-20
 
-Lectura del código en `main` (`4c7e289`, merge del PR #19). Expo SDK 54, React Native 0.81.5, Hermes. No se modificó código de producto. Esto no es un dictamen legal: donde la regla es de producto o de asesoría, queda dicho.
+Lectura del código en `main` (`4c7e289`, merge del PR #19). Expo SDK 54, React Native 0.81.5, Hermes. La primera pasada fue de solo lectura: los hallazgos de abajo se redactaron sobre ese árbol y se conservan. Este mismo PR corrige A1, A2, A3, A4, A6, A7, A8, A9 y A10. A5 queda pendiente. Esto no es un dictamen legal: donde la regla es de producto o de asesoría, queda dicho.
 
 El objetivo era un error real, con reproducción, en nómina de California, integridad del ledger y de los expedientes, fechas, geocerca y máquina de sesión, SQLite, i18n y seguridad. Los hallazgos ya cerrados en `docs/AUDITORIA_CALCULOS_Y_OPERACION.md` y `docs/AUDITORIA_DESTINOS_Y_TRASLADO.md` no se repiten.
 
@@ -24,9 +24,30 @@ En el mismo árbol, ya sin el archivo de reproducción:
 | `npx expo lint` | limpio, sin avisos |
 | `npm run gm` | typecheck + lint + `test:domain` (41 suites, 308 tests) + expo-doctor 18/18, código de salida 0 |
 
-Los diez bugs de abajo se confirmaron con un test de Jest local (`src/services/domain/__tests__/auditRepro.2026-10-20.test.ts`, 11 casos, todos en verde). Ese archivo se borró y no entra en este PR. Cada repro de abajo se puede volver a armar con los helpers que ya existen (`test/time.ts`, `test/helpers.ts`, `seedWorld`, `mustDispatch`).
+Los diez bugs de abajo se confirmaron con un test de Jest local (`src/services/domain/__tests__/auditRepro.2026-10-20.test.ts`, 11 casos, todos en verde). Ese archivo se borró. Cada repro se puede volver a armar con los helpers que ya existen (`test/time.ts`, `test/helpers.ts`, `seedWorld`, `mustDispatch`). La regresión permanente es `src/services/domain/__tests__/auditFixes.2026-10-20.test.ts`.
+
+Después de la corrección, en este árbol:
+
+| Comando | Resultado |
+| --- | --- |
+| `npx jest --runInBand --watchman=false` | 104 suites, 799 tests, 2 snapshots, todo en verde (~49 s) |
+| `npm run check:dates` | 119 pruebas, 0 fallos |
+| `npm run gm` | typecheck limpio, lint limpio, `test:domain` 42 suites / 319 tests, expo-doctor 18/18, código de salida 0 |
 
 ## Bugs confirmados
+
+| Id | Gravedad | Estado |
+| --- | --- | --- |
+| A1 | Alto | Corregido |
+| A2 | Alto | Corregido |
+| A3 | Medio | Corregido |
+| A4 | Alto | Corregido |
+| A5 | Alto | Pendiente. Solo iOS, sin medición en un aparato. El código de `onForeground` no se tocó. |
+| A6 | Alto | Corregido |
+| A7 | Medio | Corregido |
+| A8 | Medio | Corregido |
+| A9 | Bajo | Corregido |
+| A10 | Bajo | Corregido |
 
 ### A1. Un sello idempotente da por bueno un periodo cuyo ledger ya está roto
 
@@ -42,6 +63,8 @@ Los diez bugs de abajo se confirmaron con un test de Jest local (`src/services/d
 
 **Arreglo propuesto.** Mirar el incidente (y el `valid` de la verificación que acaba de correr) antes del `return` de reutilización. `describeFreshness` no debería informar `matches: true` con un incidente abierto. Atar un digest del `payload_json` dentro de `contentHash` cambiaría el hash de los packs ya sellados; si se hace, tiene que ser una versión nueva del manifiesto, no un recálculo silencioso de los v4 existentes.
 
+**Estado: corregido.** `seal` devuelve `LEDGER_BROKEN` antes de reutilizar el pack. `describeFreshness.matches` queda en falso mientras el incidente sigue abierto. `contentHash` sigue sin atar `payload_json`: un pack ya sellado verifica con el mismo hash.
+
 ### A2. `verify` acepta un manifiesto v4 reescrito si se le quita la firma
 
 **Gravedad: alto.** Firma del expediente.
@@ -55,6 +78,8 @@ Sellar sin llavero y marcar `PACK_UNSIGNED` es un estado previsto (`packSignatur
 **Impacto.** Un archivo `manifest_*.json` copiado fuera del teléfono se puede rehacer y seguir pasando la verificación que publica el propio servicio. El trigger de SQLite no protege ese archivo. El empleador que solo llama a `verify` no se entera.
 
 **Arreglo propuesto.** La verificación del empleador tiene que exigir esquema Ed25519 y que `keyId` / `publicKey` sean los del pin `EMPLOYER_KEY_PINNED`. Un v4 que nació firmado y llega sin firma debe fallar. El sello sin llavero puede seguir existiendo, con `PACK_UNSIGNED` dentro del `packHash`, y la verificación tiene que negarse a tratar ese pack como equivalente a uno firmado por la clave del empleador.
+
+**Estado: corregido, con el pin de la clave que realmente firma los packs.** Esa clave vive en el slot `dt.packsig.ed25519.v1`, fuera de SQLite. La clave `EMPLOYER_KEY_PINNED` firma el código de aprovisionamiento, no el manifiesto: exigirla rechazaría todo pack ya sellado en el dispositivo. Un v4 sin firma y sin `PACK_UNSIGNED` falla con `SIGNATURE_MISSING`. Si el llavero tiene pin y la pública o el `keyId` del manifiesto no coinciden, falla `SIGNATURE_KEY`. Un pack firmado con esa clave pinada sigue verificando. Un sello con `PACK_UNSIGNED` y los manifiestos v1–v3 siguen en `unsigned-v1` cuando los hashes cuadran. `packHash` y `contentHash` no cambian de composición. Si el llavero no se puede leer, la comprobación del pin no tiene contra qué comparar: la firma criptográfica del cuerpo sigue exigiéndose.
 
 ### A3. La verificación incremental no vuelve a mirar el prefijo ya marcado
 
@@ -70,6 +95,8 @@ Los triggers `trg_ledger_no_update` y `trg_ledger_no_delete` (`src/services/pers
 
 **Arreglo propuesto.** El incremental debe recomprobar al menos el asiento ancla (recalcular su hash desde `payload_json` y `prevHash`). Otra opción es un `FULL` en cada arranque: la cadena de un dispositivo cabe en esa pasada. No marcar `verified_through` por encima de un prefijo que no se ha releído.
 
+**Estado: corregido.** `verifyIncremental` vuelve a hashear el prefijo hasta el ancla. Si el ancla falta o su `hash` no es el de `verified_through`, cae a la verificación completa. La cola se mira solo cuando ese prefijo cuadra. Un reconocimiento de ruptura que ya estaba en el prefijo sigue contando.
+
 ### A4. El cierre automático puede guardar un fin de jornada que todavía no ha llegado
 
 **Gravedad: alto.** Horas pagables y guarda de tiempo futuro.
@@ -84,6 +111,8 @@ El temporizador de decisión de salida dispara ese `AUTO_CLOSE` al vencer el pla
 
 **Arreglo propuesto.** `AUTO_CLOSE` debe aplicar `future(endMs)` y rechazar o recortar al techo. La persistencia no debería tratar como heredado un instante que se copia a `endAtMs` cuando `endAtMs` anterior era `null`.
 
+**Estado: corregido.** `AUTO_CLOSE` recorta `endMs` al techo de tiempo futuro. Si ese techo no queda después del inicio, rechaza `FUTURE_TIME`. `newFutureInstants` distingue el campo (`endAtMs` frente a `firstExitAtMs`): copiar la salida a un fin que era `null` es un instante nuevo y el repositorio lo rechaza si todavía es futuro. `firstExitAtMs` puede seguir en el registro. La nómina de la jornada cerrada usa `endAtMs`.
+
 ### A5. Al volver a primer plano se mide la deriva antes de reanclar
 
 **Gravedad: alto.** Clasificación de la jornada. Confirmado contra el modelo de reloj del proyecto y contra el comentario del propio servicio. No se midió en un iPhone ni en un Android físico.
@@ -95,6 +124,8 @@ El temporizador de decisión de salida dispara ese `AUTO_CLOSE` al vencer el pla
 **Impacto.** Si el comentario de iOS describe el aparato, cada regreso a primer plano después de más de 3 minutos con la pantalla apagada marca la jornada abierta como revisión por deriva, y el reanclaje de la línea 155 solo limpia la medición para la próxima vez. El TODO de `TimeAuthorityService.ts:125` ya nombra `elapsedRealtime` (Android) y un uptime que incluya el sueño (iOS). En Android el servicio en primer plano puede mantener el proceso despierto; ese caso no se afirma aquí.
 
 **Arreglo propuesto.** Reanclar al entrar en primer plano y medir la deriva solo a partir de esa ancla, dentro de la ventana que el comentario ya define. La comparación de sueño real corresponde al reloj nativo que el TODO pide.
+
+**Estado: pendiente.** No entra en este PR. `boot.ts` sigue midiendo `isDriftExceeded()` y reanclando después. No hay medición en un iPhone ni en un Android físico. La re-prueba de teléfono de más abajo no usa este caso como criterio de paso.
 
 ### A6. Una salida fiable se queda esperando en la banda de histéresis y la siguiente salida nativa se tira
 
@@ -109,6 +140,8 @@ El temporizador de decisión de salida dispara ese `AUTO_CLOSE` al vencer el pla
 **Impacto.** Las horas siguen corriendo después de una salida real hasta que llegue un fix claramente dentro o claramente fuera, o hasta el watchdog de 12 h. Si `firstExitAtMs` nunca se confirma, ese watchdog paga hasta el tope de 12 h (`sessionMachine.ts:771-775` usa `firstExitAtMs` solo cuando ya está guardado en la sesión; el pending que nunca se promovió no lo está).
 
 **Arreglo propuesto.** En `"wait"`, rearmar un temporizador. Un `EXIT` nativo posterior debe refrescar el hecho pendiente en lugar de descartarse. Una zona `unknown` después del debounce no puede bloquear el cierre de forma indefinida.
+
+**Estado: corregido.** En `"wait"`, `checkPendingExit` vuelve a armar el temporizador de un disparo. Un `EXIT` nativo de la misma sesión refresca strikes y fiabilidad y vuelve a evaluar; el descarte de 5 s (`GEOFENCE_ANTI_REBOUNCE_MS`) sigue aplicando al primer evento, no a ese refresco. Zona `unknown` con salida fiable confirma cuando el tiempo llega a dos debounce (`EXIT_UNKNOWN_GIVE_UP_FACTOR`). A un debounce de 120 s, 180 s sigue en espera y 240 s confirma. Esa confirmación en banda `unknown` pasa la jornada a `SALIDA`: el pago abierto se corta en `firstExitAtMs`.
 
 ### A7. El certificado que ve Reportes no es el que usa el sello
 
@@ -128,6 +161,8 @@ El temporizador de decisión de salida dispara ese `AUTO_CLOSE` al vencer el pla
 
 **Arreglo propuesto.** Pasar `segmentedLedgerTimestamps` en `previewPayroll` (y en el selector que arma la vista). `combineWeekStatements` debe exigir `certified` en cada semana y no sumar dos veces la misma sesión. El widget debe usar `statement.integrityRollup.certified`.
 
+**Estado: corregido.** `previewPayroll` pasa los mismos timestamps segmentados que el sello y adjunta `sessionClasses`. Ese campo no entra en `statementHash` ni en `contentHash`. `combineWeekStatements` exige `certified` en cada semana. Si todas traen `sessionClasses`, `byClass` y `blocked` se arman por id de sesión. El widget de Reportes usa `integrityRollup.certified`.
+
 ### A8. Una pausa se etiqueta como almuerzo en la ficha y en el reporte
 
 **Gravedad: medio.** El texto de la evidencia en la app. El PDF no tiene este fallo.
@@ -140,6 +175,8 @@ El temporizador de decisión de salida dispara ese `AUTO_CLOSE` al vencer el pla
 
 **Arreglo propuesto.** Añadir `reports.pause` en `es.ts` y `en.ts` y apuntar `PAUSE_DEDUCTION` a esa clave.
 
+**Estado: corregido.** `reports.pause` es «Pausa» en español y «Break» en inglés. `LUNCH_DEDUCTION` sigue en «Almuerzo» / «Lunch». El PDF ya usaba la clave correcta.
+
 ### A9. El tope del almuerzo fijo al guardar no resta las pausas
 
 **Gravedad: bajo.** El pago de este caso concreto sale a cero por los dos caminos. Lo que no cuadra es el minuto guardado contra el minuto de la línea.
@@ -151,6 +188,8 @@ Al guardar, `fixedLunchExceedsSession` compara los minutos declarados con la dur
 **Impacto.** No hay sobrepago: el trabajo ya está en cero. El expediente y la ficha pueden mostrar un descuento de almuerzo distinto del que entró al bruto. El tope de `c3233b8` (60 declarados sobre 36 min de jornada → 36 de almuerzo y 0 de trabajo) sigue bien; este caso es el que ese tope no ve porque la pausa no entra en la cuenta del guardado.
 
 **Arreglo propuesto.** Usar el mismo tope (jornada menos pausas) al guardar, o persistir los minutos ya capados.
+
+**Estado: corregido.** `fixedLunchExceedsSession` resta los minutos de pausa ya redondeados. Lo usan `CLOSE_DAY`, el parche manual, el fin de huérfana, el corte de sesión y el repositorio al insertar o actualizar. 55 min sobre 60 de jornada y 10 de pausa se rechaza. 50 min, que es justo el hueco, se guarda. El texto de `LUNCH_EXCEEDS_SESSION` dice que el almuerzo y las pausas tienen que caber en la jornada. La cadena del modal (`lunchMustFit`) no cambió.
 
 ### A10. El almuerzo fijo prorrateado se pierde en el primer tramo si ese tramo ya está en pausa
 
@@ -165,6 +204,8 @@ Al guardar, `fixedLunchExceedsSession` compara los minutos declarados con la dur
 **Impacto.** A la tarifa que esté cargada, son 2 min de regular (o de extra, si el día ya iba lleno). No es un error de tarifa ni de doble conteo del tránsito. Se repite en cualquier turno partido cuyo primer segmento sea más corto que la parte de almuerzo que el prorrateo le asigna encima de sus pausas.
 
 **Arreglo propuesto.** Cuando un segmento no puede absorber lunch + pausa, arrastrar el descuento que no cupo al segmento siguiente antes de calcular `workMinutes`.
+
+**Estado: corregido.** El almuerzo que no cabe (jornada del tramo menos pausa y tránsito) pasa al tramo siguiente. El último tramo conserva el total que le llega, así que una jornada de un solo segmento mantiene la misma línea de almuerzo. El repro de 490 min con 10 de pausa al inicio y 60 de almuerzo fijo queda en 420 de trabajo y 60 de almuerzo.
 
 ## Sospechas no confirmadas
 
@@ -201,6 +242,30 @@ Esto se leyó y, con la suite existente más los repros de arriba, no salió un 
 - **i18n.** `en` está tipado como el diccionario español, así que una clave ausente rompe `tsc`. `t()` cae al español y luego a la clave. Las cadenas de soporte viven en `supportEs` / `supportEn` y cuelgan de `es.support`. El test de soporte de la suite de 788 las recorre. Un barrido mecánico que las marca como ausentes es un falso positivo.
 - **`findForPeriod`.** `listPacks` ordena por `created_at_ms DESC`. El pack que se reutiliza es el más reciente del periodo.
 
+## Re-prueba en el teléfono
+
+Pasos para quien tenga el aparato. A5 no es criterio de paso: sigue pendiente y no se midió en un iPhone.
+
+1. **A1.** Cierra una semana y sella el expediente. Si más adelante el registro de integridad queda con un incidente abierto (el barrido o un arranque lo anotan), vuelve a Reportes e intenta sellar el mismo periodo. La app tiene que negarse con el aviso de registro dañado y no abrir el PDF anterior como si el sello hubiera salido bien. El aviso de expediente desactualizado tiene que poder mostrarse: con el incidente abierto, la frescura ya no dice que el contenido coincide.
+
+2. **A2.** Sella un periodo con el llavero disponible y comprueba que ese expediente sigue verificando (esquema Ed25519, sin fallos). Copia el `manifest_*.json` fuera del teléfono, cambia horas o el bruto, recalcula los hashes y borra `signature`. La verificación de ese archivo tiene que fallar por firma ausente. Vuelve a firmarlo con otra clave: tiene que fallar por clave distinta. Un expediente sellado cuando el llavero no estaba (aviso `PACK_UNSIGNED`) sigue verificando como manifiesto sin firma. Un expediente viejo, de manifiesto v1–v3, también, si sus hashes no se tocaron.
+
+3. **A3.** Con la app cerrada, edita el archivo SQLite y altera el `payload_json` de un asiento antiguo sin cambiar la columna `hash` (hace falta soltar el trigger antes). Al abrir la app, el arranque —que usa la verificación incremental— tiene que ver la ruptura en ese asiento, sin esperar al barrido del día siguiente.
+
+4. **A4.** Adelanta el reloj del teléfono unos 30 minutos, deja que la jornada registre una salida y vuelve a poner la hora bien. Cuando venza la decisión de salida y el cierre automático corra, el fin guardado tiene que quedar en el presente (techo de unos 2 minutos), no en la hora adelantada. La nómina de esa jornada no debe incluir esos minutos de más. Un cierre manual del mismo hecho sigue rechazándose mientras el fin propuesto sea futuro.
+
+5. **A5, pendiente.** No lo des por bueno. Si más adelante hay un iPhone a mano: jornada abierta, pantalla apagada más de 3 minutos, volver a primer plano. Anota si la jornada pasa a revisión por deriva de reloj (`CLOCK_DRIFT`) solo por el sueño. Este PR no cambia ese orden (medir y después reanclar).
+
+6. **A6.** Jornada activa dentro del sitio, con más de un minuto y medio de permanencia. Aléjate hasta quedar en la banda dudosa: fuera del radio del sitio y todavía dentro del radio más 50 m de histéresis (con el radio de prueba de 100 m, unos 122 m y un fix de unos 10 m). La jornada no puede quedarse en activa para siempre. Como mucho, tras dos plazos de debounce (por defecto 2 min, así que unos 4 min) tiene que pasar a salida y dejar de sumar tiempo abierto a partir de la primera salida. Si el sistema manda otro evento de salida mientras la decisión sigue pendiente, ese evento tiene que contar, no perderse.
+
+7. **A7.** Con un incidente de ledger reconocido dentro de la semana (el administrador lo reconoce con el PIN), abre Reportes. El sello de «certificado» no debe aparecer. Sellar ese periodo tiene que coincidir con lo que dice la pantalla: rechazo, o sello sin certificar si se fuerza. En un rango de varias semanas, si una semana no está certificada, el conjunto tampoco. Una sesión que cruza la medianoche cuenta una vez en el desglose VMAC.
+
+8. **A8.** En una jornada con pausa (no comida), abre el detalle de la sesión y el reporte del periodo. En español la línea dice «Pausa». Cambia el idioma a inglés: «Break». La comida sigue diciendo «Almuerzo» / «Lunch». El PDF ya decía «Pausa» y tiene que seguir igual.
+
+9. **A9.** Jornada de 60 minutos con 10 minutos de pausa. Declara un almuerzo fijo de 55 minutos, sin hora de inicio, e intenta cerrar. Tiene que rechazarse: el almuerzo más las pausas no caben. Con 50 minutos tiene que guardarse. El mensaje, en los dos idiomas, habla de almuerzo y pausas dentro de la jornada.
+
+10. **A10.** Turno que cruza la medianoche, almuerzo fijo de 60 minutos sin reloj de comida, y una pausa que ocupa el primer tramo corto (el repro de laboratorio: inicio 21 sep 2026 23:50 hora del Pacífico, 10 min de pausa y 480 min más). El trabajo pagable es 420 minutos y el almuerzo 60. El cierre manual del usuario, cuando el turno cruza el día, sigue pidiendo hora de inicio del almuerzo; este caso se ve en datos ya guardados o en un cierre que no es el del operario. Una jornada de un solo segmento no cambia: el almuerzo que cabe se queda en esa única línea.
+
 ## Qué entra en este PR
 
-Solo este documento. El test de reproducción se corrió en local y se eliminó. No hay cambio de código de producto.
+Este documento, la corrección de A1–A4 y A6–A10, y la suite permanente `src/services/domain/__tests__/auditFixes.2026-10-20.test.ts`. A5 queda documentado como pendiente. Los hashes de los packs ya sellados no cambian. La clave pinada de firma sigue verificando los packs que ella misma firmó.

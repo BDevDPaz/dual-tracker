@@ -22,6 +22,12 @@ export const FAR_DEPARTURE_M = 150;
 export const MIN_DWELL_BEFORE_EXIT_MS = 90_000;
 /** Muestras fuera de radio para confirmar antes de que venza el debounce. */
 export const EXIT_CONFIRM_STRIKES = 3;
+/**
+ * La banda unknown, con una salida que sí fue fiable, no confirma en el
+ * primer debounce (se espera un fix claro). Pasado este múltiplo del
+ * debounce se confirma igual: si no, la jornada sigue abierta para siempre.
+ */
+export const EXIT_UNKNOWN_GIVE_UP_FACTOR = 2;
 export const DIAG_LIMIT = 30;
 /** Una muestra más vieja que esto no ficha (fix cacheado del sistema). */
 export const SAMPLE_MAX_AGE_MS = 5 * 60_000;
@@ -65,9 +71,10 @@ export type ExitGate = "clear" | "wait" | "confirm";
  *  - Dentro, o rebote recién llegado: se tira.
  *  - Aún no vence el debounce ni hay strikes: se espera.
  *  - Claramente fuera (histéresis superada): se confirma.
- *  - Sigue en la banda de histéresis: no se confirma. Si el EXIT original no
- *    era fiable, se tira (rebote de borde). Si lo era, se espera un fix
- *    que quede de verdad fuera. El hecho, si se anotó, sigue siendo no fiable.
+ *  - Sigue en la banda de histéresis: no se confirma en el primer debounce.
+ *    Si el EXIT original no era fiable, se tira. Si lo era, se espera un
+ *    fix fuera de verdad, como mucho otro debounce: después se confirma
+ *    para que la jornada no siga abierta sin fin.
  */
 export function confirmExitDecision(opts: {
   zone: PresenceZone;
@@ -84,6 +91,7 @@ export function confirmExitDecision(opts: {
   if (!due) return "wait";
   if (opts.zone === "outside" || opts.far) return "confirm";
   if (!opts.pendingReliable) return "clear";
+  if (opts.elapsedMs >= opts.debounceMs * EXIT_UNKNOWN_GIVE_UP_FACTOR) return "confirm";
   return "wait";
 }
 

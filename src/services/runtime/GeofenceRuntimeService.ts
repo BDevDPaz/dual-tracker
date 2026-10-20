@@ -594,13 +594,24 @@ export const GeofenceRuntimeService = {
     }
     const existing = await GeofenceRuntimeService.getPendingExit();
     if (existing && existing.sessionId === session.id) {
+      // Un EXIT posterior no es un rebote que se tira: refresca la salida
+      // pendiente y se vuelve a decidir. El anti-rebote de unos segundos
+      // sigue arriba (GEOFENCE_ANTI_REBOUNCE_MS).
+      const refreshed: PendingExit = {
+        ...existing,
+        strikes: existing.strikes + 1,
+        reliable: existing.reliable || fact.reliable,
+        reason: existing.reason ?? fact.reason ?? null,
+      };
+      await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, refreshed);
+      const confirmed = await GeofenceRuntimeService.checkPendingExit();
       await appendGeofenceDiag({
         kind: "EXIT",
         region: region.identifier ?? null,
         siteId: target.siteId,
         accuracyM: fix?.accuracyM ?? null,
-        accepted: false,
-        reason: "ANTI_REBOUNCE",
+        accepted: confirmed,
+        reason: confirmed ? null : "EXIT_REFRESHED",
         atMs: nowMs,
       });
       return;
@@ -713,7 +724,10 @@ export const GeofenceRuntimeService = {
       });
       return false;
     }
-    if (gate === "wait") return false;
+    if (gate === "wait") {
+      GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
+      return false;
+    }
     await GeofenceRuntimeService.clearPendingExit();
     const reliable = pending.reliable && zone === "outside";
     const fact: SpatialFact = {
