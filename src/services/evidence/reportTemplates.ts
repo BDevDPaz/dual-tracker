@@ -25,6 +25,7 @@ import { renderPremiumDocument } from "./reportPremium";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatSiteName, noteToHtml } from "../domain/payrollDisplay";
+import type { PowerOffNote } from "./deviceOffGap";
 import { periodSliceOf } from "../domain/periodSlice";
 import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { checkedInSiteIds } from "../domain/siteVisits";
@@ -55,6 +56,8 @@ export interface ForensicLedgerRow {
   integrityClass: string | null;
   hash: string;
   prevHash: string;
+  /** Texto ya traducido, sin coordenadas. El sello no lo guarda. */
+  detail?: string;
 }
 
 export interface ReportInput {
@@ -84,6 +87,11 @@ export interface ReportInput {
   practice?: boolean;
   /** Asientos ya filtrados al expediente. Solo si annex.ledger. */
   ledger?: ForensicLedgerRow[];
+  /**
+   * Cortes de teléfono leídos del ledger al pintar. No entran en contentHash:
+   * el PDF es presentación. Ausente si no hubo OS_KILL.
+   */
+  powerOffs?: PowerOffNote[];
 }
 
 export function isPremiumDocument(input: ReportInput): boolean {
@@ -96,6 +104,12 @@ const INTEGRITY_LABEL: Record<SessionRecord["integrityClass"], string> = {
   AUTO: "Cierre automático",
   CONFLICT: "Por revisar",
 };
+
+function integrityLabelEs(s: SessionRecord): string {
+  const reason = s.bookkeeping.integrityReason;
+  if (reason === "RECOVERED_CLOSED" || reason === "ORPHAN_CONTINUED" || reason === "ORPHAN_END_CONFIRMED") return "Recuperada";
+  return INTEGRITY_LABEL[s.integrityClass];
+}
 
 const LINE_LABEL: Record<PayrollLine["kind"], string> = {
   REGULAR: "Regular",
@@ -231,7 +245,7 @@ function sessionRows(input: ReportInput, omitZeroPay: boolean): { html: string; 
           <td>${formatTime(from, ES)} - ${to != null ? formatTime(to, ES) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">Duración cero: no suma al pago. Conservada para auditoría.</span>` : ""}</td>
           <td><strong>${row?.hours ?? "0.00"}</strong><span class="mins">${minutes} min</span></td>
           <td>${row?.amount ?? formatCurrency(0)}</td>
-          <td><span class="badge b-${s.integrityClass}">${INTEGRITY_LABEL[s.integrityClass]}</span></td>
+          <td><span class="badge b-${s.integrityClass}">${integrityLabelEs(s)}</span></td>
         </tr>`;
     })
     .join("");

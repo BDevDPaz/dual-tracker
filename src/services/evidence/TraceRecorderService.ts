@@ -57,12 +57,21 @@ export const TraceRecorderService = {
     return mode === "BREADCRUMB" && (status === "ACTIVA" || status === "TRASLADO");
   },
 
-  /** Perfil de muestreo para ForegroundWork (null = no muestrear). */
-  profileFor(status: SessionRecordStatus | "NO_INICIADA", mode: TraceMode) {
-    if (status === "TRASLADO") return BREADCRUMB_PROFILES.IN_TRANSIT;
-    if (status === "ACTIVA") return mode === "BREADCRUMB" ? BREADCRUMB_PROFILES.ON_SITE : BREADCRUMB_PROFILES.WAITING;
-    if (status === "ESPERANDO" || status === "SALIDA") return BREADCRUMB_PROFILES.WAITING;
-    return null;
+  /**
+   * Perfil de muestreo para ForegroundWork (null = no muestrear).
+   * PAUSADA usa el perfil de espera para que el servicio siga vivo, pero
+   * shouldRecord sigue en false: no se guardan migas del almuerzo.
+   * Batería baja alarga el intervalo (no el de distancia).
+   */
+  profileFor(status: SessionRecordStatus | "NO_INICIADA", mode: TraceMode, battery?: number | null) {
+    let profile: { timeIntervalMs: number; distanceIntervalM: number } | null = null;
+    if (status === "TRASLADO") profile = BREADCRUMB_PROFILES.IN_TRANSIT;
+    else if (status === "ACTIVA") profile = mode === "BREADCRUMB" ? BREADCRUMB_PROFILES.ON_SITE : BREADCRUMB_PROFILES.WAITING;
+    else if (status === "ESPERANDO" || status === "SALIDA" || status === "PAUSADA") profile = BREADCRUMB_PROFILES.WAITING;
+    if (!profile) return null;
+    if (battery === null || battery === undefined || battery >= 0.35) return profile;
+    const factor = battery < 0.2 ? 3 : 2;
+    return { timeIntervalMs: profile.timeIntervalMs * factor, distanceIntervalM: profile.distanceIntervalM };
   },
 
   /**

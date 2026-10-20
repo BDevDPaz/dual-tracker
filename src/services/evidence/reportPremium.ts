@@ -13,6 +13,7 @@ import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { periodSliceOf } from "../domain/periodSlice";
 import { checkedInSiteIds } from "../domain/siteVisits";
 import { verificationQrSvg } from "./qrSvg";
+import type { PowerOffNote } from "./deviceOffGap";
 import type { ForensicLedgerRow, ReportInput } from "./reportTemplates";
 
 export type PremiumRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
@@ -145,6 +146,16 @@ function integrityKey(cls: string): string {
   if (cls === "AUTO") return "comprobante.integrityAuto";
   if (cls === "CONFLICT") return "comprobante.integrityConflict";
   return "";
+}
+
+/** El rollup sigue contando MANUAL. La fila no dice «Cierre automático» si el operario recuperó el corte. */
+function sessionIntegrityLabel(session: SessionRecord, lang: Language): string {
+  const reason = session.bookkeeping.integrityReason;
+  if (reason === "RECOVERED_CLOSED" || reason === "ORPHAN_CONTINUED" || reason === "ORPHAN_END_CONFIRMED") {
+    return t("comprobante.integrityRecovered", {}, lang);
+  }
+  const key = integrityKey(session.integrityClass);
+  return key ? t(key, {}, lang) : session.integrityClass;
 }
 
 function lineLabel(kind: PayrollLine["kind"], lang: Language): string {
@@ -286,7 +297,7 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
       if (slice?.continuesUntilMs != null) cont.push(t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs, fmt) }, lang));
       const zero = slice?.zeroDuration ?? (s.endAtMs !== null && Math.round((s.endAtMs - start) / 60000) <= 0);
       const note = s.bookkeeping.manualNote ? noteToHtml(s.bookkeeping.manualNote, escapeHtml) : "";
-      const badge = integrityKey(s.integrityClass);
+      const badge = sessionIntegrityLabel(s, lang);
       return `
         <tr>
           <td><strong>${escapeHtml(formatDate(from, fmt))}</strong></td>
@@ -294,7 +305,7 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
           <td>${escapeHtml(formatTime(from, fmt))} - ${to != null ? escapeHtml(formatTime(to, fmt)) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">${escapeHtml(t("comprobante.zeroDuration", {}, lang))}</span>` : ""}</td>
           <td class="fig"><strong>${escapeHtml(row?.hours ?? "0.00")}</strong><span class="notes">${minutes} min</span></td>
           <td class="fig">${escapeHtml(row?.amount ?? formatCurrency(0))}</td>
-          <td><span class="badge b-${s.integrityClass}">${escapeHtml(badge ? t(badge, {}, lang) : s.integrityClass)}</span></td>
+          <td><span class="badge b-${s.integrityClass}">${escapeHtml(badge)}</span></td>
         </tr>`;
     })
     .join("");
@@ -308,29 +319,57 @@ function policyBlock(input: ReportInput, lang: Language): string {
   const labelKey = `settings.policies.${id}`;
   const label = t(labelKey, {}, lang);
   const policy = label === labelKey ? id : label;
-  const applied = input.statement.appliedRules ?? [];
-  const appliedHtml = applied.length
-    ? applied
-        .map((code) => {
-          const known = code === "CA_DOUBLE_TIME_12H" ? "comprobante.ruleDouble" : code === "CA_SEVENTH_DAY" ? "comprobante.ruleSeventh" : "";
-          const text = known ? t(known, {}, lang) : t("comprobante.ruleUnknown", { code }, lang);
-          return `<p class="rule">${escapeHtml(text)}</p>`;
-        })
-        .join("")
-    : `<p class="rule">${escapeHtml(t("comprobante.rulesNone", {}, lang))}</p>`;
+  const applied = new Set(input.statement.appliedRules ?? []);
   const flags = input.company.payrollLegalFlags ?? {};
-  const active: string[] = [];
-  if (flags.caDoubleTime) active.push(t("comprobante.flagDouble", {}, lang));
-  if (flags.caSeventhDay) active.push(t("comprobante.flagSeventh", {}, lang));
-  if (input.company.transitPaid) active.push(t("comprobante.flagTransit", { mult: input.company.transitRateMultiplier }, lang));
-  if (input.company.transitCountsTowardOvertime) active.push(t("comprobante.flagTransitOt", {}, lang));
-  const activeHtml = active.map((line) => `<p class="rule">${escapeHtml(line)}</p>`).join("");
+  const lines: string[] = [];
+  if (applied.has("CA_DOUBLE_TIME_12H")) lines.push(t("comprobante.ruleDouble", {}, lang));
+  else if (flags.caDoubleTime) lines.push(t("comprobante.flagDouble", {}, lang));
+  if (applied.has("CA_SEVENTH_DAY")) lines.push(t("comprobante.ruleSeventh", {}, lang));
+  else if (flags.caSeventhDay) lines.push(t("comprobante.flagSeventh", {}, lang));
+  for (const code of applied) {
+    if (code !== "CA_DOUBLE_TIME_12H" && code !== "CA_SEVENTH_DAY") lines.push(t("comprobante.ruleUnknown", { code }, lang));
+  }
+  if (applied.size === 0 && !flags.caDoubleTime && !flags.caSeventhDay) lines.push(t("comprobante.rulesNone", {}, lang));
+  if (input.company.transitPaid) lines.push(t("comprobante.flagTransit", { mult: input.company.transitRateMultiplier }, lang));
+  if (input.company.transitCountsTowardOvertime) lines.push(t("comprobante.flagTransitOt", {}, lang));
+  const rulesHtml = lines.map((line) => `<p class="rule">${escapeHtml(line)}</p>`).join("");
   return `
     <div class="section-title">${escapeHtml(t("comprobante.policyTitle", {}, lang))}</div>
     <p class="rule">${escapeHtml(policy)} <span class="muted">(${escapeHtml(id)})</span></p>
     <div class="section-title">${escapeHtml(t("comprobante.rulesTitle", {}, lang))}</div>
-    ${appliedHtml}
-    ${activeHtml}`;
+    ${rulesHtml}`;
+}
+
+function formatGap(ms: number, lang: Language): string {
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  if (totalMin < 1) return t("comprobante.powerOffSeconds", { n: Math.max(1, Math.round(ms / 1000)) }, lang);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0) return t("comprobante.powerOffHours", { h, m }, lang);
+  return t("comprobante.powerOffMinutes", { n: totalMin }, lang);
+}
+
+export function powerOffSentence(n: PowerOffNote, lang: Language): string {
+  const fmt: FormatOptions = { lang };
+  const from = formatDateTime(n.lastHeartbeatMs, fmt);
+  const resume = formatDateTime(n.resumedAtMs, fmt);
+  if (n.deviceOffMs !== null && n.bootAtMs !== null) {
+    return t(
+      "comprobante.powerOffDevice",
+      { id: n.sessionId, from, resume, off: formatGap(n.deviceOffMs, lang), gap: formatGap(n.gapMs, lang) },
+      lang,
+    );
+  }
+  return t("comprobante.powerOffUnknown", { id: n.sessionId, from, resume, gap: formatGap(n.gapMs, lang) }, lang);
+}
+
+function powerOffBlock(input: ReportInput, lang: Language): string {
+  const notes = input.powerOffs ?? [];
+  if (!notes.length) return "";
+  const body = notes.map((n) => `<p class="rule">${escapeHtml(powerOffSentence(n, lang))}</p>`).join("");
+  return `
+    <div class="section-title">${escapeHtml(t("comprobante.powerOffTitle", {}, lang))}</div>
+    ${body}`;
 }
 
 function retentionBlock(input: ReportInput, lang: Language): string {
@@ -394,7 +433,7 @@ function ledgerAnnex(rows: ForensicLedgerRow[] | undefined, lang: Language): str
         <td class="fig">${row.id}</td>
         <td>${escapeHtml(formatDateTime(row.timestampMs, fmt))}</td>
         <td>${escapeHtml(row.actor)}</td>
-        <td>${escapeHtml(row.intent)}${row.reason ? `<span class="notes">${escapeHtml(row.reason)}</span>` : ""}${row.sessionId != null ? `<span class="notes">#${row.sessionId}</span>` : ""}</td>
+        <td>${escapeHtml(row.intent)}${row.reason ? `<span class="notes">${escapeHtml(row.reason)}</span>` : ""}${row.detail ? `<span class="notes">${escapeHtml(row.detail)}</span>` : ""}${row.sessionId != null ? `<span class="notes">#${row.sessionId}</span>` : ""}</td>
         <td>${escapeHtml(state || "—")}</td>
         <td>${escapeHtml(integrity)}</td>
         <td class="mono">${escapeHtml(row.prevHash)} → ${escapeHtml(row.hash)}</td>
@@ -461,6 +500,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${signatureBlock(input, lang)}
       ${metricsBlock(input, lang)}
       ${rows.html}
+      ${powerOffBlock(input, lang)}
       ${employer}
       ${policyBlock(input, lang)}
       ${retentionBlock(input, lang)}

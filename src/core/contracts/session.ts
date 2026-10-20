@@ -88,7 +88,13 @@ export type IntegrityReason =
   /** El operario decidió seguir: la jornada sigue abierta, sin horas inventadas. */
   | "ORPHAN_CONTINUED"
   /** El operario confirmó la hora de fin, con nota. No es VALID. */
-  | "ORPHAN_END_CONFIRMED";
+  | "ORPHAN_END_CONFIRMED"
+  /**
+   * El operario cerró una jornada que había recuperado tras un corte.
+   * La clase sigue siendo MANUAL (no hay una quinta clase: byClass entra
+   * en el statement). El comprobante la rotula «Recuperada», no «Cierre automático».
+   */
+  | "RECOVERED_CLOSED";
 
 /** Almuerzo (línea explícita de nómina, Propuesta §5.2). */
 export interface LunchRecord {

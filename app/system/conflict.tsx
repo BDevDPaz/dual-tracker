@@ -8,7 +8,7 @@
  * mientras haya conflictos, el back queda bloqueado.
  * RESOLVE_SPLIT divide la jornada en dos (spec v1.3 §5.4).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
@@ -73,14 +73,24 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
   const { emit } = useWorkTracker();
   const [note, setNote] = useState(view.session.bookkeeping.manualNote ?? "");
   const [busy, setBusy] = useState(false);
+  const gate = useRef(false);
   const chain = useFormFocusChain(FORM_FIELDS.conflictNote);
   const range = (r: { startAtMs: number; endAtMs: number | null } | null) =>
     r ? `${formatTime(r.startAtMs)} – ${r.endAtMs ? formatTime(r.endAtMs) : "…"}` : "—";
 
   const run = async (intent: Parameters<typeof emit>[0]) => {
+    if (gate.current) return;
+    gate.current = true;
     setBusy(true);
-    await emit(intent);
-    setBusy(false);
+    try {
+      await emit(intent);
+    } finally {
+      setBusy(false);
+      // Un segundo toque antes de que la lista se refresque no escribe otro asiento.
+      setTimeout(() => {
+        gate.current = false;
+      }, 800);
+    }
   };
 
   return (

@@ -44,7 +44,7 @@ describe("P6 — reglas CA opcionales [CONFIRMAR CON ASESORÍA LEGAL]", () => {
     const dbl = s.lines.find((l) => l.kind === "OVERTIME_DOUBLE")!;
     expect(dbl.rate).toBe(RATES.hourlyRate * 2);
     expect(dbl.amount).toBe(40);
-    expect(s.appliedRules).toEqual(["CA_DOUBLE_TIME_12H", "CA_SEVENTH_DAY"]);
+    expect(s.appliedRules).toEqual(["CA_DOUBLE_TIME_12H"]);
   });
 
   test("doble tiempo acumulado entre dos sesiones del mismo día", () => {
@@ -64,6 +64,7 @@ describe("P6 — reglas CA opcionales [CONFIRMAR CON ASESORÍA LEGAL]", () => {
     expect(l7.find((l) => l.kind === "REGULAR")!.minutes).toBe(0);
     expect(l7.find((l) => l.kind === "OVERTIME_DAILY")!.minutes).toBe(8 * 60);
     expect(l7.find((l) => l.kind === "OVERTIME_DOUBLE")!.minutes).toBe(2 * 60);
+    expect(s.appliedRules).toEqual(["CA_SEVENTH_DAY"]);
     expect(s.regularHours).toBe(36);
     // Sin la bandera, el día 7 es regular (36 + 4 = 40) y el resto OT diaria.
     const off = st([...week, seventh], OFF);
@@ -75,6 +76,7 @@ describe("P6 — reglas CA opcionales [CONFIRMAR CON ASESORÍA LEGAL]", () => {
     const s = st([0, 1, 2, 3, 4, 5].map((i) => day(i, 6)), ON);
     expect(s.regularHours).toBe(36);
     expect(s.overtimeHours).toBe(0);
+    expect(s.appliedRules).toBeUndefined();
   });
 
   test("interacción con segmentos nocturnos: 18:00–08:00 (14 h) se reparte por jornada y no alcanza 12 h en ninguna", () => {

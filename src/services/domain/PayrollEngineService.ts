@@ -431,7 +431,13 @@ export const PayrollEngineService = {
     };
     const alloc = allocate(items, policy, actx);
     const rules = p6Rules(policy, actx);
-    const appliedRules = [...(rules.doubleAfter !== null ? ["CA_DOUBLE_TIME_12H"] : []), ...(rules.seventh ? ["CA_SEVENTH_DAY"] : [])];
+    // «Aplicada» solo si produjo minutos. La bandera encendida con 0 min es
+    // «activada» y la pinta el PDF, no este campo (entra en el statement).
+    const seventhSet = rules.seventh ? seventhDays(items) : new Set<string>();
+    const seventhApplied = items.some((it) => seventhSet.has(it.dayKey) && it.workMinutes > 0);
+    const doubleApplied =
+      rules.doubleAfter !== null && items.some((it, i) => !seventhSet.has(it.dayKey) && alloc[i].otDouble > 0);
+    const appliedRules = [...(doubleApplied ? ["CA_DOUBLE_TIME_12H"] : []), ...(seventhApplied ? ["CA_SEVENTH_DAY"] : [])];
     const lines = items.flatMap((it, i) => buildLines(it, alloc[i], input.rates));
     const grossCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
 

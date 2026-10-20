@@ -47,6 +47,7 @@ describe("jornada huérfana", () => {
     const open = await mustDispatch({ type: "CONTINUE_ORPHAN" });
     expect(open.domainStatus).toBe("ACTIVA");
     expect(open.endAtMs).toBeNull();
+    expect(open.integrityClass).toBe("MANUAL");
     expect(open.bookkeeping.integrityReason).toBe("ORPHAN_CONTINUED");
     expect((await PersistenceService.getSession(session.id))!.endAtMs).toBeNull();
   });

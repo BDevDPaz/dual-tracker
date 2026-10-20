@@ -259,4 +259,56 @@ describe("comprobante premium", () => {
     expect(html).toContain("Taller Norte");
     expect(html).toContain("Ana");
   });
+
+  test("bandera encendida sin minutos dice activada, y no repite aplicada", () => {
+    const html = ReportService.renderHtml(
+      "EMPLOYEE_RECEIPT",
+      base({
+        company: { ...COMPANY, employerName: "Taller Norte", traceRetentionDays: 90, payrollLegalFlags: { caDoubleTime: true, caSeventhDay: true } },
+      }),
+    );
+    expect(html).toContain("activada");
+    expect(html).not.toContain("aplicada en este periodo");
+    expect(html.match(/Doble tiempo/g)?.length).toBe(1);
+    expect(html.match(/Séptimo día consecutivo/g)?.length).toBe(1);
+  });
+
+  test("una regla que produjo minutos dice aplicada y no activada", () => {
+    const html = ReportService.renderHtml(
+      "EMPLOYEE_RECEIPT",
+      base({
+        statement: { ...base().statement, appliedRules: ["CA_DOUBLE_TIME_12H"] },
+        company: { ...COMPANY, employerName: "Taller Norte", traceRetentionDays: 90, payrollLegalFlags: { caDoubleTime: true, caSeventhDay: true } },
+      }),
+    );
+    expect(html).toContain("Doble tiempo a partir de 12 h (aplicada en este periodo)");
+    expect(html).not.toContain("Doble tiempo (> 12 h por jornada) activada");
+    expect(html).toContain("Séptimo día consecutivo activada");
+    expect(html).not.toContain("Séptimo día consecutivo (aplicada en este periodo)");
+  });
+
+  test("una jornada recuperada no se rotula cierre automático, y el apagado se lee", () => {
+    const recovered = makeClosedSession(MONDAY_8AM, 8, {
+      integrityClass: "MANUAL",
+      bookkeeping: { integrityReason: "RECOVERED_CLOSED" },
+    });
+    const html = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
+      ...base({ sessions: [recovered] }),
+      powerOffs: [
+        {
+          sessionId: recovered.id,
+          lastHeartbeatMs: MONDAY_8AM,
+          resumedAtMs: MONDAY_8AM + 25 * 60_000,
+          gapMs: 25 * 60_000,
+          bootAtMs: MONDAY_8AM + 20 * 60_000,
+          deviceOffMs: 20 * 60_000,
+        },
+      ],
+    });
+    expect(html).toContain("Recuperada");
+    expect(html).not.toContain("Cierre automático");
+    expect(html).toContain("Teléfono apagado");
+    expect(html).toContain("20 min");
+    expect(html).not.toContain(String(SITE_LAT));
+  });
 });

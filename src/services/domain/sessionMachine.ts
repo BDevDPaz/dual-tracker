@@ -152,6 +152,29 @@ function touch(s: SessionRecord, nowMs: number): SessionRecord {
   return { ...s, bookkeeping: { ...s.bookkeeping, updatedAtMs: nowMs } };
 }
 
+/**
+ * Cierre hecho por el operario. Un cierre automático de verdad (12 h o
+ * abandono) no pasa por aquí. Si la clase quedó AUTO por otra vía —seguir
+ * tras un corte, o conservar GPS sin par limpio— el operario está cerrando:
+ * eso es MANUAL. Recuperar un corte se rotula RECOVERED_CLOSED. No se baja
+ * un CONFLICT.
+ */
+function labelUserClose(next: SessionRecord): SessionRecord {
+  if (next.integrityClass === "CONFLICT") return next;
+  const reason = next.bookkeeping.integrityReason;
+  if (reason === "ORPHAN_CONTINUED") {
+    return {
+      ...next,
+      integrityClass: "MANUAL",
+      bookkeeping: { ...next.bookkeeping, integrityReason: "RECOVERED_CLOSED" },
+    };
+  }
+  if (next.integrityClass === "AUTO" && reason !== "AUTO_CLOSE_12H" && reason !== "AUTO_CLOSE_ABANDONMENT") {
+    return { ...next, integrityClass: "MANUAL", bookkeeping: { ...next.bookkeeping, integrityReason: reason } };
+  }
+  return next;
+}
+
 function ok(
   prev: SessionRecord | null,
   next: SessionRecord,
@@ -167,8 +190,19 @@ function ok(
   // reloj manipulado cerraba VALID. Las acciones sobre jornadas ya CERRADAS
   // (patch, resolve, delete) no se ven afectadas.
   // MARK_ORPHAN fija el motivo ORPHAN_SESSION a propósito: un sensor degradado
-  // no lo pisa. El resto de transiciones sí escalan si el entorno bloquea VALID.
-  if (ctx.degradedReason && prev && OPEN.includes(prev.domainStatus) && reason !== "ORPHAN_SESSION") {
+  // no lo pisa. Una resolución del operario (seguir tras el corte, aceptar el
+  // ajuste, confirmar el fin) tampoco se deshace en la misma transición: si no,
+  // un servicio parado vuelve a dejar la jornada en Revisar y el primer toque
+  // no surte efecto. El resto de transiciones sí escalan si el entorno bloquea VALID.
+  if (
+    ctx.degradedReason &&
+    prev &&
+    OPEN.includes(prev.domainStatus) &&
+    reason !== "ORPHAN_SESSION" &&
+    reason !== "ORPHAN_CONTINUED" &&
+    reason !== "ORPHAN_END_CONFIRMED" &&
+    reason !== "RESOLVE_MANUAL"
+  ) {
     next = withIntegrity(next, "CONFLICT", ctx.degradedReason);
   }
   return {
@@ -657,6 +691,7 @@ export function transition(
       }
       // Cierre VALID exige confirmación humana o Enter/Exit limpio (§7.3).
       if (ctx.actor !== "USER") next = withIntegrity(next, "CONFLICT", "UNRELIABLE_FIX");
+      else next = labelUserClose(next);
       return ok(
         open,
         next,
@@ -850,9 +885,11 @@ export function transition(
     case "CONTINUE_ORPHAN": {
       if (!open) return reject("NO_OPEN_SESSION");
       if (open.bookkeeping.integrityReason !== "ORPHAN_SESSION") return reject("NOT_ORPHAN");
+      // El operario decidió seguir. No es un cierre del sistema: MANUAL, no AUTO.
+      // El comprobante dice «Recuperada» cuando él cierra (RECOVERED_CLOSED).
       const next: SessionRecord = {
         ...open,
-        integrityClass: "AUTO",
+        integrityClass: "MANUAL",
         bookkeeping: { ...open.bookkeeping, integrityReason: "ORPHAN_CONTINUED" },
       };
       return ok(open, next, ctx, "ORPHAN_CONTINUED", [], "ORPHAN_CONTINUED");

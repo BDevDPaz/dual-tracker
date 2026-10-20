@@ -1,0 +1,11 @@
+{
+  "name": "device-uptime",
+  "version": "1.0.0",
+  "description": "Reloj de arranque del teléfono (elapsedRealtime / systemUptime).",
+  "main": "index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

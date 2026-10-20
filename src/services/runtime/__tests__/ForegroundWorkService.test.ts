@@ -12,9 +12,16 @@ function fgsBody(): string {
 }
 
 describe("ForegroundWorkService", () => {
-  test("shouldRun: solo con jornada abierta y no en pausa", () => {
-    expect(["ESPERANDO", "ACTIVA", "TRASLADO", "SALIDA"].every((s) => ForegroundWorkService.shouldRun(s as "ACTIVA"))).toBe(true);
-    expect(["NO_INICIADA", "PAUSADA", "CERRADA"].some((s) => ForegroundWorkService.shouldRun(s as "ACTIVA"))).toBe(false);
+  test("shouldRun: jornada abierta, también en almuerzo", () => {
+    expect(["ESPERANDO", "ACTIVA", "PAUSADA", "TRASLADO", "SALIDA"].every((s) => ForegroundWorkService.shouldRun(s as "ACTIVA"))).toBe(true);
+    expect(["NO_INICIADA", "CERRADA"].some((s) => ForegroundWorkService.shouldRun(s as "ACTIVA"))).toBe(false);
+  });
+
+  test("PAUSADA mantiene el servicio en marcha", async () => {
+    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toBe("running");
+    expect(await ForegroundWorkService.sync("PAUSADA", "BREADCRUMB")).toBe("running");
+    expect(await ForegroundWorkService.isRunning()).toBe(true);
+    await ForegroundWorkService.stop();
   });
 
   test("sync arranca en ACTIVA y para en CERRADA", async () => {

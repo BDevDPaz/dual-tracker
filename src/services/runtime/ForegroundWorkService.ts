@@ -5,9 +5,13 @@
  * en Android 10+. Notificación persistente NO alarmista:
  * "Jornada en curso · monitoreo de zona activa".
  *  - Se inicia al pasar a ESPERANDO o ACTIVA y se detiene al CERRADA.
- *  - En PAUSADA se detiene el muestreo (almuerzo no rastrea destino personal);
- *    la geocerca nativa sigue activa.
+ *  - En PAUSADA el servicio SIGUE en marcha. Pararlo deja la jornada en
+ *    «servicio en primer plano detenido» y un toque de resolver no cuaja.
+ *    El almuerzo no graba destino personal: TraceRecorder no almacena migas
+ *    en PAUSADA. La geocerca nativa sigue activa.
  *  - El perfil de muestreo (intervalos) lo decide TraceRecorderService.
+ *    Con batería baja el intervalo se alarga; el servicio no se reinicia
+ *    si la banda no cambió.
  *
  * Base: startActiveTracking de LEDTracker (startLocationUpdatesAsync con
  * foregroundService), con perfiles adaptativos y copy de la propuesta.
@@ -25,9 +29,9 @@ import { LoggingService } from "../persistence/LoggingService";
 let currentProfileKey: string | null = null;
 
 export const ForegroundWorkService = {
-  /** ¿Debe estar corriendo en este estado? */
+  /** ¿Debe estar corriendo en este estado? El almuerzo también: si no, Android lo da por parado. */
   shouldRun(status: SessionRecordStatus | "NO_INICIADA"): boolean {
-    return status === "ESPERANDO" || status === "ACTIVA" || status === "TRASLADO" || status === "SALIDA";
+    return status === "ESPERANDO" || status === "ACTIVA" || status === "PAUSADA" || status === "TRASLADO" || status === "SALIDA";
   },
 
   async isRunning(): Promise<boolean> {
@@ -42,9 +46,9 @@ export const ForegroundWorkService = {
   async sync(
     status: SessionRecordStatus | "NO_INICIADA",
     mode: TraceMode,
-    opts?: { relabel?: boolean },
+    opts?: { relabel?: boolean; battery?: number | null },
   ): Promise<"running" | "stopped"> {
-    const profile = ForegroundWorkService.shouldRun(status) ? TraceRecorderService.profileFor(status, mode) : null;
+    const profile = ForegroundWorkService.shouldRun(status) ? TraceRecorderService.profileFor(status, mode, opts?.battery) : null;
     if (!profile) {
       await ForegroundWorkService.stop();
       return "stopped";

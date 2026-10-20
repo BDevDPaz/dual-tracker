@@ -4,6 +4,7 @@
  */
 import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Circle, Line, Path, Polyline } from "react-native-svg";
 import { ArrivalMark } from "../brand";
@@ -49,7 +50,15 @@ export function TracePlane({ facts, sites, gaps, height = 280 }: Props) {
       ...sites.flatMap((s) => circleSamples({ lat: s.lat, lon: s.lon }, s.radiusM)),
     ];
     if (!width || !samples.length) return null;
-    const fit = fitLocalPlane(samples, width, height, TOKENS.spacing.xl);
+    // El pin sobresale hacia arriba (ICON.md) y la flecha del norte ocupa
+    // la esquina. El encuadre deja ese hueco para que el punto no se recorte
+    // ni quede debajo de la flecha.
+    const fit = fitLocalPlane(samples, width, height, {
+      top: 36 + 14 + ICON.md + TOKENS.spacing.xs,
+      right: 28 + ICON.md,
+      bottom: TOKENS.spacing["2xl"] + ICON.sm,
+      left: ICON.md + TOKENS.spacing.xs,
+    });
     if (!fit) return null;
     const place = (lat: number, lon: number) => toScreen(projectEquirectangular({ lat, lon }, fit.origin), fit);
     const broken = new Set(gaps.map((g) => g.toMs));
@@ -104,71 +113,74 @@ export function TracePlane({ facts, sites, gaps, height = 280 }: Props) {
   };
 
   return (
-    <View
-      style={[styles.frame, { height, backgroundColor: colors.surface, borderColor: colors.border }]}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      accessibilityLabel={t("trace.mapLabel")}
-    >
-      <GestureDetector gesture={gesture}>
-        <View style={[styles.plane, { transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale: zoom }] }]}>
-          {model ? (
-            <Svg width={width} height={height}>
-              {model.circles.map((c) => (
-                <Circle key={c.id} cx={c.cx} cy={c.cy} r={c.r} fill={colors.statusBg.info} stroke={colors.status.info} strokeWidth={1.5} />
-              ))}
-              {model.segments.map((points, i) => (
-                <Polyline key={i} points={points} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-              ))}
-              {model.markers
-                .filter((m) => m.role === "exit")
-                .map((m) => (
-                  <Circle key={m.key} cx={m.x} cy={m.y} r={6} fill={colors.surface} stroke={colors.status.warning} strokeWidth={2} />
+    <View style={styles.wrap}>
+      <View
+        style={[styles.frame, { height, backgroundColor: colors.surface, borderColor: colors.border }]}
+        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        accessibilityLabel={t("trace.mapLabel")}
+      >
+        <GestureDetector gesture={gesture}>
+          <View style={[styles.plane, { transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale: zoom }] }]}>
+            {model ? (
+              <Svg width={width} height={height}>
+                {model.circles.map((c) => (
+                  <Circle key={c.id} cx={c.cx} cy={c.cy} r={c.r} fill={colors.statusBg.info} stroke={colors.status.info} strokeWidth={1.5} />
                 ))}
-            </Svg>
-          ) : null}
-          {model
-            ? model.markers
-                .filter((m) => m.role !== "exit")
-                .map((m) => (
-                  <View key={m.key} style={[styles.mark, { left: m.x - ICON.md / 2, top: m.y - ICON.md }]} pointerEvents="none">
-                    <ArrivalMark size={ICON.md} color={m.role === "transfer" ? colors.status.info : colors.primary} decorative />
-                  </View>
-                ))
-            : null}
-        </View>
-      </GestureDetector>
-      <View style={styles.chrome} pointerEvents="box-none">
-        <View style={styles.north} accessibilityLabel={t("trace.north")}>
-          <Svg width={28} height={36}>
-            <Path d="M14 2 L20 22 L14 18 L8 22 Z" fill={colors.text.primary} />
-            <Line x1={14} y1={18} x2={14} y2={34} stroke={colors.text.secondary} strokeWidth={2} />
-          </Svg>
-          <Text style={[styles.northLetter, { color: colors.text.primary }]}>{t("trace.northLetter")}</Text>
-        </View>
-        {model ? (
-          <View style={styles.barWrap}>
-            <View style={[styles.bar, { width: Math.min(model.barPx, width * 0.4), backgroundColor: colors.text.primary }]} />
-            <Text style={[styles.barLabel, { color: colors.text.secondary }]}>{t("trace.meters", { n: model.barM })}</Text>
+                {model.segments.map((points, i) => (
+                  <Polyline key={i} points={points} fill="none" stroke={colors.primary} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+                ))}
+                {model.markers
+                  .filter((m) => m.role === "exit")
+                  .map((m) => (
+                    <Circle key={m.key} cx={m.x} cy={m.y} r={6} fill={colors.surface} stroke={colors.status.warning} strokeWidth={2} />
+                  ))}
+              </Svg>
+            ) : null}
+            {model
+              ? model.markers
+                  .filter((m) => m.role !== "exit")
+                  .map((m) => (
+                    <View key={m.key} style={[styles.mark, { left: m.x - ICON.md / 2, top: m.y - ICON.md }]} pointerEvents="none">
+                      <ArrivalMark size={ICON.md} color={m.role === "transfer" ? colors.status.info : colors.primary} decorative />
+                    </View>
+                  ))
+              : null}
           </View>
-        ) : null}
-        <View style={styles.zoom}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomIn")} onPress={() => setZoom((z) => Math.min(8, z * 1.4))} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated }]}>
-            <Text style={{ color: colors.text.primary }}>+</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomOut")} onPress={() => setZoom((z) => Math.max(1, z / 1.4))} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated }]}>
-            <Text style={{ color: colors.text.primary }}>−</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomReset")} onPress={reset} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated }]}>
-            <Text style={{ color: colors.text.secondary }}>1</Text>
-          </Pressable>
+        </GestureDetector>
+        <View style={styles.chrome} pointerEvents="none">
+          <View style={styles.north} accessibilityLabel={t("trace.north")}>
+            <Svg width={28} height={36}>
+              <Path d="M14 2 L20 22 L14 18 L8 22 Z" fill={colors.text.primary} />
+              <Line x1={14} y1={18} x2={14} y2={34} stroke={colors.text.secondary} strokeWidth={2} />
+            </Svg>
+            <Text style={[styles.northLetter, { color: colors.text.primary }]}>{t("trace.northLetter")}</Text>
+          </View>
+          {model ? (
+            <View style={styles.barWrap}>
+              <View style={[styles.bar, { width: Math.min(model.barPx, width * 0.4), backgroundColor: colors.text.primary }]} />
+              <Text style={[styles.barLabel, { color: colors.text.secondary }]}>{t("trace.meters", { n: model.barM })}</Text>
+            </View>
+          ) : null}
         </View>
+      </View>
+      <View style={styles.zoom}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomIn")} onPress={() => setZoom((z) => Math.min(8, z * 1.4))} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <Ionicons name="add" size={ICON.lg} color={colors.text.primary} />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomOut")} onPress={() => setZoom((z) => Math.max(1, z / 1.4))} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <Ionicons name="remove" size={ICON.lg} color={colors.text.primary} />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomReset")} onPress={reset} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <Text style={{ color: colors.text.secondary }}>1</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.lg, overflow: "hidden", marginBottom: TOKENS.spacing.md },
+  wrap: { marginBottom: TOKENS.spacing.md },
+  frame: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.lg, overflow: "hidden" },
   plane: { flex: 1 },
   mark: { position: "absolute" },
   chrome: { position: "absolute", top: TOKENS.spacing.sm, right: TOKENS.spacing.sm, left: TOKENS.spacing.sm, bottom: TOKENS.spacing.sm, justifyContent: "space-between" },
@@ -177,12 +189,13 @@ const styles = StyleSheet.create({
   barWrap: { alignSelf: "flex-start" },
   bar: { height: TOKENS.layout.focusOutline, borderRadius: TOKENS.layout.hairline },
   barLabel: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
-  zoom: { position: "absolute", left: 0, bottom: 0, flexDirection: "row", gap: TOKENS.spacing.xs },
+  zoom: { flexDirection: "row", gap: TOKENS.spacing.xs, marginTop: TOKENS.spacing.sm },
   zoomBtn: {
     minWidth: TOKENS.layout.minTouchTarget,
     minHeight: TOKENS.layout.minTouchTarget,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: TOKENS.radius.md,
+    borderWidth: TOKENS.layout.hairline,
   },
 });

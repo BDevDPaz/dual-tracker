@@ -127,6 +127,43 @@ describe("sessionMachine", () => {
     expect(okNext(null, { type: "RESOLVE_MANUAL", sessionId: 1, note: "ok" }, ctx, conflict).next.integrityClass).toBe("MANUAL");
   });
 
+  test("RESOLVE_MANUAL con la jornada abierta y el servicio parado se queda en MANUAL", () => {
+    const open = makeSession({
+      domainStatus: "PAUSADA",
+      integrityClass: "CONFLICT",
+      bookkeeping: { integrityReason: "FOREGROUND_SERVICE_STOPPED" },
+    });
+    const r = okNext(open, { type: "RESOLVE_MANUAL", sessionId: 1, note: "almuerzo" }, makeCtx({ degradedReason: "FOREGROUND_SERVICE_STOPPED" }), open);
+    expect(r.next.integrityClass).toBe("MANUAL");
+    expect(r.next.bookkeeping.integrityReason).toBe("CONFLICT_RESOLVED");
+    expect(r.feedback).toBe("CONFLICT_RESOLVED");
+  });
+
+  test("seguir tras un corte es MANUAL; el cierre del operario queda Recuperada, no AUTO", () => {
+    const orphan = makeSession({ integrityClass: "CONFLICT", bookkeeping: { integrityReason: "ORPHAN_SESSION" } });
+    const cont = okNext(orphan, { type: "CONTINUE_ORPHAN" }, makeCtx({ degradedReason: "FOREGROUND_SERVICE_STOPPED" }));
+    expect(cont.next.integrityClass).toBe("MANUAL");
+    expect(cont.next.bookkeeping.integrityReason).toBe("ORPHAN_CONTINUED");
+    expect(cont.next.endAtMs).toBeNull();
+    const closed = okNext(cont.next, { type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 0 });
+    expect(closed.next.integrityClass).toBe("MANUAL");
+    expect(closed.next.bookkeeping.integrityReason).toBe("RECOVERED_CLOSED");
+  });
+
+  test("cerrar a mano una AUTO que no es cierre del sistema pasa a MANUAL; AUTO_CLOSE sigue AUTO", () => {
+    const kept = makeSession({ integrityClass: "AUTO", bookkeeping: { integrityReason: "CONFLICT_RESOLVED" } });
+    const closed = okNext(kept, { type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 0 });
+    expect(closed.next.integrityClass).toBe("MANUAL");
+    expect(closed.next.bookkeeping.integrityReason).toBe("CONFLICT_RESOLVED");
+    const auto = okNext(
+      makeSession(),
+      { type: "AUTO_CLOSE", cause: "MAX_OPEN_12H", confirmedOutside: true },
+      makeCtx({ actor: "WATCHDOG", nowMs: MONDAY_8AM + 13 * HOUR }),
+    );
+    expect(auto.next.integrityClass).toBe("AUTO");
+    expect(auto.next.bookkeeping.integrityReason).toBe("AUTO_CLOSE_12H");
+  });
+
   test("almuerzo y pausas: primera pausa = almuerzo, siguientes = pausa", () => {
     let s = okNext(makeSession(), { type: "LUNCH_START" }, makeCtx({ nowMs: MONDAY_8AM + 4 * HOUR })).next;
     expect(s.domainStatus).toBe("PAUSADA");

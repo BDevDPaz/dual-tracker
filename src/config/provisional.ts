@@ -108,13 +108,16 @@ const pinProvisionDefaultTtlMs = spec(
 const breadcrumbProfiles = spec(
   "breadcrumb.profiles",
   {
-    ON_SITE: { timeIntervalMs: 5 * 60 * 1000, distanceIntervalM: 50 },
+    // distanceIntervalM 0 en sitio: en Android un desplazamiento mínimo
+    // impide el aviso por tiempo si el operario no se mueve. La jornada
+    // quieta dejaba pointCount 0 (prueba de campo 20 oct 2026).
+    ON_SITE: { timeIntervalMs: 5 * 60 * 1000, distanceIntervalM: 0 },
     IN_TRANSIT: { timeIntervalMs: 30 * 1000, distanceIntervalM: 25 },
     WAITING: { timeIntervalMs: 2 * 60 * 1000, distanceIntervalM: 100 },
   } as const,
   "ms y metros",
-  "Muestreo adaptativo: más lento dentro del sitio, más frecuente en traslado, intermedio en espera o salida.",
-  "Técnica §5.4 (intervalo largo dentro, más frecuente en tránsito, sin cifras). Ajustar tras pruebas de batería.",
+  "Muestreo adaptativo: en sitio manda el reloj (aunque no haya desplazamiento), más frecuente en traslado, intermedio en espera, salida o almuerzo. Con batería baja el intervalo se alarga.",
+  "Técnica §5.4 (intervalo largo dentro, más frecuente en tránsito, sin cifras). Prueba de campo 20 oct 2026: 50 m en sitio no entregaba puntos quietos.",
 );
 
 const breadcrumbGapFactor = spec(

@@ -66,7 +66,7 @@ export interface PayrollStatement {
   warnings: string[];
   /** P6: horas de doble tiempo. Solo presente si > 0 (no altera el contentHash histórico). */
   overtimeDoubleHours?: number;
-  /** P6: reglas legales opcionales aplicadas (p. ej. CA_DOUBLE_TIME_12H). Solo presente si no está vacío. */
+  /** P6: reglas que produjeron minutos (no basta con tener la bandera). Solo presente si no está vacío. */
   appliedRules?: string[];
 }
 

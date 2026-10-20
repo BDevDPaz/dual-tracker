@@ -28,7 +28,9 @@ import { LoggingService } from "../persistence/LoggingService";
 import { OfflineQueueService } from "../persistence/OfflineQueueService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
+import { powerOffsFromLedger } from "./deviceOffGap";
 import { sha256Hex } from "./HashChain";
+import { powerOffSentence } from "./reportPremium";
 import { canSignPacks, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
 import { ReportService } from "./ReportService";
 import { TimeAuthorityService } from "./TimeAuthorityService";
@@ -233,23 +235,27 @@ async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYE
   const sessions = await EvidencePackService.sessionsOf(pack);
   const sites = await PersistenceService.listSites({ includeArchived: true });
   const ids = new Set(pack.evidence.ledgerHashes.map((h) => h.id));
+  const ledgerRows = (await PersistenceService.listLedger()).filter((e) => ids.has(e.id)).sort((a, b) => a.id - b.id);
+  const powerOffs = powerOffsFromLedger(ledgerRows);
+  const lang = pack.manifest.documentLocale === "en" ? "en" : "es";
   const ledger = annex?.ledger
-    ? (await PersistenceService.listLedger())
-        .filter((e) => ids.has(e.id))
-        .sort((a, b) => a.id - b.id)
-        .map(({ id, sessionId, timestampMs, actor, intent, fromState, toState, reason, integrityClass, hash, prevHash }) => ({
-          id,
-          sessionId,
-          timestampMs,
-          actor,
-          intent,
-          fromState,
-          toState,
-          reason,
-          integrityClass,
-          hash,
-          prevHash,
-        }))
+    ? ledgerRows.map((row) => {
+        const note = row.intent === "OS_KILL" ? powerOffsFromLedger([row])[0] : undefined;
+        return {
+          id: row.id,
+          sessionId: row.sessionId,
+          timestampMs: row.timestampMs,
+          actor: row.actor,
+          intent: row.intent,
+          fromState: row.fromState,
+          toState: row.toState,
+          reason: row.reason,
+          integrityClass: row.integrityClass,
+          hash: row.hash,
+          prevHash: row.prevHash,
+          ...(note ? { detail: powerOffSentence(note, lang) } : {}),
+        };
+      })
     : undefined;
   const rendered = await ReportService.renderPdf(
     role,
@@ -263,6 +269,7 @@ async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYE
       company: settings.company,
       annex,
       ledger,
+      ...(powerOffs.length ? { powerOffs } : {}),
     },
     { destination: "cache" },
   );
@@ -379,6 +386,7 @@ export const EvidencePackService = {
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
+      const powerOffs = powerOffsFromLedger(await PersistenceService.listLedger()).filter((n) => statement.sessionIds.includes(n.sessionId));
       const reportInput = {
         statement: sealedStatement,
         evidence,
@@ -387,6 +395,7 @@ export const EvidencePackService = {
         sites: await PersistenceService.listSites({ includeArchived: true }),
         profile: settings.profile,
         company: settings.company,
+        ...(powerOffs.length ? { powerOffs } : {}),
       };
 
       const employee = await ReportService.renderPdf("EMPLOYEE_RECEIPT", reportInput);
