@@ -63,6 +63,12 @@ export interface PayrollStatement {
   overtimeWeeklyHours: number;
   deductionMinutes: number;
   sessionIds: number[];
+  /**
+   * Clase de cada sesión del preview, para sumar semanas sin contar dos veces
+   * la jornada que cruza el corte. No entra en statementHash ni contentHash
+   * (statementForHash lo omite). Los packs sellados no lo traen.
+   */
+  sessionClasses?: { id: number; integrityClass: IntegrityClass; blocked?: boolean }[];
   warnings: string[];
   /** P6: horas de doble tiempo. Solo presente si > 0 (no altera el contentHash histórico). */
   overtimeDoubleHours?: number;

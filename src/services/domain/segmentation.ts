@@ -198,15 +198,31 @@ export function computeSegmentMinutes(
   const tNoOt = n === 1 ? [singlePaid - singleOt] : cumulativeMinutes(paidNoOt, segs);
   const tUnpaid = n === 1 ? [singleUnpaid] : cumulativeMinutes(unpaid, segs);
 
+  // El prorrateo deja el resto en el primer segmento. Si ese tramo ya está
+  // lleno de pausa (o de tránsito), el descuento que no cabe pasa al siguiente.
+  // El último tramo conserva lo que llega: un solo segmento no cambia de línea.
+  let lunchCarry = 0;
+  const lunchFit = lunch.map((assigned, i) => {
+    const want = assigned + lunchCarry;
+    if (i === lunch.length - 1) {
+      lunchCarry = 0;
+      return want;
+    }
+    const room = Math.max(0, spans[i] - pause[i] - (tOt[i] + tNoOt[i]) - tUnpaid[i]);
+    const used = Math.min(want, room);
+    lunchCarry = want - used;
+    return used;
+  });
+
   return segs.map((segment, i) => {
     const transitPaidMinutes = tOt[i] + tNoOt[i];
-    const workMinutes = Math.max(0, spans[i] - lunch[i] - pause[i] - transitPaidMinutes - tUnpaid[i]);
+    const workMinutes = Math.max(0, spans[i] - lunchFit[i] - pause[i] - transitPaidMinutes - tUnpaid[i]);
     const warnings = [...warn[i]];
     if (i === 0 && n === 1 && spans[0] > 0 && workMinutes === 0) warnings.push("NO_WORK_MINUTES");
     return {
       segment,
       spanMinutes: spans[i],
-      lunchMinutes: lunch[i],
+      lunchMinutes: lunchFit[i],
       pauseMinutes: pause[i],
       transitPaidMinutes,
       transitOtMinutes: tOt[i],

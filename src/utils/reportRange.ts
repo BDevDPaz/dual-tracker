@@ -111,6 +111,21 @@ export function combineWeekStatements(weeks: readonly PayrollStatement[]): Payro
     blocked += w.integrityRollup.blockedCount ?? 0;
   }
   const hasConflict = weeks.some((w) => w.integrityRollup.hasConflict);
+  const childCertified = weeks.every((w) => w.integrityRollup.certified);
+  const classLists = weeks.every((w) => Array.isArray(w.sessionClasses)) ? weeks.flatMap((w) => w.sessionClasses ?? []) : null;
+  if (classLists) {
+    const seen = new Map<number, (typeof classLists)[number]>();
+    for (const row of classLists) seen.set(row.id, row);
+    byClass.VALID = 0;
+    byClass.MANUAL = 0;
+    byClass.AUTO = 0;
+    byClass.CONFLICT = 0;
+    blocked = 0;
+    for (const row of seen.values()) {
+      byClass[row.integrityClass] += 1;
+      if (row.blocked) blocked += 1;
+    }
+  }
   const warnings = [...new Set(weeks.flatMap((w) => w.warnings))];
   const double = weeks.reduce((a, w) => a + (w.overtimeDoubleHours ?? 0), 0);
   const rules = [...new Set(weeks.flatMap((w) => w.appliedRules ?? []))];
@@ -127,7 +142,7 @@ export function combineWeekStatements(weeks: readonly PayrollStatement[]): Payro
       total: byClass.VALID + byClass.MANUAL + byClass.AUTO + byClass.CONFLICT,
       byClass,
       hasConflict,
-      certified: !hasConflict && blocked === 0,
+      certified: childCertified && !hasConflict && blocked === 0,
       ...(blocked > 0 ? { blockedCount: blocked } : {}),
     },
     policyId: weeks[0].policyId,

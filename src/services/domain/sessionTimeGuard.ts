@@ -30,39 +30,49 @@ export function isFutureInstant(ts: number | null | undefined, ceilingMs: number
 }
 
 /**
- * Instants that define declared or paid time. Bookkeeping stamps
- * (updatedAt, the capture of an earlier edit) are not schedule.
+ * Identidad de cada instante de horario. El sello de edición (updatedAt) no
+ * entra. El valor no basta: copiar `firstExitAtMs` (ya futuro) a `endAtMs`
+ * (que era null) es un instante nuevo.
  */
-export function scheduleInstants(record: SessionRecord): number[] {
-  const out: number[] = [];
-  const push = (n: number | null | undefined) => {
-    if (typeof n === "number" && Number.isFinite(n)) out.push(n);
+function scheduleKeys(record: SessionRecord): { key: string; ts: number }[] {
+  const out: { key: string; ts: number }[] = [];
+  const push = (key: string, n: number | null | undefined) => {
+    if (typeof n === "number" && Number.isFinite(n)) out.push({ key, ts: n });
   };
-  push(record.declaredStartAtMs);
-  push(record.actualStartAtMs);
-  push(record.endAtMs);
-  push(record.lunch?.startAtMs);
-  push(record.lunch?.endAtMs);
-  for (const t of record.transitSegments ?? []) {
-    push(t.startAtMs);
-    push(t.endAtMs);
+  push("declaredStartAtMs", record.declaredStartAtMs);
+  push("actualStartAtMs", record.actualStartAtMs);
+  push("endAtMs", record.endAtMs);
+  push("lunch.startAtMs", record.lunch?.startAtMs);
+  push("lunch.endAtMs", record.lunch?.endAtMs);
+  for (const [i, t] of (record.transitSegments ?? []).entries()) {
+    push(`transit.${i}.start`, t.startAtMs);
+    push(`transit.${i}.end`, t.endAtMs);
   }
-  for (const p of record.bookkeeping?.pauses ?? []) {
-    push(p.startAtMs);
-    push(p.endAtMs);
+  for (const [i, p] of (record.bookkeeping?.pauses ?? []).entries()) {
+    push(`pause.${i}.start`, p.startAtMs);
+    push(`pause.${i}.end`, p.endAtMs);
   }
-  push(record.bookkeeping?.lastPauseStartMs);
-  push(record.bookkeeping?.firstExitAtMs);
+  push("lastPauseStartMs", record.bookkeeping?.lastPauseStartMs);
+  push("firstExitAtMs", record.bookkeeping?.firstExitAtMs);
   return out;
 }
 
+/** Instants that define declared or paid time. */
+export function scheduleInstants(record: SessionRecord): number[] {
+  return scheduleKeys(record).map((x) => x.ts);
+}
+
 /**
- * Future instants on `next` that were not already stored. A legacy row can
- * be deleted or corrected; it cannot gain a new future instant.
+ * Future instants on `next` that were not already stored on the same field.
+ * A legacy row can be deleted or corrected; it cannot gain a new future instant.
  */
 export function newFutureInstants(next: SessionRecord, previous: SessionRecord | null, ceilingMs: number): number[] {
-  const prior = new Set((previous ? scheduleInstants(previous) : []).filter((t) => t > ceilingMs));
-  return scheduleInstants(next).filter((t) => t > ceilingMs && !prior.has(t));
+  const prior = new Set(
+    (previous ? scheduleKeys(previous) : []).filter((x) => x.ts > ceilingMs).map((x) => `${x.key}=${x.ts}`),
+  );
+  return scheduleKeys(next)
+    .filter((x) => x.ts > ceilingMs && !prior.has(`${x.key}=${x.ts}`))
+    .map((x) => x.ts);
 }
 
 export class FutureTimestampError extends Error {
@@ -100,21 +110,28 @@ export function sessionSpanMinutes(startMs: number, endMs: number): number {
 
 type FixedLunch = { startAtMs: number | null; endAtMs: number | null; deductedMinutes: number | null };
 
+/** Minutos de pausa ya acumulados. La misma cuenta que usa la nómina antes de capar el almuerzo. */
+export function recordedPauseMinutes(record: SessionRecord): number {
+  return Math.max(0, Math.round(record.totalPausedMs / SPAN_MS));
+}
+
 /**
- * Almuerzo fijo (minutos declarados, sin intervalo). Más largo que la jornada
- * no se puede guardar. Un almuerzo con inicio y fin lo mira lunchOutsideSession.
+ * Almuerzo fijo (minutos declarados, sin intervalo). No puede pasar de la
+ * jornada menos las pausas: es el mismo tope que `cappedFixedLunchMinutes`.
+ * Un almuerzo con inicio y fin lo mira lunchOutsideSession.
  */
-export function fixedLunchExceedsSession(lunch: FixedLunch, startMs: number, endMs: number): boolean {
+export function fixedLunchExceedsSession(lunch: FixedLunch, startMs: number, endMs: number, pauseMinutes = 0): boolean {
   if (lunch.startAtMs != null && lunch.endAtMs != null) return false;
   const minutes = lunch.deductedMinutes;
   if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return false;
-  return Math.round(minutes) > sessionSpanMinutes(startMs, endMs);
+  const room = sessionSpanMinutes(startMs, endMs) - Math.max(0, Math.round(pauseMinutes));
+  return Math.round(minutes) > Math.max(0, room);
 }
 
 export function sessionFixedLunchExceeds(record: SessionRecord): boolean {
   if (record.endAtMs == null) return false;
   const start = record.actualStartAtMs ?? record.declaredStartAtMs;
-  return fixedLunchExceedsSession(record.lunch, start, record.endAtMs);
+  return fixedLunchExceedsSession(record.lunch, start, record.endAtMs, recordedPauseMinutes(record));
 }
 
 /**

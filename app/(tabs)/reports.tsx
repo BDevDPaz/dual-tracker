@@ -112,7 +112,6 @@ export default function ReportsScreen() {
     ? packs.filter((p) => p.manifest.periodStart === anchor?.start).reduce<EvidencePack | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null)
     : null;
   const { showToast } = useToast();
-  const hasConflict = !!combined?.integrityRollup.hasConflict;
   const backup = selectBackupAdvice(state, nowMs);
   const [exporting, setExporting] = useState(false);
   const exportNext = async () => {
@@ -289,7 +288,7 @@ export default function ReportsScreen() {
             totalHours={`${shown.worked} ${t("common.hours")}`}
             totalEarnings={shown.gross}
             companyName={settings.company.employerName}
-            certified={!hasConflict}
+            certified={combined.integrityRollup.certified}
             lines={[
               { label: t("reports.regular"), value: `${shown.regular} ${t("common.hours")}` },
               { label: t("reports.overtime"), value: `${shown.overtime} ${t("common.hours")}` },

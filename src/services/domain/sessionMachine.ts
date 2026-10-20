@@ -29,7 +29,7 @@ import type {
 import { companyCalendar } from "../../utils/companyPolicy";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
 import { siteCheckedInBefore } from "./siteVisits";
-import { fixedLunchExceedsSession, isFutureInstant, lunchOutsideSession, sessionSpanMinutes, FUTURE_TIME_TOLERANCE_MS } from "./sessionTimeGuard";
+import { fixedLunchExceedsSession, isFutureInstant, lunchOutsideSession, recordedPauseMinutes, sessionSpanMinutes, FUTURE_TIME_TOLERANCE_MS } from "./sessionTimeGuard";
 import { TransitPolicyService } from "./TransitPolicyService";
 
 // ---------------------------------------------------------------------------
@@ -373,7 +373,9 @@ function splitSession(
     const a = shareA(s.lunch.deductedMinutes);
     lunchA = { ...s.lunch, deductedMinutes: a, taken: a > 0 };
     lunchB = { ...s.lunch, deductedMinutes: s.lunch.deductedMinutes - a, taken: s.lunch.deductedMinutes - a > 0 };
-    if (fixedLunchExceedsSession(lunchA, start, at) || fixedLunchExceedsSession(lunchB, at, end)) {
+    const pauseMin = recordedPauseMinutes(s);
+    const pauseA = shareA(pauseMin);
+    if (fixedLunchExceedsSession(lunchA, start, at, pauseA) || fixedLunchExceedsSession(lunchB, at, end, pauseMin - pauseA)) {
       return { code: "INVALID_TIMES", detail: "LUNCH_EXCEEDS_SESSION" };
     }
   }
@@ -704,7 +706,8 @@ export function transition(
       const declared = intent.lunchDeductedMinutes;
       if (declared !== undefined && declared !== null && !next.lunch.startAtMs) {
         let lunch: SessionRecord["lunch"] = { ...next.lunch, taken: declared > 0, deductedMinutes: declared };
-        if (declared > 0 && Math.round(declared) > sessionSpanMinutes(sessionStart, endMs)) {
+        const room = sessionSpanMinutes(sessionStart, endMs) - recordedPauseMinutes(open);
+        if (declared > 0 && Math.round(declared) > Math.max(0, room)) {
           return reject("INVALID_TIMES", "LUNCH_EXCEEDS_SESSION");
         }
         if (declared > 0) {
@@ -745,6 +748,7 @@ export function transition(
       const b = open.bookkeeping;
 
       if (open.domainStatus === "ESPERANDO") {
+        if (future(now, ctx)) return reject("FUTURE_TIME");
         // Jornada huérfana sin llegada: se cierra como cancelada, clase AUTO.
         let next: SessionRecord = { ...open, domainStatus: "CERRADA", endAtMs: now, bookkeeping: { ...b, cancelled: true } };
         next = withIntegrity(next, "AUTO", "AUTO_CLOSE_12H");
@@ -783,6 +787,18 @@ export function transition(
           break;
       }
 
+      // firstExitAtMs puede quedar por encima del techo si el reloj se adelantó
+      // y luego se corrigió. CLOSE_DAY ya rechaza ese fin. Aquí se recorta al
+      // techo: no se pagan minutos que todavía no han pasado. Copiar el mismo
+      // instante a endAtMs tampoco pasa el repositorio (newFutureInstants mira
+      // el campo, no solo el valor).
+      if (future(endMs, ctx)) {
+        const ceiling = notAfter(ctx);
+        const start = open.actualStartAtMs ?? open.declaredStartAtMs;
+        if (ceiling <= start) return reject("FUTURE_TIME");
+        endMs = ceiling;
+      }
+
       const next = withIntegrity(closeRecord(open, endMs, ctx.company), cls, reason);
       return ok(open, next, ctx, `AUTO_CLOSE_${intent.cause}`, [sync(next, null), { type: "CANCEL_EXIT_DECISION", sessionId: open.id }], "DAY_AUTO_CLOSED");
     }
@@ -799,7 +815,7 @@ export function transition(
       if (future(start, ctx) || (end !== null && future(end, ctx))) return reject("FUTURE_TIME");
       // Tope de 24 h por edición (spec v1.3 §5.2 N6).
       if (end !== null && end - start > 24 * 60 * 60 * 1000) return reject("INVALID_TIMES", "MAX_24H");
-      if (end !== null && fixedLunchExceedsSession(s.lunch, start, end)) return reject("INVALID_TIMES", "LUNCH_EXCEEDS_SESSION");
+      if (end !== null && fixedLunchExceedsSession(s.lunch, start, end, recordedPauseMinutes(s))) return reject("INVALID_TIMES", "LUNCH_EXCEEDS_SESSION");
       if (end === null && s.domainStatus === "CERRADA") return reject("INVALID_TIMES");
       if (end !== null && OPEN.includes(s.domainStatus)) return reject("INVALID_TIMES"); // cerrar = CLOSE_DAY
       if (requiresAuditNote(s, start, end, note)) return reject("NOTE_REQUIRED");
@@ -939,7 +955,7 @@ export function transition(
       const end = intent.endAtMs;
       if (!Number.isFinite(end) || end <= start) return reject("INVALID_TIMES", "END_NOT_AFTER_START");
       if (future(end, ctx)) return reject("FUTURE_TIME");
-      if (fixedLunchExceedsSession(open.lunch, start, end)) return reject("INVALID_TIMES", "LUNCH_EXCEEDS_SESSION");
+      if (fixedLunchExceedsSession(open.lunch, start, end, recordedPauseMinutes(open))) return reject("INVALID_TIMES", "LUNCH_EXCEEDS_SESSION");
       let next = closeRecord(open, end, ctx.company);
       next = {
         ...next,

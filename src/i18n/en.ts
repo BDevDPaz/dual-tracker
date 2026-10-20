@@ -329,6 +329,7 @@ export const en: Dictionary = {
     doubleTime: "Double time",
     transit: "Travel",
     lunch: "Lunch",
+    pause: "Break",
     total: "Estimated total",
     integrity: "Integrity",
     generate: "Generate evidence pack",
