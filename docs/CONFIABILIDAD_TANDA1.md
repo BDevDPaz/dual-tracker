@@ -21,14 +21,18 @@ La nómina (minutos, tramos, importes) no se tocó.
    - v3 y v4: lo de v2 más `sealWarnings`.
    - Fuera del cuerpo: `files` y `signature`.
 3. `SHA-256(canonicalJson(cuerpo))` tiene que ser igual a `packHash`. `canonicalJson` ordena las claves, omite `undefined` y escribe las fechas en milisegundos.
-4. Si `manifestVersion` es 4 y hay `signature`:
+4. Si `manifestVersion` es 4 o superior y hay `signature`:
    - el mensaje es `canonicalJson({ ...cuerpo, packHash })` en UTF-8;
    - la clave pública y la firma van en base64url (32 y 64 bytes);
    - `keyId` es `ed25519:` más los primeros 16 caracteres hexadecimales de SHA-256 de la clave pública;
-   - Ed25519 verifica ese mensaje con esa clave pública.
-5. Si no hay firma, el esquema es `unsigned-v1`: el hash sigue valiendo y no hay firma que comprobar. No es un fallo.
+   - Ed25519 verifica ese mensaje con esa clave pública. Eso no identifica al teléfono: la clave va dentro del pack.
+   - La huella (los mismos 16 hex, en grupos `AB12-CD34-EF56-7890`) sale en el PDF. Hay que compararla con la que se anotó al configurar el teléfono, o pasar esa clave o huella a `verify(pack, { fingerprint })` o `verify(pack, { publicKey })`.
+   - Sin esa ancla, el resultado no es verificado: `identity` es `unverified` y la nota es «firma válida pero identidad no verificada».
+   - En el propio teléfono, si el llavero todavía tiene la clave que firmó, `verify(pack)` la usa como ancla (`identity: "device"`).
+5. v5 añade al cuerpo de `packHash` la identidad del build y la zona de cada sesión, y cada eslabón del ledger exportado trae `prevHash` y `payloadJson`. No cambia la regla de la firma.
+6. Si no hay firma, el esquema es `unsigned-v1`: el hash sigue valiendo y no hay firma que comprobar. No es un fallo.
 
-`EvidencePackService.verify(pack)` hace esos pasos y devuelve `{ valid, legacy, scheme, failures }`. `scheme` es `Ed25519` o `unsigned-v1`.
+`EvidencePackService.verify(pack, trust?)` hace esos pasos y devuelve `{ valid, legacy, scheme, failures, identity, identityNote }`. `scheme` es `Ed25519` cuando la firma cuadra en matemáticas, y `unsigned-v1` si no hay firma válida. `valid` solo es verdadero si además la identidad quedó anclada, o si el pack es unsigned a propósito.
 
 ## Checklist de teléfono
 

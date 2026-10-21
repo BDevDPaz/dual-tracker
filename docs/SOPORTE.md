@@ -1,6 +1,6 @@
 # Soporte en la app
 
-Soporte vive dentro de Ajustes. El texto va en la app (español e inglés), sin red, y cambia de idioma en el acto. El número de esta guía es `soporte.v5` (`SUPPORT_CONTENT_VERSION` en `src/support/contentVersion.ts`). La tanda 1 documentó `soporte.v2`. La v3 añadió el PIN del empleador, el portal, el rango de Reportes y el plano del rastro. La v4 explica que el primer código válido fija la clave del empleador y que una clave distinta no entra hasta desbloquear la zona admin. La v5 precisa la hora de red: una deriva confirmada con ubicación buena es un aviso y no quita VALIDADA.
+Soporte vive dentro de Ajustes. El texto va en la app (español e inglés), sin red, y cambia de idioma en el acto. El número de esta guía es `soporte.v6` (`SUPPORT_CONTENT_VERSION` en `src/support/contentVersion.ts`). La tanda 1 documentó `soporte.v2`. La v3 añadió el PIN del empleador, el portal, el rango de Reportes y el plano del rastro. La v4 explica que una clave distinta no entra hasta desbloquear la zona admin. La v5 precisa la hora de red: una deriva confirmada con ubicación buena es un aviso y no quita VALIDADA. La v6 pide la huella de la primera clave del empleador y muestra esa huella en el PDF del expediente.
 
 La nómina no se toca. El modo práctica no escribe la base, el registro de integridad, los expedientes ni la geocerca.
 
@@ -105,13 +105,13 @@ Soporte → Compartir diagnóstico. Intención `EXPORT_SUPPORT_DIAGNOSTIC`.
 
 Escribe solo `cache/support/dual-tracker-support-diagnostic.json` y lo abre con la hoja de compartir del sistema. No usa la carpeta de expedientes y no añade un asiento al registro.
 
-Entra: versión, canal (`releaseChannel`, `RC1` en el APK preview; vacío si no hay canal), compilación, la frase `versionLine` (la misma de Ajustes y de Soporte), `soporte.v5`, idioma, hora del recordatorio, modo de rastro, política y multiplicador de horas extra, radio, retención, límite de destinos, banderas de tránsito, calendario (inicio del día y de la semana), si terminó la incorporación, si aceptó el aviso, caducidad de la decisión de salida, estado del portal (`unconfigured`, `disabled` o `enabled`, nunca la dirección), estados de permiso (primer plano, segundo plano, notificaciones, servicio en primer plano, batería, monitoreo, servicios de ubicación, deriva del reloj, estado del cifrado), últimas filas del diagnóstico de geocerca (hora, tipo, región, id de sitio, precisión en metros, aceptado, motivo) y los id de consejos descartados.
+Entra: versión, canal (`releaseChannel`, `RC1` en el APK preview; vacío si no hay canal), compilación, la frase `versionLine` (la misma de Ajustes y de Soporte), `soporte.v6`, idioma, hora del recordatorio, modo de rastro, política y multiplicador de horas extra, radio, retención, límite de destinos, banderas de tránsito, calendario (inicio del día y de la semana), si terminó la incorporación, si aceptó el aviso, caducidad de la decisión de salida, estado del portal (`unconfigured`, `disabled` o `enabled`, nunca la dirección), estados de permiso (primer plano, segundo plano, notificaciones, servicio en primer plano, batería, monitoreo, servicios de ubicación, deriva del reloj, estado del cifrado), últimas filas del diagnóstico de geocerca (hora, tipo, región, id de sitio, precisión en metros, aceptado, motivo) y los id de consejos descartados.
 
 No entra: coordenadas, nombre, tarifa, empleador, correo, notas, alias, dirección, sobres `enc:v1`, ni ninguna cadena con `@`.
 
 ## Lista en el teléfono (S1–S16)
 
-Samsung Galaxy S22+ (o el equipo de Byron), build de la app, español al empezar. Anota la línea de versión (Ajustes y Soporte) y `soporte.v5` (sale en el diagnóstico).
+Samsung Galaxy S22+ (o el equipo de Byron), build de la app, español al empezar. Anota la línea de versión (Ajustes y Soporte) y `soporte.v6` (sale en el diagnóstico).
 
 | Caso | Pasos | Esperado |
 | --- | --- | --- |
@@ -129,7 +129,7 @@ Samsung Galaxy S22+ (o el equipo de Byron), build de la app, español al empezar
 | S12 | Si sellaste antes del domingo, abre Reportes. | El aviso de sello provisional y, si aplica, el consejo. |
 | S13 | Soporte → pregunta «¿Se paga el viaje desde casa?». | La respuesta es no. El traslado pagado es entre dos destinos de la misma jornada. |
 | S14 | Modo avión. Abre «?», un flujo y el índice. | Se leen igual. |
-| S15 | En Ajustes y en Soporte lee la línea de versión. En el APK preview, pasa a English y vuelve a Español. Comparte el diagnóstico. | Preview: `Versión 1.0.0 (RC1) · build N` y, en inglés, `Version 1.0.0 (RC1) · build N`. N es el versionCode (mayor que 3). El JSON trae la misma frase en `versionLine`, `appVersion` `1.0.0`, `releaseChannel` `RC1` y `contentVersion` `soporte.v5`. |
+| S15 | En Ajustes y en Soporte lee la línea de versión. En el APK preview, pasa a English y vuelve a Español. Comparte el diagnóstico. | Preview: `Versión 1.0.0 (RC1) · build N` y, en inglés, `Version 1.0.0 (RC1) · build N`. N es el versionCode (mayor que 3). El JSON trae la misma frase en `versionLine`, `appVersion` `1.0.0`, `releaseChannel` `RC1` y `contentVersion` `soporte.v6`. |
 | S16 | Guía «Qué significa cada estado» y el glosario de Soporte. | Validada, Ajuste, Auto, Revisar, No certificable y Ajuste manual coinciden con las pastillas de la app. |
 
 | Caso | Fecha | Modelo | SO | Build | Resultado | Notas |

@@ -37,6 +37,10 @@ import { TraceRecorderService } from "../../services/evidence/TraceRecorderServi
 import { classifyBreadcrumbGaps } from "../../services/evidence/traceGaps";
 import { FeedbackService } from "../../services/application/FeedbackService";
 import { PersistenceService } from "../../services/persistence/PersistenceService";
+import { employerKeyAnchorConfigured } from "../../config/employerKeyAnchor";
+import { decodeProvisionCode } from "../../services/runtime/pinProvision";
+import { fingerprintFromB64url, fingerprintsMatch } from "../../services/runtime/keyFingerprint";
+import { SecurityService } from "../../services/runtime/SecurityService";
 import { useLanguage } from "../../i18n";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { segmentInterval } from "../../services/domain/segmentation";
@@ -100,6 +104,19 @@ const queries = {
   /** Catálogo de políticas de horas extra (zona admin de Ajustes). */
   payrollPolicies: (): PayrollPolicy[] => Object.values(PAYROLL_POLICIES),
   payrollPolicy: (id: string): PayrollPolicy => getPayrollPolicy(id),
+  /**
+   * Vista previa del código de PIN para Ajustes. La pantalla no importa
+   * servicios: aquí se decide si hay que teclear la huella y si lo tecleado
+   * coincide. La fijación sigue en PROVISION_ADMIN_PIN.
+   */
+  previewEmployerCode: async (code: string, typedFingerprint: string) => {
+    const decoded = decodeProvisionCode(code.trim());
+    const fingerprint = decoded ? fingerprintFromB64url(decoded.pub) : null;
+    const pinned = await SecurityService.hasPinnedEmployerKey();
+    const needsFingerprint = !pinned && !employerKeyAnchorConfigured() && !!fingerprint;
+    const confirmed = !needsFingerprint || (!!fingerprint && fingerprintsMatch(typedFingerprint, fingerprint));
+    return { fingerprint, needsFingerprint, confirmed };
+  },
 };
 
 export type WorkTrackerQueries = typeof queries;

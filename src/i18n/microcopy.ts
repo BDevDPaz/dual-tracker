@@ -144,6 +144,10 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     CODE_USED: "Ese código ya se usó en este teléfono.",
     ALREADY_PROVISIONED: "Este teléfono ya tiene un PIN del empleador. Desbloquéalo para cambiarlo.",
     EMPLOYER_KEY_MISMATCH: "Este código no es de la clave del empleador que ya está en el teléfono. Desbloquea la zona admin para cambiar de clave.",
+    FINGERPRINT_REQUIRED: "Para fijar la primera clave del empleador, teclea la huella que te dio por otro canal.",
+    FINGERPRINT_MISMATCH: "La huella no coincide con la clave de este código. No se fijó ninguna clave.",
+    ANCHOR_MISMATCH: "Este código no es de la clave del empleador anclada en la app.",
+    IDENTITY_UNVERIFIED: "firma válida pero identidad no verificada",
     PORTAL_URL_INVALID: "La dirección del portal tiene que ser https.",
   },
   en: {
@@ -203,6 +207,10 @@ export const MICROCOPY_REJECTIONS: Record<"es" | "en", Record<string, string>> =
     CODE_USED: "That code was already used on this phone.",
     ALREADY_PROVISIONED: "This phone already has an employer PIN. Unlock it to replace it.",
     EMPLOYER_KEY_MISMATCH: "This code is not from the employer key already on this phone. Unlock the admin area to change the key.",
+    FINGERPRINT_REQUIRED: "To pin the employer key for the first time, type the fingerprint they gave you on another channel.",
+    FINGERPRINT_MISMATCH: "The fingerprint does not match this code's key. No key was pinned.",
+    ANCHOR_MISMATCH: "This code is not from the employer key anchored in the app.",
+    IDENTITY_UNVERIFIED: "signature valid but identity not verified",
     PORTAL_URL_INVALID: "The portal address has to be https.",
   },
 };

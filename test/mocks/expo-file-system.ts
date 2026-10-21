@@ -21,6 +21,15 @@ export class Directory {
   create(): void {
     __dirs.add(this.uri);
   }
+  delete(): void {
+    const prefix = this.uri.endsWith("/") ? this.uri : `${this.uri}/`;
+    for (const key of [...__files.keys()]) {
+      if (key === this.uri || key.startsWith(prefix)) __files.delete(key);
+    }
+    for (const key of [...__dirs]) {
+      if (key === this.uri || key.startsWith(prefix)) __dirs.delete(key);
+    }
+  }
 }
 
 export class File {

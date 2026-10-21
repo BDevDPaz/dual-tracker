@@ -4,9 +4,12 @@
  *
  * El código lleva el hash scrypt (nunca el PIN en claro), una caducidad, un
  * nonce y una firma Ed25519 del cuerpo canónico. La clave pública viaja en el
- * código. El primer código que se aplica deja esa clave fijada en el teléfono
- * (TOFU). Después solo vale una firma de esa misma clave, salvo que la zona
- * admin esté desbloqueada y se rote a propósito.
+ * código y la firma se comprueba contra esa clave: eso solo dice que quien
+ * tiene el secreto firmó el texto. La primera vez, el teléfono no fija la clave
+ * hasta que la persona teclea la huella que el empleador dio por otro canal,
+ * o hasta que la clave coincida con la anclada en el build. Después solo vale
+ * una firma de esa misma clave, salvo que la zona admin esté desbloqueada y se
+ * rote a propósito.
  *
  * Formato: `DTPIN1.` + base64url(JSON). El mismo texto es el contenido del QR.
  * v1 (legado, SHA-256 iterado) sigue aceptándose y se migra al verificar.

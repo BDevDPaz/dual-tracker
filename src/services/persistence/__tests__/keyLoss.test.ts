@@ -11,6 +11,8 @@ import { getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
 import { refreshFieldCryptoHealth } from "../../application/useCases/fieldCryptoHealth";
 import { previewPayroll } from "../../application/useCases/generateWeeklyPayroll";
 import { EvidencePackService } from "../../evidence/EvidencePackService";
+import { __resetPackSignatureForTests } from "../../evidence/packSignature";
+import { fingerprintFromB64url } from "../../runtime/keyFingerprint";
 import { renderEmployeeReceipt, renderEmployerDossier, SEAL_WARNING_TEXT } from "../../evidence/reportTemplates";
 import { TraceRecorderService } from "../../evidence/TraceRecorderService";
 import { runIntegritySweep } from "../../runtime/tasks/integritySweep.task";
@@ -41,6 +43,7 @@ async function workDay(startMs: number, siteId: number, note: string): Promise<S
 async function restoreWithoutKey(): Promise<void> {
   secure.store.clear();
   FieldCryptoService.__forgetCache();
+  __resetPackSignatureForTests();
   await bootFieldCrypto();
 }
 
@@ -90,8 +93,14 @@ describe("C6 — pérdida de clave (§14)", () => {
     expect(await previewPayroll(p1.periodStart, p1.periodEnd)).toEqual(before1);
     expect(await previewPayroll(p2.periodStart, p2.periodEnd)).toEqual(before2);
 
-    // Pack previo verifica; resello → reutiliza (mismo contentHash).
-    expect((await EvidencePackService.verify(sealed.data)).valid).toBe(true);
+    // Sin la clave del llavero la firma sigue cuadrando, pero no identifica al teléfono.
+    const fingerprint = fingerprintFromB64url(sealed.data.manifest.signature!.publicKey)!;
+    const bare = await EvidencePackService.verify(sealed.data);
+    expect(bare.valid).toBe(false);
+    expect(bare.identity).toBe("unverified");
+    expect(bare.identityNote?.es).toBe("firma válida pero identidad no verificada");
+    expect((await EvidencePackService.verify(sealed.data, { fingerprint })).valid).toBe(true);
+    // Resello → reutiliza (mismo contentHash).
     const again = await EvidencePackService.seal(p1);
     if (!again.ok) throw new Error(String(again.code));
     expect(again.reused).toBe(true);
@@ -150,8 +159,8 @@ describe("C6 — pérdida de clave (§14)", () => {
     // statementHash se calcula con packHash: null, así que sigue valiendo.
     const r2 = await EvidencePackService.verify(v2);
     const r1 = await EvidencePackService.verify(v1);
-    expect(r2).toEqual({ valid: true, legacy: false, scheme: "unsigned-v1", failures: [] });
-    expect(r1).toEqual({ valid: true, legacy: true, scheme: "unsigned-v1", failures: [] });
+    expect(r2).toEqual({ valid: true, legacy: false, scheme: "unsigned-v1", failures: [], identity: "unsigned", identityNote: null });
+    expect(r1).toEqual({ valid: true, legacy: true, scheme: "unsigned-v1", failures: [], identity: "unsigned", identityNote: null });
   });
 
   test("la jornada ABIERTA afectada pasa a CONFLICT con FIELD_CRYPTO_KEY_LOST (idempotente)", async () => {

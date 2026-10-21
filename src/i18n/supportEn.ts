@@ -264,7 +264,7 @@ export const supportEn: typeof supportEs = {
     settings: {
       title: "Settings",
       intro: "Settings stores the profile and language, the PIN (local or employer), the portal, and retention status. It also opens Health, sites, and Support.",
-      s0: { title: "The PIN", body: "Until the employer provisions the phone, the first person sets a local PIN. The label says so. A one-time code is pasted once and it expires." },
+      s0: { title: "The PIN", body: "Until the employer provisions the phone, the first person sets a local PIN. The label says so. A one-time code is pasted once and it expires. The first key asks for the fingerprint the employer gave on another channel." },
       s1: { title: "The portal", body: "With no https address, nothing is sent: Employer portal: not configured. Turning it on needs the admin area and an https address." },
     },
     session: {
@@ -453,7 +453,7 @@ export const supportEn: typeof supportEs = {
     },
     packSignature: {
       q: "Is the pack signed?",
-      a: "New packs carry a signature from the phone (Ed25519) next to the verification code. Older packs, without a signature, stay valid. A PDF that was already sealed is not rewritten.",
+      a: "New packs carry a signature from the phone (Ed25519) next to the verification code and the key fingerprint. Older packs, without a signature, stay valid. A PDF that was already sealed is not rewritten. A signature that checks out does not identify the phone unless that fingerprint is compared with the one recorded separately.",
     },
     retentionBoth: {
       q: "When is the trail deleted?",
@@ -461,7 +461,7 @@ export const supportEn: typeof supportEs = {
     },
     employerPin: {
       q: "Who sets the admin PIN?",
-      a: "If the employer has not provisioned the phone, the first person to use it sets it. Settings calls that a local PIN (not provisioned by the employer). A one-time code, which expires, installs the employer PIN. The PIN is not inside the code: it is told separately. The first valid code pins the employer key. A different key is rejected until you unlock the admin area. After several wrong tries the phone waits; the lockout steps stay the same.",
+      a: "If the employer has not provisioned the phone, the first person to use it sets it. Settings calls that a local PIN (not provisioned by the employer). A one-time code, which expires, installs the employer PIN. The PIN is not inside the code: it is told separately. The first key is not pinned on its own: you type the fingerprint the employer gave you on another channel, or the build has that key anchored. A different key is rejected until you unlock the admin area. After several wrong tries the phone waits; the lockout steps stay the same.",
     },
     employerPortal: {
       q: "Are packs sent to a portal?",

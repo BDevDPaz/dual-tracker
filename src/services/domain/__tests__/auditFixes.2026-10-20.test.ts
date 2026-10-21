@@ -73,7 +73,7 @@ describe("auditoría 2026-10-20", () => {
 
   test("A2: quitar la firma o firmar con otra clave no verifica; el pack original sí", async () => {
     const { pack } = await sealWeek();
-    expect(await EvidencePackService.verify(pack)).toEqual({ valid: true, legacy: false, scheme: "Ed25519", failures: [] });
+    expect(await EvidencePackService.verify(pack)).toEqual({ valid: true, legacy: false, scheme: "Ed25519", failures: [], identity: "device", identityNote: null });
 
     const line = pack.statement.lines[0];
     const statement: PayrollStatement = {
@@ -109,7 +109,7 @@ describe("auditoría 2026-10-20", () => {
     const foreign = await EvidencePackService.verify(forged);
     expect(foreign.valid).toBe(false);
     expect(foreign.failures).toContain("SIGNATURE_KEY");
-    expect(await EvidencePackService.verify(pack)).toEqual({ valid: true, legacy: false, scheme: "Ed25519", failures: [] });
+    expect(await EvidencePackService.verify(pack)).toEqual({ valid: true, legacy: false, scheme: "Ed25519", failures: [], identity: "device", identityNote: null });
   });
 
   test("A2: un sello sin llavero (PACK_UNSIGNED) sigue verificando", async () => {

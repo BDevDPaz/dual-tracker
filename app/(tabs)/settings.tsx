@@ -104,6 +104,7 @@ export default function SettingsScreen() {
   const [draft, setDraft] = useState<Draft>(initial);
   const [pin, setPin] = useState("");
   const [code, setCode] = useState("");
+  const [fingerprint, setFingerprint] = useState("");
   const [busy, setBusy] = useState(false);
   const queue = useQuery(() => queries.listOfflineQueue(), [settings.company.employerPortalUrl ?? "", settings.company.employerPortalEnabled === true], ["packs", "settings"]);
   // El idioma no vive en el borrador: lo pinta LanguageSwitch y se guarda al
@@ -120,6 +121,19 @@ export default function SettingsScreen() {
     });
     seen.current = initial;
   }, [initial]);
+
+  // El primer dep es estable: teclear el código no vacía la vista previa.
+  const provisionPreview = useQuery(
+    () => queries.previewEmployerCode(code, fingerprint),
+    ["employer-code", code, fingerprint, admin.pinOrigin, admin.hasPin],
+  );
+  const codeFingerprint = provisionPreview.data?.fingerprint ?? null;
+  const showFingerprint = provisionPreview.data?.needsFingerprint === true;
+  const canProvision = code.trim().length > 0 && !busy && provisionPreview.data?.confirmed === true;
+  const provisionFields = useMemo(
+    () => (showFingerprint ? FORM_FIELDS.settingsProvision : FORM_FIELDS.settingsProvision.filter((field) => field.id === "code")),
+    [showFingerprint],
+  );
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const dirty = (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== initial[k]);
@@ -158,8 +172,13 @@ export default function SettingsScreen() {
 
   const onProvision = async () => {
     setBusy(true);
-    await emit({ type: "PROVISION_ADMIN_PIN", code: code.trim() });
+    await emit({
+      type: "PROVISION_ADMIN_PIN",
+      code: code.trim(),
+      ...(showFingerprint && fingerprint.trim() ? { fingerprint: fingerprint.trim() } : {}),
+    });
     setCode("");
+    setFingerprint("");
     setBusy(false);
   };
 
@@ -170,9 +189,9 @@ export default function SettingsScreen() {
     canSubmit: pin.length >= PIN_MIN_LENGTH && !busy && admin.status !== "locked_out",
   });
   const adminChain = useFormFocusChain(FORM_FIELDS.settingsAdmin, { onSubmit: () => void onSave(), canSubmit: dirty && !busy && unlocked });
-  const provisionChain = useFormFocusChain(FORM_FIELDS.settingsProvision, {
+  const provisionChain = useFormFocusChain(provisionFields, {
     onSubmit: () => void onProvision(),
-    canSubmit: code.trim().length > 0 && !busy,
+    canSubmit: canProvision,
   });
   const portalLabel = !settings.company.employerPortalUrl?.trim()
     ? t("settings.portalUnconfigured")
@@ -318,7 +337,21 @@ export default function SettingsScreen() {
           <Card style={styles.card}>
             <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.provisionHint")}</Text>
             <Input {...provisionChain.props("code")} label={t("settings.provisionCode")} value={code} onChangeText={setCode} autoCapitalize="none" autoCorrect={false} />
-            <Button label={t("settings.provisionSubmit")} disabled={!code.trim() || busy} isLoading={busy} onPress={() => void onProvision()} />
+            {showFingerprint ? (
+              <>
+                <Text style={[styles.hint, { color: colors.text.primary }]}>{t("settings.provisionFingerprintShown", { fingerprint: codeFingerprint ?? "" })}</Text>
+                <Input
+                  {...provisionChain.props("fingerprint")}
+                  label={t("settings.provisionFingerprint")}
+                  value={fingerprint}
+                  onChangeText={setFingerprint}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.provisionFingerprintHint")}</Text>
+              </>
+            ) : null}
+            <Button label={t("settings.provisionSubmit")} disabled={!canProvision} isLoading={busy} onPress={() => void onProvision()} />
           </Card>
           <Card style={styles.card}>
             <Text style={[styles.hint, { color: colors.text.primary }]}>{portalLabel}</Text>

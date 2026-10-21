@@ -22,8 +22,10 @@ import type { ReportInput } from "./reportTemplates";
 import { renderEmployeeReceipt, renderEmployerDossier } from "./reportTemplates";
 
 export interface RenderPdfOptions {
-  /** `cache` pinta una copia (anexos al exportar) y no toca el PDF sellado. */
-  destination?: "pack" | "cache";
+  /** `cache` pinta una copia (anexos al exportar) y no toca el PDF sellado. `attempt` escribe en un directorio de un solo intento. */
+  destination?: "pack" | "cache" | "attempt";
+  /** Obligatorio si destination es `attempt`. */
+  attemptId?: string;
 }
 
 export type ReportRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
@@ -40,6 +42,23 @@ function cacheDirectory(): Directory {
   return dir;
 }
 
+function attemptFolderName(attemptId: string): string {
+  return safeFileName(attemptId, "d").replace(/\.d$/, "");
+}
+
+/** Directorio de un intento de sello. No es el pack hasta que la transacción commitea. */
+function attemptDirectory(attemptId: string): Directory {
+  const dir = new Directory(Paths.document, "packs", ".pending", attemptFolderName(attemptId));
+  dir.create({ intermediates: true, idempotent: true });
+  return dir;
+}
+
+function artifactDirectory(packId: string, opts?: RenderPdfOptions): Directory {
+  if (opts?.destination === "cache") return cacheDirectory();
+  if (opts?.destination === "attempt" && opts.attemptId) return attemptDirectory(opts.attemptId);
+  return packDirectory(packId);
+}
+
 export const ReportService = {
   renderHtml(role: ReportRole, input: ReportInput): string {
     return role === "EMPLOYEE_RECEIPT" ? renderEmployeeReceipt(input) : renderEmployerDossier(input);
@@ -54,17 +73,24 @@ export const ReportService = {
       `DualTracker_${role === "EMPLOYEE_RECEIPT" ? "Comprobante" : "Expediente"}_${input.manifest.packId}${cache ? "_export" : ""}`,
       "pdf",
     );
-    const target = new File(cache ? cacheDirectory() : packDirectory(input.manifest.packId), name);
+    const target = new File(artifactDirectory(input.manifest.packId, opts), name);
     if (target.exists) target.delete();
     new File(uri).move(target);
     LoggingService.log("VERDE", "OPERACION_EXITOSA", "INFO", `PDF ${role} generado`, { packId: input.manifest.packId });
     return { uri: target.uri, name };
   },
 
+  /** Borra el directorio de un intento de sello. No toca otros packs. */
+  discardAttempt(attemptId: string): void {
+    const dir = new Directory(Paths.document, "packs", ".pending", attemptFolderName(attemptId));
+    if (dir.exists) dir.delete();
+  },
+
   /** Escribe el manifiesto JSON junto a los PDF. */
-  writeJson(packId: string, fileName: string, json: string): { uri: string; name: string } {
+  writeJson(packId: string, fileName: string, json: string, opts?: { attemptId?: string }): { uri: string; name: string } {
     const name = safeFileName(fileName, "json");
-    const f = new File(packDirectory(packId), name);
+    const folder = opts?.attemptId ? attemptDirectory(opts.attemptId) : packDirectory(packId);
+    const f = new File(folder, name);
     if (f.exists) f.delete();
     f.create();
     f.write(json);

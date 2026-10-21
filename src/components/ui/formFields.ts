@@ -27,7 +27,10 @@ export const FORM_FIELDS = {
     { id: "reminder", kind: "time" },
   ],
   settingsPin: [{ id: "pin", kind: "pin" }],
-  settingsProvision: [{ id: "code", kind: "text" }],
+  settingsProvision: [
+    { id: "code", kind: "text" },
+    { id: "fingerprint", kind: "text" },
+  ],
   reportsRange: [
     { id: "start", kind: "text" },
     { id: "end", kind: "text" },

@@ -28,6 +28,8 @@ import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { derivePinHash, parseScryptPinHash, scryptPinHash, scryptPinMatches, timingSafeEqual, type ScryptPinParams } from "./pinHash";
+import { employerKeyAnchorPub } from "../../config/employerKeyAnchor";
+import { employerKeyFingerprint, fingerprintsMatch } from "./keyFingerprint";
 import { assessProvisionCode, employerKeyId, type PinProvisionPayload } from "./pinProvision";
 
 export const ADMIN_PIN_STORE_KEY = "dualtracker.admin.pin.v1";
@@ -56,6 +58,8 @@ interface PinnedEmployerKey {
 }
 
 export type EmployerKeyAction = "PINNED" | "REPINNED" | "UNCHANGED";
+/** Cómo se autenticó la primera clave. No hay fijación a ciegas. */
+export type EmployerKeyAuth = "FINGERPRINT" | "ANCHOR";
 
 interface LockoutState {
   failures: number;
@@ -173,6 +177,15 @@ export const SecurityService = {
   },
 
   /** Quién dejó el verificador que hay ahora. Sin PIN: UNSET. Registros viejos: LOCAL. */
+  /** true si este teléfono ya fijó la clave pública del empleador. */
+  async hasPinnedEmployerKey(): Promise<boolean> {
+    try {
+      return (await readPinnedKey()) !== null;
+    } catch {
+      return false;
+    }
+  },
+
   async pinOrigin(): Promise<PinOrigin> {
     try {
       const stored = await readStoredPin();
@@ -209,10 +222,13 @@ export const SecurityService = {
    * Instala el verificador que trae el código del empleador. Un nonce solo
    * vale una vez. Si ya hay un PIN de empleador y la zona está cerrada, se
    * rechaza. Un PIN local sí se puede sustituir: todavía no lo había
-   * aprovisionado el empleador.
+   * aprovisionado el empleador. La primera clave no se fija a ciegas: hace
+   * falta la huella tecleada o la clave anclada en el build. Un rechazo de
+   * huella no gasta el nonce.
    */
   async provisionFromCode(
     code: string,
+    fingerprint?: string,
   ): Promise<
     | {
         ok: true;
@@ -221,9 +237,22 @@ export const SecurityService = {
         keyId: string;
         previousKeyId: string | null;
         keyAction: EmployerKeyAction;
+        keyAuth: EmployerKeyAuth | null;
         snapshot: ProvisionSnapshot;
       }
-    | { ok: false; code: "CODE_INVALID" | "CODE_EXPIRED" | "CODE_USED" | "ALREADY_PROVISIONED" | "EMPLOYER_KEY_MISMATCH" | "ERROR" }
+    | {
+        ok: false;
+        code:
+          | "CODE_INVALID"
+          | "CODE_EXPIRED"
+          | "CODE_USED"
+          | "ALREADY_PROVISIONED"
+          | "EMPLOYER_KEY_MISMATCH"
+          | "FINGERPRINT_REQUIRED"
+          | "FINGERPRINT_MISMATCH"
+          | "ANCHOR_MISMATCH"
+          | "ERROR";
+      }
   > {
     const assessed = assessProvisionCode(code, TimeAuthorityService.now());
     if (!assessed.ok) return { ok: false, code: assessed.code === "PIN_INVALID" ? "CODE_INVALID" : assessed.code };
@@ -231,9 +260,21 @@ export const SecurityService = {
       const keyId = employerKeyId(assessed.payload.pub);
       const pinned = await readPinnedKey();
       let keyAction: EmployerKeyAction = "UNCHANGED";
+      let keyAuth: EmployerKeyAuth | null = null;
       let previousKeyId: string | null = null;
-      if (!pinned) keyAction = "PINNED";
-      else if (!timingSafeEqual(pinned.pub, assessed.payload.pub)) {
+      if (!pinned) {
+        const anchor = employerKeyAnchorPub();
+        if (anchor) {
+          if (!timingSafeEqual(anchor, assessed.payload.pub)) return { ok: false, code: "ANCHOR_MISMATCH" };
+          keyAuth = "ANCHOR";
+        } else {
+          const given = (fingerprint ?? "").trim();
+          if (!given) return { ok: false, code: "FINGERPRINT_REQUIRED" };
+          if (!fingerprintsMatch(given, employerKeyFingerprint(assessed.payload.pub))) return { ok: false, code: "FINGERPRINT_MISMATCH" };
+          keyAuth = "FINGERPRINT";
+        }
+        keyAction = "PINNED";
+      } else if (!timingSafeEqual(pinned.pub, assessed.payload.pub)) {
         if (!SecurityService.isUnlocked()) return { ok: false, code: "EMPLOYER_KEY_MISMATCH" };
         keyAction = "REPINNED";
         previousKeyId = pinned.keyId;
@@ -255,7 +296,7 @@ export const SecurityService = {
         await restoreProvisionSnapshot(snapshot).catch(() => undefined);
         throw error;
       }
-      return { ok: true, nonce: assessed.payload.nonce, expiresAtMs: assessed.payload.exp, keyId, previousKeyId, keyAction, snapshot };
+      return { ok: true, nonce: assessed.payload.nonce, expiresAtMs: assessed.payload.exp, keyId, previousKeyId, keyAction, keyAuth, snapshot };
     } catch (error) {
       LoggingService.log("ROJO", "SEGURIDAD", "ERROR", "Fallo aprovisionando PIN", serializeError(error));
       return { ok: false, code: "ERROR" };
