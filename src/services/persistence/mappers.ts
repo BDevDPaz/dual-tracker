@@ -110,6 +110,7 @@ export interface DbSpatialRow {
   reason: string | null;
   battery: number | null;
   timestamp_ms: number;
+  mocked?: number | null;
 }
 
 const RECORD_STATUSES: readonly SessionRecordStatus[] = [
@@ -386,6 +387,7 @@ export async function rowToSpatialFact(row: DbSpatialRow): Promise<SpatialFact &
     reliable: Boolean(row.reliable),
     reason: row.reason,
     timestampMs: ms(row.timestamp_ms) ?? 0,
+    ...(row.mocked === 1 ? { mocked: true } : {}),
   };
 }
 

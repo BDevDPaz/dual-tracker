@@ -16,6 +16,7 @@ export const INITIAL_HEALTH: SystemHealthSnapshot = {
   networkTime: "unknown",
   isMonitoring: false,
   lastSpatialFactAt: null,
+  mockLocation: false,
   locationServicesEnabled: null,
   checkedAtMs: null,
   ledger: { broken: null, acknowledgedBreaks: 0 },

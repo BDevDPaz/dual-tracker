@@ -10,7 +10,8 @@ import { SessionEngineService } from "../src/services/domain/SessionEngineServic
 import { PersistenceService } from "../src/services/persistence/PersistenceService";
 
 export type LocationMock = typeof Location & {
-  __setPosition(lat: number, lon: number, accuracy?: number | null, speed?: number | null): void;
+  __setPosition(lat: number, lon: number, accuracy?: number | null, speed?: number | null, extra?: { timestamp?: number; mocked?: boolean }): void;
+  __setStartLocationUpdatesError(error: Error | null): void;
   __setPermissions(p: { foreground?: "granted" | "denied" | "undetermined"; background?: "granted" | "denied" | "undetermined"; canAskAgain?: boolean }): void;
   __state: { servicesEnabled: boolean; geofences: Map<string, unknown[]>; locationUpdates: Map<string, unknown> };
 };

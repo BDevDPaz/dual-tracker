@@ -31,6 +31,14 @@ export const EXIT_UNKNOWN_GIVE_UP_FACTOR = 2;
 export const DIAG_LIMIT = 30;
 /** Una muestra más vieja que esto no ficha (fix cacheado del sistema). */
 export const SAMPLE_MAX_AGE_MS = 5 * 60_000;
+/**
+ * Por debajo de 5 s no hay intervalo para juzgar un salto: dos tareas
+ * (geocerca y miga) pueden caer en el mismo instante y el piso de 0.001 s
+ * convertía unos metros de ruido en miles de km/h.
+ */
+export const JUMP_MIN_JUDGMENT_MS = 5_000;
+/** Por encima de esto el fix anterior ya no sirve de referencia. */
+export const JUMP_MAX_JUDGMENT_MS = 30 * 60_000;
 
 /**
  * El reloj del fix (expo-location) puede ir por delante de TimeAuthority.
@@ -117,16 +125,33 @@ export function shouldArmExit(opts: { zone: PresenceZone; far: boolean; dwellMs:
   return true;
 }
 
+function nonNegativeMeters(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return 0;
+  return value;
+}
+
+/**
+ * Distancia que no cabe dentro del error de los dos fixes. Un last fix
+ * antiguo sin `accuracyM` cuenta como 0. El suelo es 0.
+ */
+export function effectiveJumpMeters(distanceM: number, accuracyM: number | null | undefined, previousAccuracyM: number | null | undefined): number {
+  if (!Number.isFinite(distanceM) || distanceM < 0) return 0;
+  return Math.max(0, distanceM - nonNegativeMeters(accuracyM) - nonNegativeMeters(previousAccuracyM));
+}
+
 /**
  * Velocidad o salto que no puede ser un operario. Un traslado en coche
  * (aunque supere los 15 km/h heredados de GEOTrack) NO es un rechazo:
  * el umbral antiguo bloqueaba el check-in real al llegar en la van.
+ *
+ * `jumpM` es el salto ya descontado (effectiveJumpMeters). Intervalos
+ * menores de 5 s, negativos o de más de 30 min no se juzgan.
  */
 export function movementIssue(opts: { speedMps: number | null; jumpM: number | null; jumpDtMs: number | null }): string | null {
   const speedKmh = opts.speedMps !== null && opts.speedMps > 0 ? opts.speedMps * 3.6 : 0;
   if (speedKmh > IMPOSSIBLE_SPEED_KMH) return "IMPOSSIBLE_SPEED";
-  if (opts.jumpM !== null && opts.jumpDtMs !== null && opts.jumpDtMs >= 0 && opts.jumpDtMs < 30 * 60_000) {
-    const dtS = Math.max(opts.jumpDtMs / 1000, 0.001);
+  if (opts.jumpM !== null && opts.jumpDtMs !== null && opts.jumpDtMs >= JUMP_MIN_JUDGMENT_MS && opts.jumpDtMs < JUMP_MAX_JUDGMENT_MS) {
+    const dtS = opts.jumpDtMs / 1000;
     const kmh = (opts.jumpM / dtS) * 3.6;
     if (kmh > IMPOSSIBLE_SPEED_KMH) return "LOCATION_JUMP_DETECTED";
   }

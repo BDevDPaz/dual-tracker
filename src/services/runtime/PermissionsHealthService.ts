@@ -64,6 +64,12 @@ export const PermissionsHealthService = {
       }
     } else snapshot.batteryOptimization = "n/a";
     snapshot.geofenceDiag = await GeofenceRuntimeService.recentDiagnostics();
+    try {
+      const open = await PersistenceService.getOpenSession();
+      snapshot.mockLocation = open ? (await PersistenceService.countMockedFacts(open.id)) > 0 : false;
+    } catch {
+      snapshot.mockLocation = prev.mockLocation;
+    }
     snapshot.clockDriftMs = TimeAuthorityService.currentDriftMs();
     snapshot.clockDriftExceeded = TimeAuthorityService.isDriftExceeded();
     snapshot.lastSpatialFactAt = await PersistenceService.lastSpatialFactAt().catch(() => prev.lastSpatialFactAt);

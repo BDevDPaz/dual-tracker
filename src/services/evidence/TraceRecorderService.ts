@@ -30,6 +30,7 @@ import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { siteMinutesFromSession } from "../domain/siteMinutes";
 import { TimeAuthorityService } from "./TimeAuthorityService";
 import { PersistenceService } from "../persistence/PersistenceService";
+import { noteMockedFix } from "../runtime/mockLocationNotice";
 import { trailPointPhase } from "./retentionRules";
 
 /** Muestra cruda que entrega el runtime (tarea BREADCRUMB). */
@@ -41,6 +42,8 @@ export interface RawLocationSample {
   altitudeM: number | null;
   timestampMs: number;
   source: SpatialSource;
+  /** Android `LocationObject.mocked`. Ausente en muestras viejas. */
+  mocked?: boolean;
 }
 
 export type SpatialFactSink = (fact: SpatialFact & { speedMps?: number | null; altitudeM?: number | null; battery?: number | null }) => Promise<number>;
@@ -92,10 +95,14 @@ export const TraceRecorderService = {
         skipped++;
         continue;
       }
+      const mocked = s.mocked === true;
+      if (mocked) await noteMockedFix(session.id).catch(() => {});
       const unreliable = s.accuracyM === null || s.accuracyM > opts.radiusM;
       if (!record) {
         // Aun sin miga de pan se registra la pérdida de precisión como hecho de calidad.
-        if (unreliable && session.domainStatus !== "PAUSADA") {
+        // Una lectura simulada también: sin coordenadas (el almuerzo y el perímetro
+        // no guardan destino) pero el contador del expediente la ve.
+        if ((unreliable || mocked) && session.domainStatus !== "PAUSADA") {
           await sink({
             sessionId: session.id,
             type: "ACCURACY_DROP",
@@ -105,8 +112,9 @@ export const TraceRecorderService = {
             timestampMs: s.timestampMs,
             source: s.source,
             reliable: false,
-            reason: "ACCURACY_GT_RADIUS",
+            reason: mocked ? "MOCK_LOCATION" : "ACCURACY_GT_RADIUS",
             siteId: session.siteId,
+            ...(mocked ? { mocked: true } : {}),
           });
           stored++;
         } else skipped++;
@@ -120,12 +128,13 @@ export const TraceRecorderService = {
         accuracyM: s.accuracyM,
         timestampMs: s.timestampMs,
         source: s.source,
-        reliable: !unreliable,
-        reason: unreliable ? "ACCURACY_GT_RADIUS" : null,
+        reliable: mocked ? false : !unreliable,
+        reason: mocked ? "MOCK_LOCATION" : unreliable ? "ACCURACY_GT_RADIUS" : null,
         siteId: session.siteId,
         speedMps: s.speedMps,
         altitudeM: s.altitudeM,
         battery: opts.battery,
+        ...(mocked ? { mocked: true } : {}),
       };
       await sink(point);
       stored++;
@@ -142,12 +151,14 @@ export const TraceRecorderService = {
   async summarize(session: SessionRecord): Promise<TraceSummary> {
     const facts = await PersistenceService.listSpatialFacts(session.id);
     const crumbs = facts.filter((f) => f.type === "BREADCRUMB");
+    const mockedFacts = facts.filter((f) => f.mocked === true || f.reason === "MOCK_LOCATION").length;
     return {
       sessionId: session.id,
       pointCount: crumbs.length,
       firstAtMs: crumbs[0]?.timestampMs ?? null,
       lastAtMs: crumbs[crumbs.length - 1]?.timestampMs ?? null,
       unreliableCount: facts.filter((f) => !f.reliable).length,
+      ...(mockedFacts > 0 ? { mockedFacts } : {}),
       // El sitio sale de la jornada, no de la miga ni del enter/exit.
       dwellBySite: siteMinutesFromSession(session, TimeAuthorityService.now()),
       enterExit: facts

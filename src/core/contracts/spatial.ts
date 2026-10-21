@@ -33,6 +33,11 @@ export interface SpatialFact {
   /** Motivo de no fiabilidad (ACCURACY_OVER_RADIUS, LOCATION_JUMP, …). */
   reason?: string | null;
   siteId?: number | null;
+  /**
+   * Android: el fix vino de un proveedor simulado (`LocationObject.mocked`).
+   * Ausente en hechos anteriores a la columna. No cambia el pago.
+   */
+  mocked?: boolean;
   /** FieldCrypto v1.3 §14: coordenadas ilegibles (kid perdido); lat/lon llegan null. */
   unreadable?: boolean;
 }
@@ -63,4 +68,9 @@ export interface TraceSummary {
   unreliableCount: number;
   dwellBySite: { siteId: number | null; minutes: number }[];
   enterExit: { type: "ENTER" | "EXIT"; timestampMs: number; reliable: boolean }[];
+  /**
+   * Lecturas con ubicación simulada en la jornada. Ausente en resúmenes
+   * sellados antes de esta fase: no entra en el contentHash de esos packs.
+   */
+  mockedFacts?: number;
 }

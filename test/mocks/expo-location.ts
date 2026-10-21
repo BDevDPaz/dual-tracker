@@ -24,6 +24,7 @@ export enum ActivityType {
 export interface MockPosition {
   coords: { latitude: number; longitude: number; accuracy: number | null; speed: number | null; altitude: number | null; heading: number | null; altitudeAccuracy: number | null };
   timestamp: number;
+  mocked?: boolean;
 }
 
 export const __state = {
@@ -34,6 +35,7 @@ export const __state = {
   geofences: new Map<string, unknown[]>(),
   locationUpdates: new Map<string, unknown>(),
   geocode: [] as { latitude: number; longitude: number }[],
+  startUpdatesError: null as Error | null,
 };
 
 export function __reset(): void {
@@ -44,13 +46,27 @@ export function __reset(): void {
   __state.geofences.clear();
   __state.locationUpdates.clear();
   __state.geocode = [];
+  __state.startUpdatesError = null;
 }
 export function __setPermissions(p: { foreground?: Perm["status"]; background?: Perm["status"]; canAskAgain?: boolean }): void {
   if (p.foreground) __state.foreground = perm(p.foreground, p.canAskAgain ?? true);
   if (p.background) __state.background = perm(p.background, p.canAskAgain ?? true);
 }
-export function __setPosition(lat: number, lon: number, accuracy: number | null = 10, speed: number | null = 0): void {
-  __state.position = { coords: { latitude: lat, longitude: lon, accuracy, speed, altitude: null, heading: null, altitudeAccuracy: null }, timestamp: Date.now() };
+export function __setPosition(
+  lat: number,
+  lon: number,
+  accuracy: number | null = 10,
+  speed: number | null = 0,
+  extra?: { timestamp?: number; mocked?: boolean },
+): void {
+  __state.position = {
+    coords: { latitude: lat, longitude: lon, accuracy, speed, altitude: null, heading: null, altitudeAccuracy: null },
+    timestamp: extra?.timestamp ?? Date.now(),
+    ...(extra?.mocked ? { mocked: true } : {}),
+  };
+}
+export function __setStartLocationUpdatesError(error: Error | null): void {
+  __state.startUpdatesError = error;
 }
 
 export async function getForegroundPermissionsAsync() {
@@ -82,6 +98,7 @@ export async function hasStartedGeofencingAsync(task: string) {
   return __state.geofences.has(task);
 }
 export async function startLocationUpdatesAsync(task: string, options: unknown) {
+  if (__state.startUpdatesError) throw __state.startUpdatesError;
   __state.locationUpdates.set(task, options);
 }
 export async function stopLocationUpdatesAsync(task: string) {

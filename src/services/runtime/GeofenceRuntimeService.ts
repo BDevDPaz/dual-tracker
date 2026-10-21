@@ -40,6 +40,7 @@ import {
   SAMPLE_MAX_AGE_MS,
   clampSampleTimestamp,
   confirmExitDecision,
+  effectiveJumpMeters,
   isFarOutside,
   movementIssue,
   osGeofenceRadius,
@@ -48,6 +49,7 @@ import {
   shouldArmExit,
   type PresenceZone,
 } from "./geofencePolicy";
+import { noteMockedFix } from "./mockLocationNotice";
 
 export interface PendingExit {
   sessionId: number;
@@ -58,18 +60,14 @@ export interface PendingExit {
   strikes: number;
 }
 
-interface LastFix {
-  lat: number;
-  lon: number;
-  timestampMs: number;
-}
-
 interface Fix {
   lat: number;
   lon: number;
   accuracyM: number | null;
   speedMps: number | null;
   timestampMs: number;
+  /** Proveedor simulado (expo-location, Android). */
+  mocked?: boolean;
 }
 
 interface Target {
@@ -135,6 +133,7 @@ async function readFix(): Promise<Fix | null> {
       accuracyM: loc.coords.accuracy ?? null,
       speedMps: loc.coords.speed ?? null,
       timestampMs: loc.timestamp,
+      mocked: loc.mocked === true,
     };
   } catch {
     return null;
@@ -144,9 +143,13 @@ async function readFix(): Promise<Fix | null> {
 async function jumpAgainstLast(fix: Fix, nowMs: number): Promise<{ jumpM: number | null; jumpDtMs: number | null }> {
   const last = await PersistenceService.getLastFix();
   if (!last) return { jumpM: null, jumpDtMs: null };
-  const jump = getDistanceFromLatLonInMeters(fix.lat, fix.lon, last.lat, last.lon);
-  if (!Number.isFinite(jump)) return { jumpM: null, jumpDtMs: null };
-  return { jumpM: jump, jumpDtMs: nowMs - last.timestampMs };
+  const distanceM = getDistanceFromLatLonInMeters(fix.lat, fix.lon, last.lat, last.lon);
+  if (!Number.isFinite(distanceM)) return { jumpM: null, jumpDtMs: null };
+  const at = clampSampleTimestamp(fix.timestampMs, nowMs);
+  return {
+    jumpM: effectiveJumpMeters(distanceM, fix.accuracyM, last.accuracyM),
+    jumpDtMs: at - last.timestampMs,
+  };
 }
 
 /**
@@ -156,6 +159,7 @@ async function jumpAgainstLast(fix: Fix, nowMs: number): Promise<{ jumpM: number
  */
 async function reliabilityIssue(type: "ENTER" | "EXIT", fix: Fix | null, target: Target, nowMs: number): Promise<string | null> {
   if (!fix) return "NO_FIX";
+  if (fix.mocked) return "MOCK_LOCATION";
   if (fix.accuracyM === null) return "ACCURACY_UNKNOWN";
   if (fix.accuracyM > target.radiusM) return "ACCURACY_GT_RADIUS";
   const dist = getDistanceFromLatLonInMeters(fix.lat, fix.lon, target.lat, target.lon);
@@ -171,7 +175,7 @@ async function reliabilityIssue(type: "ENTER" | "EXIT", fix: Fix | null, target:
 }
 
 function zoneOf(fix: Fix | null, target: Target): { zone: PresenceZone; dist: number; far: boolean } {
-  if (!fix) return { zone: "unknown", dist: NaN, far: false };
+  if (!fix || fix.mocked) return { zone: "unknown", dist: NaN, far: false };
   const dist = getDistanceFromLatLonInMeters(fix.lat, fix.lon, target.lat, target.lon);
   return {
     zone: presenceZone(dist, target.radiusM, fix.accuracyM),
@@ -180,10 +184,18 @@ function zoneOf(fix: Fix | null, target: Target): { zone: PresenceZone; dist: nu
   };
 }
 
-async function rememberFix(fix: Fix, nowMs: number): Promise<void> {
+/** Guarda la hora del fix (acotada) y su precisión. Un mock no pasa a ser la referencia. */
+async function rememberFix(fix: Fix): Promise<void> {
+  if (fix.mocked) return;
   if (!isValidCoordinate(fix.lat, fix.lon)) return;
-  if (fix.accuracyM === null) return;
-  await PersistenceService.setLastFix({ lat: fix.lat, lon: fix.lon, timestampMs: nowMs } satisfies LastFix);
+  if (fix.accuracyM === null || !Number.isFinite(fix.accuracyM)) return;
+  const nowMs = TimeAuthorityService.now();
+  await PersistenceService.setLastFix({
+    lat: fix.lat,
+    lon: fix.lon,
+    timestampMs: clampSampleTimestamp(fix.timestampMs, nowMs),
+    accuracyM: fix.accuracyM,
+  });
 }
 
 function dwellMs(session: SessionRecord, atMs: number): number {
@@ -261,6 +273,8 @@ async function commitArrival(
     radiusM: SiteRegistryService.effectiveRadius(site, settings.company),
   };
   const issue = await reliabilityIssue("ENTER", fix, target, atMs);
+  if (issue === "MOCK_LOCATION") await noteMockedFix(session.id);
+  if (!fix.mocked) await rememberFix(fix);
   const fact: SpatialFact = {
     sessionId: session.id,
     type: "ENTER",
@@ -272,6 +286,7 @@ async function commitArrival(
     reliable: issue === null,
     reason: issue,
     siteId,
+    ...(fix.mocked ? { mocked: true } : {}),
   };
   await SessionEngineService.recordSpatialFact(fact);
   if (issue !== null) {
@@ -286,7 +301,6 @@ async function commitArrival(
     });
     return false;
   }
-  await rememberFix(fix, atMs);
   await GeofenceRuntimeService.clearPendingExit();
   const r = await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact }, "GEOFENCE");
   await appendGeofenceDiag({
@@ -302,6 +316,19 @@ async function commitArrival(
 }
 
 async function beginTransfer(session: SessionRecord, toSiteId: number, fix: Fix, atMs: number, kind: "ENTER" | "SAMPLE" = "SAMPLE"): Promise<boolean> {
+  if (fix.mocked) {
+    await noteMockedFix(session.id);
+    await appendGeofenceDiag({
+      kind,
+      region: geofenceIdentifier(session.id, toSiteId),
+      siteId: toSiteId,
+      accuracyM: fix.accuracyM,
+      accepted: false,
+      reason: "MOCK_LOCATION",
+      atMs,
+    });
+    return false;
+  }
   if (session.domainStatus === "TRASLADO") {
     const open = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
     if (open && open.toSiteId === toSiteId) return commitArrival(session, toSiteId, fix, atMs, kind);
@@ -551,6 +578,8 @@ export const GeofenceRuntimeService = {
       if (zone === "inside") reason = "INSIDE_RADIUS";
       else if (reason === null) reason = "FLICKER_DWELL";
     }
+    if (issue === "MOCK_LOCATION") await noteMockedFix(session.id);
+    if (fix && !fix.mocked) await rememberFix(fix);
     const fact: SpatialFact = {
       sessionId: session.id,
       type,
@@ -562,9 +591,9 @@ export const GeofenceRuntimeService = {
       reliable: reason === null,
       reason,
       siteId: target.siteId,
+      ...(fix?.mocked ? { mocked: true } : {}),
     };
     await SessionEngineService.recordSpatialFact(fact);
-    if (fix && reason === null) await rememberFix(fix, nowMs);
 
     if (type === "ENTER") {
       const pending = await GeofenceRuntimeService.getPendingExit();
@@ -734,6 +763,19 @@ export const GeofenceRuntimeService = {
     }
     const nowMs = TimeAuthorityService.now();
     const fix = await readFix();
+    if (fix?.mocked) {
+      await noteMockedFix(ctx.session.id);
+      await appendGeofenceDiag({
+        kind: "EXIT",
+        region: geofenceIdentifier(ctx.session.id, ctx.target.siteId),
+        siteId: ctx.target.siteId,
+        accuracyM: fix.accuracyM,
+        accepted: false,
+        reason: "MOCK_LOCATION",
+        atMs: nowMs,
+      });
+      return false;
+    }
     const { zone, far } = zoneOf(fix, ctx.target);
     const gate = confirmExitDecision({
       zone,
@@ -793,7 +835,14 @@ export const GeofenceRuntimeService = {
    * geocerca», perfil de espera). No graba rastro: solo confirma llegada,
    * salida o traslado cuando la geocerca nativa no avisó.
    */
-  async observeSample(sample: { lat: number; lon: number; accuracyM: number | null; speedMps?: number | null; timestampMs?: number }): Promise<void> {
+  async observeSample(sample: {
+    lat: number;
+    lon: number;
+    accuracyM: number | null;
+    speedMps?: number | null;
+    timestampMs?: number;
+    mocked?: boolean;
+  }): Promise<void> {
     const ctx = await loadContext();
     if (!ctx) return;
     const nowMs = TimeAuthorityService.now();
@@ -811,7 +860,28 @@ export const GeofenceRuntimeService = {
       return;
     }
     const at = clampSampleTimestamp(rawAt, nowMs);
-    const fix: Fix = { lat: sample.lat, lon: sample.lon, accuracyM: sample.accuracyM, speedMps: sample.speedMps ?? null, timestampMs: at };
+    const fix: Fix = {
+      lat: sample.lat,
+      lon: sample.lon,
+      accuracyM: sample.accuracyM,
+      speedMps: sample.speedMps ?? null,
+      timestampMs: at,
+      mocked: sample.mocked === true,
+    };
+    try {
+    if (fix.mocked) {
+      await noteMockedFix(ctx.session.id);
+      await appendGeofenceDiag({
+        kind: "SAMPLE",
+        region: geofenceIdentifier(ctx.session.id, ctx.target.siteId),
+        siteId: ctx.target.siteId,
+        accuracyM: sample.accuracyM,
+        accepted: false,
+        reason: "MOCK_LOCATION",
+        atMs: at,
+      });
+      return;
+    }
     const { zone } = zoneOf(fix, ctx.target);
     const { session, target } = ctx;
     const pending = await GeofenceRuntimeService.getPendingExit();
@@ -893,6 +963,9 @@ export const GeofenceRuntimeService = {
         atMs: at,
       });
       await GeofenceRuntimeService.checkPendingExit();
+    }
+    } finally {
+      await rememberFix(fix);
     }
   },
 

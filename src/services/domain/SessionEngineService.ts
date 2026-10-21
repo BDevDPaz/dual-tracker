@@ -446,7 +446,16 @@ export const SessionEngineService = {
             reason: `${fact.type}${fact.reliable ? "" : `_UNRELIABLE:${fact.reason ?? ""}`}`,
             timestampMs: fact.timestampMs,
             integrityClass: null,
-            data: { factId: id, type: fact.type, accuracyM: fact.accuracyM, reliable: fact.reliable, siteId: fact.siteId ?? null },
+            data: {
+              factId: id,
+              type: fact.type,
+              accuracyM: fact.accuracyM,
+              reliable: fact.reliable,
+              siteId: fact.siteId ?? null,
+              ...(fact.mocked ? { mocked: true } : {}),
+              ...(fact.reason === "MOCK_LOCATION" ? { severity: "HIGH" } : {}),
+              ...(fact.reason === "LOCATION_JUMP_DETECTED" || fact.reason === "IMPOSSIBLE_SPEED" ? { severity: "MEDIUM" } : {}),
+            },
           },
           db,
         );

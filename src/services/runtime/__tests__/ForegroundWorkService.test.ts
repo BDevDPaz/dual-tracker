@@ -28,28 +28,28 @@ describe("ForegroundWorkService", () => {
   });
 
   test("PAUSADA mantiene el servicio en marcha", async () => {
-    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toBe("running");
-    expect(await ForegroundWorkService.sync("PAUSADA", "BREADCRUMB")).toBe("running");
+    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toMatchObject({ status: "running" });
+    expect(await ForegroundWorkService.sync("PAUSADA", "BREADCRUMB")).toMatchObject({ status: "running" });
     expect(await ForegroundWorkService.isRunning()).toBe(true);
     await ForegroundWorkService.stop();
   });
 
   test("sync arranca en ACTIVA y para en CERRADA", async () => {
-    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toBe("running");
+    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toMatchObject({ status: "running" });
     expect(LocationMock.__state.locationUpdates.has(BREADCRUMB_TASK_NAME)).toBe(true);
-    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toBe("running"); // idempotente
-    expect(await ForegroundWorkService.sync("CERRADA", "BREADCRUMB")).toBe("stopped");
+    expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toMatchObject({ status: "running", reason: "UNCHANGED" });
+    expect(await ForegroundWorkService.sync("CERRADA", "BREADCRUMB")).toMatchObject({ status: "stopped", reason: "NOT_REQUIRED" });
     expect(await ForegroundWorkService.isRunning()).toBe(false);
   });
 
   test("relabel reescribe la notificación del FGS; sin relabel el texto queda", async () => {
     setLanguage("es");
-    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toBe("running");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });
     expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
     setLanguage("en");
-    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toBe("running");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running", reason: "UNCHANGED" });
     expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
-    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { relabel: true })).toBe("running");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { relabel: true })).toMatchObject({ status: "running" });
     expect(fgsBody()).toBe("Shift in progress · zone monitoring active");
     await ForegroundWorkService.stop();
     setLanguage("es");
@@ -57,7 +57,7 @@ describe("ForegroundWorkService", () => {
 
   test("en iOS arranca con deferred updates y sin foregroundService", async () => {
     Object.defineProperty(Platform, "OS", { value: "ios", configurable: true });
-    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toBe("running");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });
     const opts = LocationMock.__state.locationUpdates.get(BREADCRUMB_TASK_NAME) as {
       deferredUpdatesInterval?: number;
       deferredUpdatesDistance?: number;
@@ -70,7 +70,7 @@ describe("ForegroundWorkService", () => {
 
   test("sin permiso de background no arranca (y no crashea)", async () => {
     LocationMock.__setPermissions({ background: "denied" });
-    expect(await ForegroundWorkService.sync("TRASLADO", "PERIMETER")).toBe("stopped");
+    expect(await ForegroundWorkService.sync("TRASLADO", "PERIMETER")).toMatchObject({ status: "stopped", reason: "BACKGROUND_DENIED" });
     expect(LocationMock.__state.locationUpdates.size).toBe(0);
   });
 });

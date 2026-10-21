@@ -48,7 +48,17 @@ export type LedgerIntent =
    * domain_status ilegible. La jornada queda en CUARENTENA, fuera de la nómina,
    * hasta que alguien la revise. El payload guarda el texto original.
    */
-  | "SESSION_QUARANTINED";
+  | "SESSION_QUARANTINED"
+  /** El servicio de ubicación no estaba en marcha con jornada abierta. */
+  | "MONITORING_STOPPED_DETECTED"
+  /** Un intento de relanzar el servicio. `data.success` dice si arrancó. */
+  | "SERVICE_RECOVERY"
+  /** Los intentos de relanzar se agotaron. Severidad HIGH. No cierra la jornada. */
+  | "SERVICE_RECOVERY_FAILED"
+  /** Hueco de monitoreo de al menos 5 min. No es la jornada huérfana (45 min). */
+  | "MONITORING_GAP"
+  /** startLocationUpdatesAsync no pudo arrancar. Severidad HIGH. */
+  | "FOREGROUND_SERVICE_START_FAILED";
 
 export interface LedgerEntry {
   id: number;

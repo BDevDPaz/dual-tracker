@@ -15,7 +15,8 @@
 export const DB_NAME = "dual_tracker_v1.db";
 // v2: reparación de date_string; v3: FieldCrypto v1.3 (DDL sin clave + paso de datos con clave, §7).
 // v4: claves foráneas (reconstrucción de tablas) y recorded_timezone.
-export const SCHEMA_VERSION = 4;
+// v5: spatial_facts.mocked (ubicación simulada). Columna NULL: las filas viejas siguen.
+export const SCHEMA_VERSION = 5;
 
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
@@ -35,6 +36,9 @@ export const OFFLINE_QUEUE_ADDED_COLUMNS: [string, string][] = [
   ["idempotency_key", "TEXT"],
   ["next_attempt_at_ms", "INTEGER"],
 ];
+
+/** Hechos espaciales: flag de proveedor simulado. NULL en filas anteriores. */
+export const SPATIAL_ADDED_COLUMNS: [string, string][] = [["mocked", "INTEGER"]];
 
 export const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (
@@ -123,7 +127,8 @@ export const CREATE_TABLES_SQL = `
     reliable INTEGER NOT NULL,
     reason TEXT,
     battery REAL,
-    timestamp_ms INTEGER NOT NULL
+    timestamp_ms INTEGER NOT NULL,
+    mocked INTEGER
   );
   CREATE INDEX IF NOT EXISTS idx_spatial_session ON spatial_facts(session_id, timestamp_ms);
 
@@ -227,6 +232,10 @@ export const KV_KEYS = {
   EXIT_DECISION: "runtime.exit_decision",
   LAST_SWEEP_DAY: "runtime.last_integrity_sweep_day",
   LAST_FIX: "runtime.last_fix",
+  /** Heartbeat ya anotado como MONITORING_GAP, para no repetir el mismo hueco. */
+  MONITORING_GAP_NOTE: "runtime.monitoring_gap_note",
+  /** Jornada para la que ya se avisó de ubicación simulada. */
+  MOCK_NOTICE: "runtime.mock_notice",
   /** Bitácora de geocerca sin coordenadas (diagnóstico en Salud). */
   GEOFENCE_DIAG: "runtime.geofence_diag",
   /** Última sonda de hora de red y las muestras que aún no confirman deriva. */

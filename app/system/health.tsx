@@ -1,8 +1,8 @@
 /**
  * system/health.tsx — Salud operativa (Producto §5.15). NUEVO.
- * Ocho sensores: locationForeground, locationBackground, notifications,
+ * Sensores: locationForeground, locationBackground, notifications,
  * foregroundService, batteryOptimization, clockDrift, isMonitoring,
- * lastSpatialFactAt. Cada fila: estado, impacto en integridad ("sin esto no
+ * lastSpatialFactAt, networkTime y ubicación simulada. Cada fila: estado, impacto ("sin esto no
  * hay VALIDADA") y CTA Reparar hacia el ajuste nativo cuando existe.
  * Intenciones: REQUEST_PERMISSION, OPEN_OS_SETTINGS.
  */
@@ -81,6 +81,7 @@ export default function HealthScreen() {
     { sensor: "batteryOptimization", value: tHealthValue(h.batteryOptimization), ok: h.batteryOptimization !== "restricted", blocksValid: sensorBlocksValid("batteryOptimization"), repair: { type: "OPEN_OS_SETTINGS", target: "BATTERY" } },
     { sensor: "clockDriftMs", value: `${Math.round(h.clockDriftMs / 1000)} s`, ok: !h.clockDriftExceeded, blocksValid: sensorBlocksValid("clockDriftMs") },
     { sensor: "isMonitoring", value: h.isMonitoring ? t("health.ok") : "—", ok: h.isMonitoring || !hasOpenSession, blocksValid: sensorBlocksValid("isMonitoring") },
+    { sensor: "mockLocation", value: h.mockLocation ? t("health.mockDetected") : t("health.mockClear"), ok: !h.mockLocation, blocksValid: sensorBlocksValid("mockLocation") },
     { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: true, blocksValid: sensorBlocksValid("lastSpatialFactAt") },
     { sensor: "networkTime", value: t(`health.network.${h.networkTime}`), ok: h.networkTime !== "offline", blocksValid: sensorBlocksValid("networkTime") },
   ];

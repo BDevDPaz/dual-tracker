@@ -32,7 +32,7 @@ import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtil
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
 import { ensureForeignKeys } from "./foreignKeyMigration";
-import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SITE_ADDED_COLUMNS } from "./schema";
+import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SITE_ADDED_COLUMNS, SPATIAL_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
@@ -212,6 +212,8 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   // v3 DDL (FieldCrypto §7): sin clave. El paso de datos va en runCryptoDataMigrations.
   for (const [col, def] of SITE_ADDED_COLUMNS) await addColumnIfMissing(database, "sites", col, def);
   for (const [col, def] of OFFLINE_QUEUE_ADDED_COLUMNS) await addColumnIfMissing(database, "offline_queue", col, def);
+  // Antes de reconstruir foráneas, para que el SELECT de la copia vea `mocked`.
+  for (const [col, def] of SPATIAL_ADDED_COLUMNS) await addColumnIfMissing(database, "spatial_facts", col, def);
   // v2: reparación de date_string (ver arriba).
   await repairInvalidDateStrings(database);
   // Paso de datos sin clave: pausas antiguas desde el ledger (una vez).
@@ -697,8 +699,8 @@ export const PersistenceService = {
     const d = database ?? (await ensureReady());
     // §8: INSERT con coords_sealed NULL → lastInsertRowId → encryptJson(rowId) → UPDATE.
     const res = await d.runAsync(
-      `INSERT INTO spatial_facts (session_id, site_id, type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms)
-       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO spatial_facts (session_id, site_id, type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms, mocked)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
       [
         fact.sessionId,
         fact.siteId ?? null,
@@ -709,6 +711,7 @@ export const PersistenceService = {
         fact.reason ?? null,
         fact.battery ?? null,
         fact.timestampMs,
+        fact.mocked === true ? 1 : fact.mocked === false ? 0 : null,
       ],
     );
     const id = Number(res.lastInsertRowId);
@@ -733,6 +736,16 @@ export const PersistenceService = {
       params,
     );
     return Promise.all(rows.map(rowToSpatialFact));
+  },
+
+  /** Lecturas marcadas como simuladas. Las filas viejas (columna NULL) no cuentan. */
+  async countMockedFacts(sessionId: number): Promise<number> {
+    const d = await ensureReady();
+    const r = await d.getFirstAsync<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM spatial_facts WHERE session_id = ? AND (mocked = 1 OR reason = 'MOCK_LOCATION')`,
+      [sessionId],
+    );
+    return Number(r?.n ?? 0);
   },
 
   async lastSpatialFactAt(): Promise<number | null> {
@@ -801,10 +814,10 @@ export const PersistenceService = {
   },
 
   /** runtime.last_fix cifrado (§6, fieldId kv.lastFix, rowId = la clave KV). Acepta el valor legado en claro. */
-  async getLastFix(): Promise<{ lat: number; lon: number; timestampMs: number } | null> {
+  async getLastFix(): Promise<{ lat: number; lon: number; timestampMs: number; accuracyM?: number } | null> {
     const raw = await PersistenceService.getKv<unknown>(KV_KEYS.LAST_FIX);
     if (raw === null) return null;
-    if (typeof raw === "object") return raw as { lat: number; lon: number; timestampMs: number };
+    if (typeof raw === "object") return raw as { lat: number; lon: number; timestampMs: number; accuracyM?: number };
     try {
       return await FieldCryptoService.decryptJson("kv.lastFix", KV_KEYS.LAST_FIX, raw as string);
     } catch {
@@ -812,7 +825,7 @@ export const PersistenceService = {
     }
   },
 
-  async setLastFix(fix: { lat: number; lon: number; timestampMs: number }): Promise<void> {
+  async setLastFix(fix: { lat: number; lon: number; timestampMs: number; accuracyM?: number }): Promise<void> {
     const enc = await FieldCryptoService.encryptJson("kv.lastFix", KV_KEYS.LAST_FIX, fix);
     await PersistenceService.setKv(KV_KEYS.LAST_FIX, enc.stored);
   },

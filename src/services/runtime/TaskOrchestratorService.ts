@@ -28,6 +28,7 @@ import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { readHeartbeat, touchHeartbeat } from "./heartbeat";
+import { recoverMonitoring } from "./monitoringRecovery";
 import { NotificationService } from "./NotificationService";
 import type { ExitDecisionDeadline } from "./tasks";
 import {
@@ -119,6 +120,9 @@ export const TaskOrchestratorService = {
       // un hueco de más de 45 min no se vería.
       await runExitDecisionTimer().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "EXIT_DECISION_TIMER", serializeError(e)));
       await runSessionWatchdog().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "SESSION_WATCHDOG", serializeError(e)));
+      // El vigilante ya lo intentó. Esta segunda pasada no repite los 3
+      // fallos (enfriamiento) y vuelve a registrar la geocerca si falta.
+      await recoverMonitoring("background");
       await TaskOrchestratorService.heartbeat();
       await runIntegritySweep().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "INTEGRITY_SWEEP", serializeError(e)));
       await runPayrollExport().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "PAYROLL_EXPORT", serializeError(e)));
@@ -152,8 +156,11 @@ export const TaskOrchestratorService = {
     if (!appStateSub) {
       appStateSub = AppState.addEventListener("change", (s: AppStateStatus) => {
         if (s === "active") {
-          TaskOrchestratorService.heartbeat();
-          onForeground();
+          void (async () => {
+            await recoverMonitoring("foreground");
+            await TaskOrchestratorService.heartbeat();
+            onForeground();
+          })();
         }
       });
     }
