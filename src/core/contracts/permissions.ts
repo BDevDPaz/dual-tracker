@@ -28,6 +28,11 @@ export interface SystemHealthSnapshot {
   isMonitoring: boolean;
   /** Último hecho espacial persistido. */
   lastSpatialFactAt: number | null;
+  /**
+   * Hubo un fix simulado en la jornada abierta. Solo aviso: no bloquea
+   * VALIDADA y no cambia el pago. El fichaje automático sí queda suspendido.
+   */
+  mockLocation: boolean;
   locationServicesEnabled: boolean | null;
   checkedAtMs: number | null;
   /** Estado de la cadena del ledger (spec v1.3 §5.5). */
@@ -78,4 +83,5 @@ export type HealthSensor = keyof Pick<
   | "isMonitoring"
   | "lastSpatialFactAt"
   | "networkTime"
+  | "mockLocation"
 >;

@@ -294,6 +294,13 @@ function sealWarningBlock(input: ReportInput): string {
   return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
 }
 
+/** Solo si hubo lecturas simuladas. Un expediente sin ellas no cambia el HTML. */
+function mockLocationBlock(traces: { mockedFacts?: number }[]): string {
+  const n = traces.reduce((sum, tr) => sum + (tr.mockedFacts && tr.mockedFacts > 0 ? tr.mockedFacts : 0), 0);
+  if (n <= 0) return "";
+  return `<div class="seal-warning" data-mock-location="1">${escapeHtml(t("comprobante.mockLocation", { n }))}</div>`;
+}
+
 /** Comprobante del empleado: resumen legible, sin rastro. Las filas de 0 min no se listan. */
 export function renderEmployeeReceipt(input: ReportInput): string {
   if (isPremiumDocument(input)) return renderPremiumDocument(input, "EMPLOYEE_RECEIPT");
@@ -302,6 +309,7 @@ export function renderEmployeeReceipt(input: ReportInput): string {
     ${header("Dual Tracker", "Comprobante del empleado", input)}
     ${uncertifiedStamp(input)}
     ${sealWarningBlock(input)}
+    ${mockLocationBlock(input.evidence.traces)}
     ${stats(input.statement)}
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${rows.html}</tbody></table>
     ${omittedNote(rows.omitted)}
@@ -327,6 +335,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${header("Dual Tracker", "Expediente del empleador", input)}
     ${uncertifiedStamp(input)}
     ${sealWarningBlock(input)}
+    ${mockLocationBlock(input.evidence.traces)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input, false).html}</tbody></table>

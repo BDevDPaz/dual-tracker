@@ -520,6 +520,12 @@ function transitAnnex(input: ReportInput, lang: Language): string {
     </section>`;
 }
 
+function mockLocationBlock(traces: { mockedFacts?: number }[], lang: Language): string {
+  const n = traces.reduce((sum, tr) => sum + (tr.mockedFacts && tr.mockedFacts > 0 ? tr.mockedFacts : 0), 0);
+  if (n <= 0) return "";
+  return `<div class="seal-warning" data-mock-location="1">${escapeHtml(t("comprobante.mockLocation", { n }, lang))}</div>`;
+}
+
 function enterExitAnnex(input: ReportInput, lang: Language): string {
   const fmt: FormatOptions = { lang };
   const events = input.evidence.traces.flatMap((tr) => tr.enterExit.map((e) => ({ sessionId: tr.sessionId, type: e.type, timestampMs: e.timestampMs, reliable: e.reliable })));
@@ -560,6 +566,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
     ${watermark}
     <div class="sheet">
       ${headerBlock(input, role, lang)}
+      ${mockLocationBlock(input.evidence.traces, lang)}
       ${signatureBlock(input, lang)}
       ${metricsBlock(input, lang)}
       ${rows.html}

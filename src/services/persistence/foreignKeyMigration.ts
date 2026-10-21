@@ -155,15 +155,16 @@ const REBUILD_SQL = `
     reliable INTEGER NOT NULL,
     reason TEXT,
     battery REAL,
-    timestamp_ms INTEGER NOT NULL
+    timestamp_ms INTEGER NOT NULL,
+    mocked INTEGER
   );
   INSERT INTO spatial_facts (
-    id, session_id, site_id, type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms
+    id, session_id, site_id, type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms, mocked
   )
   SELECT
     id, session_id,
     CASE WHEN site_id IS NOT NULL AND site_id NOT IN (SELECT id FROM sites) THEN NULL ELSE site_id END,
-    type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms
+    type, coords_sealed, accuracy_m, source, reliable, reason, battery, timestamp_ms, mocked
   FROM spatial_facts_v4_old
   WHERE session_id IN (SELECT id FROM sessions)
   ORDER BY id;

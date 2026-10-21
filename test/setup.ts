@@ -34,6 +34,8 @@ import { time } from "./time";
 import { CREATE_TABLES_SQL } from "../src/services/persistence/schema";
 import { ConcurrencyGuardService } from "../src/services/domain/ConcurrencyGuardService";
 import { GeofenceRuntimeService } from "../src/services/runtime/GeofenceRuntimeService";
+import { ForegroundWorkService } from "../src/services/runtime/ForegroundWorkService";
+import { __resetMonitoringRecoveryForTests } from "../src/services/runtime/monitoringRecovery";
 import { Store } from "../src/core/store";
 import { FieldCryptoService } from "../src/services/persistence/FieldCryptoService";
 
@@ -56,6 +58,8 @@ beforeEach(async () => {
   time.reset();
   ConcurrencyGuardService.__resetForTests();
   GeofenceRuntimeService.__resetForTests();
+  ForegroundWorkService.__resetForTests();
+  __resetMonitoringRecoveryForTests();
   Store.reset();
   FieldCryptoService.__resetForTests();
   (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();

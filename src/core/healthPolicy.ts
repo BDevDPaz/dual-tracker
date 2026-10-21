@@ -18,6 +18,7 @@ export const HEALTH_SENSOR_IMPACT: Record<HealthSensor, SensorImpact> = {
   isMonitoring: "warning",
   lastSpatialFactAt: "warning",
   networkTime: "warning",
+  mockLocation: "warning",
 };
 
 export function sensorBlocksValid(sensor: HealthSensor): boolean {

@@ -41,6 +41,7 @@ export async function runBreadcrumbTask(
       altitudeM: l.coords.altitude ?? null,
       timestampMs: l.timestamp,
       source: (l.coords.accuracy ?? 999) <= 50 ? ("gps" as const) : ("network" as const),
+      mocked: l.mocked === true,
     }));
     await TraceRecorderService.ingest(session, samples, { mode: settings.company.traceMode, radiusM, battery: level });
     // Solo reinicia el servicio si la banda de batería cambió el intervalo.
@@ -52,6 +53,7 @@ export async function runBreadcrumbTask(
       accuracyM: last.accuracyM,
       speedMps: last.speedMps,
       timestampMs: last.timestampMs,
+      mocked: last.mocked,
     });
   } catch (error) {
     LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "fallo en tarea de miga de pan", serializeError(error));

@@ -1,5 +1,5 @@
 /** Histéresis y radio mínimo del SO: sin geocerca nativa. */
-import { ANDROID_MIN_OS_RADIUS_M, confirmExitDecision, isFarOutside, movementIssue, osGeofenceRadius, presenceZone, shouldArmExit } from "../geofencePolicy";
+import { ANDROID_MIN_OS_RADIUS_M, confirmExitDecision, effectiveJumpMeters, isFarOutside, movementIssue, osGeofenceRadius, presenceZone, shouldArmExit } from "../geofencePolicy";
 
 describe("geofencePolicy", () => {
   test("Android no registra por debajo de 100 m; iOS conserva el radio lógico", () => {
@@ -43,5 +43,19 @@ describe("geofencePolicy", () => {
     expect(movementIssue({ speedMps: null, jumpM: 10_000, jumpDtMs: 20 * 60_000 })).toBeNull();
     expect(movementIssue({ speedMps: null, jumpM: 10_000, jumpDtMs: 5_000 })).toBe("LOCATION_JUMP_DETECTED");
     expect(movementIssue({ speedMps: 80, jumpM: null, jumpDtMs: null })).toBe("IMPOSSIBLE_SPEED");
+  });
+
+  test("el error de los dos fixes se resta y por debajo de 5 s no se juzga el salto", () => {
+    expect(effectiveJumpMeters(60, 40, 40)).toBe(0);
+    expect(effectiveJumpMeters(300, 150, 150)).toBe(0);
+    expect(effectiveJumpMeters(120_000, 10, 10)).toBe(119_980);
+    expect(effectiveJumpMeters(100, undefined, null)).toBe(100);
+    expect(movementIssue({ speedMps: null, jumpM: 0, jumpDtMs: 1_000 })).toBeNull();
+    expect(movementIssue({ speedMps: null, jumpM: 10_000, jumpDtMs: 0 })).toBeNull();
+    expect(movementIssue({ speedMps: null, jumpM: 10_000, jumpDtMs: -1 })).toBeNull();
+    expect(movementIssue({ speedMps: null, jumpM: 10_000, jumpDtMs: 4_999 })).toBeNull();
+    expect(movementIssue({ speedMps: null, jumpM: 10_000, jumpDtMs: 5_000 })).toBe("LOCATION_JUMP_DETECTED");
+    expect(movementIssue({ speedMps: null, jumpM: 119_980, jumpDtMs: 5 * 60_000 })).toBe("LOCATION_JUMP_DETECTED");
+    expect(movementIssue({ speedMps: null, jumpM: 300, jumpDtMs: 5_000 })).toBe("LOCATION_JUMP_DETECTED");
   });
 });

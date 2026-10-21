@@ -24,10 +24,56 @@ import type { SessionRecordStatus, TraceMode } from "../../core/contracts";
 import { BREADCRUMB_TASK_NAME } from "../../constants/geolocation";
 import { t } from "../../i18n";
 import { serializeError } from "../../utils/serializeError";
+import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
+import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../evidence/TraceRecorderService";
 import { LoggingService } from "../persistence/LoggingService";
+import { PersistenceService } from "../persistence/PersistenceService";
 
 let currentProfileKey: string | null = null;
+/** Misma causa no se vuelve a asentar hasta que un arranque tenga éxito. */
+let lastFailureKey: string | null = null;
+
+export type ForegroundSyncReason = "NOT_REQUIRED" | "UNCHANGED" | "STARTED" | "BACKGROUND_DENIED" | "START_FAILED";
+
+export interface ForegroundSyncResult {
+  status: "running" | "stopped";
+  reason: ForegroundSyncReason;
+  errorName: string | null;
+}
+
+function errorNameOf(error: unknown): string {
+  if (error instanceof Error && error.name) return error.name;
+  return "Error";
+}
+
+async function recordStartFailure(reason: "BACKGROUND_DENIED" | "START_FAILED", errorName: string | null): Promise<void> {
+  const key = `${reason}:${errorName ?? ""}`;
+  if (lastFailureKey === key) return;
+  try {
+    const session = await PersistenceService.getOpenSession();
+    const state = session?.domainStatus ?? null;
+    await PersistenceService.transaction(async (db) => {
+      await IntegrityLedgerService.append(
+        {
+          sessionId: session?.id ?? null,
+          actor: "SYSTEM",
+          intent: "FOREGROUND_SERVICE_START_FAILED",
+          fromState: state,
+          toState: state,
+          reason,
+          timestampMs: TimeAuthorityService.now(),
+          integrityClass: null,
+          data: { severity: "HIGH", errorName, reason },
+        },
+        db,
+      );
+    });
+    lastFailureKey = key;
+  } catch (error) {
+    LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo anotar el fallo del servicio en primer plano", serializeError(error));
+  }
+}
 
 export const ForegroundWorkService = {
   /** ¿Debe estar corriendo en este estado? El almuerzo también: si no, Android lo da por parado. */
@@ -48,20 +94,24 @@ export const ForegroundWorkService = {
     status: SessionRecordStatus | "NO_INICIADA",
     mode: TraceMode,
     opts?: { relabel?: boolean; battery?: number | null },
-  ): Promise<"running" | "stopped"> {
+  ): Promise<ForegroundSyncResult> {
     const profile = ForegroundWorkService.shouldRun(status) ? TraceRecorderService.profileFor(status, mode, opts?.battery) : null;
     if (!profile) {
       await ForegroundWorkService.stop();
-      return "stopped";
+      return { status: "stopped", reason: "NOT_REQUIRED", errorName: null };
     }
     const key = `${Platform.OS}:${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
     const running = await ForegroundWorkService.isRunning();
-    if (running && key === currentProfileKey && !opts?.relabel) return "running";
+    if (running && key === currentProfileKey && !opts?.relabel) {
+      lastFailureKey = null;
+      return { status: "running", reason: "UNCHANGED", errorName: null };
+    }
     try {
       const bg = await Location.getBackgroundPermissionsAsync();
       if (bg.status !== "granted") {
         LoggingService.log("NARANJA", "UBICACION", "WARN", "FGS no iniciado: sin ubicación en segundo plano");
-        return "stopped";
+        await recordStartFailure("BACKGROUND_DENIED", null);
+        return { status: "stopped", reason: "BACKGROUND_DENIED", errorName: null };
       }
       if (running) await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
       const ios = Platform.OS === "ios";
@@ -88,11 +138,14 @@ export const ForegroundWorkService = {
             }),
       });
       currentProfileKey = key;
+      lastFailureKey = null;
       LoggingService.log("VERDE", "SERVICIOS_ACTIVOS", "INFO", "Servicio en primer plano activo", { status, platform: Platform.OS });
-      return "running";
+      return { status: "running", reason: "STARTED", errorName: null };
     } catch (error) {
+      const errorName = errorNameOf(error);
       LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo iniciar el servicio en primer plano", serializeError(error));
-      return "stopped";
+      await recordStartFailure("START_FAILED", errorName);
+      return { status: "stopped", reason: "START_FAILED", errorName };
     }
   },
 
@@ -102,5 +155,10 @@ export const ForegroundWorkService = {
       await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
       LoggingService.log("NARANJA", "MONITOREO_DETENIDO", "INFO", "Servicio en primer plano detenido");
     }
+  },
+
+  __resetForTests(): void {
+    currentProfileKey = null;
+    lastFailureKey = null;
   },
 };

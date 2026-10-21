@@ -11,11 +11,16 @@ import { observeClock } from "../../evidence/clockSample";
 import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
+import { recoverMonitoring } from "../monitoringRecovery";
 import { reviewAbandonedSession } from "../orphanSession";
 
 export async function runSessionWatchdog(): Promise<void> {
   const session = await PersistenceService.getOpenSession();
   if (!session) return;
+  // Antes del cierre de 12 h y del hueco de huérfana: el último asiento de
+  // esas pruebas sigue siendo el del motor, y el hueco se mide con el
+  // heartbeat todavía sin renovar.
+  await recoverMonitoring("background");
   const now = TimeAuthorityService.now();
 
   // Hora de red también en el vigilante. Sin red no bloquea.
