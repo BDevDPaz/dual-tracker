@@ -14,6 +14,12 @@ describe("TransitPolicyService", () => {
     expect(TransitPolicyService.decide(seg, { ...COMPANY, transitPaid: true, transitRateMultiplier: 1, transitCountsTowardOvertime: true })).toEqual({ paid: true, rateMultiplier: 1, countsTowardOvertime: true });
     expect(TransitPolicyService.decide(seg, { ...COMPANY, transitPaid: false, transitCountsTowardOvertime: true }).countsTowardOvertime).toBe(false);
     expect(TransitPolicyService.decide({ ...seg, cancelled: true }, COMPANY).paid).toBe(false);
+    expect(TransitPolicyService.decide({ ...seg, cancelled: true, paid: true, rateMultiplier: 1 }, COMPANY)).toEqual({
+      paid: true,
+      rateMultiplier: 1,
+      countsTowardOvertime: false,
+    });
+    expect(TransitPolicyService.segmentMinutes({ ...seg, cancelled: true, paid: true, endAtMs: seg.startAtMs + 24 * MIN }, seg.startAtMs + 30 * MIN)).toBe(24);
     expect(TransitPolicyService.decide({ ...seg, paid: true, rateMultiplier: 1, countsTowardOvertime: true }, { ...COMPANY, transitPaid: false }).paid).toBe(true);
     expect(TransitPolicyService.decide({ ...seg, paid: false }, { ...COMPANY, transitPaid: true }).paid).toBe(false);
   });

@@ -69,7 +69,7 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
     case "START_TRANSFER":
       return { type: "TRANSFER_START", toSiteId: i.toSiteId };
     case "CANCEL_TRANSFER":
-      return { type: "TRANSFER_CANCEL" };
+      return i.note?.trim() ? { type: "TRANSFER_CANCEL", note: i.note.trim() } : { type: "TRANSFER_CANCEL" };
     case "STAY_WORKING":
       return { type: "STAY_WORKING" };
     case "CLOSE_DAY":

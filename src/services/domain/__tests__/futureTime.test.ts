@@ -183,6 +183,10 @@ describe("hora futura", () => {
       "manifestVersion",
       "contentHash",
       "sealWarnings",
+      "appVersion",
+      "versionCode",
+      "gitCommit",
+      "sessionTimeZones",
     ]);
     expect(sealed.data.manifest.sealWarnings ?? []).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: "SESSION_ENDS_AFTER_SEAL" })]));
 

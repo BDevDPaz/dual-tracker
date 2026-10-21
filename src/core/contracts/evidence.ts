@@ -5,13 +5,51 @@ import type { TraceSummary } from "./spatial";
  * EvidencePack (Propuesta Técnica §5.10): expediente reproducible del periodo.
  * "Contiene: PayrollStatement, asientos del ledger, resumen de traza, hashes y policyId."
  */
+/**
+ * Un eslabón exportado. v5 añade `prevHash` y `payloadJson` para que un
+ * tercero recompute `sha256(prevHash + payloadJson)` sin la base del teléfono.
+ * El `prevHash` del primer eslabón es el ancla (puede no ser el génesis).
+ */
+export interface LedgerHashExport {
+  id: number;
+  sessionId: number | null;
+  hash: string;
+  prevHash?: string;
+  payloadJson?: string;
+}
+
+/** Tramo de tránsito tal como quedó en la jornada, para el JSON y el anexo. */
+export interface TransitSegmentExport {
+  sessionId: number;
+  id: string;
+  fromSiteId: number | null;
+  toSiteId: number;
+  startAtMs: number;
+  endAtMs: number | null;
+  cancelled: boolean;
+  paid: boolean;
+  minutes: number;
+  cancelNote?: string | null;
+  clip?: {
+    beforeStartAtMs: number;
+    beforeEndAtMs: number | null;
+    afterStartAtMs: number | null;
+    afterEndAtMs: number | null;
+  } | null;
+}
+
 export interface EvidenceSummary {
   ledgerEntryCount: number;
   ledgerHeadHash: string;
   ledgerChainValid: boolean;
-  ledgerHashes: { id: number; sessionId: number | null; hash: string }[];
+  ledgerHashes: LedgerHashExport[];
   traces: TraceSummary[];
   conflicts: { sessionId: number; reason: string }[];
+  /**
+   * v5. Ausente en packs anteriores: el contentHash de esos packs no lo incluye.
+   * Lista vacía si el periodo no tuvo traslados.
+   */
+  transitSegments?: TransitSegmentExport[];
 }
 
 /**
@@ -21,17 +59,22 @@ export interface EvidenceSummary {
  *  - 3: añade `sealWarnings` (entra en packHash, no en contentHash).
  *  - 4: misma semántica de hashes que v3, más firma Ed25519 del cuerpo canónico.
  *    La firma NO entra en packHash ni en contentHash.
+ *  - 5: añade al packHash la identidad del build (`appVersion`, `versionCode`,
+ *    `gitCommit`) y la zona de cada sesión. No cambia el contentHash de un
+ *    pack que no traiga `transitSegments` ni `prevHash` en los eslabones.
  */
-export const PACK_MANIFEST_VERSION = 4;
+export const PACK_MANIFEST_VERSION = 5;
 
 /**
  * Versión de la plantilla del PDF. No entra en packHash ni en contentHash:
  * es presentación. Los packs ya sellados no traen el campo (se leen como v1,
- * la plantilla heredada). Los sellos nuevos escriben v2.
+ * la plantilla heredada). Los sellos nuevos escriben v3.
  *  - ausente o 1: HTML heredado, siempre en español.
  *  - 2: comprobante premium (claro por defecto, es/en al sellar).
+ *  - 3: el mismo premium, más el anexo de tramos de tránsito y la identidad
+ *    del build en el pie. Sigue fuera de packHash y contentHash.
  */
-export const DOCUMENT_VERSION = 2;
+export const DOCUMENT_VERSION = 3;
 
 export type DocumentTheme = "light" | "dark";
 
@@ -88,6 +131,14 @@ export interface PackManifest {
   documentTheme?: DocumentTheme;
   /** Idioma con el que se pintó el PDF al sellar. Ausente = es. Fuera del hash. */
   documentLocale?: "es" | "en";
+  /**
+   * v5. Identidad del build y zona de cada sesión. Entran en packHash.
+   * Ausentes en v1–v4: packHashBody no las pide y el sello viejo sigue verificando.
+   */
+  appVersion?: string | null;
+  versionCode?: number | null;
+  gitCommit?: string | null;
+  sessionTimeZones?: { sessionId: number; timeZone: string }[];
   files: { role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER" | "MANIFEST_JSON"; name: string }[];
 }
 

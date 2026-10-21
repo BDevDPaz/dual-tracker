@@ -11,7 +11,7 @@ import { MICROCOPY } from "../../../i18n/microcopy";
 import { canonicalJson } from "../../../utils/canonicalJson";
 import { routeIntent } from "../../application/intentRouter";
 import { EvidencePackService, computeContentHash, packHashBody } from "../EvidencePackService";
-import { sha256Hex } from "../HashChain";
+import { chainHash, sha256Hex } from "../HashChain";
 import { COMPANY, HOUR } from "../../../../test/fixtures/session.fixture";
 import { CA_DAILY8_WEEKLY40_V2 } from "../../domain/payrollPolicies";
 import { DEFAULT_PROFILE, SettingsService } from "../../persistence/SettingsService";
@@ -228,13 +228,20 @@ describe("EvidencePackService", () => {
     expect(pack.manifest.documentTheme).toBe("dark");
     expect(pack.manifest.documentLocale).toBe("en");
     expect(pack.manifest.manifestVersion).toBe(PACK_MANIFEST_VERSION);
+    expect(pack.manifest.appVersion).toBe("1.0.0");
+    expect(pack.manifest.versionCode).toBeNull();
+    expect(pack.manifest.gitCommit).toBeNull();
+    expect(pack.manifest.sessionTimeZones?.length).toBeGreaterThan(0);
+    expect(pack.evidence.transitSegments).toEqual([]);
+    expect(pack.evidence.ledgerHashes[0]?.prevHash).toEqual(expect.any(String));
+    expect(pack.evidence.ledgerHashes[0]?.payloadJson).toEqual(expect.any(String));
     const { documentVersion: _d, documentTheme: _t, documentLocale: _l, ...legacyManifest } = pack.manifest;
     expect(canonicalJson(packHashBody(legacyManifest))).toBe(canonicalJson(packHashBody(pack.manifest)));
     expect(await EvidencePackService.verify(pack)).toMatchObject({ valid: true, legacy: false, scheme: "Ed25519", failures: [] });
 
     const files = (FileSystem as unknown as { __files: Map<string, string> }).__files;
     const sealedHtml = files.get(pack.employeePdfUri ?? "") ?? "";
-    expect(sealedHtml).toContain('data-document-version="2"');
+    expect(sealedHtml).toContain(`data-document-version="${DOCUMENT_VERSION}"`);
     expect(sealedHtml).toContain("theme-dark");
     expect(sealedHtml).toContain("Employee receipt");
     expect(sealedHtml).not.toContain(String(SITE_LAT));
@@ -282,5 +289,23 @@ describe("EvidencePackService", () => {
     expect(extra).toContain("Este anexo no incluye coordenadas.");
     expect(extra).not.toContain(String(SITE_LAT));
     expect(await EvidencePackService.verify(pack)).toMatchObject({ valid: true, failures: [] });
+  });
+
+  test("v5: cada eslabón se recomputa con prevHash y payload; un payload alterado no verifica", async () => {
+    const pack = await seal(await closedWeek());
+    const rows = pack.evidence.ledgerHashes;
+    expect(rows.length).toBeGreaterThan(1);
+    for (let i = 0; i < rows.length; i++) {
+      expect(await chainHash(rows[i].prevHash!, rows[i].payloadJson!)).toBe(rows[i].hash);
+      if (i > 0) expect(rows[i].prevHash).toBe(rows[i - 1].hash);
+    }
+    const tampered = {
+      ...pack,
+      evidence: {
+        ...pack.evidence,
+        ledgerHashes: rows.map((row, i) => (i === 0 ? { ...row, payloadJson: `${row.payloadJson} ` } : row)),
+      },
+    };
+    expect((await EvidencePackService.verify(tampered)).failures).toEqual(expect.arrayContaining(["EVIDENCE_HASH", "LEDGER_HASH"]));
   });
 });

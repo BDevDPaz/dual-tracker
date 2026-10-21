@@ -24,9 +24,24 @@ export interface TransitDecision {
   countsTowardOvertime: boolean;
 }
 
+/**
+ * Un cancelado legado (`paid !== true`) no se paga: ese tiempo contaba como
+ * jornada. Uno nuevo se congela `paid: true` y se paga a 1× sin contar para
+ * extra. Un tramo suprimido por un recorte tampoco se paga.
+ */
+export function transitIgnored(segment: TransitSegment): boolean {
+  if (segment.suppressed) return true;
+  if (segment.cancelled && segment.paid !== true) return true;
+  return false;
+}
+
 export const TransitPolicyService = {
   decide(segment: TransitSegment, company: CompanyPolicy): TransitDecision {
-    if (segment.cancelled || segment.paid === false) return { paid: false, rateMultiplier: 0, countsTowardOvertime: false };
+    if (segment.suppressed || segment.paid === false) return { paid: false, rateMultiplier: 0, countsTowardOvertime: false };
+    if (segment.cancelled && segment.paid === true) {
+      return { paid: true, rateMultiplier: segment.rateMultiplier ?? 1, countsTowardOvertime: false };
+    }
+    if (segment.cancelled) return { paid: false, rateMultiplier: 0, countsTowardOvertime: false };
     if (segment.paid === true) {
       return {
         paid: true,
@@ -50,7 +65,7 @@ export const TransitPolicyService = {
 
   /** Minutos de un tramo (abierto → hasta `nowMs`). No recorta a la jornada. */
   segmentMinutes(segment: TransitSegment, nowMs: number): number {
-    if (segment.cancelled) return 0;
+    if (transitIgnored(segment)) return 0;
     const end = segment.endAtMs ?? nowMs;
     return Math.max(0, Math.round((end - segment.startAtMs) / 60000));
   },
@@ -60,7 +75,7 @@ export const TransitPolicyService = {
    * fuera de la jornada (p. ej. tras un MANUAL_PATCH) no se paga.
    */
   boundedMinutes(segment: TransitSegment, boundStart: number, boundEnd: number): number {
-    if (segment.cancelled || !(boundEnd > boundStart)) return 0;
+    if (transitIgnored(segment) || !(boundEnd > boundStart)) return 0;
     const end = Math.min(segment.endAtMs ?? boundEnd, boundEnd);
     const start = Math.max(segment.startAtMs, boundStart);
     if (end <= start) return 0;
@@ -69,7 +84,7 @@ export const TransitPolicyService = {
 
   /** true si el tramo, tal como está guardado, sale del intervalo de la jornada. */
   overlapsOutside(segment: TransitSegment, boundStart: number, boundEnd: number): boolean {
-    if (segment.cancelled) return false;
+    if (transitIgnored(segment)) return false;
     const end = segment.endAtMs ?? boundEnd;
     return segment.startAtMs < boundStart || end > boundEnd;
   },

@@ -27,9 +27,10 @@ import type {
 import { BREADCRUMB_PROFILES } from "../../constants/geolocation";
 import { getDistanceFromLatLonInMeters, isValidCoordinate } from "../../utils/geoUtils";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
+import { siteMinutesFromSession } from "../domain/siteMinutes";
+import { TimeAuthorityService } from "./TimeAuthorityService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { trailPointPhase } from "./retentionRules";
-import { TimeAuthorityService } from "./TimeAuthorityService";
 
 /** Muestra cruda que entrega el runtime (tarea BREADCRUMB). */
 export interface RawLocationSample {
@@ -141,19 +142,14 @@ export const TraceRecorderService = {
   async summarize(session: SessionRecord): Promise<TraceSummary> {
     const facts = await PersistenceService.listSpatialFacts(session.id);
     const crumbs = facts.filter((f) => f.type === "BREADCRUMB");
-    const dwell = new Map<number | null, number>();
-    for (let i = 1; i < crumbs.length; i++) {
-      const prev = crumbs[i - 1];
-      const key = prev.siteId ?? null;
-      dwell.set(key, (dwell.get(key) ?? 0) + (crumbs[i].timestampMs - prev.timestampMs) / 60000);
-    }
     return {
       sessionId: session.id,
       pointCount: crumbs.length,
       firstAtMs: crumbs[0]?.timestampMs ?? null,
       lastAtMs: crumbs[crumbs.length - 1]?.timestampMs ?? null,
       unreliableCount: facts.filter((f) => !f.reliable).length,
-      dwellBySite: [...dwell.entries()].map(([siteId, minutes]) => ({ siteId, minutes: Math.round(minutes) })),
+      // El sitio sale de la jornada, no de la miga ni del enter/exit.
+      dwellBySite: siteMinutesFromSession(session, TimeAuthorityService.now()),
       enterExit: facts
         .filter((f): f is SpatialFact & { type: "ENTER" | "EXIT" } => f.type === "ENTER" || f.type === "EXIT")
         .map((f) => ({ type: f.type, timestampMs: f.timestampMs, reliable: f.reliable })),

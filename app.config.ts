@@ -30,6 +30,8 @@ export const D11_FLAG = "EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE";
 export const D11_VARIANT = "d11";
 /** Canal visible (Ajustes / Soporte). Lo fija el perfil preview de eas.json. */
 export const RELEASE_CHANNEL_ENV = "EXPO_PUBLIC_RELEASE_CHANNEL";
+/** Commit que el sello escribe en el manifiesto. Solo si el perfil lo define. */
+export const GIT_COMMIT_ENV = "EXPO_PUBLIC_GIT_COMMIT";
 const D11_SUFFIX = ".d11";
 
 type Env = Record<string, string | undefined>;
@@ -46,6 +48,13 @@ function withReleaseChannel(config: ExpoConfig, env: Env): ExpoConfig {
   return { ...config, extra: { ...config.extra, releaseChannel } };
 }
 
+/** Copia el commit solo cuando el entorno lo trae. Sin él, la config no cambia. */
+function withGitCommit(config: ExpoConfig, env: Env): ExpoConfig {
+  const raw = env[GIT_COMMIT_ENV]?.trim() ?? "";
+  if (!/^[0-9a-f]{7,40}$/i.test(raw)) return config;
+  return { ...config, extra: { ...config.extra, gitCommit: raw } };
+}
+
 /** Aplica la variante pedida en `env` a la config base (app.json). */
 export function applyVariant(config: ExpoConfig, env: Env): ExpoConfig {
   const variant = env.APP_VARIANT?.trim() || undefined;
@@ -60,7 +69,7 @@ export function applyVariant(config: ExpoConfig, env: Env): ExpoConfig {
         "Nunca en development, preview ni production: quita la variable del entorno o de eas.json.",
     );
   }
-  if (variant !== D11_VARIANT) return withReleaseChannel(config, env);
+  if (variant !== D11_VARIANT) return withGitCommit(withReleaseChannel(config, env), env);
 
   if (flag !== "1") {
     throw new Error(`APP_VARIANT=${D11_VARIANT} exige ${D11_FLAG}=1 (usa el perfil preview-d11 de eas.json).`);
@@ -69,16 +78,19 @@ export function applyVariant(config: ExpoConfig, env: Env): ExpoConfig {
   const bundleId = config.ios?.bundleIdentifier;
   if (!pkg || !bundleId) throw new Error("app.json debe definir android.package e ios.bundleIdentifier.");
 
-  return withReleaseChannel(
-    {
-      ...config,
-      name: `${config.name} D11`,
-      scheme: `${String(config.scheme ?? "dualtracker")}-d11`,
-      ios: { ...config.ios, bundleIdentifier: `${bundleId}${D11_SUFFIX}` },
-      android: { ...config.android, package: `${pkg}${D11_SUFFIX}` },
-      // La lee keyStore.ts en tiempo de ejecución: la bandera solo actúa en esta variante.
-      extra: { ...config.extra, appVariant: D11_VARIANT },
-    },
+  return withGitCommit(
+    withReleaseChannel(
+      {
+        ...config,
+        name: `${config.name} D11`,
+        scheme: `${String(config.scheme ?? "dualtracker")}-d11`,
+        ios: { ...config.ios, bundleIdentifier: `${bundleId}${D11_SUFFIX}` },
+        android: { ...config.android, package: `${pkg}${D11_SUFFIX}` },
+        // La lee keyStore.ts en tiempo de ejecución: la bandera solo actúa en esta variante.
+        extra: { ...config.extra, appVariant: D11_VARIANT },
+      },
+      env,
+    ),
     env,
   );
 }

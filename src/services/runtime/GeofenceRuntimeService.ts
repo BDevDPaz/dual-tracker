@@ -38,6 +38,7 @@ import {
   MAX_MONITORED_REGIONS,
   MIN_DWELL_BEFORE_EXIT_MS,
   SAMPLE_MAX_AGE_MS,
+  clampSampleTimestamp,
   confirmExitDecision,
   isFarOutside,
   movementIssue,
@@ -220,6 +221,26 @@ async function buildRegions(session: SessionRecord, target: Target): Promise<Reg
   return regions;
 }
 
+/**
+ * Instante de cierre de la llegada. No pasa de la hora de confianza, y si ya
+ * hay un ENTER fiable del destino (el del 1:09 que no fichó solo), se cierra
+ * ahí: es la llegada real, no el reloj adelantado de la muestra.
+ */
+async function arrivalInstant(session: SessionRecord, siteId: number, atMs: number): Promise<number> {
+  const now = TimeAuthorityService.now();
+  let at = clampSampleTimestamp(atMs, now);
+  if (session.domainStatus !== "ESPERANDO" && session.domainStatus !== "TRASLADO") return at;
+  const open = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
+  const floor = open?.startAtMs ?? session.actualStartAtMs ?? session.declaredStartAtMs;
+  const enters = await PersistenceService.listSpatialFacts(session.id, ["ENTER"]);
+  for (const fact of enters) {
+    if (!fact.reliable || fact.siteId !== siteId) continue;
+    if (fact.timestampMs < floor || fact.timestampMs > now) continue;
+    if (fact.timestampMs < at) at = fact.timestampMs;
+  }
+  return at;
+}
+
 async function commitArrival(
   session: SessionRecord,
   siteId: number,
@@ -229,6 +250,7 @@ async function commitArrival(
   acceptReason?: string | null,
 ): Promise<boolean> {
   if (session.domainStatus !== "ESPERANDO" && session.domainStatus !== "TRASLADO") return false;
+  atMs = await arrivalInstant(session, siteId, atMs);
   const site = await PersistenceService.getSite(siteId);
   if (!site || !isValidCoordinate(site.targetLat, site.targetLon)) return false;
   const settings = await SettingsService.load();
@@ -280,6 +302,11 @@ async function commitArrival(
 }
 
 async function beginTransfer(session: SessionRecord, toSiteId: number, fix: Fix, atMs: number, kind: "ENTER" | "SAMPLE" = "SAMPLE"): Promise<boolean> {
+  if (session.domainStatus === "TRASLADO") {
+    const open = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
+    if (open && open.toSiteId === toSiteId) return commitArrival(session, toSiteId, fix, atMs, kind);
+    return false;
+  }
   if (session.domainStatus !== "ACTIVA" && session.domainStatus !== "SALIDA") return false;
   if (toSiteId === session.siteId && session.domainStatus === "ACTIVA") return false;
   const site = await PersistenceService.getSite(toSiteId);
@@ -553,7 +580,13 @@ export const GeofenceRuntimeService = {
           reason: "RETURNED",
           atMs: nowMs,
         });
-        if (sameSite) return;
+        if (sameSite) {
+          const openDest = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
+          const arriving =
+            (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") &&
+            (openDest ? openDest.toSiteId === target.siteId : session.domainStatus === "ESPERANDO");
+          if (!arriving) return;
+        }
       }
       if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && reason === null && fix) {
         const r = await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact }, "GEOFENCE");
@@ -764,8 +797,8 @@ export const GeofenceRuntimeService = {
     const ctx = await loadContext();
     if (!ctx) return;
     const nowMs = TimeAuthorityService.now();
-    const at = sample.timestampMs ?? nowMs;
-    if (Math.abs(nowMs - at) > SAMPLE_MAX_AGE_MS) {
+    const rawAt = sample.timestampMs ?? nowMs;
+    if (Math.abs(nowMs - rawAt) > SAMPLE_MAX_AGE_MS) {
       await appendGeofenceDiag({
         kind: "SAMPLE",
         region: geofenceIdentifier(ctx.session.id, ctx.target.siteId),
@@ -777,22 +810,29 @@ export const GeofenceRuntimeService = {
       });
       return;
     }
+    const at = clampSampleTimestamp(rawAt, nowMs);
     const fix: Fix = { lat: sample.lat, lon: sample.lon, accuracyM: sample.accuracyM, speedMps: sample.speedMps ?? null, timestampMs: at };
     const { zone } = zoneOf(fix, ctx.target);
     const { session, target } = ctx;
     const pending = await GeofenceRuntimeService.getPendingExit();
     if (pending && pending.sessionId === session.id && zone === "inside") {
       await GeofenceRuntimeService.clearPendingExit();
-      await appendGeofenceDiag({
-        kind: "SAMPLE",
-        region: geofenceIdentifier(session.id, target.siteId),
-        siteId: target.siteId,
-        accuracyM: sample.accuracyM,
-        accepted: true,
-        reason: "RETURNED",
-        atMs: at,
-      });
-      return;
+      const openDest = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
+      const arriving =
+        (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") &&
+        (openDest ? openDest.toSiteId === target.siteId : session.domainStatus === "ESPERANDO");
+      if (!arriving) {
+        await appendGeofenceDiag({
+          kind: "SAMPLE",
+          region: geofenceIdentifier(session.id, target.siteId),
+          siteId: target.siteId,
+          accuracyM: sample.accuracyM,
+          accepted: true,
+          reason: "RETURNED",
+          atMs: at,
+        });
+        return;
+      }
     }
 
     if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && zone === "inside") {

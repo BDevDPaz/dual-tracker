@@ -130,14 +130,42 @@ function reject(code: IntentRejection, detail?: string): TransitionOutcome {
 }
 
 function openSegment(s: SessionRecord): TransitSegment | undefined {
-  return s.transitSegments.find((t) => t.endAtMs === null && !t.cancelled);
+  return s.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
+}
+
+/**
+ * RESOLVE_KEEP_GPS deshace el recorte de MANUAL_PATCH. Los tramos que no
+ * tenían clip (los que nacieron después) se quedan.
+ */
+export function restoreClippedTransits(segments: readonly TransitSegment[]): TransitSegment[] {
+  return segments.map((t) => {
+    if (!t.clip) return t;
+    return {
+      ...t,
+      startAtMs: t.clip.beforeStartAtMs,
+      endAtMs: t.clip.beforeEndAtMs,
+      clipped: false,
+      suppressed: false,
+      clip: null,
+    };
+  });
 }
 
 /** Cierra el tramo abierto y congela la decisión de TransitPolicy de ese instante. */
-function closeOpenSegment(s: SessionRecord, atMs: number, company: CompanyPolicy, cancelled = false): TransitSegment[] {
+function closeOpenSegment(s: SessionRecord, atMs: number, company: CompanyPolicy, cancelled = false, cancelNote: string | null = null): TransitSegment[] {
   return s.transitSegments.map((t) => {
-    if (t.endAtMs !== null || t.cancelled) return t;
-    if (cancelled) return { ...t, endAtMs: atMs, cancelled: true, paid: false, rateMultiplier: 0, countsTowardOvertime: false };
+    if (t.endAtMs !== null || t.cancelled || t.suppressed) return t;
+    if (cancelled) {
+      return {
+        ...t,
+        endAtMs: atMs,
+        cancelled: true,
+        paid: true,
+        rateMultiplier: 1,
+        countsTowardOvertime: false,
+        cancelNote,
+      };
+    }
     const d = TransitPolicyService.decide({ ...t, paid: null, cancelled: false }, company);
     return {
       ...t,
@@ -319,9 +347,36 @@ function clipTransits(s: SessionRecord, start: number, end: number): { next: Ses
       changed = true;
       clipped.push({ id: t.id, before: { startAtMs: t.startAtMs, endAtMs: tEnd }, after });
     }
-    if (!after) continue;
+    if (!after) {
+      kept.push({
+        ...t,
+        suppressed: true,
+        clipped: true,
+        clip: {
+          beforeStartAtMs: t.clip?.beforeStartAtMs ?? t.startAtMs,
+          beforeEndAtMs: t.clip ? t.clip.beforeEndAtMs : t.endAtMs,
+          afterStartAtMs: null,
+          afterEndAtMs: null,
+        },
+      });
+      continue;
+    }
     if (after.startAtMs === t.startAtMs && after.endAtMs === t.endAtMs) kept.push(t);
-    else kept.push({ ...t, startAtMs: after.startAtMs, endAtMs: after.endAtMs, clipped: true });
+    else {
+      kept.push({
+        ...t,
+        startAtMs: after.startAtMs,
+        endAtMs: after.endAtMs,
+        clipped: true,
+        suppressed: false,
+        clip: {
+          beforeStartAtMs: t.clip?.beforeStartAtMs ?? t.startAtMs,
+          beforeEndAtMs: t.clip ? t.clip.beforeEndAtMs : t.endAtMs,
+          afterStartAtMs: after.startAtMs,
+          afterEndAtMs: after.endAtMs,
+        },
+      });
+    }
   }
   if (!changed) return { next: s, clipped: [] };
   return { next: { ...s, transitSegments: kept }, clipped };
@@ -645,9 +700,10 @@ export function transition(
     case "TRANSFER_CANCEL": {
       if (!open) return reject("NO_OPEN_SESSION");
       if (open.domainStatus !== "TRASLADO") return reject("ILLEGAL_TRANSITION");
-      // TODO(propuesta): el efecto de nómina del tramo cancelado no está definido;
-      // se marca cancelled (no genera línea TRANSIT) y el tiempo cuenta como jornada.
-      const next: SessionRecord = { ...open, domainStatus: "ACTIVA", transitSegments: closeOpenSegment(open, now, ctx.company, true) };
+      // El tramo se paga como tránsito hasta la cancelación (1×, sin extra).
+      // Después de este instante el tiempo vuelve a ser jornada en el sitio.
+      const note = intent.note?.trim() || null;
+      const next: SessionRecord = { ...open, domainStatus: "ACTIVA", transitSegments: closeOpenSegment(open, now, ctx.company, true, note) };
       return ok(open, next, ctx, "TRANSFER_CANCELLED", [sync(next, next.siteId)], "TRANSFER_CANCELLED");
     }
 
@@ -888,8 +944,14 @@ export function transition(
       if (s.integrityClass !== "CONFLICT") return reject("NOT_IN_CONFLICT");
       const o = s.bookkeeping.original;
       const restored: SessionRecord = o
-        ? { ...s, declaredStartAtMs: o.declaredStartAtMs, actualStartAtMs: o.actualStartAtMs, endAtMs: o.endAtMs }
-        : s;
+        ? {
+            ...s,
+            declaredStartAtMs: o.declaredStartAtMs,
+            actualStartAtMs: o.actualStartAtMs,
+            endAtMs: o.endAtMs,
+            transitSegments: restoreClippedTransits(s.transitSegments),
+          }
+        : { ...s, transitSegments: restoreClippedTransits(s.transitSegments) };
       const cls: IntegrityClass = ctx.cleanGpsPair && !ctx.degradedReason ? "VALID" : "AUTO";
       const next: SessionRecord = {
         ...restored,

@@ -79,14 +79,15 @@ describe("TraceRecorderService", () => {
   test("summarize y distanceMeters sobre persistencia real", async () => {
     await PersistenceService.init();
     await seedSite();
-    await PersistenceService.insertSession(makeSession({ endAtMs: MONDAY_8AM + 8 * 60 * MIN, domainStatus: "CERRADA" }));
+    const session = makeSession({ endAtMs: MONDAY_8AM + 8 * 60 * MIN, domainStatus: "CERRADA" });
+    await PersistenceService.insertSession(session);
     TraceRecorderService.setSink(null);
     await PersistenceService.insertSpatialFact(makeEnter());
     await PersistenceService.insertSpatialFact(makeBreadcrumb({ timestampMs: MONDAY_8AM + MIN }));
     await PersistenceService.insertSpatialFact(makeBreadcrumb({ timestampMs: MONDAY_8AM + 11 * MIN, lat: SITE_LAT + 0.001 }));
     await PersistenceService.insertSpatialFact(makeExit({ timestampMs: MONDAY_8AM + 12 * MIN, reliable: false, reason: "ACCURACY_OVER_RADIUS" }));
-    const sum = await TraceRecorderService.summarize(makeSession());
-    expect(sum).toMatchObject({ pointCount: 2, unreliableCount: 1, dwellBySite: [{ siteId: 1, minutes: 10 }] });
+    const sum = await TraceRecorderService.summarize(session);
+    expect(sum).toMatchObject({ pointCount: 2, unreliableCount: 1, dwellBySite: [{ siteId: 1, minutes: 480 }] });
     expect(sum.enterExit.map((e) => e.type)).toEqual(["ENTER", "EXIT"]);
     const pts = await TraceRecorderService.listForSession(1);
     expect(TraceRecorderService.distanceMeters(pts)).toBeGreaterThan(100);

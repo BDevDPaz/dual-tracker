@@ -5,6 +5,8 @@
  */
 import { GEOFENCE_TASK_NAME } from "../../../../constants/geolocation";
 import { IntegrityLedgerService } from "../../../domain/IntegrityLedgerService";
+import { SessionEngineService } from "../../../domain/SessionEngineService";
+import { TimeAuthorityService } from "../../../evidence/TimeAuthorityService";
 import { PersistenceService } from "../../../persistence/PersistenceService";
 import { KV_KEYS } from "../../../persistence/schema";
 import { GeofenceRuntimeService, geofenceIdentifier } from "../../GeofenceRuntimeService";
@@ -302,6 +304,61 @@ describe("geofence.task", () => {
     expect(after.transitSegments.filter((t) => !t.cancelled)).toHaveLength(1);
     const all = await PersistenceService.listSessions();
     expect(all.filter((x) => !x.bookkeeping.isDeleted)).toHaveLength(1);
+  });
+
+  test("una muestra con el reloj del GPS adelantado cierra el tránsito en el ENTER fiable, no 5 min después", async () => {
+    const { siteA, siteB } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    await runGeofenceTask({ data: { eventType: EXIT, region: region(s.id, siteA) }, error: null } as Parameters<typeof runGeofenceTask>[0]);
+    time.travel(3 * 60_000);
+    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(true);
+    const exitAt = (await PersistenceService.getSession(s.id))!.bookkeeping.firstExitAtMs!;
+    await mustDispatch({ type: "TRANSFER_START", toSiteId: siteB });
+    const enteredAt = exitAt + 5 * 60_000;
+    time.travel(4 * 60_000);
+    expect(time.now()).toBe(exitAt + 7 * 60_000);
+    await SessionEngineService.recordSpatialFact({
+      sessionId: s.id,
+      type: "ENTER",
+      lat: SITE_LAT + 0.05,
+      lon: SITE_LON,
+      accuracyM: 10,
+      timestampMs: enteredAt,
+      source: "gps",
+      reliable: true,
+      siteId: siteB,
+    });
+    await GeofenceRuntimeService.observeSample({
+      lat: SITE_LAT + 0.05,
+      lon: SITE_LON,
+      accuracyM: 10,
+      timestampMs: exitAt + 10 * 60_000,
+    });
+    const arrived = (await PersistenceService.getSession(s.id))!;
+    expect(arrived.domainStatus).toBe("ACTIVA");
+    expect(arrived.siteId).toBe(siteB);
+    expect(arrived.transitSegments[0].startAtMs).toBe(exitAt);
+    expect(arrived.transitSegments[0].endAtMs).toBe(enteredAt);
+    expect(Math.round((arrived.transitSegments[0].endAtMs! - arrived.transitSegments[0].startAtMs) / 60_000)).toBe(5);
+
+    const start = arrived.actualStartAtMs!;
+    time.jumpWall(4 * 60_000);
+    expect((await mustDispatch({ type: "INTEGRITY_DEGRADE", cause: "CLOCK_DRIFT" })).integrityClass).toBe("CONFLICT");
+    await mustDispatch({
+      type: "MANUAL_PATCH",
+      sessionId: s.id,
+      declaredStartAtMs: start + 60_000,
+      endAtMs: null,
+      note: "reloj",
+    });
+    time.jumpWall(-4 * 60_000);
+    TimeAuthorityService.reanchor();
+    const kept = await mustDispatch({ type: "RESOLVE_KEEP_GPS", sessionId: s.id });
+    expect(kept.actualStartAtMs).toBe(start);
+    expect(kept.transitSegments[0].startAtMs).toBe(exitAt);
+    expect(kept.transitSegments[0].endAtMs).toBe(enteredAt);
   });
 
   test("la bitácora no guarda coordenadas", async () => {

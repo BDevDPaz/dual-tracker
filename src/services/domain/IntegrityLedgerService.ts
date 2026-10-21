@@ -399,13 +399,29 @@ export const IntegrityLedgerService = {
       if (e.sessionId !== null && !ids.has(e.sessionId)) continue;
       byId.set(e.id, e);
     }
-    const entries = [...byId.values()].sort((a, b) => a.id - b.id);
+    const relevant = [...byId.values()].sort((a, b) => a.id - b.id);
+    // El tramo de ids es contiguo: incluye asientos sin sesión y los de otras
+    // jornadas que caen en medio. Sin eso el prevHash del primer eslabón no
+    // alcanza para recomputar la cadena (huecos 2–6 del 20 oct 2026).
+    let entries = relevant;
+    if (relevant.length) {
+      const min = relevant[0].id;
+      const max = relevant[relevant.length - 1].id;
+      const all = await PersistenceService.listLedger();
+      entries = all.filter((e) => e.id >= min && e.id <= max).sort((a, b) => a.id - b.id);
+    }
     const chain = await IntegrityLedgerService.verify();
     return {
       ledgerEntryCount: entries.length,
       ledgerHeadHash: chain.head,
       ledgerChainValid: chain.valid,
-      ledgerHashes: entries.map((e) => ({ id: e.id, sessionId: e.sessionId, hash: e.hash })),
+      ledgerHashes: entries.map((e) => ({
+        id: e.id,
+        sessionId: e.sessionId,
+        hash: e.hash,
+        prevHash: e.prevHash,
+        payloadJson: e.payloadJson,
+      })),
       traces,
       conflicts: sessions
         .filter((s) => s.integrityClass === "CONFLICT")

@@ -76,6 +76,10 @@ export interface ReportInput {
     | "documentVersion"
     | "documentTheme"
     | "documentLocale"
+    | "appVersion"
+    | "versionCode"
+    | "gitCommit"
+    | "sessionTimeZones"
   >;
   sessions: SessionRecord[];
   sites: Site[];

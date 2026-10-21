@@ -30,6 +30,11 @@ export interface PayrollLine {
   amount: number;
   /** Advertencias de la línea (p. ej. LUNCH_DURATION_UNKNOWN). */
   warnings: string[];
+  /**
+   * Solo en un TRANSIT cancelado. Ausente en el resto de líneas: no entra
+   * en el hash de un statement sin cancelados.
+   */
+  transitCancel?: { endAtMs: number; note: string | null };
 }
 
 export interface IntegrityRollup {

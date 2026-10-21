@@ -115,8 +115,14 @@ export interface TransitSegment {
   toSiteId: number;
   startAtMs: number;
   endAtMs: number | null;
-  /** true si el operario canceló el traslado (no genera línea de tránsito). */
+  /**
+   * true si el operario canceló el traslado.
+   * Un cancelado legado (`paid !== true`) no genera línea de tránsito.
+   * Uno nuevo (`paid === true`) se paga como tránsito hasta `endAtMs`, a 1× y sin contar para extra.
+   */
   cancelled: boolean;
+  /** Nota opcional del cancelado (p. ej. «llamó el encargado»). No va en claro al ledger. */
+  cancelNote?: string | null;
   /**
    * Decisión de TransitPolicy congelada al cerrar el tramo.
    * null = tramo abierto o legado (se aplica la política vigente de la empresa).
@@ -128,6 +134,21 @@ export interface TransitSegment {
   countsTowardOvertime?: boolean;
   /** MANUAL_PATCH recortó este tramo al intervalo de la jornada. */
   clipped?: boolean;
+  /**
+   * El recorte lo dejó fuera de la jornada. No se paga hasta que
+   * RESOLVE_KEEP_GPS deshace el clip. Ausente = no.
+   */
+  suppressed?: boolean;
+  /**
+   * Antes/después del recorte. RESOLVE_KEEP_GPS vuelve a `before`.
+   * `after` null = el tramo quedó suprimido.
+   */
+  clip?: {
+    beforeStartAtMs: number;
+    beforeEndAtMs: number | null;
+    afterStartAtMs: number | null;
+    afterEndAtMs: number | null;
+  } | null;
 }
 
 /** Horario original conservado ante una edición manual (Propuesta §5.3). */

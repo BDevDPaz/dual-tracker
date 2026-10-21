@@ -31,6 +31,17 @@ export const EXIT_UNKNOWN_GIVE_UP_FACTOR = 2;
 export const DIAG_LIMIT = 30;
 /** Una muestra más vieja que esto no ficha (fix cacheado del sistema). */
 export const SAMPLE_MAX_AGE_MS = 5 * 60_000;
+
+/**
+ * El reloj del fix (expo-location) puede ir por delante de TimeAuthority.
+ * Cerrar un tramo con ese timestamp alarga el tránsito: en la prueba del
+ * 20 oct 2026 un adelanto de 5 min convirtió un trayecto de 5 en 10.
+ * Nunca se usa un instante posterior a `nowMs`.
+ */
+export function clampSampleTimestamp(atMs: number, nowMs: number): number {
+  if (!Number.isFinite(atMs)) return nowMs;
+  return Math.min(atMs, nowMs);
+}
 /** Tope propio, muy por debajo del límite de 100 geocercas de Android. */
 export const MAX_MONITORED_REGIONS = 20;
 
