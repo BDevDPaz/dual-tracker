@@ -158,7 +158,13 @@ function sessionIntegrityLabel(session: SessionRecord, lang: Language): string {
   return key ? t(key, {}, lang) : session.integrityClass;
 }
 
-function lineLabel(kind: PayrollLine["kind"], lang: Language): string {
+function lineLabel(line: PayrollLine, lang: Language): string {
+  if (line.kind === "TRANSIT" && line.transitCancel) {
+    const when = formatTime(line.transitCancel.endAtMs, { lang });
+    const base = t("comprobante.lineTransitCancelled", {}, lang);
+    const note = line.transitCancel.note?.trim();
+    return note ? `${base} · ${when} · ${note}` : `${base} · ${when}`;
+  }
   const key = {
     REGULAR: "comprobante.lineRegular",
     OVERTIME_DAILY: "comprobante.lineOtDaily",
@@ -167,7 +173,7 @@ function lineLabel(kind: PayrollLine["kind"], lang: Language): string {
     TRANSIT: "comprobante.lineTransit",
     LUNCH_DEDUCTION: "comprobante.lineLunch",
     PAUSE_DEDUCTION: "comprobante.linePause",
-  }[kind];
+  }[line.kind];
   return t(key, {}, lang);
 }
 
@@ -395,16 +401,28 @@ function verifyBlock(input: ReportInput, lang: Language): string {
 }
 
 function versionsBlock(input: ReportInput, lang: Language): string {
-  const doc = input.manifest.documentVersion ?? 2;
+  const doc = input.manifest.documentVersion ?? 1;
   const manifest = input.manifest.manifestVersion ?? 1;
-  return `<p class="versions">${escapeHtml(t("comprobante.versions", { doc, manifest, packId: input.manifest.packId }, lang))}</p>`;
+  const lines = [t("comprobante.versions", { doc, manifest, packId: input.manifest.packId }, lang)];
+  if (input.manifest.appVersion !== undefined || input.manifest.versionCode !== undefined || input.manifest.gitCommit !== undefined) {
+    const version = input.manifest.appVersion ?? "—";
+    const code = input.manifest.versionCode ?? "—";
+    const commit = input.manifest.gitCommit ? input.manifest.gitCommit.slice(0, 7) : "—";
+    lines.push(t("comprobante.versionsBuild", { version, code, commit }, lang));
+  }
+  const zones = input.manifest.sessionTimeZones;
+  if (zones?.length) {
+    const zone = [...new Set(zones.map((z) => z.timeZone))].join(", ");
+    lines.push(t("comprobante.versionsZone", { zone }, lang));
+  }
+  return `<p class="versions">${lines.map((line) => escapeHtml(line)).join(" · ")}</p>`;
 }
 
 function linesTable(input: ReportInput, lang: Language): string {
   const rows = input.statement.lines
     .map(
       (l) =>
-        `<tr><td>${escapeHtml(l.dateString)}</td><td class="fig">#${l.sessionId}</td><td>${escapeHtml(lineLabel(l.kind, lang))}</td><td class="fig">${l.minutes}</td><td class="fig">${formatCurrency(l.rate)}</td><td class="fig">${formatCurrency(l.amount)}</td></tr>`,
+        `<tr><td>${escapeHtml(l.dateString)}</td><td class="fig">#${l.sessionId}</td><td>${escapeHtml(lineLabel(l, lang))}</td><td class="fig">${l.minutes}</td><td class="fig">${formatCurrency(l.rate)}</td><td class="fig">${formatCurrency(l.amount)}</td></tr>`,
     )
     .join("");
   return `<div class="section-title">${escapeHtml(t("comprobante.linesTitle", {}, lang))}</div><table><thead><tr><th>${escapeHtml(t("comprobante.colDate", {}, lang))}</th><th class="fig">${escapeHtml(t("comprobante.colSession", {}, lang))}</th><th>${escapeHtml(t("comprobante.colConcept", {}, lang))}</th><th class="fig">${escapeHtml(t("comprobante.colMinutes", {}, lang))}</th><th class="fig">${escapeHtml(t("comprobante.colRate", {}, lang))}</th><th class="fig">${escapeHtml(t("comprobante.colAmount", {}, lang))}</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -458,6 +476,45 @@ function ledgerAnnex(rows: ForensicLedgerRow[] | undefined, lang: Language): str
     </section>`;
 }
 
+function transitAnnex(input: ReportInput, lang: Language): string {
+  const rows = input.evidence.transitSegments ?? [];
+  if (!rows.length) return "";
+  const fmt: FormatOptions = { lang };
+  const yes = t("comprobante.reliableYes", {}, lang);
+  const no = t("comprobante.reliableNo", {}, lang);
+  const body = rows
+    .map((row) => {
+      const clip = row.clip
+        ? `${formatTime(row.clip.beforeStartAtMs, fmt)}–${row.clip.beforeEndAtMs != null ? formatTime(row.clip.beforeEndAtMs, fmt) : "—"} → ${row.clip.afterStartAtMs != null ? formatTime(row.clip.afterStartAtMs, fmt) : "—"}–${row.clip.afterEndAtMs != null ? formatTime(row.clip.afterEndAtMs, fmt) : "—"}`
+        : "—";
+      return `<tr>
+        <td>${siteAliasHtml(input.sites, row.fromSiteId, lang)}</td>
+        <td>${siteAliasHtml(input.sites, row.toSiteId, lang)}</td>
+        <td>${escapeHtml(formatTime(row.startAtMs, fmt))}</td>
+        <td>${row.endAtMs != null ? escapeHtml(formatTime(row.endAtMs, fmt)) : "—"}</td>
+        <td>${escapeHtml(row.cancelled ? yes : no)}</td>
+        <td>${escapeHtml(row.paid ? yes : no)}</td>
+        <td class="fig">${row.minutes}</td>
+        <td>${escapeHtml(clip)}</td>
+      </tr>`;
+    })
+    .join("");
+  return `
+    <section class="annex" data-annex="transit">
+      <div class="section-title">${escapeHtml(t("comprobante.annexTransitTitle", {}, lang))}</div>
+      <table><thead><tr>
+        <th>${escapeHtml(t("comprobante.annexColOrigin", {}, lang))}</th>
+        <th>${escapeHtml(t("comprobante.annexColDestination", {}, lang))}</th>
+        <th>${escapeHtml(t("comprobante.annexColStart", {}, lang))}</th>
+        <th>${escapeHtml(t("comprobante.annexColEnd", {}, lang))}</th>
+        <th>${escapeHtml(t("comprobante.annexColCancelled", {}, lang))}</th>
+        <th>${escapeHtml(t("comprobante.annexColPaid", {}, lang))}</th>
+        <th class="fig">${escapeHtml(t("comprobante.annexColMinutes", {}, lang))}</th>
+        <th>${escapeHtml(t("comprobante.annexColClip", {}, lang))}</th>
+      </tr></thead><tbody>${body}</tbody></table>
+    </section>`;
+}
+
 function enterExitAnnex(input: ReportInput, lang: Language): string {
   const fmt: FormatOptions = { lang };
   const events = input.evidence.traces.flatMap((tr) => tr.enterExit.map((e) => ({ sessionId: tr.sessionId, type: e.type, timestampMs: e.timestampMs, reliable: e.reliable })));
@@ -493,7 +550,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
     ? `<div class="watermark" data-practice="1"><span>${escapeHtml(t("support.practice.watermark", {}, lang))}</span></div>`
     : "";
   const employer = role === "EMPLOYER_DOSSIER" ? `${linesTable(input, lang)}${warningsBlock(input, lang)}` : "";
-  const annexes = `${input.annex?.ledger ? ledgerAnnex(input.ledger, lang) : ""}${input.annex?.enterExit ? enterExitAnnex(input, lang) : ""}`;
+  const annexes = `${transitAnnex(input, lang)}${input.annex?.ledger ? ledgerAnnex(input.ledger, lang) : ""}${input.annex?.enterExit ? enterExitAnnex(input, lang) : ""}`;
   return `<html data-document-version="${input.manifest.documentVersion ?? 2}" data-theme="${theme}" data-locale="${lang}"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${css(theme)}</style></head><body class="theme-${theme}">
     ${watermark}
     <div class="sheet">

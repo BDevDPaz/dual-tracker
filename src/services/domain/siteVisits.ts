@@ -8,7 +8,7 @@
 import type { SessionRecord, TransitSegment } from "../../core/contracts";
 
 function liveSegments(session: SessionRecord): TransitSegment[] {
-  return session.transitSegments.filter((t) => !t.cancelled);
+  return session.transitSegments.filter((t) => !t.cancelled && !t.suppressed);
 }
 
 /** Sitio de salida: el from del primer tramo vivo, o `siteId` si no hubo traslado. */
@@ -86,6 +86,6 @@ export function lastVisitAtMs(session: SessionRecord, siteId: number): number | 
 
 /** Geocerca activa: destino del tramo abierto, o el sitio de la sesión. */
 export function monitoredSiteId(session: SessionRecord): number | null {
-  const open = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled);
+  const open = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
   return open ? open.toSiteId : session.siteId;
 }

@@ -102,6 +102,8 @@ export interface SegmentMinutes {
   transitRateMultiplier: number;
   workMinutes: number;
   warnings: string[];
+  /** Tramos cancelados pagados cuyo inicio cae en este segmento. Vacío si no hay. */
+  cancelledTransits: { minutes: number; endAtMs: number; note: string | null }[];
 }
 
 /** Fin efectivo de la sesión (misma regla que computeSessionMinutes). */
@@ -173,11 +175,12 @@ export function computeSegmentMinutes(
   let singlePaid = 0;
   let singleOt = 0;
   let singleUnpaid = 0;
+  const cancelledAll: { minutes: number; endAtMs: number; note: string | null; startAtMs: number }[] = [];
   const markTransitClip = (t: (typeof session.transitSegments)[number]) => {
     if ((t.clipped || TransitPolicyService.overlapsOutside(t, startMs, endMs)) && !warn[0].includes("TRANSIT_CLIPPED")) warn[0].push("TRANSIT_CLIPPED");
   };
   for (const t of session.transitSegments) {
-    if (t.cancelled) continue;
+    if (t.suppressed || (t.cancelled && t.paid !== true)) continue;
     const a = Math.max(t.startAtMs, startMs);
     const b = Math.min(t.endAtMs ?? endMs, endMs);
     if (b <= a) {
@@ -193,6 +196,7 @@ export function computeSegmentMinutes(
       (d.countsTowardOvertime ? paidOt : paidNoOt).push(iv);
       singlePaid += minutes;
       if (d.countsTowardOvertime) singleOt += minutes;
+      if (t.cancelled) cancelledAll.push({ minutes, endAtMs: t.endAtMs ?? endMs, note: t.cancelNote ?? null, startAtMs: t.startAtMs });
     } else {
       unpaid.push(iv);
       singleUnpaid += minutes;
@@ -234,8 +238,18 @@ export function computeSegmentMinutes(
       transitRateMultiplier,
       workMinutes,
       warnings,
+      cancelledTransits: cancelledFor(segment, cancelledAll, n === 1),
     };
   });
+}
+
+function cancelledFor(
+  segment: { startMs: number; endMs: number },
+  rows: { minutes: number; endAtMs: number; note: string | null; startAtMs: number }[],
+  only: boolean,
+): { minutes: number; endAtMs: number; note: string | null }[] {
+  const picked = only ? rows : rows.filter((r) => r.startAtMs >= segment.startMs && r.startAtMs < segment.endMs);
+  return picked.map(({ minutes, endAtMs, note }) => ({ minutes, endAtMs, note }));
 }
 
 /** ¿La jornada [start, end) cruza un límite de jornada? (LunchModal pide la hora, §5.3). */

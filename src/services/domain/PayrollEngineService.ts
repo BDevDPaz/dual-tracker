@@ -56,6 +56,8 @@ export interface SessionMinutes {
   transitRateMultiplier: number;
   workMinutes: number;
   warnings: string[];
+  /** Solo si hay tramos cancelados pagados. */
+  cancelledTransits?: { minutes: number; endAtMs: number; note: string | null }[];
 }
 
 /**
@@ -101,7 +103,9 @@ export function computeSessionMinutes(
   let transitUnpaidMinutes = 0;
   let transitRateMultiplier = company.transitRateMultiplier;
   let transitClipped = false;
+  const cancelledTransits: { minutes: number; endAtMs: number; note: string | null }[] = [];
   for (const seg of session.transitSegments) {
+    if (seg.suppressed || (seg.cancelled && seg.paid !== true)) continue;
     const minutes = TransitPolicyService.boundedMinutes(seg, startMs, endMs);
     if (seg.clipped || TransitPolicyService.overlapsOutside(seg, startMs, endMs)) transitClipped = true;
     const decision = TransitPolicyService.decide(seg, company);
@@ -109,6 +113,7 @@ export function computeSessionMinutes(
       transitPaidMinutes += minutes;
       transitRateMultiplier = decision.rateMultiplier;
       if (decision.countsTowardOvertime) transitOtMinutes += minutes;
+      if (seg.cancelled && minutes > 0) cancelledTransits.push({ minutes, endAtMs: seg.endAtMs ?? endMs, note: seg.cancelNote ?? null });
     } else {
       transitUnpaidMinutes += minutes;
     }
@@ -135,6 +140,7 @@ export function computeSessionMinutes(
     transitRateMultiplier,
     workMinutes,
     warnings,
+    ...(cancelledTransits.length ? { cancelledTransits } : {}),
   };
 }
 
@@ -289,6 +295,7 @@ function segmentItems(session: SessionRecord, company: CompanyPolicy, nowMs: num
     transitRateMultiplier: x.transitRateMultiplier,
     workMinutes: x.workMinutes,
     warnings: i === 0 && segs.length > 1 && totalSpan > 0 && totalWork === 0 ? [...x.warnings, "NO_WORK_MINUTES"] : x.warnings,
+    ...(x.cancelledTransits.length ? { cancelledTransits: x.cancelledTransits } : {}),
     dayKey: String(x.segment.workdayStartMs),
     weekKey: x.segment.weekStartMs,
   }));
@@ -312,8 +319,24 @@ function buildLines(
     lines.push({ ...base, kind: "OVERTIME_WEEKLY", minutes: a.otWeekly, rate: otRate, amount: money(a.otWeekly, otRate), warnings: [] });
   if (a.otDouble > 0)
     lines.push({ ...base, kind: "OVERTIME_DOUBLE", minutes: a.otDouble, rate: doubleRate, amount: money(a.otDouble, doubleRate), warnings: [] });
-  if (it.transitPaidMinutes > 0)
-    lines.push({ ...base, kind: "TRANSIT", minutes: it.transitPaidMinutes, rate: transitRate, amount: money(it.transitPaidMinutes, transitRate), warnings: [] });
+  const cancelled = it.cancelledTransits ?? [];
+  const cancelledMinutes = cancelled.reduce((acc, c) => acc + c.minutes, 0);
+  const normalTransit = Math.max(0, it.transitPaidMinutes - cancelledMinutes);
+  if (normalTransit > 0)
+    lines.push({ ...base, kind: "TRANSIT", minutes: normalTransit, rate: transitRate, amount: money(normalTransit, transitRate), warnings: [] });
+  for (const c of cancelled) {
+    if (c.minutes <= 0) continue;
+    const rate = rates.hourlyRate;
+    lines.push({
+      ...base,
+      kind: "TRANSIT",
+      minutes: c.minutes,
+      rate,
+      amount: money(c.minutes, rate),
+      warnings: [],
+      transitCancel: { endAtMs: c.endAtMs, note: c.note },
+    });
+  }
   if (it.lunchMinutes > 0 || it.warnings.includes("LUNCH_DURATION_UNKNOWN"))
     lines.push({ ...base, kind: "LUNCH_DEDUCTION", minutes: it.lunchMinutes, rate: 0, amount: 0, warnings: [] });
   if (it.pauseMinutes > 0)

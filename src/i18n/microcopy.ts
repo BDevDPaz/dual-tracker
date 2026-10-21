@@ -27,7 +27,7 @@ export const MICROCOPY: Record<FeedbackCode, MicrocopyEntry> = {
   LUNCH_STARTED: { kind: "toast", tone: "info", es: { title: "Almuerzo iniciado", message: "No se registra rastro durante la pausa." }, en: { title: "Lunch started", message: "No trail is recorded during the break." } },
   RESUMED: { kind: "toast", tone: "success", es: { title: "Jornada reanudada", message: "" }, en: { title: "Shift resumed", message: "" } },
   TRANSFER_STARTED: { kind: "toast", tone: "info", es: { title: "Traslado iniciado", message: "Rumbo a {site}." }, en: { title: "Travel started", message: "Heading to {site}." } },
-  TRANSFER_CANCELLED: { kind: "toast", tone: "info", es: { title: "Traslado cancelado", message: "Sigues en jornada activa." }, en: { title: "Travel cancelled", message: "Your shift remains active." } },
+  TRANSFER_CANCELLED: { kind: "toast", tone: "info", es: { title: "Traslado cancelado", message: "Hasta ahora se paga como tránsito. Sigues en jornada activa." }, en: { title: "Travel cancelled", message: "Time until now is paid as travel. Your shift remains active." } },
   // La decisión de salida la pinta ExitDetectionModal (pantalla Hoy); aquí solo un aviso corto
   // por si algún emisor lo publica (SessionEngineService hoy no lo emite).
   EXIT_DETECTED: { kind: "toast", tone: "warning", es: { title: "Saliste del área", message: "Decide qué pasó en la pantalla Hoy." }, en: { title: "You left the area", message: "Choose what happened on the Today screen." } },

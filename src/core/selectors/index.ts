@@ -30,6 +30,7 @@ import {
   trimDisplayNote,
 } from "../../services/domain/payrollDisplay";
 import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
+import { restoreClippedTransits } from "../../services/domain/sessionMachine";
 import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
 import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
 import { computeSegmentMinutes } from "../../services/domain/segmentation";
@@ -529,7 +530,13 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
     if (factA) {
       const pol = selectPolicyForSession(s, session);
       const b = PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, pol);
-      const asA: SessionRecord = { ...session, declaredStartAtMs: o!.declaredStartAtMs, actualStartAtMs: o!.actualStartAtMs, endAtMs: o!.endAtMs };
+      const asA: SessionRecord = {
+        ...session,
+        declaredStartAtMs: o!.declaredStartAtMs,
+        actualStartAtMs: o!.actualStartAtMs,
+        endAtMs: o!.endAtMs,
+        transitSegments: restoreClippedTransits(session.transitSegments),
+      };
       const a = PayrollEngineService.previewSession(asA, rates, s.settings.company, nowMs, pol);
       if (a && b) {
         diffMinutes = b.netMinutes - a.netMinutes;

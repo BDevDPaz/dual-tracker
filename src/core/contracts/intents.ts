@@ -30,7 +30,7 @@ export type SessionIntent =
   | { type: "LUNCH_START" }
   | { type: "RESUME" }
   | { type: "TRANSFER_START"; toSiteId: number }
-  | { type: "TRANSFER_CANCEL" }
+  | { type: "TRANSFER_CANCEL"; note?: string | null }
   | { type: "EXIT_DETECTED"; fact: SpatialFact }
   | { type: "STAY_WORKING" }
   | {
@@ -141,7 +141,7 @@ export type ViewIntent =
   | { type: "START_LUNCH" }
   | { type: "RESUME" }
   | { type: "START_TRANSFER"; toSiteId: number }
-  | { type: "CANCEL_TRANSFER" }
+  | { type: "CANCEL_TRANSFER"; note?: string | null }
   | { type: "STAY_WORKING" }
   | { type: "CONFIRM_EXIT"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }
   | { type: "CLOSE_DAY"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }

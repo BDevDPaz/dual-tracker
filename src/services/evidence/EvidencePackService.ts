@@ -15,21 +15,24 @@
 import * as Crypto from "expo-crypto";
 import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, SealWarning, SessionRecord } from "../../core/contracts";
 import type { ReportAnnexOptions } from "./reportTemplates";
+import { APP_VERSION } from "../../constants/app";
 import { DOCUMENT_VERSION, PACK_MANIFEST_VERSION } from "../../core/contracts";
+import { readGitCommit, readVersionCode } from "../../support/buildLabel";
 import { cryptoHealthSnapshot } from "../persistence/cryptoMigrations";
 import { StoreActions } from "../../core/store";
 import { canonicalJson } from "../../utils/canonicalJson";
-import { companyCalendar } from "../../utils/companyPolicy";
+import { companyCalendar, companyTimezone } from "../../utils/companyPolicy";
 import { isValidRange, periodIdAt } from "../../utils/dateUtils";
 import { serializeError } from "../../utils/serializeError";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { PayrollEngineService } from "../domain/PayrollEngineService";
+import { exportSessionTransits } from "../domain/transitExport";
 import { LoggingService } from "../persistence/LoggingService";
 import { OfflineQueueService } from "../persistence/OfflineQueueService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
 import { powerOffsFromLedger } from "./deviceOffGap";
-import { sha256Hex } from "./HashChain";
+import { chainHash, sha256Hex } from "./HashChain";
 import { powerOffSentence } from "./reportPremium";
 import { canSignPacks, readPinnedPackSigningKey, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
 import { ReportService } from "./ReportService";
@@ -105,14 +108,17 @@ export function statementForHash(statement: PayrollStatement): Omit<PayrollState
 
 export function contentOf(statement: PayrollStatement, evidence: EvidenceSummary): unknown {
   const ledger = evidence.ledgerHashes.filter((e) => e.sessionId !== null);
+  const body: Record<string, unknown> = {
+    ledgerEntryCount: ledger.length,
+    ledgerHashes: ledger,
+    traces: evidence.traces,
+    conflicts: evidence.conflicts,
+  };
+  // Ausente en packs anteriores: no entra en su contentHash.
+  if ("transitSegments" in evidence) body.transitSegments = evidence.transitSegments ?? [];
   return normalizeContent({
     statement: { ...statementForHash(statement), packHash: null },
-    evidence: {
-      ledgerEntryCount: ledger.length,
-      ledgerHashes: ledger,
-      traces: evidence.traces,
-      conflicts: evidence.conflicts,
-    },
+    evidence: body,
   });
 }
 
@@ -140,7 +146,16 @@ export function packHashBody(m: Omit<PackManifest, "packHash" | "files" | "signa
   };
   if (m.manifestVersion === undefined) return base;
   const v2 = { ...base, manifestVersion: m.manifestVersion, contentHash: m.contentHash ?? null };
-  return (m.manifestVersion ?? 0) >= 3 ? { ...v2, sealWarnings: m.sealWarnings ?? [] } : v2;
+  if ((m.manifestVersion ?? 0) < 3) return v2;
+  const v3 = { ...v2, sealWarnings: m.sealWarnings ?? [] };
+  if ((m.manifestVersion ?? 0) < 5) return v3;
+  return {
+    ...v3,
+    appVersion: m.appVersion ?? null,
+    versionCode: m.versionCode ?? null,
+    gitCommit: m.gitCommit ?? null,
+    sessionTimeZones: m.sessionTimeZones ?? [],
+  };
 }
 
 /** packHash = SHA-256 del cuerpo canónico. */
@@ -218,6 +233,7 @@ async function assemblePeriod(input: { periodStart: number; periodEnd: number })
   const included = sessions.filter((s) => statement.sessionIds.includes(s.id));
   const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
   const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
+  evidence.transitSegments = included.flatMap((s) => exportSessionTransits(s, settings.company));
   const contentHash = await computeContentHash(statement, evidence);
   return { ok: true, statement, evidence, contentHash, included };
 }
@@ -232,8 +248,11 @@ export interface SealFreshness {
   sealedBeforePeriodEnd: boolean;
 }
 
+/** Anexos al compartir, desde la plantilla premium (documentVersion 2). El tránsito va en el sello (v3). */
+const SHARE_ANNEX_DOCUMENT_VERSION = 2;
+
 function wantsAnnex(pack: EvidencePack, annex?: ReportAnnexOptions): boolean {
-  return (pack.manifest.documentVersion ?? 1) >= DOCUMENT_VERSION && !!(annex?.ledger || annex?.enterExit);
+  return (pack.manifest.documentVersion ?? 1) >= SHARE_ANNEX_DOCUMENT_VERSION && !!(annex?.ledger || annex?.enterExit);
 }
 
 /**
@@ -373,6 +392,13 @@ export const EvidencePackService = {
       // La firma se decide antes del hash: si no hay llavero, PACK_UNSIGNED entra en packHash.
       const signingKeyReady = await canSignPacks();
       const sealWarnings = signingKeyReady ? baseWarnings : [...baseWarnings, { code: "PACK_UNSIGNED" as const, sessionIds: [] }];
+      const sessionTimeZones = included.map((s) => ({
+        sessionId: s.id,
+        timeZone: s.bookkeeping.recordedTimeZone ?? companyTimezone(settings.company),
+      }));
+      const appVersion = APP_VERSION;
+      const versionCode = readVersionCode();
+      const gitCommit = readGitCommit();
       const unsigned = {
         manifestVersion: PACK_MANIFEST_VERSION,
         packId,
@@ -386,6 +412,10 @@ export const EvidencePackService = {
         contentHash,
         certified,
         sealWarnings,
+        appVersion,
+        versionCode,
+        gitCommit,
+        sessionTimeZones,
       };
       const body = packHashBody(unsigned);
       const packHash = await computePackHash(unsigned);
@@ -409,6 +439,10 @@ export const EvidencePackService = {
         documentVersion: DOCUMENT_VERSION,
         documentTheme: settings.profile.comprobanteTheme === "dark" ? "dark" : "light",
         documentLocale: settings.profile.language === "en" ? "en" : "es",
+        appVersion,
+        versionCode,
+        gitCommit,
+        sessionTimeZones,
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
@@ -501,6 +535,24 @@ export const EvidencePackService = {
       if (pinned && (signature.publicKey !== pinned.publicKey || signature.keyId !== pinned.keyId)) failures.push("SIGNATURE_KEY");
     } else if (version >= 4 && !unsignedOnPurpose) {
       failures.push("SIGNATURE_MISSING");
+    }
+    if (version >= 5) {
+      const rows = pack.evidence.ledgerHashes;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (typeof row.prevHash !== "string" || typeof row.payloadJson !== "string") {
+          failures.push("LEDGER_EXPORT");
+          break;
+        }
+        if ((await chainHash(row.prevHash, row.payloadJson)) !== row.hash) {
+          failures.push("LEDGER_HASH");
+          break;
+        }
+        if (i > 0 && row.prevHash !== rows[i - 1].hash) {
+          failures.push("LEDGER_LINK");
+          break;
+        }
+      }
     }
     const signed = version >= 4 && !!signature && !failures.includes("SIGNATURE") && !failures.includes("SIGNATURE_KEY");
     return { valid: failures.length === 0, legacy, scheme: signed ? "Ed25519" : "unsigned-v1", failures };

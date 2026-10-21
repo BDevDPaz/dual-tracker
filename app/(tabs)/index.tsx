@@ -11,6 +11,8 @@ import { useRouter } from "expo-router";
 import {
   Chip,
   DailySummaryBlock,
+  Input,
+  ModalShell,
   OperationalHeroCard,
   PageHeader,
   PrimaryButton,
@@ -52,7 +54,7 @@ import {
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
-type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT";
+type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "CANCEL_TRANSFER";
 
 export default function TodayScreen() {
   const router = useRouter();
@@ -62,6 +64,7 @@ export default function TodayScreen() {
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
   const [modal, setModal] = useState<OpenModal>(null);
+  const [cancelNote, setCancelNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   const sessionState = selectSessionState(state, nowMs);
@@ -119,7 +122,8 @@ export default function TodayScreen() {
       case "VIEW_STATUS":
         return active ? router.push(`/session/${active.id}`) : undefined;
       case "CANCEL_TRANSFER":
-        return void run({ type: "CANCEL_TRANSFER" });
+        setCancelNote("");
+        return setModal("CANCEL_TRANSFER");
       case "OPEN_EXIT_MODAL":
         return setModal("EXIT");
       case "STAY_WORKING":
@@ -289,6 +293,22 @@ export default function TodayScreen() {
         onResume={() => void run({ type: "RESUME" }, () => setModal(null))}
         onFinish={() => void run({ type: "CLOSE_DAY" }, () => setModal(null))}
       />
+
+      <ModalShell
+        visible={modal === "CANCEL_TRANSFER"}
+        title={t("modals.cancelTransferTitle")}
+        description={t("modals.cancelTransferBody")}
+        onClose={() => setModal(null)}
+        showCloseButton={false}
+        secondaryAction={{ label: t("common.cancel"), onPress: () => setModal(null) }}
+        primaryAction={{
+          label: t("cta.cancelTransfer"),
+          loading: busy,
+          onPress: () => void run({ type: "CANCEL_TRANSFER", note: cancelNote.trim() || null }, () => setModal(null)),
+        }}
+      >
+        <Input label={t("modals.cancelTransferNote")} value={cancelNote} onChangeText={setCancelNote} placeholder={t("modals.cancelTransferPlaceholder")} />
+      </ModalShell>
 
       <ExitDetectionModal
         visible={modal === "EXIT"}

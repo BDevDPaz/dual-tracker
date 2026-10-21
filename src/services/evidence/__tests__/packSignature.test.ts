@@ -29,7 +29,7 @@ describe("packSignature", () => {
     const period = { periodStart: getWeekStart(time.now()), periodEnd: getWeekEnd(time.now()) };
     const sealed = await EvidencePackService.seal(period);
     if (!sealed.ok || !sealed.data) throw new Error("seal");
-    expect(sealed.data.manifest.manifestVersion).toBe(4);
+    expect(sealed.data.manifest.manifestVersion).toBe(PACK_MANIFEST_VERSION);
     expect(sealed.data.manifest.signature?.algorithm).toBe("Ed25519");
     expect(sealed.data.manifest.sealWarnings ?? []).toEqual([]);
     expect(await EvidencePackService.verify(sealed.data)).toMatchObject({ valid: true, scheme: "Ed25519", failures: [] });

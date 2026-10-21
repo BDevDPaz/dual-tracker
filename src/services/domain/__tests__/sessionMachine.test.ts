@@ -1,6 +1,6 @@
 /** T1 — sessionMachine: función pura, 7 estados. */
 import type { SessionIntent, SessionRecord } from "../../../core/contracts";
-import { escalate, hasTimeChanged, requiresAuditNote, transition } from "../sessionMachine";
+import { escalate, hasTimeChanged, requiresAuditNote, restoreClippedTransits, transition } from "../sessionMachine";
 import { HOUR, MIN, MONDAY_8AM, makeClosedSession, makeCtx, makeSegment, makeSession } from "../../../../test/fixtures/session.fixture";
 import { makeExit, makeEnter } from "../../../../test/fixtures/spatial.fixture";
 
@@ -196,10 +196,16 @@ describe("sessionMachine", () => {
       const t = okNext(open, { type: "TRANSFER_START", toSiteId: 2 }, makeCtx({ nowMs: MONDAY_8AM + 2 * HOUR })).next;
       expect(t.domainStatus).toBe("TRASLADO");
       expect(t.transitSegments[0].startAtMs).toBe(MONDAY_8AM + HOUR);
-      const c = okNext(t, { type: "TRANSFER_CANCEL" }).next;
+      const cancelAt = MONDAY_8AM + 2 * HOUR;
+      const c = okNext(t, { type: "TRANSFER_CANCEL", note: "llamó el encargado" }, makeCtx({ nowMs: cancelAt })).next;
       expect(c.domainStatus).toBe("ACTIVA");
+      expect(c.siteId).toBe(open.siteId);
       expect(c.transitSegments[0].cancelled).toBe(true);
-      expect(c.transitSegments[0].paid).toBe(false);
+      expect(c.transitSegments[0].paid).toBe(true);
+      expect(c.transitSegments[0].countsTowardOvertime).toBe(false);
+      expect(c.transitSegments[0].rateMultiplier).toBe(1);
+      expect(c.transitSegments[0].endAtMs).toBe(cancelAt);
+      expect(c.transitSegments[0].cancelNote).toBe("llamó el encargado");
     });
   });
 
@@ -230,7 +236,11 @@ describe("sessionMachine", () => {
       later,
       closed,
     );
-    expect(dropped.next.transitSegments).toEqual([]);
+    expect(dropped.next.transitSegments).toEqual([
+      expect.objectContaining({ suppressed: true, clipped: true, clip: expect.objectContaining({ afterStartAtMs: null, afterEndAtMs: null }) }),
+    ]);
+    const kept = restoreClippedTransits(dropped.next.transitSegments);
+    expect(kept[0]).toMatchObject({ startAtMs: MONDAY_8AM + 6 * HOUR, endAtMs: MONDAY_8AM + 7 * HOUR, suppressed: false, clipped: false, clip: null });
   });
 
   describe("AUTO_CLOSE", () => {
@@ -301,6 +311,28 @@ describe("sessionMachine", () => {
     test("RESOLVE_MANUAL exige nota", () => {
       expect(code(null, { type: "RESOLVE_MANUAL", sessionId: 1, note: "" }, makeCtx(), conflict)).toBe("NOTE_REQUIRED");
       expect(okNext(null, { type: "RESOLVE_MANUAL", sessionId: 1, note: "revisado" }, makeCtx(), conflict).next.integrityClass).toBe("MANUAL");
+    });
+    test("RESOLVE_KEEP_GPS deshace el recorte del tránsito y vuelve a las horas originales", () => {
+      const closed = makeClosedSession(MONDAY_8AM, 8, {
+        transitSegments: [makeSegment({ startAtMs: MONDAY_8AM + 6 * HOUR, endAtMs: MONDAY_8AM + 7 * HOUR, paid: true, rateMultiplier: 1, countsTowardOvertime: true })],
+      });
+      const later = makeCtx({ nowMs: MONDAY_8AM + 9 * HOUR, cleanGpsPair: true });
+      const patched = okNext(
+        null,
+        { type: "MANUAL_PATCH", sessionId: 1, declaredStartAtMs: MONDAY_8AM, endAtMs: MONDAY_8AM + 2 * HOUR, note: "antes del trayecto" },
+        later,
+        closed,
+      ).next;
+      const conflict = { ...patched, integrityClass: "CONFLICT" as const };
+      const kept = okNext(null, { type: "RESOLVE_KEEP_GPS", sessionId: 1 }, later, conflict).next;
+      expect(kept.endAtMs).toBe(MONDAY_8AM + 8 * HOUR);
+      expect(kept.transitSegments[0]).toMatchObject({
+        startAtMs: MONDAY_8AM + 6 * HOUR,
+        endAtMs: MONDAY_8AM + 7 * HOUR,
+        suppressed: false,
+        clipped: false,
+        clip: null,
+      });
     });
     test("RESOLVE_KEEP_GPS: VALID solo con par GPS limpio y sin degradación", () => {
       expect(okNext(null, { type: "RESOLVE_KEEP_GPS", sessionId: 1 }, makeCtx({ cleanGpsPair: true }), conflict).next.integrityClass).toBe("VALID");
