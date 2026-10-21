@@ -34,6 +34,8 @@ import { SettingsService } from "../persistence/SettingsService";
 import { powerOffsFromLedger } from "./deviceOffGap";
 import { chainHash, sha256Hex } from "./HashChain";
 import { powerOffSentence } from "./reportPremium";
+import { MICROCOPY_REJECTIONS } from "../../i18n/microcopy";
+import { fingerprintFromB64url, fingerprintsMatch } from "../runtime/keyFingerprint";
 import { canSignPacks, readPinnedPackSigningKey, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
 import { ReportService } from "./ReportService";
 import { TimeAuthorityService } from "./TimeAuthorityService";
@@ -55,18 +57,58 @@ export type SealRejection =
 /** Resultado de seal: `reused` = se devolvió el pack existente con el mismo contentHash. */
 export type SealResult = { ok: true; data: EvidencePack; reused: boolean } | { ok: false; code: SealRejection | string; detail?: string };
 
+/**
+ * Ancla independiente para verificar un pack fuera del teléfono que lo firmó.
+ * La clave pública que viaja en la firma no basta: quien verifica aporta la
+ * clave o la huella que recibió por otro canal.
+ */
+export interface PackTrustAnchor {
+  /** Clave pública Ed25519 en base64url, la misma que va en la firma. */
+  publicKey?: string;
+  /** Huella corta (AB12-CD34-EF56-7890). Basta una de las dos; si van las dos, las dos tienen que cuadrar. */
+  fingerprint?: string;
+}
+
+export interface PackIdentityNote {
+  es: string;
+  en: string;
+}
+
 export interface PackVerification {
   valid: boolean;
   /** Pack v1 sin contentHash: se verifica con el formato antiguo y no se comprueba contenido. */
   legacy: boolean;
   /**
-   * "Ed25519" si el manifiesto trae una firma que cuadra con la clave pinada.
-   * "unsigned-v1" si no hay firma: packs v1–v3 y un sello v4 con PACK_UNSIGNED.
-   * Un v4 que nació firmado y llega sin firma no es unsigned válido.
+   * "Ed25519" si la firma cuadra criptográficamente con la clave que trae el pack.
+   * Eso no identifica al firmante. "unsigned-v1" si no hay firma válida:
+   * packs v1–v3 y un sello v4+ con PACK_UNSIGNED. Un v4+ que nació firmado
+   * y llega sin firma no es unsigned válido.
    */
   scheme: "Ed25519" | "unsigned-v1";
-  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE, SIGNATURE_KEY, SIGNATURE_MISSING). */
+  /**
+   * device: la clave del llavero de este teléfono coincide.
+   * anchor: la clave o huella pasada en `trust` coincide.
+   * unverified: la firma cuadra y no hay ancla. No es una verificación de identidad.
+   * mismatch: el ancla (dispositivo o `trust`) no coincide.
+   * unsigned: no hay firma que atribuir.
+   */
+  identity: "device" | "anchor" | "unverified" | "mismatch" | "unsigned";
+  /** Presente solo cuando identity es unverified. */
+  identityNote: PackIdentityNote | null;
+  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE, SIGNATURE_KEY, SIGNATURE_MISSING, IDENTITY_UNVERIFIED, LEDGER_*). */
   failures: string[];
+}
+
+function trustDecision(publicKey: string, trust: PackTrustAnchor): "match" | "mismatch" | "absent" {
+  const pub = (trust.publicKey ?? "").trim();
+  const typed = (trust.fingerprint ?? "").trim();
+  if (!pub && !typed) return "absent";
+  if (pub && pub !== publicKey) return "mismatch";
+  if (typed) {
+    const expected = fingerprintFromB64url(publicKey);
+    if (!expected || !fingerprintsMatch(typed, expected)) return "mismatch";
+  }
+  return "match";
 }
 
 /**
@@ -350,6 +392,8 @@ export const EvidencePackService = {
     if (!isValidRange(input.periodStart, input.periodEnd) || !periodIdAt(input.periodStart)) {
       return { ok: false, code: "INVALID_PERIOD" };
     }
+    let attemptId: string | null = null;
+    let committed = false;
     try {
       const settings = await SettingsService.load();
       const nowMs = TimeAuthorityService.now();
@@ -458,14 +502,15 @@ export const EvidencePackService = {
         ...(powerOffs.length ? { powerOffs } : {}),
       };
 
-      const employee = await ReportService.renderPdf("EMPLOYEE_RECEIPT", reportInput);
-      const employer = await ReportService.renderPdf("EMPLOYER_DOSSIER", reportInput);
+      attemptId = Crypto.randomUUID();
+      const employee = await ReportService.renderPdf("EMPLOYEE_RECEIPT", reportInput, { destination: "attempt", attemptId });
+      const employer = await ReportService.renderPdf("EMPLOYER_DOSSIER", reportInput, { destination: "attempt", attemptId });
       manifest.files = [
         { role: "EMPLOYEE_RECEIPT", name: employee.name },
         { role: "EMPLOYER_DOSSIER", name: employer.name },
         { role: "MANIFEST_JSON", name: `manifest_${packId}.json` },
       ];
-      const manifestFile = ReportService.writeJson(packId, `manifest_${packId}`, canonicalJson({ manifest, statement: sealedStatement, evidence }));
+      const manifestFile = ReportService.writeJson(packId, `manifest_${packId}`, canonicalJson({ manifest, statement: sealedStatement, evidence }), { attemptId });
 
       const pack: EvidencePack = {
         id: packId,
@@ -496,9 +541,17 @@ export const EvidencePackService = {
         await PersistenceService.insertPack(pack, db);
         await OfflineQueueService.enqueue(packId, packHash, db);
       });
+      committed = true;
       StoreActions.packUpserted(pack);
       return { ok: true, data: pack, reused: false };
     } catch (error) {
+      if (attemptId && !committed) {
+        try {
+          ReportService.discardAttempt(attemptId);
+        } catch {
+          // El fallo del sello es el que se informa.
+        }
+      }
       LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Fallo sellando expediente", serializeError(error));
       return { ok: false, code: "PERSISTENCE_ERROR", detail: serializeError(error) };
     }
@@ -510,8 +563,12 @@ export const EvidencePackService = {
    * v2: statementHash, evidenceHash, contentHash y packHash (que incluye contentHash).
    * v1 (legado, sin contentHash): mismas comprobaciones salvo contentHash,
    * con el formato de packHash antiguo; se informa `legacy: true`.
+   * `trust` es la verificación externa: una clave o huella que no sale del pack.
+   * Sin ese argumento se usa la clave del llavero de este teléfono, si existe.
+   * Si no hay ancla (ni llavero, ni `trust` usable), una firma que cuadra
+   * criptográficamente no identifica al firmante.
    */
-  async verify(pack: EvidencePack): Promise<PackVerification> {
+  async verify(pack: EvidencePack, trust?: PackTrustAnchor): Promise<PackVerification> {
     const m = pack.manifest;
     const legacy = m.manifestVersion === undefined && m.contentHash === undefined;
     const failures: string[] = [];
@@ -522,17 +579,31 @@ export const EvidencePackService = {
     const body = packHashBody(rest);
     if ((await sha256Hex(canonicalJson(body))) !== packHash) failures.push("PACK_HASH");
     if (pack.statement.packHash !== packHash) failures.push("STATEMENT_PACK_HASH");
-    // v4. Sin firma solo vale si el propio packHash lleva PACK_UNSIGNED
+    // v4 y v5. Sin firma solo vale si el propio packHash lleva PACK_UNSIGNED
     // (sello sin llavero). Quitar la firma y rehacer los hashes no basta.
-    // Con firma, la clave tiene que ser la del llavero de este dispositivo
-    // cuando el pin existe. No se compara con la clave del código de
-    // aprovisionamiento: esa firma el PIN, no los packs. Los hashes no cambian.
+    // La clave embebida en la firma no es un ancla: o es la del llavero de
+    // este teléfono, o la que pasa quien verifica. No se compara con la clave
+    // del código de aprovisionamiento: esa firma el PIN, no los packs.
     const version = m.manifestVersion ?? 0;
     const unsignedOnPurpose = (m.sealWarnings ?? []).some((w) => w.code === "PACK_UNSIGNED");
+    let identity: PackVerification["identity"] = "unsigned";
     if (version >= 4 && signature) {
       if (!verifyCanonicalBody(body, packHash, signature)) failures.push("SIGNATURE");
-      const pinned = await readPinnedPackSigningKey();
-      if (pinned && (signature.publicKey !== pinned.publicKey || signature.keyId !== pinned.keyId)) failures.push("SIGNATURE_KEY");
+      else if (trust) {
+        const decision = trustDecision(signature.publicKey, trust);
+        if (decision === "match") identity = "anchor";
+        else if (decision === "mismatch") {
+          failures.push("SIGNATURE_KEY");
+          identity = "mismatch";
+        } else identity = "unverified";
+      } else {
+        const pinned = await readPinnedPackSigningKey();
+        if (!pinned) identity = "unverified";
+        else if (signature.publicKey !== pinned.publicKey || signature.keyId !== pinned.keyId) {
+          failures.push("SIGNATURE_KEY");
+          identity = "mismatch";
+        } else identity = "device";
+      }
     } else if (version >= 4 && !unsignedOnPurpose) {
       failures.push("SIGNATURE_MISSING");
     }
@@ -554,8 +625,20 @@ export const EvidencePackService = {
         }
       }
     }
-    const signed = version >= 4 && !!signature && !failures.includes("SIGNATURE") && !failures.includes("SIGNATURE_KEY");
-    return { valid: failures.length === 0, legacy, scheme: signed ? "Ed25519" : "unsigned-v1", failures };
+    if (identity === "unverified") failures.push("IDENTITY_UNVERIFIED");
+    const signatureMathOk = version >= 4 && !!signature && !failures.includes("SIGNATURE");
+    const identityNote =
+      identity === "unverified"
+        ? { es: MICROCOPY_REJECTIONS.es.IDENTITY_UNVERIFIED, en: MICROCOPY_REJECTIONS.en.IDENTITY_UNVERIFIED }
+        : null;
+    return {
+      valid: failures.length === 0,
+      legacy,
+      scheme: signatureMathOk ? "Ed25519" : "unsigned-v1",
+      failures,
+      identity,
+      identityNote,
+    };
   },
 
   async get(packId: string): Promise<EvidencePack | null> {

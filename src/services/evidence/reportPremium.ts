@@ -12,6 +12,7 @@ import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths
 import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { periodSliceOf } from "../domain/periodSlice";
 import { checkedInSiteIds } from "../domain/siteVisits";
+import { fingerprintFromB64url } from "../runtime/keyFingerprint";
 import { verificationQrSvg } from "./qrSvg";
 import type { PowerOffNote } from "./deviceOffGap";
 import type { ForensicLedgerRow, ReportInput } from "./reportTemplates";
@@ -215,9 +216,13 @@ function signatureBlock(input: ReportInput, lang: Language): string {
   const signature = input.manifest.signature;
   const signed = signature?.algorithm === "Ed25519" && !!signature.keyId;
   const warnings = input.manifest.sealWarnings ?? [];
+  const fingerprint = signed && signature ? fingerprintFromB64url(signature.publicKey) : null;
   const line = signed
     ? `<p class="sig signed" data-signature="Ed25519">${escapeHtml(t("comprobante.signed", { keyId: signature.keyId }, lang))}</p>`
     : `<p class="sig unsigned" data-signature="none">${escapeHtml(t("comprobante.unsigned", {}, lang))}</p>`;
+  const fingerprintLine = fingerprint
+    ? `<p class="sig-fp" data-key-fingerprint="${escapeHtml(fingerprint)}">${escapeHtml(t("comprobante.keyFingerprint", { fingerprint }, lang))}</p>`
+    : "";
   const unsigned = !signed || warnings.some((w) => w.code === "PACK_UNSIGNED");
   const indicator = unsigned
     ? `<p class="indicator" data-seal-indicator="unsigned">${escapeHtml(t("comprobante.unsignedIndicator", {}, lang))}</p>`
@@ -253,7 +258,7 @@ function signatureBlock(input: ReportInput, lang: Language): string {
     ),
   )}</p>`;
   const uncertified = input.manifest.certified ? "" : `<div class="uncertified">${escapeHtml(t("comprobante.uncertified", {}, lang))}</div>`;
-  return `${uncertified}${line}${indicator}${cryptoHtml}${other}${integrity}`;
+  return `${uncertified}${line}${fingerprintLine}${indicator}${cryptoHtml}${other}${integrity}`;
 }
 
 function metricsBlock(input: ReportInput, lang: Language): string {

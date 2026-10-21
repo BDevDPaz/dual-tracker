@@ -185,8 +185,12 @@ export type ViewIntent =
   | { type: "CANCEL_CALENDAR_CHANGE" }
   | { type: "LOCK_ADMIN" }
   | { type: "SETUP_ADMIN_PIN"; pin: string }
-  /** Código de un solo uso del empleador (hash salado, no el PIN en claro). */
-  | { type: "PROVISION_ADMIN_PIN"; code: string }
+  /**
+   * Código de un solo uso del empleador (hash salado, no el PIN en claro).
+   * `fingerprint` es la huella que el empleador dio por otro canal. Obligatoria
+   * solo al fijar la primera clave, si el build no trae una clave anclada.
+   */
+  | { type: "PROVISION_ADMIN_PIN"; code: string; fingerprint?: string }
   | { type: "COMPLETE_ONBOARDING"; profile: { employeeName: string; hourlyRate: number; language: "es" | "en"; dailyReminderTime: string } }
   | { type: "ACCEPT_DISCLOSURE"; version: string }
   // Health

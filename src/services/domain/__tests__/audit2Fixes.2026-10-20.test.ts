@@ -3,9 +3,10 @@
  */
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as FileSystem from "expo-file-system";
 import * as MailComposer from "expo-mail-composer";
 import { DEFAULT_COMPANY_POLICY, SettingsService } from "../../persistence/SettingsService";
 import { KV_KEYS } from "../../persistence/schema";
@@ -19,7 +20,8 @@ import { PayrollEngineService } from "../PayrollEngineService";
 import { ConcurrencyGuardService } from "../ConcurrencyGuardService";
 import { IntegrityLedgerService } from "../IntegrityLedgerService";
 import { provisionAdminPin } from "../../application/useCases/provisionAdminPin";
-import { createProvisionCode } from "../../runtime/pinProvision";
+import { employerKeyFingerprint } from "../../runtime/keyFingerprint";
+import { createProvisionCode, decodeProvisionCode } from "../../runtime/pinProvision";
 import { SecurityService } from "../../runtime/SecurityService";
 import { COMPANY, HOUR } from "../../../../test/fixtures/session.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
@@ -35,7 +37,7 @@ function codeFor(pin: string) {
     seed: randomBytes(32),
   });
   if (!made.ok) throw new Error(made.code);
-  return made.code;
+  return { code: made.code, fingerprint: employerKeyFingerprint(decodeProvisionCode(made.code)!.pub) };
 }
 
 async function closedPeriod() {
@@ -47,11 +49,15 @@ async function closedPeriod() {
 }
 
 describe("auditoría 2 — 2026-10-20", () => {
-  test("1: si insertPack falla, el asiento PAYROLL_SEALED no queda commiteado", async () => {
+  test("1: si insertPack falla, el asiento PAYROLL_SEALED no queda commiteado y no quedan archivos", async () => {
     const period = await closedPeriod();
+    const files = (FileSystem as unknown as { __files: Map<string, string> }).__files;
+    const before = new Set(files.keys());
     jest.spyOn(PersistenceService, "insertPack").mockRejectedValueOnce(new Error("disco"));
     const sealed = await EvidencePackService.seal(period);
     expect(sealed).toMatchObject({ ok: false, code: "PERSISTENCE_ERROR" });
+    const leftover = [...files.keys()].filter((uri) => !before.has(uri) && uri.includes("/packs/"));
+    expect(leftover).toEqual([]);
     expect(await PersistenceService.listPacks()).toHaveLength(0);
     expect(await PersistenceService.listLedger({ intent: "PAYROLL_SEALED" })).toHaveLength(0);
     expect(await PersistenceService.listOffline()).toHaveLength(0);
@@ -144,13 +150,13 @@ describe("auditoría 2 — 2026-10-20", () => {
   });
 
   test("14: si el ledger falla, el PIN y el nonce quedan como estaban", async () => {
-    const code = codeFor("481236");
+    const { code, fingerprint } = codeFor("481236");
     jest.spyOn(IntegrityLedgerService, "append").mockRejectedValueOnce(new Error("ledger"));
-    const failed = await provisionAdminPin(code);
+    const failed = await provisionAdminPin(code, fingerprint);
     expect(failed).toMatchObject({ ok: false, code: "PERSISTENCE_ERROR" });
     expect(await SecurityService.pinOrigin()).toBe("UNSET");
     expect(await PersistenceService.listLedger({ intent: "ADMIN_PIN_PROVISIONED" })).toHaveLength(0);
-    const again = await provisionAdminPin(code);
+    const again = await provisionAdminPin(code, fingerprint);
     expect(again.ok).toBe(true);
     expect(await SecurityService.pinOrigin()).toBe("EMPLOYER");
   }, 20_000);
@@ -218,6 +224,10 @@ describe("auditoría 2 — 2026-10-20", () => {
     expect(ran.stdout.includes("918273")).toBe(false);
     expect(ran.stderr.includes("918273")).toBe(false);
     expect(ran.stdout.includes("--pin")).toBe(false);
+    const key = JSON.parse(readFileSync(keyFile, "utf8")) as { publicKey: string };
+    const fingerprint = employerKeyFingerprint(key.publicKey);
+    expect(ran.stderr).toContain(`Huella ${fingerprint}`);
+    expect(ran.stdout).not.toContain(fingerprint);
 
     const warned = spawnSync(
       "npx",

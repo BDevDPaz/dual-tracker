@@ -20,9 +20,18 @@ Un código versión 1 (hash SHA-256 iterado, 1000 rondas) sigue aceptándose. Al
 
 El texto es `DTPIN1.` y, detrás, el JSON en base64url. Ese texto es también el contenido del QR. La app no abre la cámara: se pega el texto. El PIN se dice por otro canal (en persona, un papel, una llamada).
 
-## Clave del empleador (TOFU)
+## Clave del empleador (huella, no a ciegas)
 
-No hay una clave metida de antemano en la app. El primer código que se aplica bien deja fijada la clave pública (y su id, SHA-256 de esos 32 bytes) en el llavero del teléfono. A partir de ahí solo se aceptan códigos firmados por esa clave.
+La firma del código se comprueba con la clave pública que viaja dentro del propio código. Eso solo dice que quien tiene el secreto firmó el texto. No dice que esa persona sea el empleador. Quien sustituya el primer código puede firmar el suyo y elegir el PIN. Por eso el teléfono no fija la primera clave solo porque la firma cuadre.
+
+La primera vez hace falta una de estas dos cosas:
+
+- La persona teclea la huella que el empleador le dio por otro canal (en persona, un papel, una llamada). No vale una huella que haya llegado en el mismo mensaje que el código. La app muestra la huella de este código para compararla. Si no coincide, no se fija nada y el nonce no se gasta.
+- O el build trae esa clave pública anclada en `EMPLOYER_KEY_ANCHOR_PUB` (`src/config/employerKeyAnchor.ts`, base64url de 32 bytes). Vacío en este repo. Con valor, el primer código solo entra si su clave pública es exactamente esa. Una clave distinta se rechaza (`ANCHOR_MISMATCH`) aunque la huella del código sea la que se tecleó. Cambiar el ancla es un build nuevo.
+
+La huella son los primeros 16 hexadecimales del SHA-256 de la clave pública, en cuatro grupos: `AB12-CD34-EF56-7890`. Mayúsculas, espacios y guiones no importan. El id de la clave es el SHA-256 completo de esos 32 bytes. La huella es el prefijo.
+
+A partir de ahí solo se aceptan códigos firmados por la clave fijada.
 
 Una clave distinta, con la zona admin cerrada, se rechaza. El aviso, en los dos idiomas, pide desbloquear para cambiar de clave. Ese rechazo no gasta el nonce: el mismo código vale después de desbloquear.
 
@@ -41,7 +50,7 @@ El PIN también puede ir en `DT_PIN` o en `DT_PIN_FILE`, o teclearse en la termi
 
 La primera vez crea `employer-key.json` (modo 0600) con el secreto, la clave pública, el id y la fecha. Las veces siguientes reutilizan ese archivo, así que todos los teléfonos quedan fijados a la misma clave. `--key otra-ruta.json` cambia el archivo. `--hours` es opcional; si no se pone, caduca a las 72 h (`PIN_PROVISION_DEFAULT_TTL_MS`).
 
-La salida estándar es una sola línea: el código. No la guardes junto al PIN. La clave secreta no se imprime. El error estándar dice si la clave es nueva o reutilizada, y el id. `employer-key.json` y `employer-key.retired-*.json` están en `.gitignore`. No los subas.
+La salida estándar es una sola línea: el código. No la guardes junto al PIN. La clave secreta no se imprime. El error estándar dice si la clave es nueva o reutilizada, el id y la huella (`Huella AB12-CD34-EF56-7890`). Esa huella es la que se dicta al teléfono. `employer-key.json` y `employer-key.retired-*.json` están en `.gitignore`. No los subas.
 
 El PIN tiene al menos 6 caracteres. Los escalones de bloqueo no cambian: 3 fallos esperan 30 s, 5 fallos 5 min, 8 fallos 30 min, 10 fallos 24 h.
 
@@ -49,7 +58,7 @@ El PIN tiene al menos 6 caracteres. Los escalones de bloqueo no cambian: 3 fallo
 
 1. En el ordenador, con el PIN nuevo en un archivo: `DT_PIN_FILE=/tmp/dt-pin npx tsx scripts/provision-admin-pin.ts --hours 72 --rotate`. El archivo actual pasa a `employer-key.retired-<fecha>.json` y se crea una clave nueva. `--pin` avisa y no es el camino.
 2. En cada teléfono que ya tenga la clave anterior: desbloquea la zona admin con el PIN de ahora, pega el código nuevo y comprueba que el PIN nuevo abre. El registro escribe `EMPLOYER_KEY_REPINNED` (motivo `ROTATION`) con el id nuevo y el anterior.
-3. Un teléfono que todavía no tiene clave fijada acepta el código nuevo como el primero (`EMPLOYER_KEY_PINNED`, motivo `TOFU`).
+3. Un teléfono que todavía no tiene clave fijada no acepta el código nuevo hasta que se teclea la huella nueva, o hasta que el build ancle esa clave (`EMPLOYER_KEY_PINNED`, motivo `FINGERPRINT` o `ANCHOR`).
 4. Conserva el archivo retirado hasta que todos los teléfonos hayan aceptado la clave nueva. Si lo borras antes, no podrás firmar un código que esos teléfonos todavía esperan. Después de eso, el archivo retirado se puede borrar. No hace falta para el día a día.
 
 Sin `--rotate`, un código nuevo sigue firmado por la clave de siempre. En un teléfono ya aprovisionado y cerrado, ese código se rechaza porque el nonce es otro y el PIN de empleador ya está puesto: hay que desbloquear para sustituir el PIN, no para aceptar la misma clave.
@@ -57,7 +66,7 @@ Sin `--rotate`, un código nuevo sigue firmado por la clave de siempre. En un te
 ## Qué hace el teléfono
 
 1. Comprueba el prefijo, el cuerpo, la firma y que no haya caducado.
-2. Si no hay clave fijada, esta pasa a ser la del empleador.
+2. Si no hay clave fijada, esta pasa a ser la del empleador solo si la huella tecleada coincide o si la clave es la anclada en el build. Si no, se rechaza y no se escribe nada.
 3. Si la clave no es la fijada y la zona admin está cerrada, lo rechaza y no gasta el nonce.
 4. Si la clave no es la fijada y la zona está abierta, sustituye la clave fijada.
 5. Si ese nonce ya se usó en este teléfono, lo rechaza.
@@ -65,7 +74,7 @@ Sin `--rotate`, un código nuevo sigue firmado por la clave de siempre. En un te
 7. Guarda el hash (scrypt, o el legado si el código es versión 1), marca el origen y anota el nonce.
 8. Escribe en el registro de integridad:
    - `ADMIN_PIN_PROVISIONED` (motivo `EMPLOYER_CODE`) con el nonce, la caducidad y el id de clave;
-   - si la clave se fija por primera vez, `EMPLOYER_KEY_PINNED` (motivo `TOFU`) con el id;
+   - si la clave se fija por primera vez, `EMPLOYER_KEY_PINNED` (motivo `FINGERPRINT` o `ANCHOR`) con el id;
    - si se rota, `EMPLOYER_KEY_REPINNED` (motivo `ROTATION`) con el id nuevo y el anterior.
 
 No escribe el PIN, la sal, el hash ni la clave pública en bruto.

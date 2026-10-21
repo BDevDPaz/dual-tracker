@@ -14,7 +14,7 @@ Cómo instalar: [BUILD.md](BUILD.md). No hace falta otra etiqueta git: el commit
 | `versionCode` | Entero **mayor que 3**. El último preview fue el 3. EAS lo sube solo (`appVersionSource: remote`, `autoIncrement`). No se fija en el repo y no se reinicia. |
 | Línea en Ajustes y en Soporte | `Versión 1.0.0 (RC1) · build N` |
 | La misma línea en English | `Version 1.0.0 (RC1) · build N` |
-| Diagnóstico | `versionLine` igual a esa frase, `appVersion` `1.0.0`, `releaseChannel` `RC1`, `contentVersion` `soporte.v5`. Sin coordenadas, nombre, tarifa, correo ni `enc:v1`. |
+| Diagnóstico | `versionLine` igual a esa frase, `appVersion` `1.0.0`, `releaseChannel` `RC1`, `contentVersion` `soporte.v6`. Sin coordenadas, nombre, tarifa, correo ni `enc:v1`. |
 
 `N` es el `versionCode` de ese APK. Anótalo en la columna Build de cada lista, junto con la fecha, el modelo, la versión de Android y el commit.
 

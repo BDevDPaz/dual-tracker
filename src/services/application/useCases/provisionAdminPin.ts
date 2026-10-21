@@ -10,8 +10,8 @@ import { PersistenceService } from "../../persistence/PersistenceService";
 import { SecurityService } from "../../runtime/SecurityService";
 import { serializeError } from "../../../utils/serializeError";
 
-export async function provisionAdminPin(code: string): Promise<IntentResult<{ nonce: string }>> {
-  const installed = await SecurityService.provisionFromCode(code);
+export async function provisionAdminPin(code: string, fingerprint?: string): Promise<IntentResult<{ nonce: string }>> {
+  const installed = await SecurityService.provisionFromCode(code, fingerprint);
   if (!installed.ok) return { ok: false, code: installed.code };
   const nowMs = TimeAuthorityService.now();
   try {
@@ -38,7 +38,7 @@ export async function provisionAdminPin(code: string): Promise<IntentResult<{ no
             intent: "EMPLOYER_KEY_PINNED",
             fromState: null,
             toState: null,
-            reason: "TOFU",
+            reason: installed.keyAuth === "ANCHOR" ? "ANCHOR" : "FINGERPRINT",
             timestampMs: nowMs,
             integrityClass: null,
             data: { keyId: installed.keyId },

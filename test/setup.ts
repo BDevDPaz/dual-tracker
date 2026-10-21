@@ -70,6 +70,7 @@ beforeEach(async () => {
   await (require("../src/support/practice") as typeof import("../src/support/practice")).__resetPracticeForTests();
   (require("../src/services/evidence/TimeAuthorityService") as typeof import("../src/services/evidence/TimeAuthorityService")).TimeAuthorityService.__resetForTests();
   (require("../src/services/evidence/packSignature") as typeof import("../src/services/evidence/packSignature")).__resetPackSignatureForTests();
+  (require("../src/config/employerKeyAnchor") as typeof import("../src/config/employerKeyAnchor")).__setEmployerKeyAnchorForTests(null);
   (require("../src/services/evidence/clockSample") as typeof import("../src/services/evidence/clockSample")).__resetClockSampleForTests();
 
   const testPath = expect.getState().testPath ?? "";

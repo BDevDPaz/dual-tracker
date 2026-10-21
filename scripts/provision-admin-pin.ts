@@ -11,6 +11,8 @@
  *
  * --pin sigue aceptándose y avisa: el PIN queda en el historial del shell.
  * stdout es solo el código. La clave secreta no se imprime.
+ * stderr imprime la huella de la clave (AB12-CD34-EF56-7890) para darla
+ * por otro canal: el teléfono no fija la primera clave sin esa huella.
  * Detalle: docs/PIN_APROVISIONAMIENTO.md.
  */
 import { randomBytes } from "node:crypto";
@@ -19,6 +21,7 @@ import { createInterface } from "node:readline";
 import { getPublicKey } from "@noble/ed25519";
 import { PIN_PROVISION_DEFAULT_TTL_MS } from "../src/config/provisional";
 import { b64urlEncode } from "../src/services/persistence/cryptoCodec";
+import { employerKeyFingerprint } from "../src/services/runtime/keyFingerprint";
 import { createProvisionCode, employerKeyId } from "../src/services/runtime/pinProvision";
 
 interface EmployerKeyFile {
@@ -64,6 +67,7 @@ function loadKey(file: string, rotate: boolean): Uint8Array {
     }
     chmodSync(file, 0o600);
     console.error(`Clave reutilizada. keyId ${parsed.keyId}`);
+    console.error(`Huella ${employerKeyFingerprint(publicKey)}`);
     return secretKey;
   }
   const secretKey = new Uint8Array(randomBytes(32));
@@ -80,6 +84,7 @@ function loadKey(file: string, rotate: boolean): Uint8Array {
   writeFileSync(file, JSON.stringify(body, null, 2) + "\n", { mode: 0o600 });
   chmodSync(file, 0o600);
   console.error(`Clave nueva. keyId ${keyId}`);
+  console.error(`Huella ${employerKeyFingerprint(publicKey)}`);
   console.error(`Archivo ${file} (no lo subas al repositorio).`);
   return secretKey;
 }

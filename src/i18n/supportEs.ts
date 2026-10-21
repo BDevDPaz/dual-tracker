@@ -262,7 +262,7 @@ export const supportEs = {
     settings: {
       title: "Ajustes",
       intro: "Ajustes guarda el perfil y el idioma, el PIN (local o del empleador), el portal y el estado de retención. También abre Salud, destinos y Soporte.",
-      s0: { title: "El PIN", body: "Hasta que el empleador aprovisione un código, el primer usuario fija un PIN local. La etiqueta lo dice. El código de un solo uso se pega una vez y caduca." },
+      s0: { title: "El PIN", body: "Hasta que el empleador aprovisione un código, el primer usuario fija un PIN local. La etiqueta lo dice. El código de un solo uso se pega una vez y caduca. La primera clave pide la huella que el empleador dio por otro canal." },
       s1: { title: "El portal", body: "Si no hay dirección https, no se envía nada: «Portal del empleador: no configurado». Encenderlo pide la zona admin y una dirección https." },
     },
     session: {
@@ -451,7 +451,7 @@ export const supportEs = {
     },
     packSignature: {
       q: "¿El expediente va firmado?",
-      a: "Los expedientes nuevos llevan una firma del teléfono (Ed25519) junto al código de verificación. Los anteriores, sin firma, siguen siendo válidos. El PDF ya sellado no se reescribe.",
+      a: "Los expedientes nuevos llevan una firma del teléfono (Ed25519) junto al código de verificación y la huella de la clave. Los anteriores, sin firma, siguen siendo válidos. El PDF ya sellado no se reescribe. Una firma que cuadra no identifica al teléfono si no se compara esa huella con la que se anotó aparte.",
     },
     retentionBoth: {
       q: "¿Cuándo se borra el rastro?",
@@ -459,7 +459,7 @@ export const supportEs = {
     },
     employerPin: {
       q: "¿Quién pone el PIN de administración?",
-      a: "Si el empleador no ha aprovisionado el teléfono, lo fija la primera persona que lo use. Ajustes lo llama PIN local (no aprovisionado por empleador). Un código de un solo uso, que caduca, deja el PIN del empleador. El PIN no va dentro del código: te lo dicen aparte. El primer código válido fija la clave del empleador. Una clave distinta no entra hasta que desbloquees la zona admin. Tras varios fallos el teléfono espera; los escalones siguen igual.",
+      a: "Si el empleador no ha aprovisionado el teléfono, lo fija la primera persona que lo use. Ajustes lo llama PIN local (no aprovisionado por empleador). Un código de un solo uso, que caduca, deja el PIN del empleador. El PIN no va dentro del código: te lo dicen aparte. La primera clave no se fija sola: hay que teclear la huella que el empleador dio por otro canal, o el build tiene que traer esa clave anclada. Una clave distinta no entra hasta que desbloquees la zona admin. Tras varios fallos el teléfono espera; los escalones siguen igual.",
     },
     employerPortal: {
       q: "¿Se envían los expedientes a un portal?",

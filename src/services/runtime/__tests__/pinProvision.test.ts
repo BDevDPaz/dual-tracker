@@ -5,6 +5,8 @@ import { PIN_LOCKOUT_STEPS, PIN_SCRYPT_N } from "../../../config/provisional";
 import { MICROCOPY_REJECTIONS } from "../../../i18n/microcopy";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { ADMIN_PIN_STORE_KEY, SecurityService } from "../SecurityService";
+import { __setEmployerKeyAnchorForTests } from "../../../config/employerKeyAnchor";
+import { employerKeyFingerprint } from "../keyFingerprint";
 import { createLegacyProvisionCode, createProvisionCode, decodeProvisionCode, employerKeyId } from "../pinProvision";
 import { provisionAdminPin } from "../../application/useCases/provisionAdminPin";
 import { time } from "../../../../test/time";
@@ -18,7 +20,7 @@ function codeFor(pin: string, expiresAtMs: number, seed?: Uint8Array) {
     seed: seed ?? randomBytes(32),
   });
   if (!made.ok) throw new Error(made.code);
-  return made;
+  return { ...made, fingerprint: employerKeyFingerprint(decodeProvisionCode(made.code)!.pub) };
 }
 
 describe("aprovisionamiento del PIN", () => {
@@ -26,7 +28,7 @@ describe("aprovisionamiento del PIN", () => {
 
   test("un código vigente instala el PIN, no se reutiliza y el ledger no lleva el secreto", async () => {
     const made = codeFor("481236", time.now() + 60_000);
-    const installed = await provisionAdminPin(made.code);
+    const installed = await provisionAdminPin(made.code, made.fingerprint);
     expect(installed.ok).toBe(true);
     expect(await SecurityService.pinOrigin()).toBe("EMPLOYER");
     expect((await SecurityService.unlock("481236")).ok).toBe(true);
@@ -47,7 +49,7 @@ describe("aprovisionamiento del PIN", () => {
 
     const pinned = await PersistenceService.listLedger({ intent: "EMPLOYER_KEY_PINNED" });
     expect(pinned).toHaveLength(1);
-    expect(pinned[0].reason).toBe("TOFU");
+    expect(pinned[0].reason).toBe("FINGERPRINT");
     expect(pinned[0].payloadJson).toContain(keyId);
     expect(pinned[0].payloadJson).not.toContain(decoded!.pub);
   });
@@ -67,7 +69,7 @@ describe("aprovisionamiento del PIN", () => {
     expect(await SecurityService.pinOrigin()).toBe("LOCAL");
     const seed = randomBytes(32);
     const first = codeFor("222222", time.now() + 60_000, seed);
-    expect((await SecurityService.provisionFromCode(first.code)).ok).toBe(true);
+    expect((await SecurityService.provisionFromCode(first.code, first.fingerprint)).ok).toBe(true);
     expect(await SecurityService.pinOrigin()).toBe("EMPLOYER");
     expect((await SecurityService.unlock("111111")).ok).toBe(false);
     SecurityService.lock();
@@ -82,7 +84,7 @@ describe("aprovisionamiento del PIN", () => {
 
     const seed = randomBytes(32);
     const first = codeFor("222222", time.now() + 60_000, seed);
-    expect((await provisionAdminPin(first.code)).ok).toBe(true);
+    expect((await provisionAdminPin(first.code, first.fingerprint)).ok).toBe(true);
     const other = codeFor("333333", time.now() + 60_000);
     expect(await provisionAdminPin(other.code)).toMatchObject({ ok: false, code: "EMPLOYER_KEY_MISMATCH" });
 
@@ -113,7 +115,7 @@ describe("aprovisionamiento del PIN", () => {
     });
     if (!legacy.ok) throw new Error(legacy.code);
     expect(decodeProvisionCode(legacy.code)?.v).toBe(1);
-    expect((await SecurityService.provisionFromCode(legacy.code)).ok).toBe(true);
+    expect((await SecurityService.provisionFromCode(legacy.code, employerKeyFingerprint(decodeProvisionCode(legacy.code)!.pub))).ok).toBe(true);
     const stored = JSON.parse((await SecureStore.getItemAsync(ADMIN_PIN_STORE_KEY)) ?? "{}") as { kdf?: string; hash: string };
     expect(stored.kdf).toBeUndefined();
     expect(stored.hash).toMatch(/^[0-9a-f]{64}$/i);
@@ -130,7 +132,7 @@ describe("aprovisionamiento del PIN", () => {
 
   test("los escalones de bloqueo siguen aplicando", async () => {
     const made = codeFor("481236", time.now() + 60_000);
-    expect((await SecurityService.provisionFromCode(made.code)).ok).toBe(true);
+    expect((await SecurityService.provisionFromCode(made.code, made.fingerprint)).ok).toBe(true);
     const threshold = PIN_LOCKOUT_STEPS[0][0];
     for (let i = 0; i < threshold; i++) {
       expect((await SecurityService.unlock("000000")).ok).toBe(false);
@@ -139,4 +141,46 @@ describe("aprovisionamiento del PIN", () => {
     expect(last.ok).toBe(false);
     if (!last.ok) expect(last.code).toBe("ADMIN_LOCKOUT");
   }, 20_000);
+
+  test("sin huella no se fija la primera clave; una huella ajena tampoco", async () => {
+    expect(MICROCOPY_REJECTIONS.es.FINGERPRINT_REQUIRED).toContain("huella");
+    expect(MICROCOPY_REJECTIONS.en.FINGERPRINT_MISMATCH).toContain("fingerprint");
+    expect(MICROCOPY_REJECTIONS.es.IDENTITY_UNVERIFIED).toBe("firma válida pero identidad no verificada");
+    expect(MICROCOPY_REJECTIONS.en.IDENTITY_UNVERIFIED).toBe("signature valid but identity not verified");
+
+    const made = codeFor("481236", time.now() + 60_000);
+    expect(await provisionAdminPin(made.code)).toMatchObject({ ok: false, code: "FINGERPRINT_REQUIRED" });
+    expect(await SecurityService.pinOrigin()).toBe("UNSET");
+    expect(await SecurityService.hasPinnedEmployerKey()).toBe(false);
+    expect(await provisionAdminPin(made.code, "AAAA-BBBB-CCCC-DDDD")).toMatchObject({ ok: false, code: "FINGERPRINT_MISMATCH" });
+    expect(await SecurityService.hasPinnedEmployerKey()).toBe(false);
+
+    const installed = await provisionAdminPin(made.code, made.fingerprint.toLowerCase().replace(/-/g, " "));
+    expect(installed.ok).toBe(true);
+    expect(await SecurityService.hasPinnedEmployerKey()).toBe(true);
+    const pinned = await PersistenceService.listLedger({ intent: "EMPLOYER_KEY_PINNED" });
+    expect(pinned[0].reason).toBe("FINGERPRINT");
+  }, 20_000);
+
+  test("una clave anclada en el build fija sin huella y rechaza otra", async () => {
+    const made = codeFor("481236", time.now() + 60_000);
+    __setEmployerKeyAnchorForTests(decodeProvisionCode(made.code)!.pub);
+    expect((await provisionAdminPin(made.code)).ok).toBe(true);
+    const pinned = await PersistenceService.listLedger({ intent: "EMPLOYER_KEY_PINNED" });
+    expect(pinned[0].reason).toBe("ANCHOR");
+
+    const other = codeFor("333333", time.now() + 60_000);
+    expect(await provisionAdminPin(other.code, other.fingerprint)).toMatchObject({ ok: false, code: "EMPLOYER_KEY_MISMATCH" });
+    expect((await SecurityService.unlock("481236")).ok).toBe(true);
+  }, 20_000);
+
+  test("un ancla distinta no se deja pisar con la huella del código", async () => {
+    const made = codeFor("481236", time.now() + 60_000);
+    const other = codeFor("999999", time.now() + 60_000);
+    __setEmployerKeyAnchorForTests(decodeProvisionCode(other.code)!.pub);
+    expect(await provisionAdminPin(made.code, made.fingerprint)).toMatchObject({ ok: false, code: "ANCHOR_MISMATCH" });
+    expect(await SecurityService.hasPinnedEmployerKey()).toBe(false);
+    expect(MICROCOPY_REJECTIONS.es.ANCHOR_MISMATCH).toContain("anclada");
+    expect(MICROCOPY_REJECTIONS.en.ANCHOR_MISMATCH).toContain("anchored");
+  });
 });

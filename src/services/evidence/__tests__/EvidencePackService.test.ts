@@ -56,7 +56,7 @@ describe("EvidencePackService", () => {
     // La cabeza del ledger cambió entre sellos (asiento de sello) y no afecta al contenido.
     expect(b.evidence.ledgerHeadHash).not.toBe(a.evidence.ledgerHeadHash);
     for (const pack of [a, b, (await EvidencePackService.get(a.id))!, (await EvidencePackService.get(b.id))!]) {
-      expect(await EvidencePackService.verify(pack)).toEqual({ valid: true, legacy: false, scheme: "Ed25519", failures: [] });
+      expect(await EvidencePackService.verify(pack)).toEqual({ valid: true, legacy: false, scheme: "Ed25519", failures: [], identity: "device", identityNote: null });
     }
     const reasons = (await PersistenceService.listLedger()).filter((e) => e.intent === "PAYROLL_SEALED").map((e) => e.reason);
     expect(reasons).toEqual(["PACK_SEALED", "PACK_REISSUED"]);
@@ -121,7 +121,7 @@ describe("EvidencePackService", () => {
       }),
     );
     const legacy = { ...pack, manifest: { ...m, packHash: legacyHash }, statement: { ...pack.statement, packHash: legacyHash } };
-    expect(await EvidencePackService.verify(legacy)).toEqual({ valid: true, legacy: true, scheme: "unsigned-v1", failures: [] });
+    expect(await EvidencePackService.verify(legacy)).toEqual({ valid: true, legacy: true, scheme: "unsigned-v1", failures: [], identity: "unsigned", identityNote: null });
     // A un v2 no se le puede "degradar" a legado quitándole contentHash: su packHash deja de cuadrar.
     expect((await EvidencePackService.verify({ ...pack, manifest: m })).failures).toContain("PACK_HASH");
   });

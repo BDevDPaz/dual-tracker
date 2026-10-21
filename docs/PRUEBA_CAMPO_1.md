@@ -45,4 +45,4 @@ Mismo equipo que la prueba (Samsung, español). Build nuevo, sin reutilizar el A
 | F6 | Aléjate de verdad (radio + más de 50 m) y espera unos 2 min. | Aviso de salida. La hora es la primera salida clara. Puedes seguir, trasladarte o cerrar. |
 | F7 | Cierra la jornada con la ubicación en orden (sin haber movido el reloj) y sella el periodo. | El comprobante dice Validada, no Ajuste manual, si no hubo otro motivo. El sello «SELLADO» se lee entero en la esquina superior derecha, sin partirse. |
 | F8 | Abre el expediente del 19 oct (`W2026-10-19-bf620376`) y comprueba el código. | Sigue verificando. El PDF que ya se selló no cambia. El código no se recalcula por esta plantilla. |
-| F9 | En Soporte, la pregunta del reloj. El diagnóstico trae la guía. | El texto dice que la hora de red, con ubicación buena, es un aviso. La guía es `soporte.v5`. |
+| F9 | En Soporte, la pregunta del reloj. El diagnóstico trae la guía. | El texto dice que la hora de red, con ubicación buena, es un aviso. La guía es `soporte.v6`. |

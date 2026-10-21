@@ -40,7 +40,7 @@ export type LedgerIntent =
   | "TRACE_PURGED"
   /** El empleador dejó el PIN admin con un código de un solo uso. No guarda el PIN ni el hash. */
   | "ADMIN_PIN_PROVISIONED"
-  /** Primera clave Ed25519 del empleador fijada en el teléfono (TOFU). Solo el id, no la clave. */
+  /** Primera clave Ed25519 del empleador fijada tras huella o clave anclada. Solo el id, no la clave. */
   | "EMPLOYER_KEY_PINNED"
   /** La zona admin desbloqueada sustituyó la clave fijada. Solo ids. */
   | "EMPLOYER_KEY_REPINNED"
