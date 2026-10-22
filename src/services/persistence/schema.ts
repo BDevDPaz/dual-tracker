@@ -18,7 +18,9 @@ export const DB_NAME = "dual_tracker_v1.db";
 // v5: spatial_facts.mocked (ubicación simulada). Columna NULL: las filas viejas siguen.
 // v6: service_health (último latido por componente). Tabla nueva: no toca filas viejas.
 // v7: sites.arrival_dwell_ms (NULL = usar el ajuste global) e índice único de prev_hash si no hay duplicados.
-export const SCHEMA_VERSION = 7;
+// v8: sessions.hourly_rate_snapshot (tarifa vigente al iniciar la jornada). NULL en jornadas
+//     anteriores: la nómina usa la tarifa actual como respaldo y lo marca (RATE_FALLBACK_CURRENT).
+export const SCHEMA_VERSION = 8;
 
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
@@ -29,6 +31,13 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["cert_blockers_json", "TEXT NOT NULL DEFAULT '[]'"], // FieldCrypto §12
   ["recorded_timezone", "TEXT"],
 ];
+
+/**
+ * v8: columnas de sessions que se añaden DESPUÉS de ensureForeignKeys. La
+ * reconstrucción v4 copia una lista fija de columnas; si esta columna se
+ * añadiera antes, una base pre-v4 la perdería al reconstruirse.
+ */
+export const SESSION_V8_COLUMNS: [string, string][] = [["hourly_rate_snapshot", "REAL"]];
 
 /** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. v7: espera de llegada. */
 export const SITE_ADDED_COLUMNS: [string, string][] = [
@@ -77,7 +86,8 @@ export const CREATE_TABLES_SQL = `
     breaks_clipped INTEGER NOT NULL DEFAULT 0,
     split_from_session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
     cert_blockers_json TEXT NOT NULL DEFAULT '[]',
-    recorded_timezone TEXT
+    recorded_timezone TEXT,
+    hourly_rate_snapshot REAL
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_start ON sessions(declared_start_ms);
   CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(domain_status);

@@ -186,6 +186,13 @@ export interface SessionRecord {
      * anteriores al campo: se leen como America/Los_Angeles.
      */
     recordedTimeZone?: string;
+    /**
+     * Tarifa por hora vigente al iniciar la jornada (schema v8). Ausente en
+     * jornadas anteriores al campo: la nómina usa la tarifa actual de Ajustes
+     * y añade la advertencia RATE_FALLBACK_CURRENT#<id>. Solo presente si se
+     * conoce, para no alterar el contentHash de registros antiguos.
+     */
+    hourlyRateSnapshot?: number;
     isDeleted: boolean;
     /** Cancelada antes de llegar (CANCEL_DAY desde ESPERANDO). No genera nómina. */
     cancelled: boolean;
