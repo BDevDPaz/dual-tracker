@@ -828,6 +828,7 @@ export const es = {
     CALENDAR_CHANGED: "Calendario laboral modificado",
     CALENDAR_CHANGE_CANCELLED: "Cambio de calendario anulado",
     PAYROLL_POLICY_CHANGED: "Política de nómina actualizada",
+    HOURLY_RATE_CHANGED: "Tarifa por hora modificada",
     MARK_ORPHAN: "Jornada marcada para revisar",
     CONTINUE_ORPHAN: "Se continúa la jornada",
     CONFIRM_ORPHAN_END: "Fin confirmado por el operario",

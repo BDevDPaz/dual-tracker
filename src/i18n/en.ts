@@ -827,6 +827,7 @@ export const en: Dictionary = {
     CALENDAR_CHANGED: "Work calendar changed",
     CALENDAR_CHANGE_CANCELLED: "Calendar change cancelled",
     PAYROLL_POLICY_CHANGED: "Payroll policy updated",
+    HOURLY_RATE_CHANGED: "Hourly rate changed",
     MARK_ORPHAN: "Shift flagged for review",
     CONTINUE_ORPHAN: "Shift continued",
     CONFIRM_ORPHAN_END: "End confirmed by the worker",

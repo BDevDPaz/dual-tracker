@@ -30,7 +30,8 @@ export default function ProfileScreen() {
   const [busy, setBusy] = useState(false);
 
   const rateNum = Number(rate.replace(",", "."));
-  const valid = name.trim().length > 0 && Number.isFinite(rateNum) && rateNum >= 0 && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder);
+  // Campo vacío no cuenta como tarifa 0 (Number("") === 0).
+  const valid = name.trim().length > 0 && rate.trim() !== "" && Number.isFinite(rateNum) && rateNum >= 0 && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder);
   const onEnter = async () => {
     setBusy(true);
     const res = await emit({
