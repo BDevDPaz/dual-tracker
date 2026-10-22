@@ -20,7 +20,7 @@ import { useTheme } from "../../src/context/ThemeContext";
 import type { DeviceIntegritySnapshot, HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
 import { foregroundLocationHealth, readingLooksOk, sensorBlocksValid } from "../../src/core/healthPolicy";
 import { SERVICE_COMPONENTS } from "../../src/core/contracts";
-import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
 import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
@@ -57,14 +57,15 @@ export default function HealthScreen() {
   const backup = selectBackupAdvice(state, nowMs);
   const admin = selectAdmin(state);
   const [pin, setPin] = useState("");
-  const [busy, setBusy] = useState(false);
-  const acknowledge = async () => {
-    if (!ledger.broken) return;
-    setBusy(true);
-    await emit({ type: "ACKNOWLEDGE_LEDGER_BREAK", pin, incident: ledger.broken });
-    setPin("");
-    setBusy(false);
-  };
+  const { busy, run } = useBusyAction();
+  const acknowledge = () =>
+    run(async () => {
+      if (!ledger.broken) return;
+      const incident = ledger.broken;
+      const res = await emit({ type: "ACKNOWLEDGE_LEDGER_BREAK", pin, incident });
+      if (res.ok) setPin("");
+      return res;
+    });
   const pinChain = useFormFocusChain(FORM_FIELDS.healthPin, {
     canSubmit: pin.length >= PIN_MIN_LENGTH && !busy,
     onSubmit: () => void acknowledge(),
@@ -185,7 +186,8 @@ export default function HealthScreen() {
           value={r.value}
           ok={r.ok}
           blocksValid={r.blocksValid}
-          onRepair={r.repair ? () => void emit(r.repair!) : undefined}
+          busy={busy}
+          onRepair={r.repair ? () => void run(() => emit(r.repair!)) : undefined}
         />
       ))}
       <Section title={t("health.review.title")}>
@@ -255,7 +257,7 @@ export default function HealthScreen() {
           )}
           {ledger.broken || ledger.acknowledgedBreaks > 0 ? (
             <>
-              <Button label={t("health.ledger.export")} variant="secondary" size="sm" disabled={busy} onPress={() => void emit({ type: "EXPORT_LEDGER_INCIDENT" })} />
+              <Button label={t("health.ledger.export")} variant="secondary" size="sm" disabled={busy} onPress={() => void run(() => emit({ type: "EXPORT_LEDGER_INCIDENT" }))} />
               <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.ledger.exportHint")}</Text>
             </>
           ) : null}

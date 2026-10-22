@@ -19,7 +19,7 @@ import { KeyValueRow, OrphanReviewCard, ScreenStatusBanner } from "../../src/com
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import type { LedgerEntry } from "../../src/core/contracts";
-import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   formatCents,
   formatHundredths,
@@ -51,7 +51,7 @@ export default function SessionDetailScreen() {
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
   const [modal, setModal] = useState<null | "EDIT" | "DELETE" | "NOTE">(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run: guard } = useBusyAction();
 
   const session = Number.isFinite(sessionId) ? selectSessionById(state, sessionId) : null;
   const updatedAt = session?.bookkeeping.updatedAtMs ?? 0;
@@ -89,12 +89,12 @@ export default function SessionDetailScreen() {
   const hasTrace = facts.some((f) => f.type === "BREADCRUMB");
   const hasEnter = facts.some((f) => f.type === "ENTER" && f.reliable);
 
-  const run = async (intent: Parameters<typeof emit>[0]) => {
-    setBusy(true);
-    const res = await emit(intent);
-    setBusy(false);
-    if (res.ok) setModal(null);
-  };
+  const run = (intent: Parameters<typeof emit>[0]) =>
+    guard(async () => {
+      const res = await emit(intent);
+      if (res.ok) setModal(null);
+      return res;
+    });
 
   return (
     <ScreenScroll

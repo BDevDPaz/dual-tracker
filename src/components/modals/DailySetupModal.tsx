@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { SelectableCard } from "../ui/SelectableCard";
@@ -39,6 +39,8 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
   const [address, setAddress] = useState("");
   const [client, setClient] = useState("");
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const creatingRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
@@ -47,20 +49,31 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
       setAlias("");
       setAddress("");
       setClient("");
+      setCreateError(null);
     }
   }, [visible, sites.length]);
 
   const options = sites.filter((s) => s.id !== excludeSiteId);
 
   const confirm = async () => {
+    if (creatingRef.current) return;
     if (!quick) {
       if (selected !== null) onConfirm(selected);
       return;
     }
+    creatingRef.current = true;
     setCreating(true);
-    const site = await onQuickCreate({ alias: alias.trim() || address.trim(), address, clientName: client || null });
-    setCreating(false);
-    if (site) onConfirm(site.id);
+    setCreateError(null);
+    try {
+      const site = await onQuickCreate({ alias: alias.trim() || address.trim(), address, clientName: client || null });
+      if (site) onConfirm(site.id);
+      else setCreateError(t("modals.quickCreateFailed"));
+    } catch {
+      setCreateError(t("modals.quickCreateFailed"));
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
+    }
   };
 
   const canConfirm = quick ? address.trim().length > 0 : selected !== null;
@@ -84,7 +97,7 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
         onPress: () => {
           confirm().catch(() => setCreating(false));
         },
-        disabled: !canConfirm,
+        disabled: !canConfirm || creating,
         loading: busy || creating,
       }}
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
@@ -120,6 +133,7 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
           <Input {...chain.props("address")} label={t("sites.address")} icon="map-outline" value={address} onChangeText={setAddress} autoFocus />
           <Input {...chain.props("alias")} label={t("sites.alias")} icon={ICONS.domain.location} value={alias} onChangeText={setAlias} />
           <Input {...chain.props("client")} label={t("sites.client")} icon="business-outline" value={client} onChangeText={setClient} />
+          {createError ? <Text style={[styles.siteAddr, { color: colors.status.danger }]}>{createError}</Text> : null}
         </View>
       )}
     </ModalShell>

@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button, Card, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
-import { useWorkTracker } from "../../src/core/hooks";
+import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { useToast } from "../../src/context/ToastContext";
 import { t, useLanguage } from "../../src/i18n";
 import { FAQ_IDS, FLOW_IDS, INTEGRITY_IDS, MACHINE_STATE_IDS, SCREEN_IDS, TROUBLE_IDS } from "../../src/support/catalog";
@@ -23,16 +23,16 @@ export default function SupportIndexScreen() {
   const { showToast } = useToast();
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [openTrouble, setOpenTrouble] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useBusyAction();
 
-  const share = async () => {
-    setBusy(true);
-    const res = await emit({ type: "EXPORT_SUPPORT_DIAGNOSTIC" });
-    setBusy(false);
-    showToast(res.ok ? t("support.export.ok") : t("support.export.fail"), res.ok ? "success" : "error", undefined, (lang) => ({
-      title: t(res.ok ? "support.export.ok" : "support.export.fail", {}, lang),
-    }));
-  };
+  const share = () =>
+    run(async () => {
+      const res = await emit({ type: "EXPORT_SUPPORT_DIAGNOSTIC" });
+      showToast(res.ok ? t("support.export.ok") : t("support.export.fail"), res.ok ? "success" : "error", undefined, (lang) => ({
+        title: t(res.ok ? "support.export.ok" : "support.export.fail", {}, lang),
+      }));
+      return res;
+    });
 
   const onResetTips = async () => {
     await resetTips();
@@ -100,7 +100,7 @@ export default function SupportIndexScreen() {
 
       <Button label={t("support.practice.enter")} iconName="school-outline" onPress={() => router.push("/support/practice")} />
       <Button label={t("support.tips.reset")} variant="secondary" onPress={() => void onResetTips()} />
-      <Button label={t("support.export.action")} variant="secondary" isLoading={busy} onPress={() => void share()} />
+      <Button label={t("support.export.action")} variant="secondary" disabled={busy} isLoading={busy} onPress={() => void share()} />
       <Text style={[styles.about, { color: TOKENS.colors.text.muted }]}>
         {currentVersionLine()}
       </Text>

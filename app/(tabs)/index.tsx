@@ -27,7 +27,7 @@ import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
-import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import {
   getSessionStateUI,
   selectActiveElapsedMs,
@@ -65,7 +65,7 @@ export default function TodayScreen() {
   useAutoRefresh();
   const [modal, setModal] = useState<OpenModal>(null);
   const [cancelNote, setCancelNote] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, run: guard } = useBusyAction();
 
   const sessionState = selectSessionState(state, nowMs);
   const ui = getSessionStateUI(sessionState);
@@ -94,13 +94,12 @@ export default function TodayScreen() {
     if (modal === "EXIT" && sessionState !== "SALIDA") setModal(null);
   }, [modal, sessionState]);
 
-  const run = async (intent: ViewIntent, after?: () => void) => {
-    setBusy(true);
-    const res = await emit(intent);
-    setBusy(false);
-    if (res.ok) after?.();
-    return res;
-  };
+  const run = (intent: ViewIntent, after?: () => void) =>
+    guard(async () => {
+      const res = await emit(intent);
+      if (res.ok) after?.();
+      return res;
+    });
 
   const onHeroAction = (action: HeroAction) => {
     switch (action) {
@@ -136,8 +135,12 @@ export default function TodayScreen() {
   };
 
   const onQuickCreate = async (draft: SiteDraft) => {
-    const res = await emit({ type: "UPSERT_SITE", site: draft });
-    return res.ok ? ((res.data as import("../../src/core/contracts").Site) ?? null) : null;
+    try {
+      const res = await emit({ type: "UPSERT_SITE", site: draft });
+      return res.ok ? ((res.data as import("../../src/core/contracts").Site) ?? null) : null;
+    } catch {
+      return null;
+    }
   };
 
   const noSitesNoSession = sites.length === 0 && !active;
@@ -265,6 +268,7 @@ export default function TodayScreen() {
       <LunchModal
         visible={modal === "LUNCH_CLOSE_DAY" || modal === "LUNCH_CLOSE_EXIT"}
         mode="close"
+        busy={busy}
         askStartTime={selectActiveCrossesWorkday(state, nowMs)}
         sessionStartMs={active ? (active.actualStartAtMs ?? active.declaredStartAtMs) : undefined}
         sessionEndMs={
@@ -288,6 +292,7 @@ export default function TodayScreen() {
       <LunchModal
         visible={modal === "LUNCH_SUPERVISOR"}
         mode="supervisor"
+        busy={busy}
         elapsed={formatDuration(selectLunchElapsedMs(state, nowMs))}
         onCancel={() => setModal(null)}
         onResume={() => void run({ type: "RESUME" }, () => setModal(null))}

@@ -8,15 +8,16 @@
  * mientras haya conflictos, el back queda bloqueado.
  * RESOLVE_SPLIT divide la jornada en dos (spec v1.3 §5.4).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
+import { ConfirmActionModal } from "../../src/components/modals";
 import { Button, Card, EmptyState, Input, IntegrityBadge, ModalShell, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectConflictViews, type ConflictView } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
@@ -72,26 +73,18 @@ export default function ConflictScreen() {
 function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSession: () => void }) {
   const { emit } = useWorkTracker();
   const [note, setNote] = useState(view.session.bookkeeping.manualNote ?? "");
-  const [busy, setBusy] = useState(false);
-  const gate = useRef(false);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const { busy, run: guard } = useBusyAction();
   const chain = useFormFocusChain(FORM_FIELDS.conflictNote);
   const range = (r: { startAtMs: number; endAtMs: number | null } | null) =>
     r ? `${formatTime(r.startAtMs)} – ${r.endAtMs ? formatTime(r.endAtMs) : "…"}` : "—";
 
-  const run = async (intent: Parameters<typeof emit>[0]) => {
-    if (gate.current) return;
-    gate.current = true;
-    setBusy(true);
-    try {
-      await emit(intent);
-    } finally {
-      setBusy(false);
-      // Un segundo toque antes de que la lista se refresque no escribe otro asiento.
-      setTimeout(() => {
-        gate.current = false;
-      }, 800);
-    }
-  };
+  const run = (intent: Parameters<typeof emit>[0]) =>
+    guard(async () => {
+      const res = await emit(intent);
+      if (res.ok) setSplitOpen(false);
+      return res;
+    });
 
   return (
     <Card style={styles.card}>
@@ -121,11 +114,21 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
           label={t("conflict.split")}
           variant="ghost"
           disabled={busy || note.trim().length === 0}
-          onPress={() =>
-            void run({ type: "RESOLVE_SPLIT", sessionId: view.session.id, splitAtMs: view.factA?.endAtMs ?? view.factB.startAtMs, note: note.trim() })
-          }
+          onPress={() => setSplitOpen(true)}
         />
       ) : null}
+      <ConfirmActionModal
+        visible={splitOpen}
+        title={t("conflict.splitTitle")}
+        description={t("conflict.splitBody")}
+        confirmLabel={t("conflict.split")}
+        tone="warning"
+        busy={busy}
+        onCancel={() => setSplitOpen(false)}
+        onConfirm={() =>
+          void run({ type: "RESOLVE_SPLIT", sessionId: view.session.id, splitAtMs: view.factA?.endAtMs ?? view.factB.startAtMs, note: note.trim() })
+        }
+      />
     </Card>
   );
 }

@@ -66,6 +66,20 @@ describe("LunchModal", () => {
     setLanguage("es");
   });
 
+  test("en supervisor, busy deshabilita reanudar y finalizar", () => {
+    const onResume = jest.fn();
+    const onFinish = jest.fn();
+    render(<LunchModal visible mode="supervisor" busy elapsed="00:12" onCancel={jest.fn()} onResume={onResume} onFinish={onFinish} />);
+    const resume = screen.getByRole("button", { name: t("cta.resume") });
+    const finish = screen.getByRole("button", { name: t("cta.finishDay") });
+    expect(resume.props.accessibilityState.disabled).toBe(true);
+    expect(finish.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(resume);
+    fireEvent.press(finish);
+    expect(onResume).not.toHaveBeenCalled();
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
   test("el aviso de almuerzo fuera de la jornada también está en inglés", () => {
     setLanguage("en");
     const sessionStartMs = Date.UTC(2026, 8, 26, 13, 0, 0);

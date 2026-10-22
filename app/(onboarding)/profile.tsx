@@ -16,7 +16,7 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { useWorkTracker } from "../../src/core/hooks";
+import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectSettings } from "../../src/core/selectors";
 import { getLanguage, t } from "../../src/i18n";
 
@@ -27,20 +27,20 @@ export default function ProfileScreen() {
   const [name, setName] = useState(profile.employeeName);
   const [rate, setRate] = useState(profile.hourlyRate ? String(profile.hourlyRate) : "");
   const [reminder, setReminder] = useState(profile.dailyReminderTime);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useBusyAction();
 
   const rateNum = Number(rate.replace(",", "."));
   // Campo vacío no cuenta como tarifa 0 (Number("") === 0).
   const valid = name.trim().length > 0 && rate.trim() !== "" && Number.isFinite(rateNum) && rateNum >= 0 && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder);
-  const onEnter = async () => {
-    setBusy(true);
-    const res = await emit({
-      type: "COMPLETE_ONBOARDING",
-      profile: { employeeName: name.trim(), hourlyRate: rateNum, language: getLanguage(), dailyReminderTime: reminder },
+  const onEnter = () =>
+    run(async () => {
+      const res = await emit({
+        type: "COMPLETE_ONBOARDING",
+        profile: { employeeName: name.trim(), hourlyRate: rateNum, language: getLanguage(), dailyReminderTime: reminder },
+      });
+      if (res.ok) router.replace("/");
+      return res;
     });
-    setBusy(false);
-    if (res.ok) router.replace("/");
-  };
   const chain = useFormFocusChain(FORM_FIELDS.onboardingProfile, { onSubmit: () => void onEnter(), canSubmit: valid && !busy });
 
   return (

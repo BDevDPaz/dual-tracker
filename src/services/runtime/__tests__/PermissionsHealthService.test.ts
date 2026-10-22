@@ -1,4 +1,7 @@
 /** T5 — PermissionsHealth: denied de background degrada integridad, no crashea. */
+import { Platform } from "react-native";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Linking from "expo-linking";
 import { Store } from "../../../core/store";
 import { INITIAL_HEALTH } from "../../../core/store/initialState";
 import { SessionEngineService } from "../../domain/SessionEngineService";
@@ -57,5 +60,21 @@ describe("PermissionsHealthService", () => {
     await PersistenceService.init();
     LocationMock.__setPermissions({ foreground: "denied" });
     expect(await PermissionsHealthService.request("locationBackground")).toBe("denied");
+  });
+
+  test("LOCATION abre los ajustes de la app y no el interruptor del GPS", async () => {
+    const previous = Platform.OS;
+    Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+    const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+    const start = jest.spyOn(IntentLauncher, "startActivityAsync").mockResolvedValue({ resultCode: 0, extra: {} } as never);
+    try {
+      await PermissionsHealthService.openOsSettings("LOCATION");
+      expect(openSettings).toHaveBeenCalledTimes(1);
+      expect(start).not.toHaveBeenCalled();
+      await PermissionsHealthService.openOsSettings("BATTERY");
+      expect(start).toHaveBeenCalledWith(IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+    } finally {
+      Object.defineProperty(Platform, "OS", { configurable: true, value: previous });
+    }
   });
 });

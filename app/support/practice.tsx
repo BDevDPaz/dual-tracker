@@ -11,7 +11,7 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { ScreenStatusBanner, KeyValueRow } from "../../src/components/blocks";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
-import { usePractice } from "../../src/core/hooks";
+import { useBusyAction, usePractice } from "../../src/core/hooks";
 import { getSessionStateUI } from "../../src/core/selectors";
 import { t, useLanguage } from "../../src/i18n";
 import { practicePhase, type PracticeAction, type PracticeCode } from "../../src/support/practice";
@@ -26,6 +26,7 @@ export default function PracticeScreen() {
   const [error, setError] = useState<PracticeCode | null>(null);
   const [statement, setStatement] = useState(false);
   const [sealFlash, setSealFlash] = useState(false);
+  const { busy, run: guard } = useBusyAction();
 
   useEffect(() => {
     void enter();
@@ -42,16 +43,18 @@ export default function PracticeScreen() {
   const ui = getSessionStateUI(phase);
   const session = snapshot.session;
 
-  const run = async (action: PracticeAction) => {
-    const res = await dispatch(action);
-    if (!res.ok) setError(res.code);
-    else {
-      setError(null);
-      setAsking(null);
-      setNote("");
-      if (action.type === "SEAL") setSealFlash(true);
-    }
-  };
+  const run = (action: PracticeAction) =>
+    guard(async () => {
+      const res = await dispatch(action);
+      if (!res.ok) setError(res.code);
+      else {
+        setError(null);
+        setAsking(null);
+        setNote("");
+        if (action.type === "SEAL") setSealFlash(true);
+      }
+      return res;
+    }, { surface: false });
   const noteChain = useFormFocusChain(FORM_FIELDS.practiceNote, {
     canSubmit: asking !== null,
     onSubmit: () => {
@@ -86,6 +89,7 @@ export default function PracticeScreen() {
             <Input {...noteChain.props("note")} label={t("support.practice.noteLabel")} value={note} onChangeText={setNote} />
             <Button
               label={t("common.confirm")}
+              disabled={busy}
               onPress={() => void run(asking === "edit" ? { type: "EDIT_NOTE", note } : { type: "FORGOT_CLOCK", note })}
             />
             <Button label={t("common.cancel")} variant="ghost" onPress={() => setAsking(null)} />
@@ -94,53 +98,53 @@ export default function PracticeScreen() {
           <View style={styles.actions}>
             {phase === "NO_INICIADA" ? (
               <>
-                <Button label={t("cta.startDay")} onPress={() => void run({ type: "START_MANUAL" })} />
-                <Button label={t("support.flows.startGeofence.title")} variant="secondary" onPress={() => void run({ type: "START_GEOFENCE" })} />
+                <Button label={t("cta.startDay")} disabled={busy} onPress={() => void run({ type: "START_MANUAL" })} />
+                <Button label={t("support.flows.startGeofence.title")} variant="secondary" disabled={busy} onPress={() => void run({ type: "START_GEOFENCE" })} />
                 <Button label={t("support.flows.forgotClock.title")} variant="ghost" onPress={() => setAsking("forgot")} />
               </>
             ) : null}
             {phase === "ESPERANDO" ? (
               <>
-                <Button label={t("cta.confirmArrival")} onPress={() => void run({ type: "CONFIRM_ARRIVAL" })} />
-                <Button label={t("support.practice.simulateEnter")} variant="secondary" onPress={() => void run({ type: "SIMULATE_ENTER" })} />
-                <Button label={t("cta.cancelDay")} variant="ghost" onPress={() => void run({ type: "CANCEL_DAY" })} />
+                <Button label={t("cta.confirmArrival")} disabled={busy} onPress={() => void run({ type: "CONFIRM_ARRIVAL" })} />
+                <Button label={t("support.practice.simulateEnter")} variant="secondary" disabled={busy} onPress={() => void run({ type: "SIMULATE_ENTER" })} />
+                <Button label={t("cta.cancelDay")} variant="ghost" disabled={busy} onPress={() => void run({ type: "CANCEL_DAY" })} />
               </>
             ) : null}
             {phase === "ACTIVA" ? (
               <>
-                <Button label={t("cta.startLunch")} onPress={() => void run({ type: "START_LUNCH" })} />
-                <Button label={t("modals.exitTransfer")} variant="secondary" onPress={() => void run({ type: "START_TRANSFER" })} />
-                <Button label={t("support.practice.detectExit")} variant="ghost" onPress={() => void run({ type: "DETECT_EXIT" })} />
-                <Button label={t("cta.closeDay")} variant="ghost" onPress={() => void run({ type: "CLOSE_MANUAL" })} />
+                <Button label={t("cta.startLunch")} disabled={busy} onPress={() => void run({ type: "START_LUNCH" })} />
+                <Button label={t("modals.exitTransfer")} variant="secondary" disabled={busy} onPress={() => void run({ type: "START_TRANSFER" })} />
+                <Button label={t("support.practice.detectExit")} variant="ghost" disabled={busy} onPress={() => void run({ type: "DETECT_EXIT" })} />
+                <Button label={t("cta.closeDay")} variant="ghost" disabled={busy} onPress={() => void run({ type: "CLOSE_MANUAL" })} />
               </>
             ) : null}
             {phase === "PAUSADA" ? (
               <>
-                <Button label={t("cta.resume")} onPress={() => void run({ type: "RESUME" })} />
-                <Button label={t("cta.finishDay")} variant="secondary" onPress={() => void run({ type: "CLOSE_MANUAL" })} />
+                <Button label={t("cta.resume")} disabled={busy} onPress={() => void run({ type: "RESUME" })} />
+                <Button label={t("cta.finishDay")} variant="secondary" disabled={busy} onPress={() => void run({ type: "CLOSE_MANUAL" })} />
               </>
             ) : null}
             {phase === "TRASLADO" ? (
               <>
-                <Button label={t("cta.confirmArrival")} onPress={() => void run({ type: "CONFIRM_ARRIVAL" })} />
-                <Button label={t("support.practice.simulateEnter")} variant="secondary" onPress={() => void run({ type: "SIMULATE_ENTER" })} />
-                <Button label={t("cta.cancelTransfer")} variant="ghost" onPress={() => void run({ type: "CANCEL_TRANSFER" })} />
+                <Button label={t("cta.confirmArrival")} disabled={busy} onPress={() => void run({ type: "CONFIRM_ARRIVAL" })} />
+                <Button label={t("support.practice.simulateEnter")} variant="secondary" disabled={busy} onPress={() => void run({ type: "SIMULATE_ENTER" })} />
+                <Button label={t("cta.cancelTransfer")} variant="ghost" disabled={busy} onPress={() => void run({ type: "CANCEL_TRANSFER" })} />
               </>
             ) : null}
             {phase === "SALIDA" ? (
               <>
-                <Button label={t("cta.confirmExit")} onPress={() => void run({ type: "CLOSE_MANUAL" })} />
-                <Button label={t("modals.exitTransfer")} variant="secondary" onPress={() => void run({ type: "START_TRANSFER" })} />
-                <Button label={t("cta.stayWorking")} variant="ghost" onPress={() => void run({ type: "STAY" })} />
-                <Button label={t("support.practice.autoClose")} variant="ghost" onPress={() => void run({ type: "CLOSE_AUTO" })} />
+                <Button label={t("cta.confirmExit")} disabled={busy} onPress={() => void run({ type: "CLOSE_MANUAL" })} />
+                <Button label={t("modals.exitTransfer")} variant="secondary" disabled={busy} onPress={() => void run({ type: "START_TRANSFER" })} />
+                <Button label={t("cta.stayWorking")} variant="ghost" disabled={busy} onPress={() => void run({ type: "STAY" })} />
+                <Button label={t("support.practice.autoClose")} variant="ghost" disabled={busy} onPress={() => void run({ type: "CLOSE_AUTO" })} />
               </>
             ) : null}
             {phase === "CERRADA" ? (
               <>
                 <Button label={t("modals.editTitle")} variant="secondary" onPress={() => setAsking("edit")} />
                 <Button label={t("support.flows.forgotClock.title")} variant="ghost" onPress={() => setAsking("forgot")} />
-                <Button label={t("reports.generate")} variant="secondary" onPress={() => void run({ type: "SEAL" })} />
-                <Button label={t("support.practice.reset")} variant="ghost" onPress={() => void run({ type: "RESET_DEMO" })} />
+                <Button label={t("reports.generate")} variant="secondary" disabled={busy} onPress={() => void run({ type: "SEAL" })} />
+                <Button label={t("support.practice.reset")} variant="ghost" disabled={busy} onPress={() => void run({ type: "RESET_DEMO" })} />
                 <Button
                   label={statement ? t("support.practice.hideStatement") : t("support.practice.viewStatement")}
                   variant="ghost"

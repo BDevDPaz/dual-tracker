@@ -30,10 +30,11 @@ type LunchModalProps =
       /** Inicio de la jornada y hora de cierre. Sirven para rechazar un almuerzo fuera o en el futuro. */
       sessionStartMs?: number;
       sessionEndMs?: number;
+      busy?: boolean;
       onCancel: () => void;
       onConfirm: (minutes: number | null, startHHmm: string | null) => void;
     }
-  | { visible: boolean; mode: "supervisor"; elapsed: string; onCancel: () => void; onResume: () => void; onFinish: () => void };
+  | { visible: boolean; mode: "supervisor"; busy?: boolean; elapsed: string; onCancel: () => void; onResume: () => void; onFinish: () => void };
 
 const OPTIONS = [0, 30, 45, 60];
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -79,6 +80,7 @@ export function LunchModal(props: LunchModalProps) {
   });
 
   if (props.mode === "supervisor") {
+    const busy = props.busy === true;
     return (
       <ModalShell
         visible={props.visible}
@@ -86,8 +88,8 @@ export function LunchModal(props: LunchModalProps) {
         description={`${t("modals.lunchElapsed")}: ${props.elapsed}`}
         icon={ICONS.domain.lunch}
         onClose={props.onCancel}
-        primaryAction={{ label: t("cta.resume"), onPress: props.onResume }}
-        secondaryAction={{ label: t("cta.finishDay"), onPress: props.onFinish, variant: "secondary" }}
+        primaryAction={{ label: t("cta.resume"), onPress: () => { if (!busy) props.onResume(); }, disabled: busy }}
+        secondaryAction={{ label: t("cta.finishDay"), onPress: () => { if (!busy) props.onFinish(); }, variant: "secondary", disabled: busy }}
       />
     );
   }
@@ -102,7 +104,8 @@ export function LunchModal(props: LunchModalProps) {
       primaryAction={{
         label: t("common.confirm"),
         onPress: () => props.onConfirm(selected, needsStart ? startHHmm.trim() : null),
-        disabled: selected === null || (needsStart && !HHMM.test(startHHmm.trim())) || !!lunchError,
+        disabled: selected === null || (needsStart && !HHMM.test(startHHmm.trim())) || !!lunchError || props.busy === true,
+        loading: props.busy === true,
       }}
       secondaryAction={{ label: t("common.cancel"), onPress: props.onCancel }}
     >
