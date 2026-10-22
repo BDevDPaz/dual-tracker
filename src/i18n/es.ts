@@ -890,6 +890,17 @@ export const es = {
     a: { title: "A · Auto", body: "La jornada se cerró sola, por la geocerca o por el plazo, sin un ajuste escrito." },
     c: { title: "C · Conflicto", body: "Hay que revisar: el GPS y lo declarado no coinciden, o la integridad bajó. El sello certificado espera." },
   },
+  warningCodes: {
+    sessionRef: "jornada #{id}",
+    RATE_FALLBACK_CURRENT: "Jornada sin tarifa guardada: se usó la tarifa actual",
+    HOURLY_RATE_ZERO: "Tarifa por hora en 0: el bruto de esta jornada es 0",
+    LEDGER_CHAIN_SEGMENTED: "La cadena del ledger está segmentada",
+    LUNCH_DURATION_UNKNOWN: "Duración del almuerzo desconocida",
+    NO_WORK_MINUTES: "Sin minutos de trabajo",
+    OPEN_SESSION_EXCLUDED: "Se excluyeron jornadas abiertas",
+    QUARANTINED_SESSION_EXCLUDED: "Se excluyeron jornadas en cuarentena",
+    TRANSIT_CLIPPED: "Tránsito recortado al límite de la jornada",
+  },
   support: supportEs,
 };
 

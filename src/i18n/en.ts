@@ -889,5 +889,16 @@ export const en: Dictionary = {
     a: { title: "A · Auto", body: "The shift closed by itself, from the geofence or the timer, without a written adjustment." },
     c: { title: "C · Conflict", body: "It needs review: GPS and what was declared do not match, or integrity dropped. A certified seal waits." },
   },
+  warningCodes: {
+    sessionRef: "shift #{id}",
+    RATE_FALLBACK_CURRENT: "Shift without a stored rate: the current rate was used",
+    HOURLY_RATE_ZERO: "Hourly rate is 0: this shift's gross is 0",
+    LEDGER_CHAIN_SEGMENTED: "The ledger chain is segmented",
+    LUNCH_DURATION_UNKNOWN: "Lunch duration unknown",
+    NO_WORK_MINUTES: "No work minutes",
+    OPEN_SESSION_EXCLUDED: "Open shifts were excluded",
+    QUARANTINED_SESSION_EXCLUDED: "Quarantined shifts were excluded",
+    TRANSIT_CLIPPED: "Transit clipped to the shift boundary",
+  },
   support: supportEn,
 };

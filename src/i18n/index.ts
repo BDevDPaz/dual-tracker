@@ -88,6 +88,20 @@ export function tLineKind(kind: string): string {
   return label === key ? kind : label;
 }
 
+/**
+ * Aviso del statement (CODIGO o CODIGO#idJornada) → etiqueta legible del idioma.
+ * Solo presentación: el código guardado/sellado no cambia. Código desconocido → se
+ * devuelve tal cual (el llamador escapa HTML).
+ */
+export function tWarning(code: string, lang: Language = current): string {
+  const m = /^([A-Z0-9_]+)(?:#(\d+))?$/.exec(code);
+  if (!m) return code;
+  const key = `warningCodes.${m[1]}`;
+  const label = t(key, {}, lang);
+  if (label === key) return code;
+  return m[2] ? `${label} (${t("warningCodes.sessionRef", { id: m[2] }, lang)})` : label;
+}
+
 export { es, en };
 export { MICROCOPY, MICROCOPY_VERSION } from "./microcopy";
 export { bootstrapLocaleTag, languageFromLocaleTag, readDeviceLocaleTag, resolveInitialLanguage } from "./locale";
