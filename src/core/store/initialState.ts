@@ -18,6 +18,7 @@ export const INITIAL_HEALTH: SystemHealthSnapshot = {
   lastSpatialFactAt: null,
   mockLocation: false,
   locationServicesEnabled: null,
+  locationAccuracy: "unknown",
   checkedAtMs: null,
   ledger: { broken: null, acknowledgedBreaks: 0 },
   fieldCrypto: { status: "UNINITIALIZED", lostKids: [], affectedSessionIds: [], platformSupported: true },

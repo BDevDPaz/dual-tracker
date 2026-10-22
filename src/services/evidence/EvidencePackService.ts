@@ -33,6 +33,7 @@ import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
 import { powerOffsFromLedger } from "./deviceOffGap";
 import { chainHash, sha256Hex } from "./HashChain";
+import { sessionSealFailure, sessionSealsFromExport } from "./sessionSeal";
 import { powerOffSentence } from "./reportPremium";
 import { MICROCOPY_REJECTIONS } from "../../i18n/microcopy";
 import { fingerprintFromB64url, fingerprintsMatch } from "../runtime/keyFingerprint";
@@ -158,6 +159,7 @@ export function contentOf(statement: PayrollStatement, evidence: EvidenceSummary
   };
   // Ausente en packs anteriores: no entra en su contentHash.
   if ("transitSegments" in evidence) body.transitSegments = evidence.transitSegments ?? [];
+  if ("sessionSeals" in evidence) body.sessionSeals = evidence.sessionSeals ?? [];
   return normalizeContent({
     statement: { ...statementForHash(statement), packHash: null },
     evidence: body,
@@ -276,6 +278,7 @@ async function assemblePeriod(input: { periodStart: number; periodEnd: number })
   const traces = await Promise.all(included.map((s) => TraceRecorderService.summarize(s)));
   const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
   evidence.transitSegments = included.flatMap((s) => exportSessionTransits(s, settings.company));
+  evidence.sessionSeals = sessionSealsFromExport(evidence.ledgerHashes, new Set(statement.sessionIds));
   const contentHash = await computeContentHash(statement, evidence);
   return { ok: true, statement, evidence, contentHash, included };
 }
@@ -624,6 +627,8 @@ export const EvidencePackService = {
           break;
         }
       }
+      const seal = await sessionSealFailure(rows, pack.evidence.sessionSeals, pack.statement.sessionIds);
+      if (seal) failures.push(seal);
     }
     if (identity === "unverified") failures.push("IDENTITY_UNVERIFIED");
     const signatureMathOk = version >= 4 && !!signature && !failures.includes("SIGNATURE");

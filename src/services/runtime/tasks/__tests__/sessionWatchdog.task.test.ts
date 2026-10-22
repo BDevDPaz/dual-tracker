@@ -23,8 +23,8 @@ describe("sessionWatchdog.task", () => {
     expect(closed.integrityClass).toBe("CONFLICT"); // sin fix que confirme que está fuera
     expect(closed.bookkeeping.integrityReason).toBe("AUTO_CLOSE_12H");
     expect(closed.endAtMs).toBe(closed.actualStartAtMs! + 12 * HOUR);
-    const last = (await IntegrityLedgerService.listForSession(s.id)).pop()!;
-    expect(last).toMatchObject({ actor: "WATCHDOG", reason: "AUTO_CLOSE_MAX_OPEN_12H" });
+    const close = (await IntegrityLedgerService.listForSession(s.id)).find((e) => e.intent === "AUTO_CLOSE");
+    expect(close).toMatchObject({ actor: "WATCHDOG", reason: "AUTO_CLOSE_MAX_OPEN_12H" });
   });
 
   test("13 h con fix fiable fuera del sitio → clase AUTO (sigue sin ser VALID)", async () => {

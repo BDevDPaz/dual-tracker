@@ -58,7 +58,26 @@ export type LedgerIntent =
   /** Hueco de monitoreo de al menos 5 min. No es la jornada huérfana (45 min). */
   | "MONITORING_GAP"
   /** startLocationUpdatesAsync no pudo arrancar. Severidad HIGH. */
-  | "FOREGROUND_SERVICE_START_FAILED";
+  | "FOREGROUND_SERVICE_START_FAILED"
+  /**
+   * Cierre de la jornada: SHA-256 de los hashes de sus asientos, en orden.
+   * No sustituye al asiento de cierre ni cambia la nómina.
+   */
+  | "SESSION_SEALED"
+  /** Un permiso pasó a denegado o bloqueado. `data.permission` dice cuál. */
+  | "PERMISSION_REVOKED"
+  /** Un permiso pasó a concedido. `data.permission` dice cuál. */
+  | "PERMISSION_GRANTED"
+  /** Los servicios de ubicación del sistema se apagaron. */
+  | "GPS_DISABLED"
+  /** Los servicios de ubicación del sistema se encendieron. */
+  | "GPS_ENABLED"
+  /** El permiso de avisos dejó de estar concedido. */
+  | "NOTIFICATION_DISABLED"
+  /** Android puede restringir la app por batería. */
+  | "BATTERY_OPTIMIZATION_ENABLED"
+  /** La app quedó sin restricción de batería. */
+  | "BATTERY_OPTIMIZATION_DISABLED";
 
 export interface LedgerEntry {
   id: number;

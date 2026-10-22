@@ -21,6 +21,15 @@ export async function chainHash(prevHash: string, payload: unknown): Promise<str
 }
 
 /**
+ * Id forense de una jornada: SHA-256 del JSON canónico de los hashes de sus
+ * asientos, en orden de id. El asiento SESSION_SEALED no entra: su payload
+ * contiene este resultado.
+ */
+export async function sessionEventHash(orderedEventHashes: readonly string[]): Promise<string> {
+  return sha256Hex(canonicalJson([...orderedEventHashes]));
+}
+
+/**
  * Verifica una cadena completa. Devuelve el índice del primer eslabón roto o
  * -1 si la cadena es íntegra.
  */

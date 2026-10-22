@@ -192,9 +192,11 @@ export const TraceRecorderService = {
     const stamps = await PersistenceService.listTrailStamps();
     const ids = stamps.filter((s) => trailPointPhase(s.timestampMs, packs, now, retentionDays) === "ELIGIBLE").map((s) => s.id);
     if (!ids.length) return 0;
-    const deleted = await PersistenceService.deleteSpatialFactsByIds(ids);
-    if (deleted > 0) {
-      await PersistenceService.transaction(async (db) => {
+    // Borrado y asiento en la misma transacción. Si el asiento no se escribe,
+    // el ROLLBACK devuelve las migas: no queda un borrado sin libro.
+    return PersistenceService.transaction(async (db) => {
+      const deleted = await PersistenceService.deleteSpatialFactsByIds(ids, db);
+      if (deleted > 0) {
         await IntegrityLedgerService.append(
           {
             sessionId: null,
@@ -209,8 +211,8 @@ export const TraceRecorderService = {
           },
           db,
         );
-      });
-    }
-    return deleted;
+      }
+      return deleted;
+    });
   },
 };

@@ -41,6 +41,7 @@ import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
 import { deviceOffGap } from "../evidence/deviceOffGap";
+import { appendSessionSeal } from "../evidence/sessionSeal";
 import { readDeviceUptimeMs } from "../runtime/deviceUptime";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
@@ -348,6 +349,8 @@ export const SessionEngineService = {
             },
             db,
           );
+          // El sello ve el asiento de cierre: va después, en la misma transacción.
+          if (out.to === "CERRADA" && out.from !== "CERRADA") await appendSessionSeal(db, record, nowMs);
           return record;
         });
 
