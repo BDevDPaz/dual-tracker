@@ -16,10 +16,14 @@ La estructura sigue las dos propuestas del proyecto, que son la fuente de verdad
 
 ```bash
 npm install
-npx expo start          # abre el development build (expo-dev-client); Expo Go: --go, pero no sirve para geocerca/segundo plano
+npm start               # expo start: development build (expo-dev-client); Expo Go: --go, pero no sirve para geocerca/segundo plano
+npm run android         # expo start --android
+npm run ios             # expo start --ios
+npm run web             # expo start --web
 npm run typecheck       # tsc --noEmit
 npm run lint            # expo lint (incluye la regla de imports prohibidos en app/)
-npx expo-doctor
+npm run doctor          # npx expo-doctor
+npm run check:dates     # scripts/check-dates.ts, camino sin Intl (Hermes)
 ```
 
 > La geocerca, la ubicación en segundo plano, el servicio en primer plano y las tareas en segundo plano necesitan un **development build** (`npx expo run:android` / `npm run build:android:dev`). En Expo Go funcionan de forma limitada o no funcionan.
@@ -32,6 +36,7 @@ npx expo-doctor
 npm run build:android:preview   # APK para instalar a mano en el Android
 npm run build:ios:preview       # ad hoc: requiere Apple Developer de pago y `eas device:create`
 npm run build:android:d11       # solo D11 (se instala al lado como «Dual Tracker D11»)
+npm run build:ios:d11           # la misma variante D11 en iOS
 npm run build:android:dev       # development build
 ```
 
@@ -43,15 +48,16 @@ No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por de
 
 - **Manifiesto v2** (`manifestVersion: 2`, `PACK_MANIFEST_VERSION`): añade `contentHash` = SHA-256 (expo-crypto, `canonicalJson`: claves ordenadas, sin `undefined`, fechas en epoch ms, no finitos → `null`) del contenido del periodo: el `PayrollStatement` sin `packHash` + la evidencia de sesiones (asientos con `sessionId`, trazas, conflictos). Excluye lo volátil de cada sello: `packId`, `sealedAtMs`, `ledgerHeadHash`, `ledgerChainValid` (estado global de la cadena) y los asientos sin sesión (`PAYROLL_SEALED` de sellos previos). `packHash` sigue siendo el hash del manifiesto completo y ahora incluye `manifestVersion` y `contentHash`; `statementHash` no cambia.
 - **Manifiesto v3** (FieldCrypto v1.3 §15): añade `sealWarnings: { code: "FIELD_CRYPTO_KEY_LOST"; sessionIds }[]` (vacío si no hay). Es contexto del dispositivo en el momento del sello: entra en `packHash` y **no** en `contentHash`, así que un resello tras perder la clave reutiliza el pack existente. El PDF y el detalle del pack muestran la advertencia.
-- **Manifiesto v4** (`PACK_MANIFEST_VERSION = 4`): misma semántica de `packHash` y `contentHash` que v3, más una firma Ed25519 del cuerpo canónico (`{ ...cuerpoDePackHash, packHash }`). La firma no entra en ninguno de los dos hashes. Lleva `algorithm`, `keyId` y la clave pública. Sin llavero el sello sigue y añade `PACK_UNSIGNED` (eso sí entra en `packHash`). Los packs v1–v3, y un v4 sin firma, verifican como `unsigned-v1`. Cómo comprueba el empleador: `docs/CONFIABILIDAD_TANDA1.md`.
-- **Verificación** (`EvidencePackService.verify(pack)`): recomputa `statementHash`, `evidenceHash`, `contentHash` y `packHash` y comprueba que `statement.packHash` coincide. En v4 con firma, comprueba Ed25519. Devuelve `{ valid, legacy, scheme, failures[] }`.
+- **Manifiesto v4** (versión anterior): misma semántica de `packHash` y `contentHash` que v3, más una firma Ed25519 del cuerpo canónico (`{ ...cuerpoDePackHash, packHash }`). La firma no entra en ninguno de los dos hashes. Lleva `algorithm`, `keyId` y la clave pública. Sin llavero el sello sigue y añade `PACK_UNSIGNED` (eso sí entra en `packHash`). Un v4 que nació firmado y llega sin firma falla con `SIGNATURE_MISSING`. El sello con `PACK_UNSIGNED`, y los packs v1–v3, siguen como `unsigned-v1` cuando los hashes cuadran. Cómo comprueba el empleador: `docs/CONFIABILIDAD_TANDA1.md` y `docs/AUDITORIA_2026-10-20.md` (A2).
+- **Manifiesto v5** (`PACK_MANIFEST_VERSION = 5` en `src/core/contracts/evidence.ts`): el vigente. Añade al `packHash` la identidad del build (`appVersion`, `versionCode`, `gitCommit`) y la zona de cada sesión (`sessionTimeZones`). Esas claves no están en el cuerpo de un v1–v4, así que un sello anterior sigue verificando. No cambia el `contentHash` de un pack que no traiga `transitSegments` ni `prevHash` en los eslabones. En un sello nuevo, y solo si la clave está en el expediente, el contenido también puede llevar tramos (`transitSegments`), sellos de jornada (`sessionSeals`), confianza de la ubicación (`locationTrust`), integridad del dispositivo (`deviceIntegrity`), cobertura (`monitoringCoverage`) y la reconstrucción (`sessionReplay`). Cada eslabón exportado trae `prevHash` y `payloadJson` para recomputar `sha256(prevHash + payloadJson)` sin la base del teléfono. La plantilla del PDF es otra versión: `DOCUMENT_VERSION = 3` en el mismo archivo (ausente o 1 = HTML heredado; 2 = comprobante premium; 3 = ese premium más el anexo de tramos y la identidad del build en el pie). `documentVersion`, `documentTheme` y `documentLocale` quedan fuera de `packHash` y de `contentHash`.
+- **Verificación** (`EvidencePackService.verify` en `src/services/evidence/EvidencePackService.ts`): recomputa `statementHash`, `evidenceHash`, `contentHash` y `packHash` y comprueba que `statement.packHash` coincide. En v4 y v5 con firma, comprueba Ed25519 y, si hay ancla (el llavero de este teléfono o la que pasa quien verifica), que la clave coincida. Si la firma cuadra y no hay ancla usable, la identidad queda `unverified` (`IDENTITY_UNVERIFIED`). En v5 recomputa la cadena exportada (`LEDGER_EXPORT`, `LEDGER_HASH`, `LEDGER_LINK`) y el `sessionHash` de `SESSION_SEALED` cuando el pack lo trae (`SESSION_HASH`, `src/services/evidence/sessionSeal.ts`). En el teléfono, `sessionReplay` (`src/services/domain/sessionReplay.ts`) compara los minutos del libro con la fila viva; un desajuste añade `SESSION_REPLAY` y no reescribe la nómina. Un paso que no se puede repetir queda `INCOMPLETE` y no falla la verificación. Devuelve `{ valid, legacy, scheme, identity, identityNote, failures[] }`.
 - **Packs legados** (v1, sin `manifestVersion` ni `contentHash`): se verifican con el formato antiguo de `packHash` y sin comprobación de contenido (`legacy: true`). A un v2 no se le puede "degradar" a legado quitándole campos: su `packHash` deja de cuadrar. Un pack legado nunca se reutiliza.
-- **Idempotencia**: sellar un periodo cuyo `contentHash` coincide con el del pack más reciente del mismo periodo devuelve ese pack (`reused: true`) sin `packId`, PDFs ni asiento nuevos; el router emite `PACK_REUSED` ("El expediente ya estaba sellado con este mismo contenido; se reutilizó."). No existe revocación de packs en el modelo actual, así que "no revocado" = cualquiera (TODO si se añade).
+- **Idempotencia**: con la cadena sana, sellar un periodo cuyo `contentHash` coincide con el del pack más reciente del mismo periodo devuelve ese pack (`reused: true`) sin `packId`, PDFs ni asiento nuevos; el router emite `PACK_REUSED` ("El expediente ya estaba sellado con este mismo contenido; se reutilizó."). Si el libro está roto, el sello responde `LEDGER_BROKEN` y no reutiliza. No existe revocación de packs en el modelo actual, así que "no revocado" = cualquiera (TODO si se añade).
 - **Reemisión explícita** (`reissue: true` en `EvidencePackService.seal` / `SEAL_PACK`): única forma de obtener dos packs distintos con contenido idéntico (PDF perdido, reenvío formal). Queda auditada en el ledger como `PACK_REISSUED` con `reissueOf`. Se prefirió a "sellar en otro contexto" porque es intencional, visible en el ledger y no depende de efectos colaterales.
 
 ## Pruebas (Jest)
 
-Según la *Propuesta de integración de Jest*: se prueban las autoridades (dominio, evidencia, persistencia, runtime por contrato de handler), no el JSX de `app/`.
+Según la *Propuesta de integración de Jest*: se prueban las autoridades (dominio, evidencia, persistencia, runtime por contrato de handler), los flujos críticos de `app/` y un conjunto amplio de componentes.
 
 ```bash
 npm test               # jest --runInBand --watchman=false (suite completa)
@@ -67,13 +73,14 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 - `test/setup.ts`: reloj fijo `2026-09-26T15:00:00.000Z` (`test/time.ts`: `time.set`, `time.travel`, `time.jumpWall` para simular deriva), reset de candados del ConcurrencyGuard y del anti-rebote de geocerca, SQLite en memoria recreada por caso, dobles de Expo cableados aquí.
 - `test/mocks/`: un doble por módulo. `expo-sqlite` es SQLite real en memoria (sql.js), así los triggers append-only del ledger y `checkOverlap` se prueban de verdad.
 - `test/fixtures/`: `SessionRecord`, `SpatialFact`, `PayrollStatement`, `LedgerEntry` tipados con los contratos (sin `any`).
-- `__tests__/` colocados por capa. Componentes: solo `IntegrityBadge`, `StatusPill`, `SessionTimeline`.
-- Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_v1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
+- `__tests__/` colocados por capa. En `3a632ba`: **119 archivos** de prueba (`**/__tests__/**/*.test.ts` y `*.test.tsx`) y **859 tests** (`npx jest --runInBand --watchman=false`, 119 suites en verde). Los componentes cubiertos van más allá de `IntegrityBadge`, `StatusPill` y `SessionTimeline`: `src/components/ui`, `src/components/brand`, `src/components/blocks`, `src/components/feedback`, `src/components/modals` y `src/components/trace`, más ocho flujos de `app/` (fichar, cerrar, almuerzo, sellar, ajustes, PIN, edición y cuarentena).
+- Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_V1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
 - Ya no queda ningún `test.failing`: el de cifrado de campos pasa desde C2 (spec FieldCrypto v1.3 §17 #3).
 - Estático (`src/core/__tests__/staticGuards.test.ts`): `FieldCryptoService` solo se importa desde `src/services/persistence/**` y `src/core/boot.ts`; `LoggingService` no recibe campos sensibles; Jest resuelve los subpaths `.js` de `@noble`.
 - Matriz de dispositivo D1–D15 (spec §18): checklist en `docs/PRUEBAS_DISPOSITIVO.md`; builds para ejecutarla en `docs/BUILD.md`.
+- Pruebas de campo en teléfono: `docs/PRUEBA_CAMPO_1.md`, `docs/PRUEBA_CAMPO_2.md`, `docs/PRUEBA_CAMPO_3.md`, `docs/PRUEBA_CAMPO_4.md`, `docs/PRUEBA_CAMPO_5.md`, `docs/PRUEBA_CAMPO_6.md`, `docs/PRUEBA_CAMPO_7.md` y `docs/PRUEBA_CAMPO_8.md`.
 - Build (`src/core/__tests__/buildConfig.test.ts`): solo `preview-d11` fija `EXPO_PUBLIC_DT_FORCE_KEYSTORE_FAILURE` y siempre con `APP_VARIANT=d11`; `app.config.ts` rechaza la bandera en cualquier otra variante; `keyStore` solo la obedece en la variante d11.
-- `scripts/check-dates.ts` se mantiene para el camino **sin Intl** en Hermes real; su equivalente Node vive en `src/utils/__tests__/dateUtils.test.ts`.
+- `npm run check:dates` (`scripts/check-dates.ts`) se mantiene para el camino **sin Intl** en Hermes real; su equivalente Node vive en `src/utils/__tests__/dateUtils.test.ts`.
 - Jest no sustituye la matriz de dispositivo: permisos reales, Foreground Service y geocerca en hardware siguen siendo prueba manual / Maestro.
 
 ---
@@ -82,7 +89,7 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 
 ```
 dual-tracker/
-├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 32 rutas (Producto §2)
+├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 36 archivos (Producto §2)
 │   ├── _layout.tsx              fuentes Montserrat, Theme/Toast, FeedbackBridge, boot(), registro de tareas
 │   ├── index.tsx                gate: hidratación → onboarding → descargo → tabs
 │   ├── +not-found.tsx  +html.tsx
@@ -92,41 +99,81 @@ dual-tracker/
 │   ├── session/                 _layout, [id], [id]/trace
 │   ├── sites/                   _layout, index, new, [id]
 │   ├── report/                  _layout, [periodId], pack/[packId]
+│   ├── support/                 _layout, index, guide/[id], practice
 │   ├── system/                  _layout (modal), health, conflict
 │   └── legal/                   _layout, disclosure, retention
+├── modules/                     nativos locales (package.json → expo.autolinking.nativeModulesDir = ./modules)
+│   ├── device-integrity/        opciones de desarrollador y rutas de root
+│   └── device-uptime/           reloj de arranque del sistema
 ├── src/
+│   ├── config/                  provisional.ts (cifras provisionales), employerKeyAnchor.ts
 │   ├── core/
-│   │   ├── contracts/           SessionRecord, SpatialFact, LedgerEntry, PayrollStatement, intents, estado… (Técnica §9)
+│   │   ├── contracts/           SessionRecord, SpatialFact, LedgerEntry, PayrollStatement, evidence.ts
+│   │   │                        (PACK_MANIFEST_VERSION = 5), monitoring.ts, intents, estado… (Técnica §9)
 │   │   ├── store/               store reactivo + acciones (portado de GEOTrack)
 │   │   ├── selectors/           derivaciones puras para las vistas (getSessionStateUI, rollups, conflicto…)
-│   │   ├── hooks/               useWorkTracker (ÚNICO gancho para rutas), useClock, useQuery
-│   │   └── boot.ts              ensureRuntimeReady(), boot(), registerBackgroundTasks()
-│   ├── services/                DualTracker_ServiceLayer — 23 servicios (Técnica §6), agrupados por capa (Técnica §3)
-│   │   ├── domain/              SessionEngine, PayrollEngine (+payrollPolicies), IntegrityLedger, SiteRegistry,
-│   │   │                        TransitPolicy, ConcurrencyGuard, DualDisclosure, sessionMachine
-│   │   ├── evidence/            TimeAuthority, HashChain, TraceRecorder, Report (+reportTemplates), EvidencePack
-│   │   ├── runtime/             GeofenceRuntime, TaskOrchestrator, ForegroundWork, PermissionsHealth,
-│   │   │   └── tasks/           Notification, Security · geofence, breadcrumb, sessionWatchdog, exitDecisionTimer,
-│   │   │                        dailyReminder, integritySweep, payrollExport (.task.ts)
-│   │   ├── persistence/         Persistence (SQLite WAL, schema, mappers), Settings, Logging, OfflineQueue, FieldCrypto
-│   │   ├── application/         Feedback, intentRouter (ViewIntent → servicio), useCases/ (startDay, confirmExit,
-│   │   │                        generateWeeklyPayroll)
-│   │   └── index.ts             catálogo canónico
+│   │   ├── hooks/               useWorkTracker (exporta también useClock y useQuery), usePractice,
+│   │   │                        useScreenRefresh (useAutoRefresh, usePullToRefresh)
+│   │   ├── refresh/             dataRevision, weekCursor
+│   │   ├── boot.ts              ensureRuntimeReady(), boot(), registerBackgroundTasks()
+│   │   ├── healthPolicy.ts      qué sensor bloquea VALIDADA
+│   │   ├── monitoringState.ts   estado derivado de monitoreo
+│   │   ├── monitoringCoverage.ts  cobertura informativa de la jornada
+│   │   ├── locationTrust.ts     puntaje 0–100 de la ubicación
+│   │   └── deviceIntegrityAssess.ts  lectura de emulador, root y opciones de desarrollador
+│   ├── services/                DualTracker_ServiceLayer — catálogo de 23 servicios (Técnica §6, src/services/index.ts)
+│   │   ├── domain/              SessionEngine, PayrollEngine (+payrollPolicies, payrollDisplay, segmentation,
+│   │   │                        periodSlice, policyValidation), IntegrityLedger, SiteRegistry, siteMinutes, siteVisits,
+│   │   │                        TransitPolicy, transitExport, ConcurrencyGuard, DualDisclosure, sessionMachine,
+│   │   │                        sessionReplay, sessionTimeGuard, arrivalDwell
+│   │   ├── evidence/            TimeAuthority, HashChain, TraceRecorder, Report (+reportTemplates, reportPremium, qrSvg),
+│   │   │                        EvidencePack, packSignature, sessionSeal, clockSample, deviceOffGap, retentionRules, traceGaps
+│   │   ├── runtime/             GeofenceRuntime, TaskOrchestrator, ForegroundWork, PermissionsHealth, Notification,
+│   │   │                        Security, geofencePolicy, geofenceDiag, monitoringRecovery, monitoringSnapshot,
+│   │   │                        serviceHealth (tabla service_health), heartbeat, operationalHealthLedger,
+│   │   │                        anomalyCatalog, anomalyEngine, deviceIntegrity, deviceUptime, bootResume,
+│   │   │                        criticalNotices, mockLocationNotice, orphanSession, pinHash, pinProvision, keyFingerprint
+│   │   │   └── tasks/           geofence, breadcrumb, sessionWatchdog, exitDecisionTimer, dailyReminder,
+│   │   │                        integritySweep, payrollExport, headless
+│   │   ├── persistence/         Persistence (SQLite WAL, schema, mappers), Settings, Logging, OfflineQueue, FieldCrypto,
+│   │   │                        cryptoCodec, cryptoMigrations, keyStore, employerPortal, foreignKeyMigration
+│   │   ├── application/         Feedback, intentRouter, refreshMirror, useCases/ (startDay, confirmExit,
+│   │   │                        generateWeeklyPayroll, calendarChange, policyMigration, ledgerIntegrity,
+│   │   │                        provisionAdminPin, exportSupportDiagnostic, fieldCryptoHealth)
+│   │   └── index.ts             catálogo canónico (los módulos de al lado no suman un servicio 24)
+│   ├── support/                 catalog, practice, tips, memory, diagnostic, contentVersion, types, buildLabel, versionLine
 │   ├── components/
 │   │   ├── ui/                  design system (portado de GEOTrack): OperationalHeroCard, SystemHealthBlock,
-│   │   │                        SessionTimeline, IntegrityBadge, StatusPill, ModalShell, PageHeader…
+│   │   │                        SessionTimeline, IntegrityBadge, StatusPill, ModalShell, PageHeader, Button, Input,
+│   │   │                        Card, Chip, Banner, GlassSurface, VmacSheet, SealAnimation, PracticeWatermark,
+│   │   │                        DocumentPreviewWidget, EmptyState, keyboard, motion, responsive
+│   │   ├── brand/               PinClockMark, ArrivalMark, BrandHeaderTitle
+│   │   ├── support/             HelpButton, LanguageSwitch, ScreenTips, Walkthrough
+│   │   ├── trace/               TracePlane (plano local, sin teselas)
 │   │   ├── modals/              DailySetupModal, ExitDetectionModal, LunchModal, EditSessionModal,
 │   │   │                        DeleteSessionModal, AddNoteModal (Producto §7)
-│   │   ├── blocks/              ScreenStatusBanner, PermissionCard, HealthRow, KeyValueRow, SessionListItem
+│   │   ├── blocks/              ScreenStatusBanner, PermissionCard, HealthRow, KeyValueRow, SessionListItem,
+│   │   │                        BackupAdviceCard, OrphanReviewCard
 │   │   ├── feedback/            FeedbackBridge (FeedbackService → toast / diálogo)
 │   │   └── legal/               DisclosureContent (compartido por onboarding y legal/)
-│   ├── i18n/                    es (base), en (parcial, cae a es), microcopy, legal (descargo/retención versionados)
-│   ├── constants/               theme, icons, animations, geolocation, notifications, tasks, security, flags
+│   ├── i18n/                    es.ts (base), en.ts (completo), supportEs.ts, supportEn.ts, microcopy.ts,
+│   │                            legal.ts (descargo/retención versionados), locale.ts
+│   ├── constants/               theme, icons, animations, geolocation, notifications, tasks, security, flags, app, uiLiterals
 │   ├── context/                 ThemeContext, ToastContext
-│   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError
+│   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError,
+│                                hhmm, localPlane, reportRange, companyPolicy
 ├── assets/images/               icon, splash, adaptive-icon, favicon, notification (marca A y D)
 ├── assets/brand/                SVG fuente A y D; se regeneran con scripts/brand/build.py
-├── docs/                        PRUEBAS_DISPOSITIVO.md, BUILD.md, SOPORTE.md, CONFIABILIDAD_TANDA1.md
+├── docs/                        28 archivos
+│                                AUDITORIA_2026-10-20.md, AUDITORIA_2_2026-10-20.md, AUDITORIA_3_2026-10-20.md,
+│                                AUDITORIA_CALCULOS_Y_OPERACION.md, AUDITORIA_DESTINOS_Y_TRASLADO.md,
+│                                BUILD.md, COMPROBANTES_PREMIUM.md, CONFIABILIDAD_TANDA1.md, IDIOMA.md,
+│                                PIN_APROVISIONAMIENTO.md, PORTAL_EMPLEADOR.md,
+│                                PRUEBA_CAMPO_1.md, PRUEBA_CAMPO_2.md, PRUEBA_CAMPO_3.md, PRUEBA_CAMPO_4.md,
+│                                PRUEBA_CAMPO_5.md, PRUEBA_CAMPO_6.md, PRUEBA_CAMPO_7.md, PRUEBA_CAMPO_8.md,
+│                                PRUEBAS_DISPOSITIVO.md, PRUEBAS_GEOCERCA.md, PRUEBAS_MULTI_DESTINO.md, PRUEBAS_RC1.md,
+│                                SOPORTE.md, TANDA2.md, UI_PREMIUM.md, UI_SISTEMA_VISUAL.md, VALORES_PROVISIONALES.md
+├── scripts/                     check-dates.ts, provision-admin-pin.ts, sample-comprobantes.ts, brand/ (build.py)
 ├── app.json  app.config.ts      config base + variante de build (APP_VARIANT=d11)
 ├── eas.json                     perfiles development / preview / preview-simulator / preview-d11 / production
 ├── package.json  tsconfig.json  eslint.config.js  expo-env.d.ts
@@ -152,6 +199,8 @@ dual-tracker/
  persistence ── Persistence (SQLite WAL) · Settings · Logging · OfflineQueue · FieldCrypto
 ```
 
+El catálogo sigue siendo de 23 servicios (`src/services/index.ts`). `sessionSeal`, `sessionReplay`, `arrivalDwell`, `monitoringRecovery`, `serviceHealth`, `bootResume`, `criticalNotices` y `anomalyCatalog` viven en esas capas y no añaden un nombre al catálogo. `app/` sigue sin importar servicios.
+
 Reglas que se cumplen en el código:
 
 - **Una ruta es un caso de uso.** Las rutas no contienen reglas de nómina, geocerca ni persistencia. No importan `expo-sqlite`, `expo-location`, `expo-print` ni `src/services/*`. `eslint.config.js` lo impone con `no-restricted-imports` sobre `app/**`.
@@ -160,7 +209,7 @@ Reglas que se cumplen en el código:
 - **Tiempo canónico.** Todo timestamp de nómina o auditoría sale de `TimeAuthorityService.now()`.
 - **Evidencia antes que conveniencia.** Una edición manual guarda los tiempos originales (`bookkeeping.original`), pasa la sesión a MANUAL y deja asiento en el ledger encadenado por hash.
 - **Estados de pantalla obligatorios** (`loading / empty / degraded / conflict / ready`). Se resuelven con `ScreenStatusBanner`.
-- **Copy en i18n.** Las rutas no llevan strings legales en duro. El descargo y la retención los sirve `DualDisclosureService` (`src/i18n/legal.ts`, versión `2026-10-v2`).
+- **Copy en i18n.** Las rutas no llevan strings legales en duro. El descargo y la retención los sirve `DualDisclosureService` (`src/i18n/legal.ts`, versión `2026-10-v2`). El inglés está completo: `src/i18n/en.ts` y `src/i18n/supportEn.ts` tienen la misma forma que el español, y `src/i18n/__tests__/i18n.test.ts` exige esa paridad (claves, parámetros y cadenas no vacías). `t()` consulta el español si una clave inglesa faltara; la suite no deja ese hueco.
 
 ---
 
@@ -216,7 +265,7 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
   - Sin alias de rutas en tsconfig: las propuestas no los definen, así que se usan imports relativos.
 - **Reglas de jornada**
   - `CANCEL_DAY` produce una sesión CERRADA marcada `cancelled`, que no computa en nómina.
-  - Un traslado cancelado cuenta como tiempo de trabajo en el sitio de origen.
+  - Un traslado cancelado no es trabajo en el sitio de origen. Al cancelar, el tramo nuevo se congela `paid: true`, `rateMultiplier: 1` y `countsTowardOvertime: false` (`sessionMachine`). `PayrollEngineService` lo publica en `cancelledTransits` y el comprobante lo pinta como «Tránsito (cancelado)» (`src/services/evidence/reportPremium.ts`, clave `comprobante.lineTransitCancelled`), con la hora de cancelación y la nota si la hay (`transitCancel`). Esos minutos van a 1× y no cuentan para extra. El rato posterior sigue la jornada en el sitio. Un cancelado legado (`paid !== true`) conserva el camino de `TransitPolicyService`: no genera línea de tránsito y ese tiempo sigue contando como trabajo en el sitio. No se reescriben tramos ya cerrados.
   - Un ENTER no fiable (precisión mayor que el radio) pide confirmar la llegada a mano.
   - Orden de severidad al degradar: CONFLICT > MANUAL > AUTO > VALID.
   - El tránsito consume la capacidad regular diaria.
@@ -346,6 +395,113 @@ Checklist de teléfono: `docs/TANDA2.md`.
 - Rastro: plano local con `react-native-svg` (miga, geocercas, entradas, salidas, traslados, norte y escala). No hay teselas ni se envían coordenadas. Un tramo expurgado se ve como hueco.
 - Cifras provisionales en un solo módulo: `src/config/provisional.ts` y `docs/VALORES_PROVISIONALES.md`.
 
+## Hecho en Soporte
+
+Detalle: `docs/SOPORTE.md`. Entra con el PR #7 y el texto vigente es `soporte.v6` (`src/support/contentVersion.ts`).
+
+- Vive en Ajustes y en `app/support`: índice, guía por pantalla (`guide/[id]`) y modo práctica (`practice`).
+- Los textos están en `src/i18n/supportEs.ts` y `src/i18n/supportEn.ts`. El inglés tiene la misma forma que el español.
+- El modo práctica (`src/support/practice.ts`, ruta `/support/practice`) es un reductor en memoria. No escribe SQLite, el libro, los expedientes ni la geocerca. La marca de agua es «PRÁCTICA».
+- El diagnóstico para compartir (`src/support/diagnostic.ts`) va en lista blanca: sin coordenadas, nombre, tarifa, correo ni sobres `enc:v1`.
+
+## Hecho en los comprobantes premium
+
+Detalle: `docs/UI_PREMIUM.md` (PR #14) y `docs/COMPROBANTES_PREMIUM.md` (PR #15). La plantilla vigente es la v3 (`DOCUMENT_VERSION` en `src/core/contracts/evidence.ts`).
+
+- El restyle (obsidiana, oro `#C5A059`, Montserrat 400/500/600, ritmo de 8 px) no cambia la nómina, el libro ni los hashes.
+- Un sello nuevo pinta el comprobante premium. `documentVersion`, `documentTheme` y `documentLocale` quedan fuera de `packHash` y de `contentHash`. Un expediente ya sellado no se reescribe.
+- La v2 es el papel premium: tema claro por defecto, idioma del perfil al sellar, QR del `packHash` (sin URL ni red), firma y anexos.
+- La v3 es ese mismo papel más el anexo de tramos de tránsito y la identidad del build en el pie.
+- `scripts/sample-comprobantes.ts` escribe muestras locales. No son expedientes sellados.
+
+## Hecho en las pruebas de campo 1 a 4
+
+Listas: `docs/PRUEBA_CAMPO_1.md` (PR #16), `docs/PRUEBA_CAMPO_2.md` (PR #17), `docs/PRUEBA_CAMPO_3.md` (PR #19) y `docs/PRUEBA_CAMPO_4.md` (PR #22). El rechazo de horas que todavía no han pasado es el PR #18 (`src/services/domain/sessionTimeGuard.ts`).
+
+- Una deriva de reloj ruidosa, con ubicación buena, avisa y no quita VALIDADA. El ENTER repetido y la salida en la banda de histéresis dejan de fichar de más. El sello «SELLADO» del PDF no se parte.
+- Seguir tras un corte deja la clase MANUAL. El servicio de ubicación sigue durante el almuerzo y no guarda migas en `PAUSADA`. Una regla sale en `appliedRules` solo si produjo minutos. En sitio, la miga la manda el reloj.
+- El almuerzo fijo no puede pasar de la jornada (se topa al calcular y se rechaza al guardar). Cada fila redondea sus propios minutos.
+- La llegada no cierra con un reloj de GPS adelantado. Los minutos por sitio salen de la jornada (`src/services/domain/siteMinutes.ts`), no de las migas de la geocerca. El traslado cancelado nuevo se paga como tránsito hasta la cancelación (ver reglas de jornada). El manifiesto de un sello nuevo es v5.
+
+## Hecho en la auditoría del 2026-10-20
+
+Detalle: `docs/AUDITORIA_2026-10-20.md`. PR #20. La regresión queda en `src/services/domain/__tests__/auditFixes.2026-10-20.test.ts`.
+
+- A1. Un sello no reutiliza el pack si el libro está roto.
+- A2. Un v4 sin firma y sin `PACK_UNSIGNED` no verifica. La clave que se compara es la del llavero de firma del pack.
+- A3. La verificación incremental relee el prefijo hasta el ancla.
+- A4. El cierre automático no guarda un fin que todavía no ha llegado.
+- A6. Una salida fiable en la banda de histéresis no se queda esperando.
+- A7. El certificado que ve Reportes es el que usa el sello.
+- A8. Una pausa no se etiqueta como almuerzo.
+- A9 y A10. El tope del almuerzo fijo resta las pausas, también al prorratear.
+- A5 sigue pendiente: al volver a primer plano se mide la deriva antes de reanclar. Es solo iOS y no se midió en un iPhone.
+
+## Hecho en la auditoría 2
+
+Detalle: `docs/AUDITORIA_2_2026-10-20.md`. PR #21. La regresión queda en `src/services/domain/__tests__/audit2Fixes.2026-10-20.test.ts`.
+
+- El sello (asiento, pack y cola) va en una sola transacción. El candado solo suelta el lease de este runtime. Si el asiento del PIN no se escribe, SecureStore vuelve atrás y el código se puede repetir.
+- `CompanyPolicy` rechaza rangos imposibles. Cada sesión guarda la zona en que se registró. Las horas extra siguen en California.
+- Un estado desconocido se lee como `CUARENTENA` y queda fuera de la nómina. El barrido de cifrado no se da por terminado mientras quede `plain:v1:`. El correo solo cuenta como enviado con estado `sent`.
+- `app/` entra en las raíces de Jest. Hay ocho flujos: fichar, cerrar, almuerzo, editar, sellar, ajustes, PIN y aviso de cuarentena.
+- El hallazgo 17 (actualizaciones diferidas en iOS, sin el servicio en primer plano de Android) está en el código y no se ha validado en un iPhone.
+- La base heredada de W Tracker, LEDTracker y GEOTrack no se migra: esas versiones no se publicaron.
+
+## Hecho en la auditoría 3
+
+Detalle: `docs/AUDITORIA_3_2026-10-20.md`. PR #23. La regresión queda en `src/services/domain/__tests__/audit3Fixes.2026-10-20.test.ts`.
+
+- La primera clave del PIN exige la huella tecleada o la clave anclada en el build (`src/config/employerKeyAnchor.ts`). Un rechazo de huella no gasta el nonce.
+- `verify` sin ancla independiente no deja la identidad como verificada: `identity` queda `unverified` aunque la firma Ed25519 cuadre.
+- Cada intento de sello escribe en un directorio pendiente. Si la transacción no llega a commit, ese directorio se borra.
+
+## Hecho en la fase 1
+
+Detalle: `docs/PRUEBA_CAMPO_5.md`. PR #24. La regresión queda en `src/services/runtime/__tests__/phase1Audit.2026-10-21.test.ts`. No cambia la nómina ni el hash de los asientos ya escritos.
+
+- Ubicación simulada. `LocationObject.mocked` no ficha solo (`GeofenceRuntimeService`). Queda en el libro, en Salud y en el PDF (`mockedFacts`). El aviso sale una vez por jornada abierta (`src/services/runtime/mockLocationNotice.ts`). El registro a mano sigue permitido.
+- Salto falso. La distancia que se juzga es la que no cabe en el error de los dos fixes (`effectiveJumpMeters` en `src/services/runtime/geofencePolicy.ts`). El intervalo usa la hora del fix y `clampSampleTimestamp` no la deja pasar de `TimeAuthority`. Dos lecturas a 60 m, separadas 1 s, con ±40 m de error, no son un salto.
+- Relanzamiento. Si el servicio en primer plano se cae con la jornada abierta, el worker y el vigilante intentan arrancarlo (hasta 3 veces) y vuelven a registrar la geocerca (`src/services/runtime/monitoringRecovery.ts`). El libro anota `MONITORING_STOPPED_DETECTED`, `SERVICE_RECOVERY` y, si no pudo, `SERVICE_RECOVERY_FAILED`. Un hueco de 5 min o más es `MONITORING_GAP`. El umbral de jornada huérfana sigue en 45 min.
+
+## Hecho en la fase 2
+
+Detalle: `docs/PRUEBA_CAMPO_6.md`. PR #25. La regresión queda en `src/services/domain/__tests__/phase2Audit.2026-10-21.test.ts`. No cambia la nómina ni la clase de integridad por estas señales.
+
+- Cada `MANUAL_PATCH` guarda el antes y el después de las horas (`sessionMachine`). Una segunda corrección trae como antes el después de la primera. La nota sigue como `noteDigest`, no en claro.
+- Al cerrar se añade `SESSION_SEALED`. `sessionHash` es el SHA-256 de los hashes de los asientos de esa jornada, en orden, sin el propio sello (`src/services/evidence/sessionSeal.ts`). El PDF y el JSON lo muestran como id forense. Una jornada cerrada antes de esta versión no tiene ese asiento, y verificar un expediente viejo no lo exige.
+- El expurgo de migas y el asiento `TRACE_PURGED` van en la misma transacción (`PersistenceService.deleteSpatialFactsByIds`). Fuera de ella el borrado está prohibido. Las entradas y salidas no se borran.
+- Los cambios de permiso, GPS, avisos y batería dejan asiento solo cuando el estado cambia (`src/services/runtime/operationalHealthLedger.ts`). En Android 12+, la ubicación solo aproximada avisa en Salud y no baja el pago.
+
+## Hecho en la fase 3
+
+Detalle: `docs/PRUEBA_CAMPO_7.md`. PR #26. La regresión queda en `src/services/domain/__tests__/phase3Audit.2026-10-22.test.ts`. El puntaje y las anomalías no cambian el pago ni VALIDADA.
+
+- Estado de monitoreo derivado (`src/core/monitoringState.ts`): Inactivo, Iniciando, Monitoreando, Degradado, Recuperando, Fallo. No es el estado de la jornada. Degradado aparece si no hay muestra en 5 minutos.
+- Latido por componente en la tabla `service_health` (`src/services/runtime/serviceHealth.ts`, `src/services/persistence/schema.ts`): ubicación, geocerca, worker y vigilante. Es local y no entra en el expediente.
+- El aviso persistente dice el destino, el GPS y el estado de monitoreo (`src/services/runtime/monitoringSnapshot.ts`).
+- Anomalías con severidad LOW, MEDIUM, HIGH o CRITICAL (`src/services/runtime/anomalyCatalog.ts`). Se deduplican. El hecho original sigue en el rastro.
+- Integridad del dispositivo: `modules/device-integrity` lee opciones de desarrollador y rutas de root (`su`, Magisk, busybox); `src/services/runtime/deviceIntegrity.ts` y `src/core/deviceIntegrityAssess.ts` arman la evidencia. Sin lectura no se afirma que el teléfono esté limpio. `modules/device-uptime` lee el reloj de arranque.
+- Puntaje informativo 0–100 (`src/core/locationTrust.ts`): Excelente, Buena, Regular o Sospechosa. Sale en Salud, en el PDF y en `locationTrust` del expediente.
+
+## Hecho en la fase 4
+
+Detalle: `docs/PRUEBA_CAMPO_8.md`. PR #27. La regresión queda en `src/services/domain/__tests__/phase4Audit.2026-10-22.test.ts`. La cobertura y la reconstrucción son informativas.
+
+- Cobertura de la jornada (`src/core/monitoringCoverage.ts`): porcentaje con monitoreo y minutos sin él. El hueco es la unión de `MONITORING_GAP`, de `GPS_LOST` hasta `GPS_RESTORED`, y del servicio parado hasta un `SERVICE_RECOVERY` con éxito. Entra en el expediente como `monitoringCoverage`.
+- Auditoría de avisos críticos (`src/services/runtime/criticalNotices.ts`): llegada, salida, ubicación simulada, monitoreo detenido y recuperación fallida. `displayConfirmed` queda en false: Android no confirma que la notificación se haya pintado. `acceptedByOs` dice si el sistema aceptó programarla. Un toque del operario es `userAcknowledged`.
+- Al sellar y al verificar, `sessionReplay` (`src/services/domain/sessionReplay.ts`) reconstruye los minutos desde el libro y los compara con la fila de `sessions`. Un desajuste es `SESSION_REPLAY`. Nadie reescribe el pago para cuadrarlo. Si un paso no se puede repetir, el resultado es `INCOMPLETE`.
+- Si no hay `prev_hash` repetido, el arranque crea el índice único `idx_ledger_prev_hash` (`ensureUniquePrevHash` en `src/services/persistence/PersistenceService.ts`). Si ya había duplicados, no crea el índice, lo deja en el log y no reescribe asientos.
+- Espera de llegada (`src/services/domain/arrivalDwell.ts`): 0 ms es el fichaje de siempre. El valor del sitio gana al de la empresa. El máximo es 30 minutos. Cuando la espera se cumple, la hora de llegada sigue siendo la primera lectura dentro del sitio.
+- `BOOT_RESUME` (`src/services/runtime/bootResume.ts`): una vez por arranque, si el reloj de uptime dice que el teléfono se reinició después del último latido. Expo no ejecuta JavaScript en el instante de `BOOT_COMPLETED`. Sin ese reloj no se inventa un reinicio.
+
+## Límites conocidos
+
+- **Android 12+ y el servicio en primer plano.** El sistema puede negar el arranque desde segundo plano (`ForegroundServiceStartNotAllowedException`), salvo exenciones; la que importa aquí es tener Dual Tracker fuera de la optimización de batería. La app lo anota como `SERVICE_RECOVERY_FAILED` y pide abrir Dual Tracker. No hay forma de forzarlo desde el worker. Android 14 exige además el tipo `location`. Ver `src/services/runtime/monitoringRecovery.ts`, `src/services/runtime/bootResume.ts` y `docs/PRUEBA_CAMPO_5.md`.
+- **Sueño profundo y Force Stop en Samsung.** Con la app en suspensión profunda, o tras un Force Stop, el relanzamiento no ocurre hasta que alguien abre Dual Tracker. El worker de fondo no baja de 15 minutos y, con Doze, puede tardar horas. Volver a registrar la geocerca sí se puede intentar desde el fondo. Ver `docs/PRUEBA_CAMPO_5.md`.
+- **Magisk oculto.** El root se lee por existencia de rutas (`su`, Magisk, busybox) en `modules/device-integrity`. Un Magisk oculto puede no salir. Una huella con «generic» puede marcar emulador sin serlo. Sin el binario de EAS, root y opciones de desarrollador quedan sin lectura y no se afirma que el teléfono esté limpio. Ver `docs/PRUEBA_CAMPO_7.md`.
+- **Reconstrucción y política de tránsito.** `sessionReplay` vuelve a pasar los asientos por la máquina con la política vigente. Si la política de tránsito cambia después de congelar un tramo, la reconstrucción puede marcar desajuste (`SESSION_REPLAY`) aunque nadie haya tocado la fila. No se copian las banderas de pago guardadas: eso ocultaría el cambio. Ver `src/services/domain/sessionReplay.ts` y `docs/PRUEBA_CAMPO_8.md`.
+
 ## TODO (no especificado en las propuestas ni en el código previo)
 
 Se marcan en el código como `TODO(propuesta)`:
@@ -354,7 +510,7 @@ Se marcan en el código como `TODO(propuesta)`:
   - Cifrado de campos: implementado (spec FieldCrypto v1.3). Pendiente fuera de Jest: la matriz de dispositivo D1–D15 (`docs/PRUEBAS_DISPOSITIVO.md`).
 - **Evidencia**
   - No hay revocación de packs en el modelo actual.
-  - Efecto de nómina de un tramo cancelado, y el orden relativo AUTO frente a otras severidades de integridad.
+  - El orden relativo AUTO frente a otras severidades de integridad.
 - **Plataforma** (post-1.0)
   - Cambio significativo de ubicación en iOS como respaldo de la geocerca.
 
