@@ -1,5 +1,7 @@
 export * from "./ScreenStatusBanner";
 export * from "./PermissionCard";
+export * from "./PermissionGuidancePanel";
+export * from "./PermissionsStep";
 export * from "./HealthRow";
 export * from "./KeyValueRow";
 export * from "./SessionListItem";

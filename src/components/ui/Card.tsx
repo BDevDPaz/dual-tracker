@@ -8,6 +8,7 @@ interface CardProps {
   style?: StyleProp<ViewStyle>;
   elevation?: "none" | "sm" | "md" | "lg";
   variant?: "surface" | "elevated" | "outline";
+  testID?: string;
 }
 
 export function Card({
@@ -15,6 +16,7 @@ export function Card({
   style,
   elevation = "sm",
   variant = "elevated",
+  testID,
 }: CardProps) {
   const { colors } = useTheme();
   const getVariantStyle = () => {
@@ -43,7 +45,7 @@ export function Card({
   const shadowStyle = TOKENS.shadows[elevation];
 
   return (
-    <View style={[styles.card, getVariantStyle(), shadowStyle, style]}>
+    <View testID={testID} style={[styles.card, getVariantStyle(), shadowStyle, style]}>
       {children}
     </View>
   );

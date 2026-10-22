@@ -1,29 +1,21 @@
 /**
  * (onboarding)/permissions.tsx — Permisos reales (Producto §5.5).
- * Tres tarjetas secuenciales: ubicación en uso → segundo plano →
- * notificaciones. Estado leído del store (PermissionsHealthService lo
- * publica). Si background se niega, banner de modo degradado; el alta no se
- * bloquea, se degrada la integridad.
+ * Ubicación en uso → segundo plano → notificaciones, y en Android la
+ * optimización de batería (Samsung / One UI incluido). El alta no se
+ * bloquea: sin permisos se sigue en modo limitado y el pago no cambia.
  */
 import { useState } from "react";
-import { Text, StyleSheet, ScrollView } from "react-native";
+import { Platform, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Button } from "../../src/components/ui";
+import * as Device from "expo-device";
 import { HelpButton } from "../../src/components/support/HelpButton";
-import { PermissionCard, ScreenStatusBanner } from "../../src/components/blocks";
-import { TOKENS, FONT } from "../../src/constants/theme";
+import { PermissionsStep } from "../../src/components/blocks/PermissionsStep";
+import { TOKENS } from "../../src/constants/theme";
 import { useResponsive } from "../../src/components/ui/responsive";
 import type { OsSettingsTarget, PermissionKey } from "../../src/core/contracts";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectHealth } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
-import { permissionCardEnabled } from "../../src/utils/permissionChain";
-
-const CARDS: { key: PermissionKey; title: string; body: string; target: OsSettingsTarget }[] = [
-  { key: "locationForeground", title: "onboarding.permFgTitle", body: "onboarding.permFgBody", target: "LOCATION" },
-  { key: "locationBackground", title: "onboarding.permBgTitle", body: "onboarding.permBgBody", target: "LOCATION" },
-  { key: "notifications", title: "onboarding.permNotifTitle", body: "onboarding.permNotifBody", target: "NOTIFICATIONS" },
-];
+import { androidApiLevel, isSamsungManufacturer } from "../../src/utils/permissionGuidance";
 
 export default function PermissionsScreen() {
   const router = useRouter();
@@ -31,6 +23,7 @@ export default function PermissionsScreen() {
   const health = selectHealth(state);
   const { busy, run } = useBusyAction();
   const [attempted, setAttempted] = useState<Partial<Record<PermissionKey, boolean>>>({});
+  const { screenPadding } = useResponsive();
 
   const request = (key: PermissionKey) =>
     run(async () => {
@@ -44,37 +37,29 @@ export default function PermissionsScreen() {
       }
     });
 
-  const openSettings = (target: (typeof CARDS)[number]["target"]) => run(() => emit({ type: "OPEN_OS_SETTINGS", target }));
-
-  const bgDegraded = health.locationBackground === "denied" || health.locationBackground === "blocked";
-  const { screenPadding } = useResponsive();
+  const openSettings = (target: OsSettingsTarget) => run(() => emit({ type: "OPEN_OS_SETTINGS", target }));
 
   return (
     <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
       <HelpButton screen="permissions" />
-      <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.permissionsTitle")}</Text>
-      {CARDS.map((c, i) => {
-        // Secuencial: una tarjeta se habilita cuando la anterior ya tiene respuesta.
-        const prev = i > 0 ? CARDS[i - 1].key : null;
-        return (
-          <PermissionCard
-            key={c.key}
-            title={t(c.title)}
-            body={t(c.body)}
-            state={health[c.key]}
-            enabled={permissionCardEnabled(prev ? health[prev] : null, prev ? attempted[prev] === true : false, busy)}
-            onRequest={() => void request(c.key)}
-            onOpenSettings={() => void openSettings(c.target)}
-          />
-        );
-      })}
-      {bgDegraded ? <ScreenStatusBanner status="degraded" message={t("onboarding.degradedBanner")} /> : null}
-      <Button label={t("common.continue")} onPress={() => router.push("/(onboarding)/profile")} />
+      <PermissionsStep
+        foreground={health.locationForeground}
+        background={health.locationBackground}
+        notifications={health.notifications}
+        battery={health.batteryOptimization}
+        platform={Platform.OS}
+        apiLevel={androidApiLevel(Platform.OS, Platform.Version)}
+        samsung={isSamsungManufacturer(Device.brand, Device.manufacturer)}
+        busy={busy}
+        attempted={attempted}
+        onRequest={(key) => void request(key)}
+        onOpenSettings={(target) => void openSettings(target)}
+        onContinue={() => router.push("/(onboarding)/profile")}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, gap: TOKENS.spacing.md },
-  title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
 });
