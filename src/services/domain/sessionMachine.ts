@@ -908,8 +908,22 @@ export function transition(
       }
       next = withIntegrity(next, "MANUAL", "MANUAL_PATCH");
       const out = ok(s, next, ctx, "MANUAL_PATCH_WITH_NOTE", [], "SESSION_PATCHED");
-      if (out.ok && (clippedBreaks.length || clippedTransits.length)) {
+      if (out.ok) {
+        // Cada edición guarda el valor inmediatamente anterior, no solo el
+        // primero (bookkeeping.original). Así la versión intermedia se lee
+        // del asiento, sin recorrer toda la cadena. El actor y la fecha van
+        // en el asiento (USER, timestampMs); la nota sigue como noteDigest.
         out.ledgerExtra = {
+          before: {
+            declaredStartAtMs: s.declaredStartAtMs,
+            actualStartAtMs: s.actualStartAtMs,
+            endAtMs: s.endAtMs,
+          },
+          after: {
+            declaredStartAtMs: next.declaredStartAtMs,
+            actualStartAtMs: next.actualStartAtMs,
+            endAtMs: next.endAtMs,
+          },
           ...(clippedBreaks.length ? { clippedBreaks } : {}),
           ...(clippedTransits.length ? { clippedTransits } : {}),
         };

@@ -31,6 +31,7 @@ export const __state = {
   foreground: perm("granted"),
   background: perm("granted"),
   servicesEnabled: true,
+  androidAccuracy: null as null | "fine" | "coarse" | "none",
   position: null as MockPosition | null,
   geofences: new Map<string, unknown[]>(),
   locationUpdates: new Map<string, unknown>(),
@@ -42,11 +43,15 @@ export function __reset(): void {
   __state.foreground = perm("granted");
   __state.background = perm("granted");
   __state.servicesEnabled = true;
+  __state.androidAccuracy = null;
   __state.position = null;
   __state.geofences.clear();
   __state.locationUpdates.clear();
   __state.geocode = [];
   __state.startUpdatesError = null;
+}
+export function __setAndroidAccuracy(accuracy: "fine" | "coarse" | "none" | null): void {
+  __state.androidAccuracy = accuracy;
 }
 export function __setPermissions(p: { foreground?: Perm["status"]; background?: Perm["status"]; canAskAgain?: boolean }): void {
   if (p.foreground) __state.foreground = perm(p.foreground, p.canAskAgain ?? true);
@@ -70,7 +75,8 @@ export function __setStartLocationUpdatesError(error: Error | null): void {
 }
 
 export async function getForegroundPermissionsAsync() {
-  return __state.foreground;
+  if (!__state.androidAccuracy) return __state.foreground;
+  return { ...__state.foreground, android: { accuracy: __state.androidAccuracy } };
 }
 export async function getBackgroundPermissionsAsync() {
   return __state.background;

@@ -17,7 +17,7 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Linking from "expo-linking";
 import * as Location from "expo-location";
 import { Platform } from "react-native";
-import type { OsSettingsTarget, PermissionKey, PermissionState, SystemHealthSnapshot } from "../../core/contracts";
+import type { OsSettingsTarget, PermissionKey, PermissionState, SessionRecordStatus, SystemHealthSnapshot } from "../../core/contracts";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { StoreActions, Store } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
@@ -27,10 +27,28 @@ import { PersistenceService } from "../persistence/PersistenceService";
 import { ForegroundWorkService } from "./ForegroundWorkService";
 import { GeofenceRuntimeService } from "./GeofenceRuntimeService";
 import { NotificationService } from "./NotificationService";
+import { recordOperationalChangesSafely } from "./operationalHealthLedger";
 
 function toState(p: Location.LocationPermissionResponse): PermissionState {
   if (p.status === "granted") return "granted";
   if (p.status === "denied") return p.canAskAgain ? "denied" : "blocked";
+  return "unknown";
+}
+
+/**
+ * Android 12+: "granted" con accuracy coarse es solo aproximada. No se
+ * cuenta como precisa. Fuera de Android no aplica. Un permiso no concedido
+ * no se marca como aproximado: eso ya es denegado.
+ */
+export function locationAccuracyOf(
+  platform: string,
+  response: { status?: string; android?: { accuracy?: string } },
+): SystemHealthSnapshot["locationAccuracy"] {
+  if (platform !== "android") return "n/a";
+  if (response.status !== "granted") return "unknown";
+  const accuracy = response.android?.accuracy;
+  if (accuracy === "fine") return "fine";
+  if (accuracy === "coarse" || accuracy === "none") return "coarse";
   return "unknown";
 }
 
@@ -47,7 +65,9 @@ export const PermissionsHealthService = {
     const prev = Store.getState().health;
     const snapshot: SystemHealthSnapshot = { ...prev };
     try {
-      snapshot.locationForeground = toState(await Location.getForegroundPermissionsAsync());
+      const foreground = await Location.getForegroundPermissionsAsync();
+      snapshot.locationForeground = toState(foreground);
+      snapshot.locationAccuracy = locationAccuracyOf(Platform.OS, foreground);
       snapshot.locationBackground = toState(await Location.getBackgroundPermissionsAsync());
       snapshot.locationServicesEnabled = await Location.hasServicesEnabledAsync().catch(() => null);
     } catch (error) {
@@ -64,8 +84,10 @@ export const PermissionsHealthService = {
       }
     } else snapshot.batteryOptimization = "n/a";
     snapshot.geofenceDiag = await GeofenceRuntimeService.recentDiagnostics();
+    let openSession: { id: number; domainStatus: SessionRecordStatus } | null = null;
     try {
       const open = await PersistenceService.getOpenSession();
+      openSession = open ? { id: open.id, domainStatus: open.domainStatus } : null;
       snapshot.mockLocation = open ? (await PersistenceService.countMockedFacts(open.id)) > 0 : false;
     } catch {
       snapshot.mockLocation = prev.mockLocation;
@@ -76,6 +98,7 @@ export const PermissionsHealthService = {
     snapshot.checkedAtMs = TimeAuthorityService.now();
 
     StoreActions.healthUpdated(snapshot);
+    await recordOperationalChangesSafely(snapshot, openSession);
 
     // Revocación real de background con jornada abierta → CONFLICT.
     const revoked = prev.locationBackground === "granted" && snapshot.locationBackground !== "granted";

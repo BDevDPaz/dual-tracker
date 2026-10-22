@@ -649,8 +649,9 @@ export const PersistenceService = {
 
   async listLedger(
     opts: { sessionId?: number; from?: number; to?: number; afterId?: number; fromId?: number; toId?: number; intent?: string } = {},
+    database?: SQLite.SQLiteDatabase,
   ): Promise<LedgerEntry[]> {
-    const d = await ensureReady();
+    const d = database ?? (await ensureReady());
     const where: string[] = [];
     const params: SqlParam[] = [];
     if (opts.afterId !== undefined) {
@@ -763,10 +764,16 @@ export const PersistenceService = {
     return rows.map((r) => ({ id: Number(r.id), timestampMs: Number(r.timestamp_ms) }));
   },
 
-  /** Borra solo miga de pan y ACCURACY_DROP, por id, en tandas. */
-  async deleteSpatialFactsByIds(ids: number[]): Promise<number> {
+  /**
+   * Borra solo miga de pan y ACCURACY_DROP, por id, en tandas.
+   * Tiene que ir dentro de una transacción: el asiento TRACE_PURGED se
+   * escribe en esa misma transacción. Fuera de ella no hay borrado.
+   * El expurgo por fecha (purgeBreadcrumbsBefore) se eliminó: borraba sin asiento.
+   */
+  async deleteSpatialFactsByIds(ids: number[], database?: SQLite.SQLiteDatabase): Promise<number> {
     if (!ids.length) return 0;
-    const d = await ensureReady();
+    if (txDepth === 0) throw new Error("UNLOGGED_PURGE_FORBIDDEN");
+    const d = database ?? (await ensureReady());
     let deleted = 0;
     for (let i = 0; i < ids.length; i += 400) {
       const chunk = ids.slice(i, i + 400);
@@ -778,16 +785,6 @@ export const PersistenceService = {
     }
     if (deleted) markPersisted("trace");
     return deleted;
-  },
-
-  /** Expurgo por corte de edad. El barrido de retención usa listTrailStamps. */
-  async purgeBreadcrumbsBefore(cutoffMs: number): Promise<number> {
-    const d = await ensureReady();
-    const res = await d.runAsync(
-      `DELETE FROM spatial_facts WHERE type IN ('BREADCRUMB', 'ACCURACY_DROP') AND timestamp_ms < ?`,
-      [cutoffMs],
-    );
-    return res.changes;
   },
 
   // -------------------------------------------------------------------------

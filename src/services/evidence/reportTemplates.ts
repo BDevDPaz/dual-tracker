@@ -294,6 +294,16 @@ function sealWarningBlock(input: ReportInput): string {
   return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
 }
 
+/** Id forense de cada jornada sellada. Sin sellos, el HTML no cambia. */
+function forensicBlock(evidence: { sessionSeals?: { sessionId: number; sessionHash: string }[] }): string {
+  const seals = evidence.sessionSeals ?? [];
+  if (!seals.length) return "";
+  const rows = seals
+    .map((seal) => `<div class="log-item" data-session-forensic="${seal.sessionId}">${escapeHtml(t("comprobante.forensicTitle"))} #${seal.sessionId}: <span class="hash">${escapeHtml(seal.sessionHash)}</span></div>`)
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.forensicTitle"))}</div>${rows}`;
+}
+
 /** Solo si hubo lecturas simuladas. Un expediente sin ellas no cambia el HTML. */
 function mockLocationBlock(traces: { mockedFacts?: number }[]): string {
   const n = traces.reduce((sum, tr) => sum + (tr.mockedFacts && tr.mockedFacts > 0 ? tr.mockedFacts : 0), 0);
@@ -310,6 +320,7 @@ export function renderEmployeeReceipt(input: ReportInput): string {
     ${uncertifiedStamp(input)}
     ${sealWarningBlock(input)}
     ${mockLocationBlock(input.evidence.traces)}
+    ${forensicBlock(input.evidence)}
     ${stats(input.statement)}
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${rows.html}</tbody></table>
     ${omittedNote(rows.omitted)}
@@ -336,6 +347,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${uncertifiedStamp(input)}
     ${sealWarningBlock(input)}
     ${mockLocationBlock(input.evidence.traces)}
+    ${forensicBlock(input.evidence)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input, false).html}</tbody></table>

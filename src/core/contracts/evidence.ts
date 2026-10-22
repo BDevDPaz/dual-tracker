@@ -50,6 +50,20 @@ export interface EvidenceSummary {
    * Lista vacía si el periodo no tuvo traslados.
    */
   transitSegments?: TransitSegmentExport[];
+  /**
+   * Id forense por jornada (SESSION_SEALED). Ausente en packs anteriores:
+   * el contentHash de esos packs no lo incluye. Lista vacía si ninguna jornada
+   * del periodo se cerró con sello. No entra en la nómina.
+   */
+  sessionSeals?: SessionSealExport[];
+}
+
+/** Sello de una jornada: SHA-256 de los hashes de sus asientos, en orden, sin este sello. */
+export interface SessionSealExport {
+  sessionId: number;
+  sessionHash: string;
+  /** Id del asiento SESSION_SEALED. */
+  entryId: number;
 }
 
 /**

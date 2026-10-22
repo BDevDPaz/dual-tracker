@@ -34,6 +34,12 @@ export interface SystemHealthSnapshot {
    */
   mockLocation: boolean;
   locationServicesEnabled: boolean | null;
+  /**
+   * Precisión del permiso de ubicación en Android 12+. "coarse" es solo
+   * aproximada: no cuenta como concedida del todo. "n/a" fuera de Android.
+   * No bloquea VALIDADA y no cambia el pago.
+   */
+  locationAccuracy: "fine" | "coarse" | "unknown" | "n/a";
   checkedAtMs: number | null;
   /** Estado de la cadena del ledger (spec v1.3 §5.5). */
   ledger: {

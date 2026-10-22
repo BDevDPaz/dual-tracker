@@ -18,7 +18,7 @@ import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
-import { sensorBlocksValid } from "../../src/core/healthPolicy";
+import { foregroundLocationHealth, sensorBlocksValid } from "../../src/core/healthPolicy";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
@@ -72,9 +72,16 @@ export default function HealthScreen() {
   const diag = [...h.geofenceDiag].reverse();
 
   const reviews = selectReviewSessions(state);
-  const locationOk = h.locationForeground === "granted" && h.locationServicesEnabled !== false;
+  const foreground = foregroundLocationHealth(h);
+  const locationValue = h.locationServicesEnabled === false ? t("health.locationServicesOff") : foreground.approximate ? t("health.approximateValue") : t(`permission.${h.locationForeground}`);
   const rows: Row[] = [
-    { sensor: "locationForeground", value: h.locationServicesEnabled === false ? t("health.locationServicesOff") : t(`permission.${h.locationForeground}`), ok: locationOk, blocksValid: sensorBlocksValid("locationForeground"), repair: permRepair("locationForeground", h.locationForeground, "LOCATION") },
+    {
+      sensor: "locationForeground",
+      value: locationValue,
+      ok: foreground.ok,
+      blocksValid: foreground.blocksValid,
+      repair: permRepair("locationForeground", h.locationForeground, "LOCATION"),
+    },
     { sensor: "locationBackground", value: t(`permission.${h.locationBackground}`), ok: h.locationBackground === "granted", blocksValid: sensorBlocksValid("locationBackground"), repair: permRepair("locationBackground", h.locationBackground, "LOCATION") },
     { sensor: "notifications", value: t(`permission.${h.notifications}`), ok: h.notifications === "granted", blocksValid: sensorBlocksValid("notifications"), repair: permRepair("notifications", h.notifications, "NOTIFICATIONS") },
     { sensor: "foregroundService", value: tHealthValue(h.foregroundService), ok: h.foregroundService === "running" || h.foregroundService === "n/a" || !hasOpenSession, blocksValid: sensorBlocksValid("foregroundService"), repair: { type: "OPEN_OS_SETTINGS", target: "APP" } },
@@ -101,6 +108,7 @@ export default function HealthScreen() {
         {t(`health.modes.${sys.traceMode}`)}
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}
       </Text>
+      {foreground.approximate ? <ScreenStatusBanner status="degraded" message={t("health.approximateWarning")} /> : null}
       {rows.map((r) => (
         <HealthRow
           key={r.sensor}

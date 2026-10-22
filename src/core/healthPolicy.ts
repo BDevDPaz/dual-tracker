@@ -25,11 +25,36 @@ export function sensorBlocksValid(sensor: HealthSensor): boolean {
   return HEALTH_SENSOR_IMPACT[sensor] === "blocking";
 }
 
+/** Android 12+ concedió solo la ubicación aproximada. No es un permiso pleno. */
+export function approximateLocation(h: Pick<SystemHealthSnapshot, "locationAccuracy">): boolean {
+  return h.locationAccuracy === "coarse";
+}
+
+/**
+ * Cómo se muestra la ubicación en uso. La aproximada no cuenta como concedida
+ * del todo y no bloquea VALIDADA: es un aviso. Apagar los servicios del
+ * sistema sigue bloqueando.
+ */
+export function foregroundLocationHealth(h: Pick<SystemHealthSnapshot, "locationForeground" | "locationServicesEnabled" | "locationAccuracy">): {
+  ok: boolean;
+  blocksValid: boolean;
+  approximate: boolean;
+} {
+  const approximate = approximateLocation(h);
+  const servicesOff = h.locationServicesEnabled === false;
+  return {
+    approximate,
+    ok: h.locationForeground === "granted" && !servicesOff && !approximate,
+    blocksValid: servicesOff || (approximate ? false : sensorBlocksValid("locationForeground")),
+  };
+}
+
 /**
  * Motivo de bloqueo de VALIDADA a partir del snapshot, o null si el entorno
  * no impide certificar. "unknown" / "n/a" no bloquean: todavía no hay lectura.
  * El servicio en primer plano solo bloquea con jornada abierta (antes de
- * abrirla no tiene que estar corriendo).
+ * abrirla no tiene que estar corriendo). La ubicación aproximada no entra:
+ * es un aviso y no cambia el pago.
  */
 export function blockingIntegrityReason(h: SystemHealthSnapshot, sessionOpen: boolean): IntegrityReason | null {
   if (h.locationForeground === "denied" || h.locationForeground === "blocked") return "LOCATION_FOREGROUND_MISSING";

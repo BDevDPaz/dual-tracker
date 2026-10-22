@@ -240,6 +240,8 @@ export const KV_KEYS = {
   GEOFENCE_DIAG: "runtime.geofence_diag",
   /** Última sonda de hora de red y las muestras que aún no confirman deriva. */
   CLOCK_PROBE: "runtime.clock_probe",
+  /** Último estado operacional ya asentado (permisos, GPS, batería). Solo cambia al cambiar. */
+  OPS_HEALTH: "runtime.ops_health",
   LAST_PACK_WEEK: "runtime.last_payroll_export_week",
   MUTEX_PREFIX: "mutex.",
   /** Migración única de pausas antiguas desde el ledger (spec v1.3 §5.3). */

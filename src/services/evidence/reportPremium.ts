@@ -520,6 +520,18 @@ function transitAnnex(input: ReportInput, lang: Language): string {
     </section>`;
 }
 
+function forensicBlock(input: ReportInput, lang: Language): string {
+  const seals = input.evidence.sessionSeals ?? [];
+  if (!seals.length) return "";
+  const rows = seals
+    .map(
+      (seal) =>
+        `<tr data-session-forensic="${seal.sessionId}"><td class="fig">#${seal.sessionId}</td><td class="hash">${escapeHtml(seal.sessionHash)}</td></tr>`,
+    )
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.forensicTitle", {}, lang))}</div><p class="muted">${escapeHtml(t("comprobante.forensicHint", {}, lang))}</p><table data-session-seals="1"><tbody>${rows}</tbody></table>`;
+}
+
 function mockLocationBlock(traces: { mockedFacts?: number }[], lang: Language): string {
   const n = traces.reduce((sum, tr) => sum + (tr.mockedFacts && tr.mockedFacts > 0 ? tr.mockedFacts : 0), 0);
   if (n <= 0) return "";
@@ -570,6 +582,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${signatureBlock(input, lang)}
       ${metricsBlock(input, lang)}
       ${rows.html}
+      ${forensicBlock(input, lang)}
       ${powerOffBlock(input, lang)}
       ${employer}
       ${policyBlock(input, lang)}
