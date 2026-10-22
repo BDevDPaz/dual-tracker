@@ -88,7 +88,19 @@ export type LedgerIntent =
    * Integridad del dispositivo (emulador, root, opciones de desarrollador).
    * Solo cuando cambia. No bloquea ni baja el pago.
    */
-  | "DEVICE_INTEGRITY";
+  | "DEVICE_INTEGRITY"
+  /**
+   * Se pidió un aviso crítico. displayConfirmed es false: Android no confirma
+   * que se haya mostrado. acceptedByOs solo dice si aceptó programarlo.
+   */
+  | "NOTIFICATION_POSTED"
+  /** El operario vio el aviso en la app o tocó la notificación. */
+  | "NOTIFICATION_ACKNOWLEDGED"
+  /**
+   * El teléfono se reinició con jornada abierta y una tarea de Expo volvió a
+   * correr. No afirma que el servicio en primer plano haya arrancado.
+   */
+  | "BOOT_RESUME";
 
 export interface LedgerEntry {
   id: number;

@@ -520,6 +520,60 @@ function transitAnnex(input: ReportInput, lang: Language): string {
     </section>`;
 }
 
+function minutes1(ms: number): string {
+  return String(Math.round((ms / 60_000) * 10) / 10);
+}
+
+function coverageBlock(input: ReportInput, lang: Language): string {
+  const rows = input.evidence.monitoringCoverage ?? [];
+  if (!rows.length) return "";
+  const body = rows
+    .map((row) => {
+      const text =
+        row.coveragePercent === null
+          ? t("comprobante.coverageUnknown", { id: row.sessionId }, lang)
+          : t("comprobante.coverageLine", { id: row.sessionId, percent: row.coveragePercent, minutes: minutes1(row.unmonitoredMs) }, lang);
+      return `<tr data-coverage-session="${row.sessionId}"><td>${escapeHtml(text)}</td></tr>`;
+    })
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.coverageTitle", {}, lang))}</div><p class="muted">${escapeHtml(t("comprobante.coverageHint", {}, lang))}</p><table data-monitoring-coverage="1"><tbody>${body}</tbody></table>`;
+}
+
+function replayBlock(input: ReportInput, lang: Language): string {
+  const rows = input.evidence.sessionReplay ?? [];
+  if (!rows.length) return "";
+  const body = rows
+    .map((row) => {
+      const text =
+        row.status === "MISMATCH"
+          ? t(
+              "comprobante.replayMismatch",
+              {
+                id: row.sessionId,
+                storedWork: row.stored?.workedMinutes ?? t("comprobante.replayMissing", {}, lang),
+                storedTransit: row.stored?.transitMinutes ?? t("comprobante.replayMissing", {}, lang),
+                storedBreak: row.stored?.breakMinutes ?? t("comprobante.replayMissing", {}, lang),
+                ledgerWork: row.ledger?.workedMinutes ?? t("comprobante.replayMissing", {}, lang),
+                ledgerTransit: row.ledger?.transitMinutes ?? t("comprobante.replayMissing", {}, lang),
+                ledgerBreak: row.ledger?.breakMinutes ?? t("comprobante.replayMissing", {}, lang),
+              },
+              lang,
+            )
+          : t(
+              row.status === "MATCH"
+                ? "comprobante.replayMatch"
+                : row.status === "INCOMPLETE"
+                  ? "comprobante.replayIncomplete"
+                  : "comprobante.replaySkipped",
+              { id: row.sessionId },
+              lang,
+            );
+      return `<tr data-session-replay="${row.sessionId}" data-replay-status="${row.status}"><td>${escapeHtml(text)}</td></tr>`;
+    })
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.replayTitle", {}, lang))}</div><p class="muted">${escapeHtml(t("comprobante.replayHint", {}, lang))}</p><table data-session-replay="1"><tbody>${body}</tbody></table>`;
+}
+
 function trustBlock(input: ReportInput, lang: Language): string {
   const rows = input.evidence.locationTrust ?? [];
   if (!rows.length) return "";
@@ -607,6 +661,8 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${rows.html}
       ${forensicBlock(input, lang)}
       ${trustBlock(input, lang)}
+      ${coverageBlock(input, lang)}
+      ${replayBlock(input, lang)}
       ${deviceBlock(input, lang)}
       ${powerOffBlock(input, lang)}
       ${employer}

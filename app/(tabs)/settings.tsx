@@ -63,6 +63,7 @@ interface Draft {
   traceRetentionDays: string;
   traceMode: TraceMode;
   defaultRadiusM: string;
+  arrivalDwellMin: string;
   portalUrl: string;
   portalEnabled: boolean;
   timezone: string;
@@ -95,6 +96,7 @@ export default function SettingsScreen() {
       traceRetentionDays: String(settings.company.traceRetentionDays),
       traceMode: settings.company.traceMode,
       defaultRadiusM: String(settings.company.defaultRadiusM),
+      arrivalDwellMin: String(Math.round((settings.company.arrivalDwellMs ?? 0) / 60_000)),
       portalUrl: settings.company.employerPortalUrl ?? "",
       portalEnabled: settings.company.employerPortalEnabled === true,
       timezone: companyTimezone(settings.company),
@@ -153,6 +155,7 @@ export default function SettingsScreen() {
         traceRetentionDays: Math.round(num(draft.traceRetentionDays)),
         traceMode: draft.traceMode,
         defaultRadiusM: Math.round(num(draft.defaultRadiusM)),
+        arrivalDwellMs: Math.min(30, Math.max(0, Math.round(num(draft.arrivalDwellMin) || 0))) * 60_000,
         employerPortalUrl: draft.portalUrl.trim() ? draft.portalUrl.trim() : null,
         employerPortalEnabled: draft.portalEnabled,
         timezone: draft.timezone,
@@ -264,6 +267,7 @@ export default function SettingsScreen() {
         <Section title={t("settings.sites")}>
           <Card style={styles.card}>
             <KeyValueRow label={t("settings.defaultRadius")} value={`${settings.company.defaultRadiusM} m`} />
+            <KeyValueRow label={t("settings.arrivalDwell")} value={`${Math.round((settings.company.arrivalDwellMs ?? 0) / 60_000)} min`} />
             <Button label={t("cta.manageSites")} variant="secondary" size="sm" onPress={() => router.push("/sites")} />
           </Card>
         </Section>
@@ -325,6 +329,8 @@ export default function SettingsScreen() {
               <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} />
               <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} />
               <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
+              <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} />
+              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.arrivalDwellHint")}</Text>
               <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalOn")}</Text>
               <View style={styles.row}>
                 <Chip label={t("settings.portalOff")} selected={!draft.portalEnabled} onPress={() => set("portalEnabled", false)} />

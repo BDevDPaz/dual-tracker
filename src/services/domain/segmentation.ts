@@ -17,7 +17,11 @@
 import type { CompanyPolicy, SessionRecord } from "../../core/contracts";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { nextWorkdayBoundary, toDateString, withCorporateZone, workdayStartAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
+import { LoggingService } from "../persistence/LoggingService";
 import { TransitPolicyService } from "./TransitPolicyService";
+
+/** Tope de jornadas al partir un intervalo. Si se alcanza, se trunca y se anota: no se recorta en silencio. */
+export const SEGMENT_GUARD = 1000;
 
 const MIN = 60_000;
 
@@ -47,10 +51,18 @@ function segmentIntervalInZone(startMs: number, endMs: number, history: Calendar
   const out: DaySegment[] = [];
   let cur = startMs;
   let guard = 0;
-  while (cur < endMs && guard++ < 1000) {
+  while (cur < endMs && guard++ < SEGMENT_GUARD) {
     const e = Math.min(nextWorkdayBoundary(cur, history), endMs);
     out.push(mk(out.length, cur, e));
     cur = e;
+  }
+  if (cur < endMs) {
+    LoggingService.log("ROJO", "INTEGRIDAD_COMPROMETIDA", "ERROR", "Segmentación truncada: el intervalo supera el tope de jornadas", {
+      startMs,
+      endMs,
+      segments: out.length,
+      guard: SEGMENT_GUARD,
+    });
   }
   return out;
 }

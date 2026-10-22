@@ -69,6 +69,7 @@ export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
   transitRateMultiplier: 1,
   transitCountsTowardOvertime: true,
   timezone: "America/Los_Angeles",
+  arrivalDwellMs: 0,
 };
 
 export const DEFAULT_DEVICE_PREFS: DevicePreferences = {

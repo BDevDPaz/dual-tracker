@@ -17,6 +17,7 @@ import { touchServiceHealth } from "../serviceHealth";
 import { LoggingService } from "../../persistence/LoggingService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { SettingsService } from "../../persistence/SettingsService";
+import { noteBootResume } from "../bootResume";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
 import { reviewAbandonedSession } from "../orphanSession";
 
@@ -30,6 +31,7 @@ export async function runBreadcrumbTask(
     await observeClock("BREADCRUMB").catch(() => {});
     const session = await PersistenceService.getOpenSession();
     if (session) await reviewAbandonedSession(session).catch(() => {});
+    await noteBootResume("breadcrumb");
     await heartbeat();
     if (!session) return; // sin jornada no se graba nada (§5.4)
     const settings = await SettingsService.load();

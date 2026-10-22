@@ -6,6 +6,7 @@
  */
 import type { CompanyPolicy } from "../../core/contracts";
 import { isPayrollTimezone } from "../../utils/dateUtils";
+import { MAX_ARRIVAL_DWELL_MS } from "./arrivalDwell";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -44,6 +45,9 @@ export function invalidCompanyFields(company: CompanyPolicy): string[] {
   if (company.employerPortalEnabled !== undefined && typeof company.employerPortalEnabled !== "boolean") bad.push("employerPortalEnabled");
   if (company.timezone !== undefined && !isPayrollTimezone(company.timezone)) bad.push("timezone");
   if (company.calendarHistory !== undefined && !Array.isArray(company.calendarHistory)) bad.push("calendarHistory");
+  if (company.arrivalDwellMs !== undefined && !(Number.isInteger(company.arrivalDwellMs) && company.arrivalDwellMs >= 0 && company.arrivalDwellMs <= MAX_ARRIVAL_DWELL_MS)) {
+    bad.push("arrivalDwellMs");
+  }
   return bad;
 }
 

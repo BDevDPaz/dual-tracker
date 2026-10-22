@@ -145,7 +145,11 @@ async function recoverBody(origin: "background" | "foreground"): Promise<void> {
             db,
           );
         });
-        await NotificationService.notifyImmediate(t("notifications.monitoringStoppedTitle"), t("notifications.monitoringStoppedBody"));
+        await NotificationService.notifyImmediate(t("notifications.monitoringStoppedTitle"), t("notifications.monitoringStoppedBody"), {
+          criticalKind: "MONITORING_STOPPED",
+          criticalKinds: ["MONITORING_STOPPED", "RECOVERY_FAILED"],
+          sessionId: session.id,
+        });
       }
     }
   }

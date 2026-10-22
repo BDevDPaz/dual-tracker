@@ -10,6 +10,7 @@ import { observeClock } from "../../evidence/clockSample";
 import { LoggingService } from "../../persistence/LoggingService";
 import { appendGeofenceDiag } from "../geofenceDiag";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
+import { noteBootResume } from "../bootResume";
 import { touchHeartbeat } from "../heartbeat";
 import { touchServiceHealth } from "../serviceHealth";
 import { reviewAbandonedSession } from "../orphanSession";
@@ -33,6 +34,7 @@ export async function runGeofenceTask(body: TaskManagerTaskBody<GeofenceTaskData
   try {
     await observeClock("GEOFENCE").catch(() => {});
     await reviewAbandonedSession().catch(() => {});
+    await noteBootResume("geofence", { recover: true });
     await touchHeartbeat();
     await touchServiceHealth("geofence");
     await GeofenceRuntimeService.handleGeofenceEvent(data.eventType, data.region);

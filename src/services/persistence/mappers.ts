@@ -93,6 +93,7 @@ export interface DbSiteRow {
   target_lon: number | null;
   target_coords_enc?: string | null;
   radius_m: number | null;
+  arrival_dwell_ms?: number | null;
   active: number;
   created_at_ms: number;
   archived_at_ms: number | null;
@@ -355,6 +356,7 @@ export async function rowToSite(row: DbSiteRow): Promise<Site> {
     targetLat,
     targetLon,
     radiusM: row.radius_m,
+    arrivalDwellMs: typeof row.arrival_dwell_ms === "number" ? row.arrival_dwell_ms : null,
     active: Boolean(row.active),
     createdAtMs: ms(row.created_at_ms) ?? 0,
     archivedAtMs: ms(row.archived_at_ms),

@@ -6,6 +6,7 @@ import { selectPendingFeedback } from "../../core/selectors";
 import { t, useLanguage, type Language } from "../../i18n";
 import { ModalShell, type ModalTone } from "../ui/ModalShell";
 import { useBlockingModalVisible } from "./blockingModals";
+import { markCriticalFeedbackShown } from "../../services/runtime/criticalNotices";
 
 /**
  * FeedbackBridge — puente FeedbackService → UI (sustituye useLogFeedback /
@@ -67,10 +68,11 @@ export function FeedbackBridge() {
       };
       const mark: ToastMark | undefined = ARRIVAL_MARK.has(fb.code) ? "arrival" : undefined;
       showToast(title, fb.tone, message || undefined, live, mark);
+      markCriticalFeedbackShown(fb.code, state.sessions.activeSessionId, false);
       void emit({ type: "DISMISS_FEEDBACK", feedbackId: fb.id });
     }
     if (dialogs.length) setQueue((q) => [...q, ...dialogs]);
-  }, [pending, emit, queries, showToast, language]);
+  }, [pending, emit, queries, showToast, language, state.sessions.activeSessionId]);
 
   // Siguiente diálogo solo cuando no hay otro en pantalla ni un modal bloqueante ajeno.
   useEffect(() => {
@@ -83,6 +85,8 @@ export function FeedbackBridge() {
   const { title, message } = queries.renderFeedback(current, language);
   const dismiss = () => {
     const id = current.id;
+    const code = current.code;
+    markCriticalFeedbackShown(code, state.sessions.activeSessionId, true);
     setCurrent(null);
     void emit({ type: "DISMISS_FEEDBACK", feedbackId: id });
   };

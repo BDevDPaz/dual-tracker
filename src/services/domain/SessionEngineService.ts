@@ -38,6 +38,7 @@ import { serializeError } from "../../utils/serializeError";
 import { GEOFENCE_ENTER_AFTER_EXIT_MS, GEOFENCE_ENTER_COALESCE_MS } from "../../constants/geolocation";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { noteSpatialAnomaly } from "../runtime/anomalyEngine";
+import { IN_APP_CRITICAL, recordCriticalNotice } from "../runtime/criticalNotices";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
@@ -377,6 +378,20 @@ export const SessionEngineService = {
         if (out.feedback && out.feedback !== "EXIT_DETECTED") {
           const site = intent.type === "TRANSFER_START" ? sites.find((s) => s.id === intent.toSiteId)?.alias ?? "" : "";
           FeedbackService.emit(out.feedback, { site });
+          const kind = IN_APP_CRITICAL[out.feedback];
+          if (kind) {
+            await recordCriticalNotice({
+              sessionId: saved.id,
+              kind,
+              phase: "CREATED",
+              channel: "IN_APP",
+              acceptedByOs: null,
+              feedbackShown: false,
+              userAcknowledged: false,
+            }).catch((error) => {
+              LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo anotar el aviso de llegada", serializeError(error));
+            });
+          }
         }
 
         // 7) Efecto de nómina tentativo con la política del periodo (spec v1.3 §5.2 N3).

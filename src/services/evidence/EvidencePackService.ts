@@ -24,7 +24,9 @@ import { canonicalJson } from "../../utils/canonicalJson";
 import { companyCalendar, companyTimezone } from "../../utils/companyPolicy";
 import { isValidRange, periodIdAt } from "../../utils/dateUtils";
 import { serializeError } from "../../utils/serializeError";
+import { coverageForSession } from "../../core/monitoringCoverage";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
+import { compareSessionsToLedger } from "../domain/sessionReplay";
 import { PayrollEngineService } from "../domain/PayrollEngineService";
 import { exportSessionTransits } from "../domain/transitExport";
 import { LoggingService } from "../persistence/LoggingService";
@@ -98,7 +100,7 @@ export interface PackVerification {
   identity: "device" | "anchor" | "unverified" | "mismatch" | "unsigned";
   /** Presente solo cuando identity es unverified. */
   identityNote: PackIdentityNote | null;
-  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE, SIGNATURE_KEY, SIGNATURE_MISSING, IDENTITY_UNVERIFIED, LEDGER_*). */
+  /** Comprobaciones que fallaron (STATEMENT_HASH, EVIDENCE_HASH, CONTENT_HASH, PACK_HASH, STATEMENT_PACK_HASH, SIGNATURE, SIGNATURE_KEY, SIGNATURE_MISSING, IDENTITY_UNVERIFIED, LEDGER_*, SESSION_REPLAY). */
   failures: string[];
 }
 
@@ -164,6 +166,8 @@ export function contentOf(statement: PayrollStatement, evidence: EvidenceSummary
   if ("sessionSeals" in evidence) body.sessionSeals = evidence.sessionSeals ?? [];
   if ("locationTrust" in evidence) body.locationTrust = evidence.locationTrust ?? [];
   if ("deviceIntegrity" in evidence) body.deviceIntegrity = evidence.deviceIntegrity ?? null;
+  if ("monitoringCoverage" in evidence) body.monitoringCoverage = evidence.monitoringCoverage ?? [];
+  if ("sessionReplay" in evidence) body.sessionReplay = evidence.sessionReplay ?? [];
   return normalizeContent({
     statement: { ...statementForHash(statement), packHash: null },
     evidence: body,
@@ -300,6 +304,17 @@ async function assemblePeriod(input: { periodStart: number; periodEnd: number })
     const trust = await locationTrustForSession(session.id, await rootedFromSession(session.id, device));
     evidence.locationTrust.push({ sessionId: trust.sessionId, score: trust.score, label: trust.label, penalties: trust.penalties });
   }
+  const ledgerRows = await PersistenceService.listLedger();
+  evidence.monitoringCoverage = included.map((session) => {
+    const coverage = coverageForSession(session, ledgerRows, nowMs);
+    return { sessionId: session.id, ...coverage };
+  });
+  evidence.sessionReplay = compareSessionsToLedger(included, ledgerRows, settings.company, nowMs).map((finding) => ({
+    sessionId: finding.sessionId,
+    status: finding.status,
+    stored: finding.stored,
+    ledger: finding.ledger,
+  }));
   const contentHash = await computeContentHash(statement, evidence);
   return { ok: true, statement, evidence, contentHash, included };
 }
@@ -652,6 +667,18 @@ export const EvidencePackService = {
       if (seal) failures.push(seal);
     }
     if (identity === "unverified") failures.push("IDENTITY_UNVERIFIED");
+    // El libro se vuelve a aplicar y se compara con la fila viva. INCOMPLETE no
+    // falla: un paso que no se puede repetir no es un desajuste de minutos.
+    // No se reescribe la jornada ni el statement.
+    try {
+      const settings = await SettingsService.load();
+      const live = await PersistenceService.listSessions({ includeDeleted: true });
+      const wanted = live.filter((session) => pack.statement.sessionIds.includes(session.id));
+      const replay = compareSessionsToLedger(wanted, await PersistenceService.listLedger(), settings.company, TimeAuthorityService.now());
+      if (replay.some((finding) => finding.status === "MISMATCH")) failures.push("SESSION_REPLAY");
+    } catch (error) {
+      LoggingService.log("NARANJA", "PAYROLL", "WARN", "No se pudo reconstruir la jornada desde el libro", serializeError(error));
+    }
     const signatureMathOk = version >= 4 && !!signature && !failures.includes("SIGNATURE");
     const identityNote =
       identity === "unverified"

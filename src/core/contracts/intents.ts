@@ -160,6 +160,7 @@ export type ViewIntent =
         clientName?: string | null;
         notes?: string | null;
         radiusM?: number | null;
+        arrivalDwellMs?: number | null;
       };
     }
   | { type: "ARCHIVE_SITE"; siteId: number }

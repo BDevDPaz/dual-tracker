@@ -25,6 +25,7 @@ import type { SessionRecord, SpatialFact, SpatialSource } from "../../core/contr
 import { GEOFENCE_ANTI_REBOUNCE_MS, GEOFENCE_TASK_NAME, MAX_ACCEPTABLE_ACCURACY_METERS } from "../../constants/geolocation";
 import { getDistanceFromLatLonInMeters, isValidCoordinate } from "../../utils/geoUtils";
 import { serializeError } from "../../utils/serializeError";
+import { resolveArrivalDwellMs } from "../domain/arrivalDwell";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
 import { monitoredSiteId } from "../domain/siteVisits";
@@ -253,6 +254,82 @@ async function arrivalInstant(session: SessionRecord, siteId: number, atMs: numb
   return at;
 }
 
+interface ArrivalHold {
+  sessionId: number;
+  siteId: number;
+  sinceMs: number;
+  fact: SpatialFact;
+}
+
+async function arrivalDwellFor(siteId: number): Promise<number> {
+  const site = await PersistenceService.getSite(siteId);
+  const settings = await SettingsService.load();
+  return resolveArrivalDwellMs(site, settings.company);
+}
+
+type HoldGate = { action: "continue" } | { action: "waiting" } | { action: "dispatched"; ok: boolean };
+
+/**
+ * Si ya hay una espera en curso para este sitio: o sigue esperando (sin otro
+ * ENTER) o ya cumplió y ficha con la hora de la primera lectura. 0 ms no espera.
+ */
+async function consumeArrivalHold(session: SessionRecord, siteId: number, kind: "ENTER" | "SAMPLE", silentWait = false): Promise<HoldGate> {
+  const dwell = await arrivalDwellFor(siteId);
+  if (dwell <= 0) {
+    await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
+    return { action: "continue" };
+  }
+  const pending = await PersistenceService.getKv<ArrivalHold>(KV_KEYS.ARRIVAL_DWELL);
+  if (!pending || pending.sessionId !== session.id || pending.siteId !== siteId) return { action: "continue" };
+  const now = TimeAuthorityService.now();
+  if (now - pending.sinceMs < dwell) {
+    if (!silentWait) {
+      await appendGeofenceDiag({
+        kind,
+        region: geofenceIdentifier(session.id, siteId),
+        siteId,
+        accuracyM: pending.fact.accuracyM,
+        accepted: false,
+        reason: "ARRIVAL_DWELL",
+        atMs: now,
+      });
+    }
+    return { action: "waiting" };
+  }
+  await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL);
+  const r = await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact: pending.fact }, "GEOFENCE");
+  await appendGeofenceDiag({
+    kind,
+    region: geofenceIdentifier(session.id, siteId),
+    siteId,
+    accuracyM: pending.fact.accuracyM,
+    accepted: r.ok,
+    reason: r.ok ? "ARRIVAL_DWELL_ELAPSED" : String(r.code),
+    atMs: pending.sinceMs,
+  });
+  return { action: "dispatched", ok: r.ok };
+}
+
+async function rememberArrivalHold(session: SessionRecord, fact: SpatialFact, kind: "ENTER" | "SAMPLE"): Promise<void> {
+  const siteId = fact.siteId;
+  if (siteId == null) return;
+  await PersistenceService.setKv(KV_KEYS.ARRIVAL_DWELL, {
+    sessionId: session.id,
+    siteId,
+    sinceMs: fact.timestampMs,
+    fact,
+  });
+  await appendGeofenceDiag({
+    kind,
+    region: geofenceIdentifier(session.id, siteId),
+    siteId,
+    accuracyM: fact.accuracyM,
+    accepted: false,
+    reason: "ARRIVAL_DWELL",
+    atMs: fact.timestampMs,
+  });
+}
+
 async function commitArrival(
   session: SessionRecord,
   siteId: number,
@@ -262,6 +339,9 @@ async function commitArrival(
   acceptReason?: string | null,
 ): Promise<boolean> {
   if (session.domainStatus !== "ESPERANDO" && session.domainStatus !== "TRASLADO") return false;
+  const held = await consumeArrivalHold(session, siteId, kind);
+  if (held.action === "waiting") return false;
+  if (held.action === "dispatched") return held.ok;
   atMs = await arrivalInstant(session, siteId, atMs);
   const site = await PersistenceService.getSite(siteId);
   if (!site || !isValidCoordinate(site.targetLat, site.targetLon)) return false;
@@ -302,6 +382,10 @@ async function commitArrival(
     return false;
   }
   await GeofenceRuntimeService.clearPendingExit();
+  if ((await arrivalDwellFor(siteId)) > 0) {
+    await rememberArrivalHold(session, fact, kind);
+    return false;
+  }
   const r = await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact }, "GEOFENCE");
   await appendGeofenceDiag({
     kind,
@@ -580,6 +664,11 @@ export const GeofenceRuntimeService = {
     }
     if (issue === "MOCK_LOCATION") await noteMockedFix(session.id);
     if (fix && !fix.mocked) await rememberFix(fix);
+    if (type === "ENTER" && (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO")) {
+      const held = await consumeArrivalHold(session, target.siteId, "ENTER");
+      if (held.action !== "continue") return;
+    }
+    if (type === "EXIT") await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
     const fact: SpatialFact = {
       sessionId: session.id,
       type,
@@ -618,6 +707,10 @@ export const GeofenceRuntimeService = {
         }
       }
       if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && reason === null && fix) {
+        if ((await arrivalDwellFor(target.siteId)) > 0) {
+          await rememberArrivalHold(session, fact, "ENTER");
+          return;
+        }
         const r = await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact }, "GEOFENCE");
         await appendGeofenceDiag({
           kind: "ENTER",
@@ -831,6 +924,22 @@ export const GeofenceRuntimeService = {
   },
 
   /**
+   * Si la espera de llegada ya se cumplió, ficha con la hora de la primera
+   * lectura. No dispara un temporizador: la siguiente muestra o el worker lo llaman.
+   */
+  async flushArrivalDwell(): Promise<boolean> {
+    const pending = await PersistenceService.getKv<ArrivalHold>(KV_KEYS.ARRIVAL_DWELL);
+    if (!pending) return false;
+    const session = await PersistenceService.getSession(pending.sessionId);
+    if (!session || (session.domainStatus !== "ESPERANDO" && session.domainStatus !== "TRASLADO")) {
+      await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
+      return false;
+    }
+    const held = await consumeArrivalHold(session, pending.siteId, "SAMPLE", true);
+    return held.action === "dispatched" && held.ok;
+  },
+
+  /**
    * Muestra que ya entrega el servicio en primer plano (también en «Solo
    * geocerca», perfil de espera). No graba rastro: solo confirma llegada,
    * salida o traslado cuando la geocerca nativa no avisó.
@@ -903,6 +1012,10 @@ export const GeofenceRuntimeService = {
         });
         return;
       }
+    }
+
+    if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && zone !== "inside") {
+      await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
     }
 
     if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && zone === "inside") {

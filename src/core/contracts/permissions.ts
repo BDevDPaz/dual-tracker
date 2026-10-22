@@ -44,6 +44,11 @@ export interface SystemHealthSnapshot {
   deviceIntegrity: DeviceIntegritySnapshot | null;
   /** Puntaje informativo de la jornada abierta o, si no hay, de la última. */
   locationTrust: LocationTrustSnapshot | null;
+  /**
+   * Cobertura de monitoreo de la jornada abierta o, si no hay, de la última.
+   * Informativa: no bloquea VALIDADA y no cambia el pago.
+   */
+  monitoringCoverage: { sessionId: number; coveragePercent: number | null; unmonitoredMs: number } | null;
   locationServicesEnabled: boolean | null;
   /**
    * Precisión del permiso de ubicación en Android 12+. "coarse" es solo
