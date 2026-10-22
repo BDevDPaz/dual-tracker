@@ -124,6 +124,7 @@ export default function HistoryScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel={t("a11y.nextWeek")}
+          accessibilityState={{ disabled: isCurrentWeek }}
           style={styles.weekHit}
         >
           <Ionicons name="chevron-forward" size={ICON.xl} color={isCurrentWeek ? colors.text.muted : colors.text.primary} />

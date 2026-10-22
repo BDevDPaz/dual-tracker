@@ -24,6 +24,7 @@ import {
   displayStatement,
   formatCents,
   formatHundredths,
+  formatPayRateLine,
   formatSiteName,
   minutesToHundredths,
   moneyCents,
@@ -39,7 +40,7 @@ import { retentionPhase, type RetentionPhase } from "../../services/evidence/ret
 import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
 /** Presentación de nómina para las pantallas (las rutas no importan services/). */
-export { allocateDisplayHundredths, displayStatement, formatCents, formatHundredths, minutesToHundredths, moneyCents, trimDisplayNote };
+export { allocateDisplayHundredths, displayStatement, formatCents, formatHundredths, formatPayRateLine, minutesToHundredths, moneyCents, trimDisplayNote };
 
 // ---------------------------------------------------------------------------
 // Gate (Producto §5.1)

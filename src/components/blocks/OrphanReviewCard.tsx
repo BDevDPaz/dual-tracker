@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
 import { fixedLunchExceedsSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
@@ -31,6 +32,7 @@ export function OrphanReviewCard({
   onConfirm: (endAtMs: number, note: string) => void;
 }) {
   useLanguage();
+  const { colors } = useTheme();
   const [endText, setEndText] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -65,11 +67,15 @@ export function OrphanReviewCard({
   });
   return (
     <Card style={styles.card}>
-      <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("today.orphanTitle")}</Text>
-      <Text style={[styles.body, { color: TOKENS.colors.text.secondary }]}>{t("today.orphanBody")}</Text>
+      <Text style={[styles.title, { color: colors.text.primary }]}>{t("today.orphanTitle")}</Text>
+      <Text style={[styles.body, { color: colors.text.secondary }]}>{t("today.orphanBody")}</Text>
       <Input {...chain.props("end")} label={t("today.orphanEnd")} value={endText} onChangeText={setEndText} mask="HH:mm" maximumDate={timePickerMaximum(ceilingMs)} testID="orphan-end" />
       <Input {...chain.props("note")} label={t("today.orphanNote")} value={note} onChangeText={setNote} testID="orphan-note" />
-      {error ? <Text style={[styles.body, { color: TOKENS.colors.status.warning }]}>{error}</Text> : null}
+      {error ? (
+        <Text style={[styles.body, { color: colors.status.warning }]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+          {error}
+        </Text>
+      ) : null}
       <Button label={t("today.orphanConfirm")} disabled={busy || !note.trim() || !endText.trim()} isLoading={busy} onPress={submit} />
       <Button label={t("today.orphanContinue")} variant="secondary" disabled={busy} onPress={onContinue} />
     </Card>

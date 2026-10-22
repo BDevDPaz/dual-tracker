@@ -51,6 +51,7 @@ export default function TabsLayout() {
               borderTopColor: colors.border,
               minHeight: TOKENS.layout.minTouchTarget + insets.bottom,
             },
+        tabBarAccessibilityLabel: route.name === "index" && shiftActive ? t("a11y.tabTodayActive") : undefined,
         tabBarIcon: ({ focused, color }) => {
           const [on, off] = TAB_ICONS[route.name] ?? ["ellipse", "ellipse-outline"];
           return (

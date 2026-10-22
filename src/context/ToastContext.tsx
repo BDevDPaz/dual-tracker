@@ -15,7 +15,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import { StyleSheet, Text, View, Pressable } from "react-native";
+import { AccessibilityInfo, StyleSheet, Text, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
@@ -72,6 +72,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [mark, setMark] = useState<ToastMark | undefined>(undefined);
   const [queued, setQueued] = useState<ToastItem[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const screenReaderRef = useRef(false);
   const lastToastRef = useRef<{
     message: string;
     type: ToastType;
@@ -100,10 +101,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [translateY, opacity]);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) {
+    let alive = true;
+    const apply = (on: boolean) => {
+      screenReaderRef.current = on;
+      if (on && timerRef.current) {
         clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
+    };
+    const read = AccessibilityInfo.isScreenReaderEnabled?.();
+    if (read && typeof (read as Promise<boolean>).then === "function") {
+      void Promise.resolve(read)
+        .then((on) => {
+          if (alive) apply(Boolean(on));
+        })
+        .catch(() => undefined);
+    }
+    const sub = AccessibilityInfo.addEventListener?.("screenReaderChanged", apply);
+    return () => {
+      alive = false;
+      sub?.remove?.();
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
@@ -129,9 +147,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         stiffness: 150,
       });
 
-      timerRef.current = setTimeout(() => {
-        dismissToast();
-      }, DURATIONS.toast);
+      if (!screenReaderRef.current) {
+        timerRef.current = setTimeout(() => {
+          dismissToast();
+        }, DURATIONS.toast);
+      }
     },
     [dismissToast, translateY, opacity],
   );
@@ -220,6 +240,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             ]}
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
+            accessibilityHint={t("a11y.dismissToast")}
             accessibilityLabel={t("a11y.toast", { message: shownCaption ? `${shownTitle}. ${shownCaption}` : shownTitle })}
           >
             <View style={styles.contentRow}>
@@ -230,6 +251,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   name={config.icon as any}
                   size={ICON.xl}
                   color={config.color}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
                 />
               )}
               <View style={styles.textCol}>
@@ -266,6 +289,11 @@ export function useToast() {
     );
   }
   return context;
+}
+
+/** Para piezas que también se montan fuera del proveedor (pruebas, alta). */
+export function useToastOptional() {
+  return useContext(ToastContext);
 }
 
 const styles = StyleSheet.create({

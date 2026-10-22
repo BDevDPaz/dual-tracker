@@ -294,7 +294,7 @@ export default function SettingsScreen() {
             </Card>
           ) : (
             <Card style={styles.card}>
-              <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} />
+              <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} prefix="$" suffix={t("common.perHour")} />
               <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} />
               <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
               <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} />
@@ -532,9 +532,15 @@ type LegalFlagDraft =
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   const { colors } = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" style={styles.statusRow}>
-      <Text style={{ color: colors.text.primary }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} />
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      accessibilityHint={t("a11y.linkHint")}
+      style={[styles.statusRow, styles.linkHit]}
+    >
+      <Text style={{ color: colors.text.primary, flex: 1 }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
     </Pressable>
   );
 }
@@ -544,6 +550,7 @@ const styles = StyleSheet.create({
   label: { ...FONT.label, marginTop: TOKENS.spacing.sm },
   row: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, paddingVertical: TOKENS.spacing.xs },
+  linkHit: { minHeight: TOKENS.layout.minTouchTarget },
   hint: { ...FONT.caption, flex: 1 },
   calendar: { gap: TOKENS.spacing.sm, marginTop: TOKENS.spacing.sm },
 });

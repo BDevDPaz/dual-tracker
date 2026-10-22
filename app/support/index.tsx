@@ -62,7 +62,12 @@ export default function SupportIndexScreen() {
       <Section title={t("support.faqTitle")}>
         {FAQ_IDS.map((id) => (
           <Card key={id} style={styles.card}>
-            <Pressable accessibilityRole="button" onPress={() => setOpenFaq((cur) => (cur === id ? null : id))}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: openFaq === id }}
+              onPress={() => setOpenFaq((cur) => (cur === id ? null : id))}
+              style={styles.troubleHeader}
+            >
               <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`support.faq.${id}.q`)}</Text>
             </Pressable>
             {openFaq === id ? <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.faq.${id}.a`)}</Text> : null}
@@ -134,9 +139,9 @@ export default function SupportIndexScreen() {
 
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" style={styles.link}>
+    <Pressable onPress={onPress} accessibilityRole="link" accessibilityLabel={label} accessibilityHint={t("a11y.linkHint")} style={styles.link}>
       <Text style={[styles.linkText, { color: TOKENS.colors.text.primary }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} />
+      <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
     </Pressable>
   );
 }
@@ -149,7 +154,7 @@ const styles = StyleSheet.create({
   answer: { ...FONT.body },
   answerBlock: { gap: TOKENS.spacing.sm },
   gloss: { gap: TOKENS.spacing.xxs, marginBottom: TOKENS.spacing.sm },
-  link: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: TOKENS.spacing.sm },
+  link: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: TOKENS.layout.minTouchTarget, paddingVertical: TOKENS.spacing.sm },
   linkText: { ...FONT.body, flex: 1 },
   about: { ...FONT.caption, textAlign: "center" },
 });

@@ -7,12 +7,12 @@
 import { useState } from "react";
 import { Pressable, Text, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section, StatusPill } from "../../../src/components/ui";
+import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section, StatusPill } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
-import { t } from "../../../src/i18n";
+import { t, tPackFileRole } from "../../../src/i18n";
 import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
 
 export default function PackScreen() {
@@ -41,8 +41,7 @@ export default function PackScreen() {
   if (!pack) {
     return (
       <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
-        <EmptyState title={t("report.notFound")} icon="document-outline" />
-        <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
+        <NotFoundState title={t("report.notFound")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/reports"))} />
       </ScreenScroll>
     );
   }
@@ -75,7 +74,7 @@ export default function PackScreen() {
 
       <Section title={t("report.files")}>
         {m.files.map((f) => (
-          <KeyValueRow key={f.name} label={f.role} value={f.name} mono />
+          <KeyValueRow key={f.name} label={tPackFileRole(f.role)} value={f.name} mono />
         ))}
       </Section>
 
@@ -103,7 +102,7 @@ export default function PackScreen() {
             style={styles.switchRow}
           >
             <Text style={{ color: TOKENS.colors.text.primary }}>{t("report.annexLedger")}</Text>
-            <StatusPill tone={annexLedger ? "success" : "neutral"} label={t(annexLedger ? "settings.highContrastOn" : "settings.highContrastOff")} />
+            <StatusPill tone={annexLedger ? "success" : "neutral"} label={t(annexLedger ? "report.annexOn" : "report.annexOff")} />
           </Pressable>
           <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.annexLedgerHint")}</Text>
           <Pressable
@@ -114,7 +113,7 @@ export default function PackScreen() {
             style={styles.switchRow}
           >
             <Text style={{ color: TOKENS.colors.text.primary }}>{t("report.annexEnterExit")}</Text>
-            <StatusPill tone={annexEnterExit ? "success" : "neutral"} label={t(annexEnterExit ? "settings.highContrastOn" : "settings.highContrastOff")} />
+            <StatusPill tone={annexEnterExit ? "success" : "neutral"} label={t(annexEnterExit ? "report.annexOn" : "report.annexOff")} />
           </Pressable>
           <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.annexEnterExitHint")}</Text>
         </Section>
@@ -146,5 +145,5 @@ const styles = StyleSheet.create({
   label: { ...FONT.label },
   hash: { ...FONT.caption, fontFamily: "monospace" },
   caption: { ...FONT.caption },
-  switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, paddingVertical: TOKENS.spacing.xs },
+  switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, minHeight: TOKENS.layout.minTouchTarget },
 });

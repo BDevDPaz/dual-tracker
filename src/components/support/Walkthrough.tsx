@@ -34,18 +34,23 @@ export function Walkthrough({ title, steps, practiceFlow, emblem }: WalkthroughP
   return (
     <View style={styles.wrap}>
       <Text style={[styles.kicker, { color: colors.text.muted }]}>{t("support.walk.step", { n: index + 1, total: steps.length })}</Text>
-      {emblem === "arrival" ? <ArrivalMark size={ICON.hero} /> : null}
+      {emblem === "arrival" ? <ArrivalMark size={ICON.hero} decorative /> : null}
       <Text testID="walk-title" style={[styles.title, { color: colors.text.primary }]}>
         {t(title)}
       </Text>
       <Card style={styles.card}>
-        <Text style={[styles.stepTitle, { color: colors.text.primary }]}>{t(step.title)}</Text>
-        <Text testID="walk-body" style={[styles.body, { color: colors.text.secondary }]}>
-          {t(step.body)}
-        </Text>
-        <Text style={[styles.look, { color: colors.text.muted }]}>{t("support.walk.lookFor")}</Text>
-        <View testID="walk-mark" style={[styles.mark, { borderColor: colors.primary }]}>
-          <Text style={[styles.markText, { color: colors.primary }]}>{t(step.mark)}</Text>
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={[t("support.walk.step", { n: index + 1, total: steps.length }), t(step.title), t(step.body), t(step.mark)].join(". ")}
+        >
+          <Text style={[styles.stepTitle, { color: colors.text.primary }]}>{t(step.title)}</Text>
+          <Text testID="walk-body" style={[styles.body, { color: colors.text.secondary }]}>
+            {t(step.body)}
+          </Text>
+          <Text style={[styles.look, { color: colors.text.muted }]}>{t("support.walk.lookFor")}</Text>
+          <View accessible accessibilityRole="text" testID="walk-mark" style={[styles.mark, { backgroundColor: colors.statusBg.primary }]}>
+            <Text style={[styles.markText, { color: colors.text.primary }]}>{t(step.mark)}</Text>
+          </View>
         </View>
       </Card>
       <View style={styles.row}>
@@ -72,11 +77,10 @@ const styles = StyleSheet.create({
   body: { ...FONT.body },
   look: { ...FONT.caption, marginTop: TOKENS.spacing.sm },
   mark: {
-    borderWidth: 2,
-    borderRadius: TOKENS.radius.md,
-    paddingVertical: TOKENS.spacing.md,
-    paddingHorizontal: TOKENS.spacing.lg,
-    alignItems: "center",
+    borderRadius: TOKENS.radius.sm,
+    paddingVertical: TOKENS.spacing.sm,
+    paddingHorizontal: TOKENS.spacing.md,
+    alignItems: "flex-start",
   },
   markText: { ...FONT.bodyStrong },
   row: { flexDirection: "row", justifyContent: "flex-end", gap: TOKENS.spacing.sm },

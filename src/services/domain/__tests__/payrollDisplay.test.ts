@@ -1,10 +1,12 @@
 /** Presentación: centavos enteros, horas que cuadran con las filas, notas y alias. */
 import { makeStatement } from "../../../../test/fixtures/payroll.fixture";
+import { setLanguage } from "../../../i18n";
 import {
   allocateDisplayHundredths,
   displayStatement,
   formatCents,
   formatHundredths,
+  formatPayRateLine,
   formatSiteName,
   minutesToHundredths,
   moneyCents,
@@ -14,6 +16,16 @@ import {
 } from "../payrollDisplay";
 
 describe("payrollDisplay — centavos y horas", () => {
+  afterEach(() => setLanguage("es"));
+
+  test("la línea de pago es solo de lectura: horas × tarifa, sin cambiar los centavos", () => {
+    expect(formatPayRateLine(480, 25)).toBe("8 h × $25.00/h");
+    expect(formatPayRateLine(90, 25)).toBe("1,5 h × $25.00/h");
+    expect(moneyCents(480, 25)).toBe(20000);
+    setLanguage("en");
+    expect(formatPayRateLine(90, 25, "en")).toBe("1.5 h × $25.00/h");
+  });
+
   test("la semana real de Byron a $35 cuadra en centavos: 6+34+17+250 min = $179.08", () => {
     const rate = 35;
     const minutes = [0, 6, 34, 17, 0, 250];

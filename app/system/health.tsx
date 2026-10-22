@@ -23,7 +23,7 @@ import { foregroundLocationHealth, readingLooksOk, sensorBlocksValid } from "../
 import { SERVICE_COMPONENTS } from "../../src/core/contracts";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
-import { t, tHealthValue } from "../../src/i18n";
+import { t, tHealthValue, tReviewReason } from "../../src/i18n";
 import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
 import { androidApiLevel, guidanceForHealthSensor, isSamsungManufacturer } from "../../src/utils/permissionGuidance";
 
@@ -223,12 +223,18 @@ export default function HealthScreen() {
             <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.review.empty")}</Text>
           ) : (
             reviews.map((session) => {
-              const reasonKey = `reviewReasons.${session.bookkeeping.integrityReason}`;
-              const reason = t(reasonKey);
+              const when = formatDateTime(session.actualStartAtMs ?? session.declaredStartAtMs);
+              const reason = tReviewReason(session.bookkeeping.integrityReason);
               return (
-                <Pressable key={session.id} onPress={() => router.push(`/session/${session.id}`)} accessibilityRole="button">
-                  <Text style={[styles.label, { color: colors.text.primary }]}>{formatDateTime(session.actualStartAtMs ?? session.declaredStartAtMs)}</Text>
-                  <Text style={[styles.hint, { color: colors.status.warning }]}>{reason === reasonKey ? session.bookkeeping.integrityReason : reason}</Text>
+                <Pressable
+                  key={session.id}
+                  onPress={() => router.push(`/session/${session.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${when}. ${reason}`}
+                  style={styles.reviewHit}
+                >
+                  <Text style={[styles.label, { color: colors.text.primary }]}>{when}</Text>
+                  <Text style={[styles.hint, { color: colors.status.warning }]}>{reason}</Text>
                 </Pressable>
               );
             })
@@ -324,4 +330,5 @@ const styles = StyleSheet.create({
   hint: { ...FONT.caption },
   diagRow: { gap: TOKENS.spacing.xxs, paddingTop: TOKENS.spacing.sm },
   label: { ...FONT.bodyStrong },
+  reviewHit: { minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
 });

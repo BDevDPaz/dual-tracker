@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { FONT, TOKENS } from "../../constants/theme";
 import type { OsSettingsTarget, PermissionKey, PermissionState } from "../../core/contracts";
 import { t, tHealthValue, useLanguage } from "../../i18n";
@@ -38,6 +38,8 @@ interface Props {
   onRequest: (key: PermissionKey) => void;
   onOpenSettings: (target: OsSettingsTarget) => void;
   onContinue: () => void;
+  /** Se lee después del título (botón de ayuda). */
+  titleAccessory?: React.ReactNode;
 }
 
 function contentFor(model: GuidanceModel): PermissionGuidanceContent {
@@ -64,6 +66,7 @@ export function PermissionsStep({
   onRequest,
   onOpenSettings,
   onContinue,
+  titleAccessory,
 }: Props) {
   useLanguage();
   const states: Record<PermissionKey, PermissionState> = {
@@ -86,7 +89,10 @@ export function PermissionsStep({
 
   return (
     <>
-      <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.permissionsTitle")}</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, styles.titleFlex, { color: TOKENS.colors.text.primary }]}>{t("onboarding.permissionsTitle")}</Text>
+        {titleAccessory}
+      </View>
       {backgroundDegraded(background) ? <ScreenStatusBanner status="degraded" message={t("onboarding.degradedBanner")} /> : null}
       {next.tone === "limited" ? <ScreenStatusBanner status="degraded" message={t("onboarding.limitedBanner")} /> : null}
       {CARDS.map((card, index) => {
@@ -132,5 +138,7 @@ export function PermissionsStep({
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm },
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
+  titleFlex: { flex: 1 },
 });

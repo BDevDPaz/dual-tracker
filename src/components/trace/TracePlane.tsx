@@ -25,6 +25,8 @@ type Props = {
   facts: readonly SpatialFact[];
   sites: readonly TraceSiteMark[];
   gaps: readonly { toMs: number; kind: "retention" | "recording" }[];
+  /** Alternativa textual del recorrido (puntos, salidas, distancia). */
+  summary?: string;
   height?: number;
 };
 
@@ -34,7 +36,7 @@ function hasCoords(f: SpatialFact): f is SpatialFact & { lat: number; lon: numbe
   return typeof f.lat === "number" && typeof f.lon === "number" && Number.isFinite(f.lat) && Number.isFinite(f.lon);
 }
 
-export function TracePlane({ facts, sites, gaps, height = 280 }: Props) {
+export function TracePlane({ facts, sites, gaps, summary, height = 280 }: Props) {
   useLanguage();
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
@@ -117,7 +119,8 @@ export function TracePlane({ facts, sites, gaps, height = 280 }: Props) {
       <View
         style={[styles.frame, { height, backgroundColor: colors.surface, borderColor: colors.border }]}
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        accessibilityLabel={t("trace.mapLabel")}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       >
         <GestureDetector gesture={gesture}>
           <View style={[styles.plane, { transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale: zoom }] }]}>
@@ -163,15 +166,30 @@ export function TracePlane({ facts, sites, gaps, height = 280 }: Props) {
           ) : null}
         </View>
       </View>
+      <Text style={[styles.summary, { color: colors.text.secondary }]}>{summary ?? t("trace.mapLabel")}</Text>
       <View style={styles.zoom}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomIn")} onPress={() => setZoom((z) => Math.min(8, z * 1.4))} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <Ionicons name="add" size={ICON.lg} color={colors.text.primary} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("trace.zoomIn")}
+          accessibilityState={{ disabled: zoom >= 8 }}
+          disabled={zoom >= 8}
+          onPress={() => setZoom((z) => Math.min(8, z * 1.4))}
+          style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+        >
+          <Ionicons name="add" size={ICON.lg} color={zoom >= 8 ? colors.text.muted : colors.text.primary} />
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomOut")} onPress={() => setZoom((z) => Math.max(1, z / 1.4))} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <Ionicons name="remove" size={ICON.lg} color={colors.text.primary} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("trace.zoomOut")}
+          accessibilityState={{ disabled: zoom <= 1 }}
+          disabled={zoom <= 1}
+          onPress={() => setZoom((z) => Math.max(1, z / 1.4))}
+          style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+        >
+          <Ionicons name="remove" size={ICON.lg} color={zoom <= 1 ? colors.text.muted : colors.text.primary} />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={t("trace.zoomReset")} onPress={reset} style={[styles.zoomBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <Text style={{ color: colors.text.secondary }}>1</Text>
+          <Ionicons name="scan-outline" size={ICON.lg} color={colors.text.primary} />
         </Pressable>
       </View>
     </View>
@@ -189,6 +207,7 @@ const styles = StyleSheet.create({
   barWrap: { alignSelf: "flex-start" },
   bar: { height: TOKENS.layout.focusOutline, borderRadius: TOKENS.layout.hairline },
   barLabel: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
+  summary: { ...FONT.caption, marginTop: TOKENS.spacing.sm },
   zoom: { flexDirection: "row", gap: TOKENS.spacing.xs, marginTop: TOKENS.spacing.sm },
   zoomBtn: {
     minWidth: TOKENS.layout.minTouchTarget,

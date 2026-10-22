@@ -10,7 +10,7 @@ const base = { employeeName: "Ana", dateRange: "r", totalHours: "8.00 h", totalE
 afterEach(() => setLanguage("es"));
 
 describe("DocumentPreviewWidget", () => {
-  test("sin líneas: esqueleto; con líneas: las dos primeras reales", () => {
+  test("sin líneas: esqueleto; con líneas: regulares, extra y traslado", () => {
     const { rerender } = render(<DocumentPreviewWidget {...base} />);
     expect(screen.getAllByTestId("preview-skeleton")).toHaveLength(4);
     rerender(
@@ -24,8 +24,8 @@ describe("DocumentPreviewWidget", () => {
       />,
     );
     expect(screen.queryByTestId("preview-skeleton")).toBeNull();
-    expect(screen.getAllByTestId("preview-line")).toHaveLength(2);
-    expect(screen.queryByText("Tránsito")).toBeNull();
+    expect(screen.getAllByTestId("preview-line")).toHaveLength(3);
+    expect(screen.getByText("Tránsito")).toBeTruthy();
   });
 
   test("etiquetas por t() (EN)", () => {

@@ -11,7 +11,7 @@ import { useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrivalMark } from "../../src/components/brand/ArrivalMark";
-import { Button, Card, EmptyState, IntegrityBadge, PrimaryButton, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, VmacSheet, ledgerToTimeline } from "../../src/components/ui";
+import { Button, Card, IntegrityBadge, LoadingState, NotFoundState, PrimaryButton, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, VmacSheet, ledgerToTimeline } from "../../src/components/ui";
 import { HeaderActions } from "../../src/components/support/HelpButton";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
@@ -23,6 +23,7 @@ import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, us
 import {
   formatCents,
   formatHundredths,
+  formatPayRateLine,
   minutesToHundredths,
   moneyCents,
   selectCertification,
@@ -31,13 +32,11 @@ import {
   selectSessionById,
   trimDisplayNote,
 } from "../../src/core/selectors";
-import { t, tLineKind } from "../../src/i18n";
+import { t, tLedgerIntent, tLineKind } from "../../src/i18n";
 import { formatCurrency, formatDate, formatTime, formatUiDecimal } from "../../src/utils/dateUtils";
 
 function ledgerLabel(e: LedgerEntry): string {
-  const key = `ledger.${e.intent}`;
-  const v = t(key);
-  return v === key ? e.intent : v;
+  return tLedgerIntent(e.intent);
 }
 
 export default function SessionDetailScreen() {
@@ -69,8 +68,7 @@ export default function SessionDetailScreen() {
   if (!session) {
     return (
       <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
-        <EmptyState title={t("session.notFound")} icon="alert-circle-outline" />
-        <Button label={t("notFound.goHome")} onPress={() => router.replace("/(tabs)")} />
+        <NotFoundState title={t("session.notFound")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/history"))} />
       </ScreenScroll>
     );
   }
@@ -162,11 +160,11 @@ export default function SessionDetailScreen() {
 
         <Section title={t("session.lines")}>
           <Card style={styles.card}>
-            {lines.loading ? <Text style={{ color: colors.text.muted }}>{t("common.loading")}</Text> : null}
+            {lines.loading ? <LoadingState message={t("common.loading")} /> : null}
             {lineRows.map((l, i) => (
               <KeyValueRow
                 key={`${l.dateString}-${l.kind}-${i}`}
-                label={`${l.dateString} · ${tLineKind(l.kind)} · ${l.minutes} ${t("common.minutes")} × ${formatCurrency(l.rate)}`}
+                label={`${l.dateString} · ${tLineKind(l.kind)} · ${formatPayRateLine(l.minutes, l.rate)}`}
                 value={formatCurrency(l.amount)}
               />
             ))}
@@ -179,7 +177,8 @@ export default function SessionDetailScreen() {
 
         <SessionTimeline
           title={t("session.timeline")}
-          emptyText={ledger.loading ? t("common.loading") : t("common.noData")}
+          loading={ledger.loading}
+          emptyText={t("common.noData")}
           events={ledgerToTimeline(ledger.data ?? [], ledgerLabel)}
         />
 

@@ -8,10 +8,12 @@ import { useMotionPreference } from "./motion";
 
 interface SkeletonProps {
   lines?: number;
+  /** Dentro de LoadingState el anuncio lo lleva el contenedor. */
+  decorative?: boolean;
 }
 
 /** Barras de carga. Sin bucle si el usuario pidió reducir el movimiento. */
-export function Skeleton({ lines = 3 }: SkeletonProps) {
+export function Skeleton({ lines = 3, decorative = false }: SkeletonProps) {
   const { colors } = useTheme();
   const reduceMotion = useMotionPreference();
   const opacity = useSharedValue(0.45);
@@ -24,7 +26,12 @@ export function Skeleton({ lines = 3 }: SkeletonProps) {
   }, [opacity, reduceMotion]);
   const animated = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <View style={styles.stack} accessibilityRole="progressbar">
+    <View
+      style={styles.stack}
+      accessibilityRole={decorative ? undefined : "progressbar"}
+      accessibilityElementsHidden={decorative}
+      importantForAccessibility={decorative ? "no-hide-descendants" : "auto"}
+    >
       {Array.from({ length: lines }, (_, i) => (
         <Animated.View key={i} style={[styles.line, i === lines - 1 && styles.short, { backgroundColor: colors.surfaceElevated }, animated]} />
       ))}

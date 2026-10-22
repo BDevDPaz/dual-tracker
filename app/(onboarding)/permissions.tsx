@@ -41,8 +41,8 @@ export default function PermissionsScreen() {
 
   return (
     <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
-      <HelpButton screen="permissions" />
       <PermissionsStep
+        titleAccessory={<HelpButton screen="permissions" />}
         foreground={health.locationForeground}
         background={health.locationBackground}
         notifications={health.notifications}
