@@ -66,6 +66,32 @@ export interface EvidenceSummary {
    * null si no hubo lectura. No entra en la nómina.
    */
   deviceIntegrity?: DeviceIntegrityExport | null;
+  /**
+   * Cobertura de monitoreo por jornada. Ausente en packs anteriores:
+   * no entra en su contentHash. Informativa: no cambia el pago.
+   */
+  monitoringCoverage?: MonitoringCoverageExport[];
+  /**
+   * Minutos reconstruidos desde el libro, comparados con la fila de la jornada.
+   * Ausente en packs anteriores. Un desajuste no reescribe la nómina.
+   */
+  sessionReplay?: SessionReplayExport[];
+}
+
+export interface MonitoringCoverageExport {
+  sessionId: number;
+  spanMs: number;
+  monitoredMs: number;
+  unmonitoredMs: number;
+  /** 0–100 con un decimal. null si la jornada no tiene duración. */
+  coveragePercent: number | null;
+}
+
+export interface SessionReplayExport {
+  sessionId: number;
+  status: "MATCH" | "MISMATCH" | "INCOMPLETE" | "SKIPPED";
+  stored: { workedMinutes: number; transitMinutes: number; breakMinutes: number } | null;
+  ledger: { workedMinutes: number; transitMinutes: number; breakMinutes: number } | null;
 }
 
 export interface LocationTrustExport {

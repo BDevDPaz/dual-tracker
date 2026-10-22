@@ -27,24 +27,41 @@ export default function SiteDetailScreen() {
   useAutoRefresh();
   const site = Number.isFinite(siteId) ? selectSiteById(state, siteId) : null;
   const [radius, setRadius] = useState<string | null>(null);
+  const [dwell, setDwell] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const storedRadius = site?.radiusM ?? state.settings.company.defaultRadiusM;
   const radiusValue = radius ?? String(storedRadius);
-  const radiusNum = Math.round(Number(radius));
+  const radiusNum = Math.round(Number(radiusValue));
+  const storedDwell = site?.arrivalDwellMs == null ? "" : String(Math.round(site.arrivalDwellMs / 60_000));
+  const dwellValue = dwell ?? storedDwell;
+  const dwellMs = dwellValue.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwellValue.replace(",", ".")) || 0))) * 60_000;
   const radiusDirty = site != null && radius !== null && radiusNum !== storedRadius;
+  const dwellDirty = site != null && dwell !== null && dwellMs !== (site.arrivalDwellMs ?? null);
+  const formDirty = radiusDirty || dwellDirty;
 
   const saveRadius = async () => {
     if (!site) return;
     setBusy(true);
     const res = await emit({
       type: "UPSERT_SITE",
-      site: { id: site.id, alias: site.alias, address: site.address, clientName: site.clientName, notes: site.notes, radiusM: Math.round(Number(radius)) },
+      site: {
+        id: site.id,
+        alias: site.alias,
+        address: site.address,
+        clientName: site.clientName,
+        notes: site.notes,
+        radiusM: radiusNum,
+        arrivalDwellMs: dwellMs,
+      },
     });
     setBusy(false);
-    if (res.ok) setRadius(null);
+    if (res.ok) {
+      setRadius(null);
+      setDwell(null);
+    }
   };
   const chain = useFormFocusChain(FORM_FIELDS.siteRadius, {
-    canSubmit: radiusDirty && radiusNum > 0 && !busy,
+    canSubmit: formDirty && radiusNum > 0 && !busy,
     onSubmit: () => void saveRadius(),
   });
 
@@ -98,7 +115,9 @@ export default function SiteDetailScreen() {
         {site.active ? (
           <Card style={styles.card}>
             <Input {...chain.props("radius")} label={t("sites.radius")} value={radiusValue} onChangeText={setRadius} />
-            {radiusDirty ? <Button label={t("common.save")} size="sm" isLoading={busy} onPress={() => void saveRadius()} /> : null}
+            <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwellValue} onChangeText={setDwell} />
+            <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
+            {formDirty ? <Button label={t("common.save")} size="sm" isLoading={busy} onPress={() => void saveRadius()} /> : null}
           </Card>
         ) : null}
 

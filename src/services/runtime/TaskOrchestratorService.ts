@@ -29,6 +29,8 @@ import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { readHeartbeat, touchHeartbeat } from "./heartbeat";
 import { touchServiceHealth } from "./serviceHealth";
+import { noteBootResume } from "./bootResume";
+import { GeofenceRuntimeService } from "./GeofenceRuntimeService";
 import { recoverMonitoring } from "./monitoringRecovery";
 import { NotificationService } from "./NotificationService";
 import type { ExitDecisionDeadline } from "./tasks";
@@ -124,6 +126,8 @@ export const TaskOrchestratorService = {
       // El vigilante ya lo intentó. Esta segunda pasada no repite los 3
       // fallos (enfriamiento) y vuelve a registrar la geocerca si falta.
       await recoverMonitoring("background");
+      await noteBootResume("worker").catch(() => {});
+      await GeofenceRuntimeService.flushArrivalDwell().catch(() => {});
       await TaskOrchestratorService.heartbeat();
       await touchServiceHealth("worker");
       await runIntegritySweep().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "INTEGRITY_SWEEP", serializeError(e)));

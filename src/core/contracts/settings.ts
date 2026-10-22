@@ -103,6 +103,12 @@ export interface CompanyPolicy {
    * Cada jornada guarda la zona con la que se registró.
    */
   timezone?: string;
+  /**
+   * Espera antes del fichaje automático, en milisegundos. 0 o ausente = la
+   * llegada fiable entra al momento. Un sitio puede poner otro valor.
+   * No cambia la fórmula de la nómina.
+   */
+  arrivalDwellMs?: number;
 }
 
 /** Preferencias de dispositivo (no sensibles). */

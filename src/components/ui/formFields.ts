@@ -43,6 +43,7 @@ export const FORM_FIELDS = {
     { id: "retention", kind: "integer" },
     { id: "radius", kind: "integer" },
     { id: "portalUrl", kind: "text" },
+    { id: "arrivalDwell", kind: "integer" },
   ],
   settingsCalendar: [{ id: "start", kind: "time" }],
   siteNew: [
@@ -51,8 +52,12 @@ export const FORM_FIELDS = {
     { id: "client", kind: "text" },
     { id: "notes", multiline: true },
     { id: "radius", kind: "integer" },
+    { id: "arrivalDwell", kind: "integer" },
   ],
-  siteRadius: [{ id: "radius", kind: "integer" }],
+  siteRadius: [
+    { id: "radius", kind: "integer" },
+    { id: "arrivalDwell", kind: "integer" },
+  ],
   siteSearch: [{ id: "search", kind: "search" }],
   practiceNote: [{ id: "note", kind: "text" }],
   conflictNote: [{ id: "note", multiline: true }],

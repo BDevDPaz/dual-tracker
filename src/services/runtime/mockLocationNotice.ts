@@ -13,5 +13,8 @@ export async function noteMockedFix(sessionId: number): Promise<void> {
   const prev = await PersistenceService.getKv<number>(KV_KEYS.MOCK_NOTICE);
   if (prev === sessionId) return;
   await PersistenceService.setKv(KV_KEYS.MOCK_NOTICE, sessionId);
-  await NotificationService.notifyImmediate(t("notifications.mockLocationTitle"), t("notifications.mockLocationBody"));
+  await NotificationService.notifyImmediate(t("notifications.mockLocationTitle"), t("notifications.mockLocationBody"), {
+    criticalKind: "MOCK",
+    sessionId,
+  });
 }

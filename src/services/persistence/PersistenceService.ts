@@ -201,6 +201,23 @@ export async function backfillPausesFromLedger(database: SQLite.SQLiteDatabase):
   return out;
 }
 
+/**
+ * Índice único de prev_hash (defensa contra bifurcaciones). Si ya hay
+ * duplicados, no se crea: un índice único fallaría el arranque y no se
+ * reescriben asientos. El fallo queda en el log.
+ */
+export async function ensureUniquePrevHash(database: SQLite.SQLiteDatabase): Promise<"created" | "skipped-duplicates"> {
+  const dup = await database.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM (SELECT prev_hash FROM ledger_entries GROUP BY prev_hash HAVING COUNT(*) > 1)`,
+  );
+  if ((dup?.n ?? 0) > 0) {
+    LoggingService.log("ROJO", "INTEGRIDAD_COMPROMETIDA", "ERROR", "prev_hash duplicado: no se crea el índice único", { groups: dup?.n ?? 0 });
+    return "skipped-duplicates";
+  }
+  await database.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_prev_hash ON ledger_entries(prev_hash);`);
+  return "created";
+}
+
 async function readKv(database: SQLite.SQLiteDatabase, key: string): Promise<unknown> {
   const row = await database.getFirstAsync<{ value_json: string }>(`SELECT value_json FROM app_kv WHERE key = ?`, [key]);
   return row ? JSON.parse(row.value_json) : null;
@@ -219,6 +236,7 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   // Paso de datos sin clave: pausas antiguas desde el ledger (una vez).
   await backfillPausesFromLedger(database);
   await ensureForeignKeys(database);
+  await ensureUniquePrevHash(database);
   await database.runAsync(
     `INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`,
     [KV_KEYS.SCHEMA_VERSION, JSON.stringify(SCHEMA_VERSION), TimeAuthorityService.now()],
@@ -549,10 +567,11 @@ export const PersistenceService = {
     // §8: INSERT con alias/address vacíos (NOT NULL) y el resto en NULL → id → encrypt → UPDATE.
     return PersistenceService.transaction(async (tx) => {
       const res = await tx.runAsync(
-      `INSERT INTO sites (alias, address, client_name, notes, target_lat, target_lon, radius_m, active, created_at_ms, archived_at_ms)
-       VALUES ('', '', NULL, NULL, NULL, NULL, ?, ?, ?, ?)`,
+      `INSERT INTO sites (alias, address, client_name, notes, target_lat, target_lon, radius_m, arrival_dwell_ms, active, created_at_ms, archived_at_ms)
+       VALUES ('', '', NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?)`,
       [
         site.radiusM,
+        site.arrivalDwellMs ?? null,
         site.active ? 1 : 0,
         site.createdAtMs,
         site.archivedAtMs,
@@ -569,9 +588,10 @@ export const PersistenceService = {
     await PersistenceService.transaction(async (d) => {
       await writeSiteText(d, site, report);
       await d.runAsync(
-      `UPDATE sites SET radius_m = ?, active = ?, archived_at_ms = ? WHERE id = ?`,
+      `UPDATE sites SET radius_m = ?, arrival_dwell_ms = ?, active = ?, archived_at_ms = ? WHERE id = ?`,
       [
         site.radiusM,
+        site.arrivalDwellMs ?? null,
         site.active ? 1 : 0,
         site.archivedAtMs,
         site.id,

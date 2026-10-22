@@ -294,6 +294,64 @@ function sealWarningBlock(input: ReportInput): string {
   return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
 }
 
+function minutes1(ms: number): string {
+  return String(Math.round((ms / 60_000) * 10) / 10);
+}
+
+function coverageBlock(evidence: {
+  monitoringCoverage?: { sessionId: number; coveragePercent: number | null; unmonitoredMs: number }[];
+}): string {
+  const rows = evidence.monitoringCoverage ?? [];
+  if (!rows.length) return "";
+  const body = rows
+    .map((row) => {
+      const text =
+        row.coveragePercent === null
+          ? t("comprobante.coverageUnknown", { id: row.sessionId })
+          : t("comprobante.coverageLine", { id: row.sessionId, percent: row.coveragePercent, minutes: minutes1(row.unmonitoredMs) });
+      return `<div class="log-item" data-coverage-session="${row.sessionId}">${escapeHtml(text)}</div>`;
+    })
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.coverageTitle"))}</div><p>${escapeHtml(t("comprobante.coverageHint"))}</p><div data-monitoring-coverage="1">${body}</div>`;
+}
+
+function replayBlock(evidence: {
+  sessionReplay?: {
+    sessionId: number;
+    status: string;
+    stored: { workedMinutes: number; transitMinutes: number; breakMinutes: number } | null;
+    ledger: { workedMinutes: number; transitMinutes: number; breakMinutes: number } | null;
+  }[];
+}): string {
+  const rows = evidence.sessionReplay ?? [];
+  if (!rows.length) return "";
+  const body = rows
+    .map((row) => {
+      const text =
+        row.status === "MISMATCH"
+          ? t("comprobante.replayMismatch", {
+              id: row.sessionId,
+              storedWork: row.stored?.workedMinutes ?? t("comprobante.replayMissing"),
+              storedTransit: row.stored?.transitMinutes ?? t("comprobante.replayMissing"),
+              storedBreak: row.stored?.breakMinutes ?? t("comprobante.replayMissing"),
+              ledgerWork: row.ledger?.workedMinutes ?? t("comprobante.replayMissing"),
+              ledgerTransit: row.ledger?.transitMinutes ?? t("comprobante.replayMissing"),
+              ledgerBreak: row.ledger?.breakMinutes ?? t("comprobante.replayMissing"),
+            })
+          : t(
+              row.status === "MATCH"
+                ? "comprobante.replayMatch"
+                : row.status === "INCOMPLETE"
+                  ? "comprobante.replayIncomplete"
+                  : "comprobante.replaySkipped",
+              { id: row.sessionId },
+            );
+      return `<div class="log-item" data-session-replay="${row.sessionId}" data-replay-status="${row.status}">${escapeHtml(text)}</div>`;
+    })
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.replayTitle"))}</div><p>${escapeHtml(t("comprobante.replayHint"))}</p><div data-session-replay="1">${body}</div>`;
+}
+
 function trustBlock(evidence: { locationTrust?: { sessionId: number; score: number; label: string }[] }): string {
   const rows = evidence.locationTrust ?? [];
   if (!rows.length) return "";
@@ -342,6 +400,8 @@ export function renderEmployeeReceipt(input: ReportInput): string {
     ${mockLocationBlock(input.evidence.traces)}
     ${forensicBlock(input.evidence)}
     ${trustBlock(input.evidence)}
+    ${coverageBlock(input.evidence)}
+    ${replayBlock(input.evidence)}
     ${deviceBlock(input.evidence)}
     ${stats(input.statement)}
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${rows.html}</tbody></table>
@@ -371,6 +431,8 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${mockLocationBlock(input.evidence.traces)}
     ${forensicBlock(input.evidence)}
     ${trustBlock(input.evidence)}
+    ${coverageBlock(input.evidence)}
+    ${replayBlock(input.evidence)}
     ${deviceBlock(input.evidence)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>

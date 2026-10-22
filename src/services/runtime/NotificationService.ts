@@ -19,6 +19,7 @@ import { t } from "../../i18n";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
+import { criticalKindsOf, recordCriticalNotice, type CriticalNoticeKind } from "./criticalNotices";
 
 const DAILY_REMINDER_ID = "dualtracker-daily-reminder";
 const exitNotificationId = (sessionId: number) => `dualtracker-exit-${sessionId}`;
@@ -92,11 +93,48 @@ function parseSessionId(data: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+async function noteOsCritical(data: Record<string, unknown> | undefined, acceptedByOs: boolean): Promise<void> {
+  const kinds = criticalKindsOf(data);
+  if (!kinds.length) return;
+  const sessionId = parseSessionId(data);
+  for (const kind of kinds) {
+    await recordCriticalNotice({
+      sessionId,
+      kind,
+      phase: "CREATED",
+      channel: "OS_NOTIFICATION",
+      acceptedByOs,
+      feedbackShown: false,
+      userAcknowledged: false,
+    });
+  }
+}
+
+async function acknowledgeOsCritical(data: unknown): Promise<void> {
+  const kinds: CriticalNoticeKind[] = criticalKindsOf(data);
+  if (!kinds.length) return;
+  const sessionId = parseSessionId(data);
+  for (const kind of kinds) {
+    await recordCriticalNotice({
+      sessionId,
+      kind,
+      phase: "ACKNOWLEDGED",
+      channel: "OS_NOTIFICATION",
+      acceptedByOs: null,
+      feedbackShown: true,
+      userAcknowledged: true,
+    });
+  }
+}
+
 async function handleResponse(response: Notifications.NotificationResponse): Promise<void> {
   const action = response.actionIdentifier;
   const data = response.notification.request.content.data;
   const sessionId = parseSessionId(data);
   LoggingService.log("AZUL", "NOTIFICACION", "INFO", "Acción de notificación recibida", { action, sessionId });
+  await acknowledgeOsCritical(data).catch((error) => {
+    LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo anotar el toque del aviso", serializeError(error));
+  });
   try {
     switch (action) {
       case NOTIFICATION_ACTIONS.STAY_WORKING:
@@ -233,9 +271,13 @@ export const NotificationService = {
         content: { title, body, data, sound: true, categoryIdentifier: opts.categoryIdentifier },
         trigger: null,
       });
+      await noteOsCritical(data, true).catch((error) => {
+        LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo anotar el aviso crítico", serializeError(error));
+      });
       return true;
     } catch (error) {
       LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Error lanzando notificación", serializeError(error));
+      await noteOsCritical(data, false).catch(() => {});
       return false;
     }
   },
@@ -248,7 +290,7 @@ export const NotificationService = {
     return NotificationService.notifyImmediate(
       t("notifications.exitTitle"),
       t("notifications.exitBody"),
-      { kind: "EXIT_DECISION", sessionId, firstExitAtMs },
+      { kind: "EXIT_DECISION", criticalKind: "EXIT", sessionId, firstExitAtMs },
       { identifier: exitNotificationId(sessionId), categoryIdentifier: NOTIFICATION_CATEGORIES.EXIT_DETECTION },
     );
   },

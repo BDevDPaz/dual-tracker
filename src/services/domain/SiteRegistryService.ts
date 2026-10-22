@@ -12,6 +12,7 @@
  *  - Crear un sitio NO inicia geocerca (Propuesta de Producto §9).
  */
 import type { CompanyPolicy, Site, SiteDraft } from "../../core/contracts";
+import { normalizeArrivalDwellMs } from "./arrivalDwell";
 import { isValidCoordinate } from "../../utils/geoUtils";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { PersistenceService } from "../persistence/PersistenceService";
@@ -85,6 +86,8 @@ export const SiteRegistryService = {
       targetLat,
       targetLon,
       radiusM: draft.radiusM ?? existing?.radiusM ?? null,
+      arrivalDwellMs:
+        draft.arrivalDwellMs !== undefined ? normalizeArrivalDwellMs(draft.arrivalDwellMs) : (existing?.arrivalDwellMs ?? null),
     };
 
     if (existing) {

@@ -18,6 +18,7 @@ import * as Linking from "expo-linking";
 import * as Location from "expo-location";
 import { Platform } from "react-native";
 import type { OsSettingsTarget, PermissionKey, PermissionState, SessionRecord, SessionRecordStatus, SystemHealthSnapshot } from "../../core/contracts";
+import { coverageForSession } from "../../core/monitoringCoverage";
 import { deriveMonitoringState } from "../../core/monitoringState";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { StoreActions, Store } from "../../core/store";
@@ -85,6 +86,12 @@ async function fillMonitoring(snapshot: SystemHealthSnapshot, open: SessionRecor
     snapshot.locationTrust = { sessionId: trust.sessionId, score: trust.score, label: trust.label };
   } else {
     snapshot.locationTrust = null;
+  }
+  if (target) {
+    const coverage = coverageForSession(target, await PersistenceService.listLedger({ sessionId: target.id }).catch(() => []), nowMs);
+    snapshot.monitoringCoverage = { sessionId: target.id, coveragePercent: coverage.coveragePercent, unmonitoredMs: coverage.unmonitoredMs };
+  } else {
+    snapshot.monitoringCoverage = null;
   }
   if (open && (await ForegroundWorkService.isRunning())) {
     const settings = await SettingsService.load();

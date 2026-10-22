@@ -22,6 +22,7 @@ export const INITIAL_HEALTH: SystemHealthSnapshot = {
   serviceHealth: [],
   deviceIntegrity: null,
   locationTrust: null,
+  monitoringCoverage: null,
   locationServicesEnabled: null,
   locationAccuracy: "unknown",
   checkedAtMs: null,

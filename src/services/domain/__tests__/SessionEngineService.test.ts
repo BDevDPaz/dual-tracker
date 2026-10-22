@@ -75,7 +75,7 @@ describe("SessionEngineService", () => {
     expect(calls).toContain(`cancel:${s.id}`);
     // El ledger conserva el EXIT original.
     const intents = (await IntegrityLedgerService.listForSession(s.id)).map((e) => e.intent);
-    expect(intents).toEqual(["START_DAY", "ARRIVAL_CONFIRMED", "EXIT_DETECTED", "STAY_WORKING"]);
+    expect(intents).toEqual(["START_DAY", "ARRIVAL_CONFIRMED", "NOTIFICATION_POSTED", "EXIT_DETECTED", "STAY_WORKING"]);
   });
 
   test("CLOSE_DAY registra la deducción de almuerzo declarada y cierra VALID por el usuario", async () => {

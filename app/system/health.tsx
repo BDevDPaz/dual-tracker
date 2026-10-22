@@ -132,6 +132,26 @@ export default function HealthScreen() {
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}
       </Text>
       {foreground.approximate ? <ScreenStatusBanner status="degraded" message={t("health.approximateWarning")} /> : null}
+      <Section title={t("health.coverage.title")}>
+        <Card style={styles.card}>
+          {h.monitoringCoverage ? (
+            <>
+              <Text style={[styles.label, { color: colors.text.primary }]}>
+                {h.monitoringCoverage.coveragePercent === null
+                  ? t("health.coverage.unknown")
+                  : t("health.coverage.line", {
+                      percent: h.monitoringCoverage.coveragePercent,
+                      minutes: Math.round((h.monitoringCoverage.unmonitoredMs / 60_000) * 10) / 10,
+                    })}
+              </Text>
+              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("health.coverage.hint")}</Text>
+              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("health.notices.androidDisplay")}</Text>
+            </>
+          ) : (
+            <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.coverage.empty")}</Text>
+          )}
+        </Card>
+      </Section>
       <Section title={t("health.trust.title")}>
         <Card style={styles.card}>
           {h.locationTrust ? (

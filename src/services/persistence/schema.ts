@@ -17,7 +17,8 @@ export const DB_NAME = "dual_tracker_v1.db";
 // v4: claves foráneas (reconstrucción de tablas) y recorded_timezone.
 // v5: spatial_facts.mocked (ubicación simulada). Columna NULL: las filas viejas siguen.
 // v6: service_health (último latido por componente). Tabla nueva: no toca filas viejas.
-export const SCHEMA_VERSION = 6;
+// v7: sites.arrival_dwell_ms (NULL = usar el ajuste global) e índice único de prev_hash si no hay duplicados.
+export const SCHEMA_VERSION = 7;
 
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
@@ -29,8 +30,11 @@ export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["recorded_timezone", "TEXT"],
 ];
 
-/** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. */
-export const SITE_ADDED_COLUMNS: [string, string][] = [["target_coords_enc", "TEXT"]];
+/** Columnas aditivas de sites (spec v1.3 §7): coordenadas cifradas; las REAL quedan en NULL. v7: espera de llegada. */
+export const SITE_ADDED_COLUMNS: [string, string][] = [
+  ["target_coords_enc", "TEXT"],
+  ["arrival_dwell_ms", "INTEGER"],
+];
 
 /** Cola del portal (tanda 2): clave de idempotencia y espera del reintento. */
 export const OFFLINE_QUEUE_ADDED_COLUMNS: [string, string][] = [
@@ -88,6 +92,7 @@ export const CREATE_TABLES_SQL = `
     target_lon REAL,
     target_coords_enc TEXT,
     radius_m REAL,
+    arrival_dwell_ms INTEGER,
     active INTEGER NOT NULL DEFAULT 1,
     created_at_ms INTEGER NOT NULL,
     archived_at_ms INTEGER
@@ -253,6 +258,10 @@ export const KV_KEYS = {
   ANOMALY_LATCH: "runtime.anomaly_latch",
   /** Última integridad de dispositivo ya asentada (huella del resultado). */
   DEVICE_INTEGRITY: "runtime.device_integrity",
+  /** Llegada automática en espera de dwell. No es la salida pendiente. */
+  ARRIVAL_DWELL: "runtime.arrival_dwell",
+  /** Reinicio del teléfono ya anotado (bootAtMs). */
+  BOOT_RESUME: "runtime.boot_resume",
   LAST_PACK_WEEK: "runtime.last_payroll_export_week",
   MUTEX_PREFIX: "mutex.",
   /** Migración única de pausas antiguas desde el ledger (spec v1.3 §5.3). */

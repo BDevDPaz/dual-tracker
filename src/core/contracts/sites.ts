@@ -12,6 +12,11 @@ export interface Site {
   targetLon: number | null;
   /** Radio propio. null = usar CompanyPolicy.defaultRadiusM. */
   radiusM: number | null;
+  /**
+   * Espera antes del fichaje automático, en milisegundos.
+   * null o ausente = usar el ajuste de la empresa. 0 = inmediato.
+   */
+  arrivalDwellMs?: number | null;
   active: boolean;
   createdAtMs: number;
   archivedAtMs: number | null;
@@ -28,4 +33,6 @@ export interface SiteDraft {
   clientName?: string | null;
   notes?: string | null;
   radiusM?: number | null;
+  /** null = heredar el de la empresa. 0 = inmediato. */
+  arrivalDwellMs?: number | null;
 }

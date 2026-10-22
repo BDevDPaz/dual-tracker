@@ -29,6 +29,7 @@ import { SettingsService } from "../persistence/SettingsService";
 import { ForegroundWorkService } from "../runtime/ForegroundWorkService";
 import { buildForegroundNotice } from "../runtime/monitoringSnapshot";
 import { GeofenceRuntimeService } from "../runtime/GeofenceRuntimeService";
+import { recordCriticalNotice } from "../runtime/criticalNotices";
 import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
 import { SecurityService } from "../runtime/SecurityService";
@@ -102,6 +103,24 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
   }
 }
 
+const EXIT_ACK: ReadonlySet<string> = new Set(["STAY_WORKING", "CLOSE_DAY", "LUNCH_START", "TRANSFER_START"]);
+
+/** El operario respondió a la salida desde la app. No cambia los minutos. */
+async function acknowledgeExitChoice(before: string | undefined, sessionId: number | null): Promise<void> {
+  if (before !== "SALIDA") return;
+  await recordCriticalNotice({
+    sessionId,
+    kind: "EXIT",
+    phase: "ACKNOWLEDGED",
+    channel: "IN_APP",
+    acceptedByOs: null,
+    feedbackShown: true,
+    userAcknowledged: true,
+  }).catch((error) => {
+    LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo anotar la respuesta a la salida", serializeError(error));
+  });
+}
+
 function report<T>(r: IntentResult<T>): IntentResult<T> {
   if (!r.ok) {
     const detail = r.detail && r.detail in MICROCOPY_REJECTIONS.es ? r.detail : r.code;
@@ -130,9 +149,19 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       const { result } = await startDay({ siteId: intent.siteId, clientId: intent.clientId, note: intent.note });
       return report(result);
     }
-    if (intent.type === "CONFIRM_EXIT") return report(await confirmExit(intent.lunchDeductedMinutes, "UI", intent.lunchStartAtMs));
+    if (intent.type === "CONFIRM_EXIT") {
+      const before = selectActiveSession(Store.getState())?.domainStatus;
+      const closed = await confirmExit(intent.lunchDeductedMinutes, "UI", intent.lunchStartAtMs);
+      if (closed.ok) await acknowledgeExitChoice(before, Store.getState().sessions.activeSessionId);
+      return report(closed);
+    }
     const sessionIntent = toSessionIntent(intent);
-    if (sessionIntent) return report(await SessionEngineService.dispatch(sessionIntent, "UI"));
+    if (sessionIntent) {
+      const before = selectActiveSession(Store.getState())?.domainStatus;
+      const result = await SessionEngineService.dispatch(sessionIntent, "UI");
+      if (result.ok && EXIT_ACK.has(sessionIntent.type)) await acknowledgeExitChoice(before, result.data?.session.id ?? null);
+      return report(result);
+    }
 
     const state = Store.getState();
     switch (intent.type) {

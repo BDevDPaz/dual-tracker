@@ -36,6 +36,7 @@ import { LoggingService } from "../services/persistence/LoggingService";
 import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
 import { KV_KEYS } from "../services/persistence/schema";
+import { noteBootResume } from "../services/runtime/bootResume";
 import { ForegroundWorkService } from "../services/runtime/ForegroundWorkService";
 import { buildForegroundNotice } from "../services/runtime/monitoringSnapshot";
 import { GeofenceRuntimeService } from "../services/runtime/GeofenceRuntimeService";
@@ -202,6 +203,7 @@ export function boot(): Promise<void> {
 
       // El hueco se mide antes de renovar el heartbeat. Si no hay fix dentro, Revisar.
       if (open) await reviewAbandonedSession(open).catch(() => {});
+      await noteBootResume("boot").catch(() => {});
       await TaskOrchestratorService.heartbeat();
       await NotificationService.init({
         intent: async (intent, sessionId) => {
