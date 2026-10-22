@@ -11,10 +11,11 @@ interface Props {
   value: string;
   ok: boolean;
   blocksValid: boolean;
+  busy?: boolean;
   onRepair?: () => void;
 }
 
-export function HealthRow({ label, value, ok, blocksValid, onRepair }: Props) {
+export function HealthRow({ label, value, ok, blocksValid, busy = false, onRepair }: Props) {
   useLanguage();
   const { colors } = useTheme();
   const color = ok ? colors.status.success : colors.status.warning;
@@ -28,7 +29,7 @@ export function HealthRow({ label, value, ok, blocksValid, onRepair }: Props) {
         </Text>
         {!ok && blocksValid ? <Text style={[styles.impact, { color: colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
       </View>
-      {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" onPress={onRepair} /> : null}
+      {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" disabled={busy} onPress={onRepair} /> : null}
     </View>
   );
 }

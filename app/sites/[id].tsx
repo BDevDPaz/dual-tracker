@@ -6,16 +6,19 @@
 import { useState } from "react";
 import { Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { ConfirmActionModal } from "../../src/components/modals";
+import { SiteRadiusField } from "../../src/components/sites/SiteRadiusField";
 import { Button, Card, EmptyState, Input, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
-import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectComputedSessions, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
+import { parseSiteRadius } from "../../src/utils/siteRadius";
 
 export default function SiteDetailScreen() {
   const router = useRouter();
@@ -28,40 +31,43 @@ export default function SiteDetailScreen() {
   const site = Number.isFinite(siteId) ? selectSiteById(state, siteId) : null;
   const [radius, setRadius] = useState<string | null>(null);
   const [dwell, setDwell] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const { busy, run } = useBusyAction();
   const storedRadius = site?.radiusM ?? state.settings.company.defaultRadiusM;
   const radiusValue = radius ?? String(storedRadius);
-  const radiusNum = Math.round(Number(radiusValue));
+  const radiusM = parseSiteRadius(radiusValue);
   const storedDwell = site?.arrivalDwellMs == null ? "" : String(Math.round(site.arrivalDwellMs / 60_000));
   const dwellValue = dwell ?? storedDwell;
   const dwellMs = dwellValue.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwellValue.replace(",", ".")) || 0))) * 60_000;
-  const radiusDirty = site != null && radius !== null && radiusNum !== storedRadius;
+  const radiusDirty = site != null && radius !== null && radiusM !== storedRadius;
   const dwellDirty = site != null && dwell !== null && dwellMs !== (site.arrivalDwellMs ?? null);
   const formDirty = radiusDirty || dwellDirty;
 
-  const saveRadius = async () => {
-    if (!site) return;
-    setBusy(true);
-    const res = await emit({
-      type: "UPSERT_SITE",
-      site: {
-        id: site.id,
-        alias: site.alias,
-        address: site.address,
-        clientName: site.clientName,
-        notes: site.notes,
-        radiusM: radiusNum,
-        arrivalDwellMs: dwellMs,
-      },
+  const saveRadius = () => {
+    if (!site || radiusM === null) return;
+    const savedRadius = radiusM;
+    return run(async () => {
+      const res = await emit({
+        type: "UPSERT_SITE",
+        site: {
+          id: site.id,
+          alias: site.alias,
+          address: site.address,
+          clientName: site.clientName,
+          notes: site.notes,
+          radiusM: savedRadius,
+          arrivalDwellMs: dwellMs,
+        },
+      });
+      if (res.ok) {
+        setRadius(null);
+        setDwell(null);
+      }
+      return res;
     });
-    setBusy(false);
-    if (res.ok) {
-      setRadius(null);
-      setDwell(null);
-    }
   };
   const chain = useFormFocusChain(FORM_FIELDS.siteRadius, {
-    canSubmit: formDirty && radiusNum > 0 && !busy,
+    canSubmit: formDirty && radiusM !== null && !busy,
     onSubmit: () => void saveRadius(),
   });
 
@@ -88,12 +94,12 @@ export default function SiteDetailScreen() {
   );
   const lastVisit = selectSiteLastVisitAtMs(state, site.id);
 
-  const archive = async () => {
-    setBusy(true);
-    const res = await emit({ type: "ARCHIVE_SITE", siteId: site.id });
-    setBusy(false);
-    if (res.ok) router.back();
-  };
+  const archive = () =>
+    run(async () => {
+      const res = await emit({ type: "ARCHIVE_SITE", siteId: site.id });
+      if (res.ok) router.back();
+      return res;
+    });
 
   return (
     <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
@@ -114,10 +120,12 @@ export default function SiteDetailScreen() {
 
         {site.active ? (
           <Card style={styles.card}>
-            <Input {...chain.props("radius")} label={t("sites.radius")} value={radiusValue} onChangeText={setRadius} />
+            <SiteRadiusField {...chain.props("radius")} value={radiusValue} onChangeText={setRadius} />
             <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwellValue} onChangeText={setDwell} />
             <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
-            {formDirty ? <Button label={t("common.save")} size="sm" isLoading={busy} onPress={() => void saveRadius()} /> : null}
+            {formDirty ? (
+              <Button label={t("common.save")} size="sm" disabled={radiusM === null || busy} isLoading={busy} onPress={() => void saveRadius()} />
+            ) : null}
           </Card>
         ) : null}
 
@@ -128,7 +136,16 @@ export default function SiteDetailScreen() {
           ))}
         </Section>
 
-        {site.active ? <Button label={t("sites.archive")} variant="danger" disabled={busy} onPress={() => void archive()} /> : null}
+        {site.active ? <Button label={t("sites.archive")} variant="danger" disabled={busy} onPress={() => setConfirmArchive(true)} /> : null}
+        <ConfirmActionModal
+          visible={confirmArchive}
+          title={t("sites.archiveTitle")}
+          description={t("sites.archiveBody")}
+          confirmLabel={t("sites.archive")}
+          busy={busy}
+          onCancel={() => setConfirmArchive(false)}
+          onConfirm={() => void archive()}
+        />
     </ScreenScroll>
   );
 }

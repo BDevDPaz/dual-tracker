@@ -10,7 +10,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section, StatusPill } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
-import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
 import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
@@ -21,6 +21,7 @@ export default function PackScreen() {
   const [showSeal, setShowSeal] = useState(sealed === "1");
   const [annexLedger, setAnnexLedger] = useState(false);
   const [annexEnterExit, setAnnexEnterExit] = useState(false);
+  const { busy: sharing, run: share } = useBusyAction();
   const id = String(packId ?? "");
   const { state, emit, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
@@ -120,8 +121,20 @@ export default function PackScreen() {
       ) : null}
 
       {!shared ? <BackupAdviceCard /> : null}
-      <Button label={t("reports.shareEmployee")} iconName="share-outline" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: pack.id, ...annex })} />
-      <Button label={t("reports.shareEmployer")} variant="secondary" iconName="briefcase-outline" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: pack.id, ...annex })} />
+      <Button
+        label={t("reports.shareEmployee")}
+        iconName="share-outline"
+        disabled={sharing}
+        isLoading={sharing}
+        onPress={() => void share(() => emit({ type: "SHARE_EMPLOYEE", packId: pack.id, ...annex }))}
+      />
+      <Button
+        label={t("reports.shareEmployer")}
+        variant="secondary"
+        iconName="briefcase-outline"
+        disabled={sharing}
+        onPress={() => void share(() => emit({ type: "SHARE_EMPLOYER", packId: pack.id, ...annex }))}
+      />
     </ScreenScroll>
     </View>
   );

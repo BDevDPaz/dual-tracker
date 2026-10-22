@@ -13,7 +13,7 @@ import { HelpButton } from "../../src/components/support/HelpButton";
 import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useResponsive } from "../../src/components/ui/responsive";
-import { useWorkTracker } from "../../src/core/hooks";
+import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectNeedsOnboarding } from "../../src/core/selectors";
 import { getLanguage, t } from "../../src/i18n";
 
@@ -21,19 +21,19 @@ export default function OnboardingDisclosureScreen() {
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
   const [accepted, setAccepted] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useBusyAction();
   const content = queries.disclosure(getLanguage());
   const { screenPadding } = useResponsive();
 
-  const onContinue = async () => {
-    setBusy(true);
-    const res = await emit({ type: "ACCEPT_DISCLOSURE", version: queries.disclosureVersion() });
-    setBusy(false);
-    if (!res.ok) return;
-    // Política nueva con alta ya completada → de vuelta al gate; si no, sigue el wizard.
-    if (selectNeedsOnboarding(state)) router.push("/(onboarding)/permissions");
-    else router.replace("/");
-  };
+  const onContinue = () =>
+    run(async () => {
+      const res = await emit({ type: "ACCEPT_DISCLOSURE", version: queries.disclosureVersion() });
+      if (!res.ok) return res;
+      // Política nueva con alta ya completada → de vuelta al gate; si no, sigue el wizard.
+      if (selectNeedsOnboarding(state)) router.push("/(onboarding)/permissions");
+      else router.replace("/");
+      return res;
+    });
 
   return (
     <View style={styles.root}>

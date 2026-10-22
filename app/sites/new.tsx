@@ -8,14 +8,16 @@
 import { useState } from "react";
 import { Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { SiteRadiusField } from "../../src/components/sites/SiteRadiusField";
 import { Button, Card, Input, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import type { Site } from "../../src/core/contracts";
-import { useWorkTracker } from "../../src/core/hooks";
+import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { t } from "../../src/i18n";
+import { parseSiteRadius } from "../../src/utils/siteRadius";
 
 export default function NewSiteScreen() {
   const router = useRouter();
@@ -26,26 +28,29 @@ export default function NewSiteScreen() {
   const [notes, setNotes] = useState("");
   const [radius, setRadius] = useState(String(state.settings.company.defaultRadiusM));
   const [dwell, setDwell] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useBusyAction();
   const [saved, setSaved] = useState<Site | null>(null);
 
-  const radiusNum = Math.round(Number(radius));
-  const valid = address.trim().length > 0 && radiusNum > 0;
-  const onSave = async () => {
-    setBusy(true);
-    const res = await emit({
-      type: "UPSERT_SITE",
-      site: {
-        alias: alias.trim() || address.trim(),
-        address: address.trim(),
-        clientName: client.trim() || null,
-        notes: notes.trim() || null,
-        radiusM: radiusNum,
-        arrivalDwellMs: dwell.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwell.replace(",", ".")) || 0))) * 60_000,
-      },
+  const radiusM = parseSiteRadius(radius);
+  const valid = address.trim().length > 0 && radiusM !== null;
+  const onSave = () => {
+    if (radiusM === null || saved) return;
+    const savedRadius = radiusM;
+    return run(async () => {
+      const res = await emit({
+        type: "UPSERT_SITE",
+        site: {
+          alias: alias.trim() || address.trim(),
+          address: address.trim(),
+          clientName: client.trim() || null,
+          notes: notes.trim() || null,
+          radiusM: savedRadius,
+          arrivalDwellMs: dwell.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwell.replace(",", ".")) || 0))) * 60_000,
+        },
+      });
+      if (res.ok && res.data) setSaved(res.data as Site);
+      return res;
     });
-    setBusy(false);
-    if (res.ok && res.data) setSaved(res.data as Site);
   };
   const chain = useFormFocusChain(FORM_FIELDS.siteNew, { onSubmit: () => void onSave(), canSubmit: valid && !busy && !saved });
 
@@ -55,7 +60,7 @@ export default function NewSiteScreen() {
       <Input {...chain.props("address")} label={`${t("sites.address")} *`} value={address} onChangeText={setAddress} />
       <Input {...chain.props("client")} label={t("sites.client")} value={client} onChangeText={setClient} />
       <Input {...chain.props("notes")} label={t("sites.notes")} value={notes} onChangeText={setNotes} multiline />
-      <Input {...chain.props("radius")} label={t("sites.radius")} value={radius} onChangeText={setRadius} />
+      <SiteRadiusField {...chain.props("radius")} value={radius} onChangeText={setRadius} />
       <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwell} onChangeText={setDwell} />
       <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
 
@@ -75,7 +80,7 @@ export default function NewSiteScreen() {
       {saved ? (
         <Button label={t("common.continue")} onPress={() => router.replace(`/sites/${saved.id}`)} />
       ) : (
-        <Button label={t("sites.saveSite")} disabled={!valid} isLoading={busy} onPress={() => void onSave()} />
+        <Button label={t("sites.saveSite")} disabled={!valid || busy} isLoading={busy} onPress={() => void onSave()} />
       )}
     </ScreenScroll>
   );

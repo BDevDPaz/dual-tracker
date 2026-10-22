@@ -15,7 +15,7 @@ import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import type { EvidencePack, PayrollStatement } from "../../src/core/contracts";
-import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   displayStatement,
   formatHundredths,
@@ -61,7 +61,9 @@ export default function ReportsScreen() {
   const [preset, setPreset] = useState<RangePreset>("CURRENT_WEEK");
   const [startText, setStartText] = useState("");
   const [endText, setEndText] = useState("");
-  const [sealing, setSealing] = useState(false);
+  const { busy: sealing, run: runSeal } = useBusyAction();
+  const { busy: exporting, run: runExport } = useBusyAction();
+  const { busy: sharing, run: runShare } = useBusyAction();
   const calendar = selectCalendarHistory(state);
   const settings = selectSettings(state);
 
@@ -113,21 +115,19 @@ export default function ReportsScreen() {
     : null;
   const { showToast } = useToast();
   const backup = selectBackupAdvice(state, nowMs);
-  const [exporting, setExporting] = useState(false);
-  const exportNext = async () => {
+  const exportNext = () => {
     if (!backup.next) return;
-    setExporting(true);
-    await emit({ type: "EXPORT_PACK", periodStart: backup.next.periodStart, periodEnd: backup.next.periodEnd });
-    setExporting(false);
+    const next = backup.next;
+    return runExport(() => emit({ type: "EXPORT_PACK", periodStart: next.periodStart, periodEnd: next.periodEnd }));
   };
 
-  const seal = async (start: number, end: number, allowUncertified: boolean) => {
-    setSealing(true);
-    const res = await emit({ type: "SEAL_PACK", periodStart: start, periodEnd: end, allowUncertified });
-    setSealing(false);
-    const pack = res.ok ? (res.data as EvidencePack | undefined) : undefined;
-    if (pack) router.push({ pathname: "/report/pack/[packId]", params: { packId: pack.id, sealed: "1" } });
-  };
+  const seal = (start: number, end: number, allowUncertified: boolean) =>
+    runSeal(async () => {
+      const res = await emit({ type: "SEAL_PACK", periodStart: start, periodEnd: end, allowUncertified });
+      const pack = res.ok ? (res.data as EvidencePack | undefined) : undefined;
+      if (pack) router.push({ pathname: "/report/pack/[packId]", params: { packId: pack.id, sealed: "1" } });
+      return res;
+    });
 
   const closedCount = combined?.sessionIds.length ?? 0;
   const openCount = rows.filter((c) => c.session.domainStatus !== "CERRADA" && c.session.domainStatus !== "CUARENTENA" && !c.session.bookkeeping.cancelled).length;
@@ -311,8 +311,8 @@ export default function ReportsScreen() {
                 <KeyValueRow label={t("report.hash")} value={`${p.manifest.packHash.slice(0, 16)}…`} mono />
                 <KeyValueRow label="" value={t(p.manifest.certified ? "report.certified" : "report.uncertified")} />
                 <View style={styles.actions}>
-                  <Button label={t("reports.shareEmployee")} size="sm" variant="secondary" onPress={() => void emit({ type: "SHARE_EMPLOYEE", packId: p.id })} />
-                  <Button label={t("reports.shareEmployer")} size="sm" variant="secondary" onPress={() => void emit({ type: "SHARE_EMPLOYER", packId: p.id })} />
+                  <Button label={t("reports.shareEmployee")} size="sm" variant="secondary" disabled={sharing} onPress={() => void runShare(() => emit({ type: "SHARE_EMPLOYEE", packId: p.id }))} />
+                  <Button label={t("reports.shareEmployer")} size="sm" variant="secondary" disabled={sharing} onPress={() => void runShare(() => emit({ type: "SHARE_EMPLOYER", packId: p.id }))} />
                   <Button label={t("reports.viewManifest")} size="sm" variant="ghost" onPress={() => router.push(`/report/pack/${p.id}`)} />
                 </View>
               </Card>

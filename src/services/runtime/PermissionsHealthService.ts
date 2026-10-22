@@ -178,10 +178,11 @@ export const PermissionsHealthService = {
   /** Abre el ajuste nativo correspondiente ("Reparar"). */
   async openOsSettings(target: OsSettingsTarget): Promise<void> {
     try {
-      if (Platform.OS === "android") {
-        if (target === "LOCATION") return void (await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS));
-        if (target === "BATTERY") return void (await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+      if (Platform.OS === "android" && target === "BATTERY") {
+        await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+        return;
       }
+      // LOCATION abre los permisos de la app, no el interruptor del GPS.
       await Linking.openSettings();
     } catch (error) {
       LoggingService.log("AMARILLO", "PERMISOS", "WARN", "No se pudo abrir el ajuste del sistema", serializeError(error));

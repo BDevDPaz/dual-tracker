@@ -10,6 +10,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { ConfirmActionModal } from "../../src/components/modals";
 import { Button, Card, Chip, Input, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, StatusPill } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
@@ -18,8 +19,8 @@ import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
-import type { SettingsPatch, TraceMode } from "../../src/core/contracts";
-import { useAutoRefresh, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
+import type { PayrollLegalFlags, SettingsPatch, TraceMode } from "../../src/core/contracts";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   selectAdmin,
   selectCalendarHistory,
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
   const [pin, setPin] = useState("");
   const [code, setCode] = useState("");
   const [fingerprint, setFingerprint] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useBusyAction();
   const queue = useQuery(() => queries.listOfflineQueue(), [settings.company.employerPortalUrl ?? "", settings.company.employerPortalEnabled === true], ["packs", "settings"]);
   // El idioma no vive en el borrador: lo pinta LanguageSwitch y se guarda al
   // pulsar. Un SET_LANGUAGE no debe borrar el resto si aún no se pulsó Guardar.
@@ -162,29 +163,27 @@ export default function SettingsScreen() {
         timezone: draft.timezone,
       };
     }
-    setBusy(true);
-    await emit({ type: "SAVE_SETTINGS", patch });
-    setBusy(false);
+    return run(() => emit({ type: "SAVE_SETTINGS", patch }));
   };
 
-  const onAdminPin = async () => {
-    setBusy(true);
-    await emit(admin.hasPin ? { type: "UNLOCK_ADMIN", pin } : { type: "SETUP_ADMIN_PIN", pin });
-    setPin("");
-    setBusy(false);
-  };
-
-  const onProvision = async () => {
-    setBusy(true);
-    await emit({
-      type: "PROVISION_ADMIN_PIN",
-      code: code.trim(),
-      ...(showFingerprint && fingerprint.trim() ? { fingerprint: fingerprint.trim() } : {}),
+  const onAdminPin = () =>
+    run(async () => {
+      const res = await emit(admin.hasPin ? { type: "UNLOCK_ADMIN", pin } : { type: "SETUP_ADMIN_PIN", pin });
+      setPin("");
+      return res;
     });
-    setCode("");
-    setFingerprint("");
-    setBusy(false);
-  };
+
+  const onProvision = () =>
+    run(async () => {
+      const res = await emit({
+        type: "PROVISION_ADMIN_PIN",
+        code: code.trim(),
+        ...(showFingerprint && fingerprint.trim() ? { fingerprint: fingerprint.trim() } : {}),
+      });
+      setCode("");
+      setFingerprint("");
+      return res;
+    });
 
   const permTone = (ok: boolean) => (ok ? "success" : "warning");
   const profileChain = useFormFocusChain(FORM_FIELDS.settingsProfile, { onSubmit: () => void onSave(), canSubmit: dirty && !busy });
@@ -420,14 +419,24 @@ function WorkCalendarBlock() {
   const flags = legalFlags(selectSettings(state).company);
   const [start, setStart] = useState(hhmm(current.workdayStartMinutes));
   const [day, setDay] = useState<number>(current.workweekStartDay);
-  const [busy, setBusy] = useState(false);
+  const { busy, run: guard } = useBusyAction();
+  const [pendingFlag, setPendingFlag] = useState<LegalFlagDraft | null>(null);
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(start.trim());
   const minutes = m ? Number(m[1]) * 60 + Number(m[2]) : null;
   const changed = minutes !== null && (minutes !== current.workdayStartMinutes || day !== current.workweekStartDay);
-  const run = async (intent: Parameters<typeof emit>[0]) => {
-    setBusy(true);
-    await emit(intent);
-    setBusy(false);
+  const run = (intent: Parameters<typeof emit>[0]) => guard(() => emit(intent));
+  const askFlag = (draft: LegalFlagDraft) => {
+    if (busy || pendingFlag || flags[draft.key] === draft.value) return;
+    setPendingFlag(draft);
+  };
+  const applyFlag = () => {
+    if (!pendingFlag) return;
+    const draft = pendingFlag;
+    void guard(async () => {
+      const res = await emit({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, [draft.key]: draft.value } } } });
+      if (res.ok) setPendingFlag(null);
+      return res;
+    });
   };
   const calendarChain = useFormFocusChain(FORM_FIELDS.settingsCalendar, {
     canSubmit: changed && !busy,
@@ -481,7 +490,7 @@ function WorkCalendarBlock() {
             key={v}
             label={t(`settings.calendar.threshold.${v}`)}
             selected={flags.transitionWeeklyThreshold === v}
-            onPress={() => void run({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, transitionWeeklyThreshold: v } } } })}
+            onPress={() => askFlag({ key: "transitionWeeklyThreshold", value: v })}
           />
         ))}
       </View>
@@ -494,16 +503,31 @@ function WorkCalendarBlock() {
                 key={String(v)}
                 label={t(v ? "settings.calendar.flagOn" : "settings.calendar.flagOff")}
                 selected={flags[flag] === v}
-                onPress={() => void run({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, [flag]: v } } } })}
+                onPress={() => askFlag({ key: flag, value: v })}
               />
             ))}
           </View>
         </Fragment>
       ))}
       <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.legalReview")}</Text>
+      <ConfirmActionModal
+        visible={pendingFlag !== null}
+        title={t("settings.legalFlagTitle")}
+        description={t("settings.legalFlagBody")}
+        confirmLabel={t("common.confirm")}
+        tone="warning"
+        busy={busy}
+        onCancel={() => setPendingFlag(null)}
+        onConfirm={applyFlag}
+      />
     </View>
   );
 }
+
+type LegalFlagDraft =
+  | { key: "transitionWeeklyThreshold"; value: PayrollLegalFlags["transitionWeeklyThreshold"] }
+  | { key: "caDoubleTime"; value: boolean }
+  | { key: "caSeventhDay"; value: boolean };
 
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   const { colors } = useTheme();
