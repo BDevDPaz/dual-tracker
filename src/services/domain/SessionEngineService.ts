@@ -250,6 +250,7 @@ export const SessionEngineService = {
           actor,
           policyId: settings.company.overtimePolicyId,
           company: settings.company,
+          hourlyRate: settings.profile.hourlyRate,
           disclosureAccepted: DualDisclosureService.isAccepted(settings.device),
           degradedReason: degradedReason(open),
           siteExists: (id) => activeSiteIds.has(id),

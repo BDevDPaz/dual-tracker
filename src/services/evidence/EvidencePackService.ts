@@ -274,6 +274,7 @@ async function assemblePeriod(input: { periodStart: number; periodEnd: number })
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
     sessions,
+    // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
     rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
     company: settings.company,
     policyId,

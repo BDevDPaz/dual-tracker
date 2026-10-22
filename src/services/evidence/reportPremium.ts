@@ -5,7 +5,7 @@
  */
 import escapeHtml from "escape-html";
 import type { IntegrityClass, PayrollLine, SessionRecord, Site } from "../../core/contracts";
-import { t, type Language } from "../../i18n";
+import { t, tWarning, type Language } from "../../i18n";
 import { formatCurrency, formatDate, formatDateTime, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
@@ -436,7 +436,7 @@ function linesTable(input: ReportInput, lang: Language): string {
 function warningsBlock(input: ReportInput, lang: Language): string {
   const warnings = input.statement.warnings;
   if (!warnings.length && !input.evidence.conflicts.length && input.manifest.certified) return "";
-  const lines = warnings.map((w) => `<p class="rule">${escapeHtml(w)}</p>`).join("");
+  const lines = warnings.map((w) => `<p class="rule">${escapeHtml(tWarning(w, lang))}</p>`).join("");
   const conflicts = input.evidence.conflicts
     .map((c) => `<p class="rule">${escapeHtml(t("comprobante.conflictLine", { id: c.sessionId, reason: c.reason }, lang))}</p>`)
     .join("");

@@ -301,6 +301,18 @@ function segmentItems(session: SessionRecord, company: CompanyPolicy, nowMs: num
   }));
 }
 
+/**
+ * Tarifa por hora de UNA jornada (schema v8): la congelada al iniciarla; si
+ * no la tiene (jornada anterior al campo), la tarifa actual de Ajustes como
+ * respaldo (`fallback: true`, el statement lo marca con RATE_FALLBACK_CURRENT).
+ * Los multiplicadores siguen siendo los de la empresa.
+ */
+export function sessionRates(session: SessionRecord | undefined, rates: PayrollRates): { rates: PayrollRates; fallback: boolean } {
+  const snap = session?.bookkeeping.hourlyRateSnapshot;
+  if (typeof snap === "number" && Number.isFinite(snap) && snap >= 0) return { rates: { ...rates, hourlyRate: snap }, fallback: false };
+  return { rates, fallback: true };
+}
+
 function buildLines(
   it: SessionMinutes,
   a: Allocation,
@@ -467,7 +479,8 @@ export const PayrollEngineService = {
     const doubleApplied =
       rules.doubleAfter !== null && items.some((it, i) => !seventhSet.has(it.dayKey) && alloc[i].otDouble > 0);
     const appliedRules = [...(doubleApplied ? ["CA_DOUBLE_TIME_12H"] : []), ...(seventhApplied ? ["CA_SEVENTH_DAY"] : [])];
-    const lines = items.flatMap((it, i) => buildLines(it, alloc[i], input.rates));
+    // Cada jornada paga con su propia tarifa (aunque haya varias el mismo día).
+    const lines = items.flatMap((it, i) => buildLines(it, alloc[i], sessionRates(byId.get(it.sessionId), input.rates).rates));
     const grossCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
 
     const sumMin = (kinds: PayrollLine["kind"][]) =>
@@ -487,6 +500,12 @@ export const PayrollEngineService = {
       }),
     );
     if (ledgerSegmented) warnings.push("LEDGER_CHAIN_SEGMENTED");
+    // Marca de tarifa (schema v8): respaldo con la tarifa actual y tarifa 0 nunca silenciosa.
+    for (const sess of closed) {
+      const r = sessionRates(sess, input.rates);
+      if (r.fallback) warnings.push(`RATE_FALLBACK_CURRENT#${sess.id}`);
+      if (r.rates.hourlyRate === 0) warnings.push(`HOURLY_RATE_ZERO#${sess.id}`);
+    }
 
     return {
       periodStart: input.periodStart,
@@ -535,7 +554,7 @@ export const PayrollEngineService = {
     }
     const flags = legalFlags(company);
     const a = allocate(items, { ...policy, weeklyOvertimeAfterMinutes: null, seventhDayRule: null }, { history, caDoubleTime: flags.caDoubleTime });
-    const lines = items.flatMap((it, i) => buildLines(it, a[i], rates));
+    const lines = items.flatMap((it, i) => buildLines(it, a[i], sessionRates(session, rates).rates));
     const previewCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
     const sum = (f: (x: AllocItem) => number) => items.reduce((acc, x) => acc + f(x), 0);
     return {

@@ -46,6 +46,12 @@ export interface TransitionContext {
   actor: LedgerActor;
   policyId: string;
   company: CompanyPolicy;
+  /**
+   * Tarifa por hora vigente (Ajustes). START_DAY la congela en la jornada
+   * (bookkeeping.hourlyRateSnapshot). Ausente o no válida = no se congela y
+   * la nómina usará la tarifa actual con advertencia.
+   */
+  hourlyRate?: number;
   disclosureAccepted: boolean;
   /** Sin background location o con deriva de reloj: no puede haber VALID. */
   degradedReason: IntegrityReason | null;
@@ -559,6 +565,9 @@ export function transition(
           // en la zona de la empresa en este instante. Queda guardada en la fila.
           dateString: workdayDateString(now, companyCalendar(ctx.company), companyTimezone(ctx.company)),
           recordedTimeZone: companyTimezone(ctx.company),
+          ...(typeof ctx.hourlyRate === "number" && Number.isFinite(ctx.hourlyRate) && ctx.hourlyRate >= 0
+            ? { hourlyRateSnapshot: ctx.hourlyRate }
+            : {}),
           isDeleted: false,
           cancelled: false,
           lastPauseStartMs: null,

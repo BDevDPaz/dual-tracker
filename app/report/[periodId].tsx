@@ -12,7 +12,7 @@ import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { displayStatement, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
-import { t, tLineKind } from "../../src/i18n";
+import { t, tLineKind, tWarning } from "../../src/i18n";
 import { formatCurrency, formatRange, formatUiDecimal, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
 export default function PeriodStatementScreen() {
@@ -104,7 +104,7 @@ export default function PeriodStatementScreen() {
         <Section title={t("report.warnings")}>
           {st.warnings.map((w) => (
             <Text key={w} style={{ color: TOKENS.colors.status.warning }}>
-              • {w}
+              • {tWarning(w)}
             </Text>
           ))}
         </Section>

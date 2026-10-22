@@ -19,6 +19,7 @@ import { Store, StoreActions } from "../../core/store";
 import { setLanguage } from "../../i18n";
 import { serializeError } from "../../utils/serializeError";
 import { DualDisclosureService } from "../domain/DualDisclosureService";
+import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
 import { monitoredSiteId } from "../domain/siteVisits";
@@ -142,6 +143,29 @@ async function resyncGeofenceIfTarget(site: Site): Promise<void> {
   StoreActions.healthUpdated({ isMonitoring: watching });
 }
 
+/**
+ * Cambio de tarifa por hora (zona admin, PIN ya verificado arriba): asiento
+ * HOURLY_RATE_CHANGED en el ledger. Solo afecta a jornadas que se inicien
+ * después; las ya iniciadas conservan su hourlyRateSnapshot (schema v8).
+ */
+async function recordHourlyRateChange(from: number, to: number): Promise<void> {
+  try {
+    await IntegrityLedgerService.append({
+      sessionId: null,
+      actor: "USER",
+      intent: "HOURLY_RATE_CHANGED",
+      fromState: null,
+      toState: null,
+      reason: "ADMIN_RATE_CHANGE",
+      timestampMs: TimeAuthorityService.now(),
+      integrityClass: null,
+      data: { from, to },
+    });
+  } catch (error) {
+    LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo asentar el cambio de tarifa", serializeError(error));
+  }
+}
+
 export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unknown>> {
   try {
     // ---- Jornada ----
@@ -232,6 +256,9 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         const r = await SettingsService.applyPatch(base, rest, { adminUnlocked: unlocked });
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.settingsReplaced(r.next);
+        if (r.next.profile.hourlyRate !== state.settings.profile.hourlyRate) {
+          await recordHourlyRateChange(state.settings.profile.hourlyRate, r.next.profile.hourlyRate);
+        }
         const langChanged = r.next.profile.language !== state.settings.profile.language;
         const timeChanged = r.next.profile.dailyReminderTime !== state.settings.profile.dailyReminderTime;
         if (langChanged) await publishLanguage(r.next.profile.language, r.next);

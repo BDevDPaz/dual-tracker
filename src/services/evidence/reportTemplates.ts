@@ -20,7 +20,7 @@ import type {
   SessionRecord,
   Site,
 } from "../../core/contracts";
-import { t } from "../../i18n";
+import { t, tWarning } from "../../i18n";
 import { renderPremiumDocument } from "./reportPremium";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
@@ -444,7 +444,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     <div class="log-item">Cabeza del ledger: <span class="hash">${escapeHtml(ev.ledgerHeadHash)}</span></div>
     ${conflicts || '<div class="log-item">Sin conflictos abiertos.</div>'}
     ${input.statement.appliedRules?.length ? `<div class="section-title">Reglas legales opcionales aplicadas</div>${input.statement.appliedRules.map((r) => `<div class="log-item">${escapeHtml(r)}</div>`).join("")}` : ""}
-    ${input.statement.warnings.length ? `<div class="section-title">Advertencias</div>${input.statement.warnings.map((w) => `<div class="log-item">${escapeHtml(w)}</div>`).join("")}` : ""}
+    ${input.statement.warnings.length ? `<div class="section-title">Advertencias</div>${input.statement.warnings.map((w) => `<div class="log-item">${escapeHtml(tWarning(w, "es"))}</div>`).join("")}` : ""}
     <div class="section-title">Resumen de traza</div>
     ${traces || '<div class="log-item">Periodo registrado solo por geocerca.</div>'}
     ${hashBlock(input)}

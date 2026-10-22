@@ -81,6 +81,7 @@ export interface DbSessionRow {
   split_from_session_id?: number | null;
   cert_blockers_json?: string | null;
   recorded_timezone?: string | null;
+  hourly_rate_snapshot?: number | null;
 }
 
 export interface DbSiteRow {
@@ -204,6 +205,13 @@ function parseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
+/** Tarifa guardada válida: número finito y no negativo. NULL/NaN = jornada sin tarifa propia. */
+function validRate(v: unknown): boolean {
+  if (v === null || v === undefined || v === "") return false;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0;
+}
+
 export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
   const updatedAtMs = ms(row.updated_at_ms) ?? 0;
   const declaredStartAtMs = ms(row.declared_start_ms) ?? updatedAtMs;
@@ -230,6 +238,7 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
     bookkeeping: {
       dateString: repairDateString(row.date_string, actualStartAtMs ?? declaredStartAtMs),
       ...(typeof row.recorded_timezone === "string" && row.recorded_timezone ? { recordedTimeZone: row.recorded_timezone } : {}),
+      ...(validRate(row.hourly_rate_snapshot) ? { hourlyRateSnapshot: Number(row.hourly_rate_snapshot) } : {}),
       isDeleted: Boolean(row.is_deleted),
       cancelled: Boolean(row.cancelled),
       lastPauseStartMs: ms(row.last_pause_start_ms),
@@ -279,6 +288,7 @@ export const SESSION_COLUMNS = [
   "split_from_session_id",
   "cert_blockers_json",
   "recorded_timezone",
+  "hourly_rate_snapshot",
 ] as const;
 
 /**
@@ -318,6 +328,7 @@ export function sessionToParams(s: SessionRecord, noteStored: string | null): (s
     b.splitFromSessionId ?? null,
     JSON.stringify(b.certificationBlockers ?? []),
     b.recordedTimeZone ?? null,
+    validRate(b.hourlyRateSnapshot) ? Number(b.hourlyRateSnapshot) : null,
   ];
 }
 

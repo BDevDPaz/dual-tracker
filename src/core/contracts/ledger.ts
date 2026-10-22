@@ -31,6 +31,8 @@ export type LedgerIntent =
   | "CALENDAR_CHANGE_CANCELLED"
   // §5.2: cambio de política de nómina.
   | "PAYROLL_POLICY_CHANGED"
+  /** Tarifa por hora cambiada en la zona admin. `data`: { from, to }. Solo afecta a jornadas nuevas. */
+  | "HOURLY_RATE_CHANGED"
   // FieldCrypto v1.3 §12 y §16.
   | "CERT_BLOCKER_ADDED"
   | "PACK_SHARED"

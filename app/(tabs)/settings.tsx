@@ -146,7 +146,8 @@ export default function SettingsScreen() {
       profile: { employeeName: draft.employeeName.trim(), language: getLanguage(), dailyReminderTime: draft.dailyReminderTime },
     };
     if (unlocked) {
-      if (draft.hourlyRate !== initial.hourlyRate) patch.profile!.hourlyRate = num(draft.hourlyRate);
+      // Campo vacío ≠ tarifa 0: no se guarda (tarifa 0 nunca silenciosa).
+      if (draft.hourlyRate !== initial.hourlyRate && draft.hourlyRate.trim() !== "") patch.profile!.hourlyRate = num(draft.hourlyRate);
       patch.company = {
         employerName: draft.employerName.trim(),
         companyEmail: draft.companyEmail.trim(),

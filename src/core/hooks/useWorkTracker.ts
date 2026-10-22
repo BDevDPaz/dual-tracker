@@ -81,6 +81,7 @@ const queries = {
       const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? state.settings.company.overtimePolicyId;
       lines.push(
         ...PayrollEngineService.linesForSession(session.id, week, {
+          // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
           rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: state.settings.company.overtimeMultiplier },
           company: state.settings.company,
           policyId,
