@@ -7,6 +7,17 @@ import { TimeAuthorityService } from "../../../services/evidence/TimeAuthoritySe
 import { LunchModal } from "../LunchModal";
 
 describe("LunchModal", () => {
+  test("la opción 0 se lee como sin almuerzo, no como 0 minutos", () => {
+    const view = render(<LunchModal visible mode="close" onCancel={jest.fn()} onConfirm={jest.fn()} />);
+    expect(screen.getByLabelText(t("modals.lunchNo"))).toBeTruthy();
+    expect(screen.queryByLabelText(`0 ${t("common.minutes")}`)).toBeNull();
+    view.unmount();
+    setLanguage("en");
+    render(<LunchModal visible mode="close" onCancel={jest.fn()} onConfirm={jest.fn()} />);
+    expect(screen.getByLabelText(t("modals.lunchNo"))).toBeTruthy();
+    setLanguage("es");
+  });
+
   test("las cuatro opciones van en rejilla 2×2 (wrap)", () => {
     render(<LunchModal visible mode="close" onCancel={jest.fn()} onConfirm={jest.fn()} />);
     const grid = StyleSheet.flatten(screen.getByTestId("lunch-options").props.style) as { flexWrap: string };

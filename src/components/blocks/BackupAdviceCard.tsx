@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { TOKENS, FONT } from "../../constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
@@ -23,7 +24,10 @@ export function BackupAdviceCard({ onExport, busy }: Props) {
       accessibilityRole="summary"
       style={[styles.card, { borderColor: colors.status.warning, backgroundColor: colors.surface }]}
     >
-      <Text style={[styles.title, { color: colors.text.primary }]}>{t("backup.title")}</Text>
+      <View style={styles.titleRow}>
+        <Ionicons name="warning-outline" size={ICON.md} color={colors.status.warning} accessibilityElementsHidden importantForAccessibility="no" />
+        <Text style={[styles.title, { color: colors.text.primary }]}>{t("backup.title")}</Text>
+      </View>
       <Text style={[styles.body, { color: colors.text.secondary }]}>{t("backup.advice")}</Text>
       {onExport ? <Button label={t("backup.export")} size="sm" iconName="cloud-upload-outline" isLoading={busy} disabled={busy} onPress={onExport} /> : null}
     </View>
@@ -32,6 +36,7 @@ export function BackupAdviceCard({ onExport, busy }: Props) {
 
 const styles = StyleSheet.create({
   card: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.lg, padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
-  title: { ...FONT.bodyStrong },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm },
+  title: { ...FONT.bodyStrong, flex: 1 },
   body: { ...FONT.caption },
 });

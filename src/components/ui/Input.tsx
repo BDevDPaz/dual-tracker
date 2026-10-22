@@ -20,6 +20,9 @@ interface InputProps extends TextInputProps {
   error?: string;
   /** Texto de ayuda bajo el campo (se sustituye por el error cuando lo hay). */
   hint?: string;
+  /** Adornos visibles («$», «/h»). No cambian el valor guardado. */
+  prefix?: string;
+  suffix?: string;
   icon?: React.ComponentProps<typeof Ionicons>["name"];
   containerStyle?: ViewStyle;
   /**
@@ -48,6 +51,8 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
   label,
   error,
   hint,
+  prefix,
+  suffix,
   icon,
   containerStyle,
   style,
@@ -100,7 +105,11 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label ? <Text style={[styles.label, { color: colors.text.secondary }]}>{label}</Text> : null}
+      {label ? (
+        <Text accessibilityElementsHidden importantForAccessibility="no" style={[styles.label, { color: colors.text.secondary }]}>
+          {label}
+        </Text>
+      ) : null}
 
       <View
         testID={props.testID ? `${props.testID}-wrapper` : undefined}
@@ -111,7 +120,12 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
           focused && { outlineColor: shownError ? colors.status.danger : colors.focusRing, outlineWidth: TOKENS.layout.focusOutline, outlineStyle: "solid", outlineOffset: 0 },
         ]}
       >
-        {icon ? <Ionicons name={icon as any} size={ICON.md} color={colors.text.muted} style={styles.icon} /> : null}
+        {icon ? <Ionicons name={icon as any} size={ICON.md} color={colors.text.muted} style={styles.icon} accessibilityElementsHidden importantForAccessibility="no" /> : null}
+        {prefix ? (
+          <Text accessibilityElementsHidden importantForAccessibility="no" style={[styles.affixBefore, { color: colors.text.secondary }]}>
+            {prefix}
+          </Text>
+        ) : null}
         <TextInput
           ref={setRefs}
           style={[styles.input, { color: colors.text.primary }, mask === "HH:mm" && styles.mono, style]}
@@ -125,8 +139,14 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
           {...(mask === "HH:mm" ? { keyboardType: "number-pad" as const, maxLength: 5 } : null)}
           {...(maximumDate ? { accessibilityValue: { max: maximumDate.getTime(), text: shownError } } : null)}
           secureTextEntry={secureToggle ? !revealed : props.secureTextEntry}
+          accessibilityLabel={props.accessibilityLabel ?? ([prefix, label, suffix].filter(Boolean).join(" ") || undefined)}
           accessibilityHint={shownError ?? props.accessibilityHint}
         />
+        {suffix ? (
+          <Text accessibilityElementsHidden importantForAccessibility="no" style={[styles.affixAfter, { color: colors.text.secondary }]}>
+            {suffix}
+          </Text>
+        ) : null}
         {secureToggle ? (
           <Pressable
             onPress={() => setRevealed((r) => !r)}
@@ -172,6 +192,8 @@ const styles = StyleSheet.create({
   icon: {
     marginRight: TOKENS.spacing.sm,
   },
+  affixBefore: { ...FONT.body, marginRight: TOKENS.spacing.xs },
+  affixAfter: { ...FONT.body, marginLeft: TOKENS.spacing.xs },
   input: {
     flex: 1,
     ...FONT.body,

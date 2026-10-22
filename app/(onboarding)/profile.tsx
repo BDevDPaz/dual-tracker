@@ -8,7 +8,7 @@
  * guarda al pulsar, no al pulsar Entrar.
  */
 import { useState } from "react";
-import { Text, StyleSheet } from "react-native";
+import { Text, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, Input, SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
@@ -30,8 +30,9 @@ export default function ProfileScreen() {
   const { busy, run } = useBusyAction();
 
   const rateNum = Number(rate.replace(",", "."));
-  // Campo vacío no cuenta como tarifa 0 (Number("") === 0).
-  const valid = name.trim().length > 0 && rate.trim() !== "" && Number.isFinite(rateNum) && rateNum >= 0 && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder);
+  // Campo vacío no cuenta como tarifa 0 (Number("") === 0). $0 no se acepta en el alta.
+  const rateOk = rate.trim() !== "" && Number.isFinite(rateNum) && rateNum > 0;
+  const valid = name.trim().length > 0 && rateOk && /^([01]\d|2[0-3]):[0-5]\d$/.test(reminder);
   const onEnter = () =>
     run(async () => {
       const res = await emit({
@@ -45,10 +46,21 @@ export default function ProfileScreen() {
 
   return (
     <ScreenScroll edges={SAFE_EDGES.none}>
-      <HelpButton screen="profile" />
-      <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, styles.titleFlex, { color: TOKENS.colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
+        <HelpButton screen="profile" />
+      </View>
       <Input {...chain.props("name")} label={t("onboarding.employeeName")} value={name} onChangeText={setName} />
-      <Input {...chain.props("rate")} label={t("onboarding.hourlyRate")} value={rate} onChangeText={setRate} />
+      <Input
+        {...chain.props("rate")}
+        label={t("onboarding.hourlyRate")}
+        value={rate}
+        onChangeText={setRate}
+        prefix="$"
+        suffix={t("common.perHour")}
+        hint={t("onboarding.rateAdminOnly")}
+        error={rate.trim() !== "" && !rateOk ? t("onboarding.rateInvalid") : undefined}
+      />
       <LanguageSwitch />
       <Input {...chain.props("reminder")} label={t("onboarding.reminderTime")} value={reminder} onChangeText={setReminder} placeholder="07:00" mask="HH:mm" />
       <Button label={t("onboarding.enter")} disabled={!valid} isLoading={busy} onPress={onEnter} />
@@ -57,5 +69,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm },
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
+  titleFlex: { flex: 1 },
 });

@@ -15,7 +15,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { PermissionState, SessionIntent } from "../../core/contracts";
 import { NOTIFICATION_ACTIONS, NOTIFICATION_CATEGORIES, NOTIFICATION_CHANNELS } from "../../constants/notifications";
-import { t } from "../../i18n";
+import { reminderTitleForHour, t } from "../../i18n";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
@@ -238,7 +238,7 @@ export const NotificationService = {
     await Notifications.scheduleNotificationAsync({
       identifier: DAILY_REMINDER_ID,
       content: {
-        title: t("notifications.reminderTitle"),
+        title: reminderTitleForHour(hour),
         body: t("notifications.reminderBody"),
         sound: true,
         data: { kind: "DAILY_REMINDER" },

@@ -38,14 +38,14 @@ export default function OnboardingDisclosureScreen() {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
-        <HelpButton screen="onboardingDisclosure" />
-        <DisclosureContent content={content} />
+        <DisclosureContent content={content} titleAccessory={<HelpButton screen="onboardingDisclosure" />} />
       </ScrollView>
       <View style={[styles.footer, { borderColor: TOKENS.colors.border, padding: screenPadding }]}>
         <Pressable
           onPress={() => setAccepted((v) => !v)}
           style={styles.checkRow}
           accessibilityRole="checkbox"
+          accessibilityLabel={t("onboarding.acceptCheckbox")}
           accessibilityState={{ checked: accepted }}
         >
           <Ionicons name={accepted ? "checkbox" : "square-outline"} size={ICON.xl} color={TOKENS.colors.primary} />

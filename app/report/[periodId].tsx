@@ -6,12 +6,12 @@
  */
 import { Text, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, EmptyState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
+import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { displayStatement, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
+import { displayStatement, formatPayRateLine, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
 import { t, tLineKind, tWarning } from "../../src/i18n";
 import { formatCurrency, formatRange, formatUiDecimal, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
@@ -33,8 +33,7 @@ export default function PeriodStatementScreen() {
   if (!range) {
     return (
       <ScreenContainer edges={SAFE_EDGES.stack}>
-        <EmptyState title={t("report.invalidPeriod")} icon="document-outline" />
-        <Button label={t("common.back")} onPress={() => router.back()} />
+        <NotFoundState title={t("report.invalidPeriod")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/reports"))} />
       </ScreenContainer>
     );
   }
@@ -49,7 +48,7 @@ export default function PeriodStatementScreen() {
   if (!st) {
     return (
       <ScreenContainer edges={SAFE_EDGES.stack}>
-        <ScreenStatusBanner status="empty" message={statement.error ?? t("common.noData")} />
+        <ScreenStatusBanner status="empty" message={statement.error ? t("common.loadError") : t("common.noData")} />
       </ScreenContainer>
     );
   }
@@ -96,7 +95,7 @@ export default function PeriodStatementScreen() {
       <Section title={t("report.lines")}>
         {st.lines.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
         {st.lines.map((l, i) => (
-          <KeyValueRow key={`${l.sessionId}-${l.kind}-${l.dateString}-${i}`} label={`${l.dateString} · ${tLineKind(l.kind)} · ${l.minutes} ${t("common.minutes")}`} value={formatCurrency(l.amount)} />
+          <KeyValueRow key={`${l.sessionId}-${l.kind}-${l.dateString}-${i}`} label={`${l.dateString} · ${tLineKind(l.kind)} · ${formatPayRateLine(l.minutes, l.rate)}`} value={formatCurrency(l.amount)} />
         ))}
       </Section>
 

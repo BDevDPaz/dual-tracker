@@ -12,6 +12,8 @@
  *  - La nota en pantalla o en el PDF se recorta; el texto guardado no se toca.
  */
 import type { PayrollStatement } from "../../core/contracts";
+import { getLanguage, t, type Language } from "../../i18n";
+import { formatCurrency, formatLocaleNumber } from "../../utils/dateUtils";
 
 /** Centavos de una línea. Tarifa en dólares (se lleva a centavos half-up). */
 export function moneyCents(minutes: number, rate: number): number {
@@ -252,4 +254,18 @@ export function formatSiteName(
   if (alias) return { primary: alias, address: null };
   if (address) return { primary: address, address: null };
   return { primary: "", address: null };
+}
+
+/**
+ * Línea de pago solo para leer: «8 h × $25.00/h».
+ * No entra en el statement, el hash ni el PDF sellado.
+ */
+export function formatPayRateLine(minutes: number, rate: number, lang: Language = getLanguage()): string {
+  const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+  const sign = safeMinutes < 0 ? "-" : "";
+  const hours = Math.abs(safeMinutes) / 60;
+  const digits = Number.isInteger(hours) ? 0 : 2;
+  let qty = formatLocaleNumber(hours, digits, lang);
+  if (digits === 2) qty = qty.replace(/([.,]\d*?)0+$/, "$1").replace(/[.,]$/, "");
+  return `${sign}${qty} ${t("common.hours", {}, lang)} × ${formatCurrency(rate)}${t("common.perHour", {}, lang)}`;
 }

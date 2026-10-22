@@ -42,7 +42,7 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
       testID="exit-detection-modal"
     >
       <View style={styles.grid}>
-        <SelectableCard role="button" label={t("modals.exitStay")} selected onPress={onStay} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitStay")} onPress={onStay} disabled={busy} />
         <SelectableCard role="button" label={t("modals.exitLunch")} onPress={onLunch} disabled={busy} />
         <SelectableCard role="button" label={t("modals.exitTransfer")} onPress={onTransfer} disabled={busy} />
         <SelectableCard role="button" label={t("modals.exitClose")} onPress={onCloseDay} disabled={busy} />

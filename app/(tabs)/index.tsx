@@ -248,7 +248,7 @@ export default function TodayScreen() {
           </View>
         ) : null}
 
-        <Pressable onPress={() => router.push("/sites")} accessibilityRole="link" style={styles.footerLink}>
+        <Pressable onPress={() => router.push("/sites")} accessibilityRole="link" accessibilityHint={t("a11y.manageSitesHint")} style={styles.footerLink}>
           <Text style={[styles.link, { color: colors.text.primary }]}>{t("cta.manageSites")}</Text>
         </Pressable>
 

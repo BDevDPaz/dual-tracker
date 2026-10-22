@@ -22,13 +22,13 @@ export default function WelcomeScreen() {
   ];
   return (
     <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
-      <HelpButton screen="welcome" />
       <AppBrandTitle />
+      <HelpButton screen="welcome" />
       <Text style={[styles.tagline, { color: TOKENS.colors.text.secondary }]}>{t("app.tagline")}</Text>
       <View style={[styles.columns, isCompact && !landscape && styles.columnsStack]}>
         {columns.map((c) => (
-          <Card key={c.title} style={styles.col}>
-            <Ionicons name={c.icon} size={ICON.xxl} color={TOKENS.colors.primary} />
+          <Card key={c.icon} style={styles.col}>
+            <Ionicons name={c.icon} size={ICON.xxl} color={TOKENS.colors.primary} accessibilityElementsHidden importantForAccessibility="no" />
             <Text style={[styles.colTitle, { color: TOKENS.colors.text.primary }]}>{c.title}</Text>
             <Text style={[styles.colBody, { color: TOKENS.colors.text.secondary }]}>{c.body}</Text>
           </Card>

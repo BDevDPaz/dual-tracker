@@ -8,6 +8,7 @@ import type { LedgerEntry } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
 import { ArrivalMark } from "../brand/ArrivalMark";
+import { LoadingState } from "./LoadingState";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
@@ -88,6 +89,8 @@ interface SessionTimelineProps {
   events: TimelineEvent[];
   title?: string;
   emptyText?: string;
+  /** Misma presentación que el resto de cargas (esqueleto + «Cargando…»). */
+  loading?: boolean;
   /**
    * El margen lateral es de la PANTALLA (ScreenContainer o el contentContainer
    * del ScrollView). true solo si se usa fuera de un contenedor con padding.
@@ -95,7 +98,7 @@ interface SessionTimelineProps {
   inset?: boolean;
 }
 
-export function SessionTimeline({ events, title, emptyText, inset = false }: SessionTimelineProps) {
+export function SessionTimeline({ events, title, emptyText, loading = false, inset = false }: SessionTimelineProps) {
   const { colors } = useTheme();
   useLanguage();
   const reduceMotion = useMotionPreference();
@@ -126,7 +129,9 @@ export function SessionTimeline({ events, title, emptyText, inset = false }: Ses
         {title ?? t("session.activityTitle")}
       </Text>
 
-      {events.length === 0 ? (
+      {loading && events.length === 0 ? (
+        <LoadingState />
+      ) : events.length === 0 ? (
         <Animated.Text
           entering={reduceMotion ? FadeIn.duration(REDUCED_FADE_MS) : FadeInDown.duration(400)}
           style={[styles.emptyText, { color: colors.text.muted }]}

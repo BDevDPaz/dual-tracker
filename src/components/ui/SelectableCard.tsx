@@ -37,14 +37,19 @@ export function SelectableCard({
     backgroundColor: selected ? colors.statusBg.primary : colors.surface,
     borderColor: selected ? colors.primary : colors.border,
   };
+  const labelColor = disabled ? colors.text.muted : selected ? colors.primary : colors.text.primary;
   const body = (
     <>
-      <Text style={[styles.label, { color: selected ? colors.primary : colors.text.primary }]}>{label}</Text>
-      {description ? <Text style={[styles.description, { color: colors.text.secondary }]}>{description}</Text> : null}
+      <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
+      {description ? <Text style={[styles.description, { color: disabled ? colors.text.muted : colors.text.secondary }]}>{description}</Text> : null}
     </>
   );
   if (!interactive) {
-    return <View style={[styles.card, palette, style]}>{body}</View>;
+    return (
+      <View accessible accessibilityRole="text" accessibilityLabel={accessibilityLabel ?? label} style={[styles.staticCard, style]}>
+        {body}
+      </View>
+    );
   }
   return (
     <Pressable
@@ -57,7 +62,7 @@ export function SelectableCard({
       accessibilityRole={role}
       accessibilityState={{ selected, disabled }}
       accessibilityLabel={accessibilityLabel ?? label}
-      style={[styles.card, palette, disabled && styles.disabled, style]}
+      style={[styles.card, palette, style]}
     >
       {body}
     </Pressable>
@@ -75,5 +80,6 @@ const styles = StyleSheet.create({
   },
   label: { ...FONT.bodyStrong },
   description: { ...FONT.caption },
-  disabled: { opacity: 0.5 },
+  /** Informativa: sin borde de control ni alto de botón. */
+  staticCard: { paddingVertical: TOKENS.spacing.sm, gap: TOKENS.spacing.xxs },
 });

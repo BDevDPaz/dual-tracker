@@ -6,6 +6,7 @@ import { COMPANY, HOUR, makeClosedSession, MONDAY_8AM } from "../../../../test/f
 import { SITE_LAT, SITE_LON } from "../../../../test/fixtures/spatial.fixture";
 import { setLanguage, t } from "../../../i18n";
 import { SEAL_WARNING_TEXT } from "../reportTemplates";
+import { PDF_LIGHT_TEXT_GOLD } from "../reportPremium";
 import { ReportService } from "../ReportService";
 import { PayrollEngineService } from "../../domain/PayrollEngineService";
 import { fromWallClock, getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
@@ -138,6 +139,16 @@ describe("comprobante premium", () => {
     expect(dark).toContain("Gross estimate");
     expect(dark).toContain("Travel");
     expect(dark).not.toContain("Comprobante del empleado");
+  });
+
+  test("el texto oro del tema claro contrasta y las etiquetas no bajan de 11 px", () => {
+    const light = ReportService.renderHtml("EMPLOYEE_RECEIPT", base());
+    expect(light).toContain(`color: ${PDF_LIGHT_TEXT_GOLD}`);
+    expect(light).toContain(`border: 2.5px solid ${PDF_LIGHT_TEXT_GOLD}`);
+    expect(light).not.toMatch(/font-size:\s*(8|9|10)px/);
+    expect(light).toContain("#C5A059");
+    expect(light).toContain(`data-qr-payload="${HASH}"`);
+    expect(light).toContain('data-signature="Ed25519"');
   });
 
   test("cinco cifras, bruto resaltado, notas en secundario y filas de $0 fuera del recibo", () => {

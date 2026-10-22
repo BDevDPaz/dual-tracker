@@ -40,7 +40,7 @@ export function AddNoteModal({ visible, title, busy = false, onCancel, onSave }:
       primaryAction={{ label: t("common.save"), onPress: () => onSave(note.trim()), disabled: !note.trim(), loading: busy }}
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
     >
-      <Input {...chain.props("note")} placeholder={t("modals.notePlaceholder")} value={note} onChangeText={setNote} multiline numberOfLines={4} style={styles.textArea} autoFocus />
+      <Input {...chain.props("note")} label={t("modals.noteLabel")} placeholder={t("modals.notePlaceholder")} value={note} onChangeText={setNote} multiline numberOfLines={4} style={styles.textArea} autoFocus />
     </ModalShell>
   );
 }

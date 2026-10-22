@@ -14,6 +14,8 @@ interface EmptyStateProps {
   icon?: React.ComponentProps<typeof Ionicons>["name"];
   /** CTA opcional (Button secundario bajo el texto). */
   action?: { label: string; onPress: () => void };
+  /** Se coloca después del título (TalkBack lee el título primero). */
+  afterTitle?: React.ReactNode;
   /** Sin el margen superior grande (dentro de una pantalla con más contenido). */
   compact?: boolean;
 }
@@ -23,6 +25,7 @@ export function EmptyState({
   description,
   icon = "search-outline",
   action,
+  afterTitle,
   compact = false,
 }: EmptyStateProps) {
   const { colors } = useTheme();
@@ -36,9 +39,15 @@ export function EmptyState({
           color={colors.text.muted}
         />
       </View>
-      <Text style={[styles.title, { color: colors.text.primary }]}>
-        {title}
-      </Text>
+      {afterTitle ? (
+        <View style={styles.titleRow}>
+          <View style={styles.titleSpacer} />
+          <Text style={[styles.title, styles.titleFlex, { color: colors.text.primary }]}>{title}</Text>
+          {afterTitle}
+        </View>
+      ) : (
+        <Text style={[styles.title, { color: colors.text.primary }]}>{title}</Text>
+      )}
       {description ? (
         <Text
           style={[styles.description, { color: colors.text.secondary }]}
@@ -72,6 +81,9 @@ const styles = StyleSheet.create({
     marginBottom: TOKENS.spacing.lg,
     opacity: 0.5,
   },
+  titleRow: { flexDirection: "row", alignItems: "center", alignSelf: "stretch", gap: TOKENS.spacing.sm },
+  titleSpacer: { width: TOKENS.layout.minTouchTarget },
+  titleFlex: { flex: 1 },
   title: {
     ...FONT.h2,
     textAlign: "center",

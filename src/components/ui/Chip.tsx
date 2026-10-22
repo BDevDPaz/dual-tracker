@@ -24,8 +24,8 @@ export function Chip({ label, selected = false, onPress, testID, accessibilityLa
   const text = <Text style={[styles.label, { color: selected ? colors.primary : colors.text.secondary }]}>{label}</Text>;
   if (!onPress) {
     return (
-      <View testID={testID} style={[styles.chip, palette]}>
-        {text}
+      <View accessible accessibilityRole="text" accessibilityLabel={accessibilityLabel ?? label} testID={testID} style={styles.staticChip}>
+        <Text style={[styles.label, { color: colors.text.secondary }]}>{label}</Text>
       </View>
     );
   }
@@ -60,4 +60,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   label: { ...FONT.caption, textAlign: "center" },
+  /** Etiqueta: sin borde ni alto de botón, para que no parezca pulsable. */
+  staticChip: {
+    paddingVertical: TOKENS.spacing.xxs,
+    paddingHorizontal: TOKENS.spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

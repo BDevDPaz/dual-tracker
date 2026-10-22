@@ -22,7 +22,7 @@ interface DocumentPreviewWidgetProps {
   companyName?: string;
   /** Sello visible cuando el periodo tiene CONFLICT. */
   certified?: boolean;
-  /** Líneas reales del rollup: se pintan las dos primeras en lugar de las barras de esqueleto. */
+  /** Líneas reales del rollup, incluida la de traslado. Sustituyen las barras de esqueleto. */
   lines?: PreviewLine[];
   /**
    * SHA-256 del expediente sellado del periodo (manifest.packHash). SOLO el
@@ -56,7 +56,7 @@ export function DocumentPreviewWidget({
   const language = useLanguage();
   const { colors } = useTheme();
   const paper = colors.paper;
-  const real = (lines ?? []).slice(0, 2);
+  const real = lines ?? [];
   const tail = packHash ? packHash.slice(-12) : null;
 
   const copy = async () => {

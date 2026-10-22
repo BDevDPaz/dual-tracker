@@ -20,6 +20,8 @@ import type { ForensicLedgerRow, ReportInput } from "./reportTemplates";
 export type PremiumRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
 
 const GOLD = "#C5A059";
+/** Texto oro sobre blanco del comprobante claro. ≥ 4.5:1; el adorno sigue en GOLD. */
+export const PDF_LIGHT_TEXT_GOLD = "#6A5018";
 
 const PALETTE = {
   light: {
@@ -65,6 +67,7 @@ function isZeroPayRow(minutes: number, amountCents: number): boolean {
 
 function css(theme: "light" | "dark"): string {
   const p = PALETTE[theme];
+  const goldInk = theme === "light" ? PDF_LIGHT_TEXT_GOLD : GOLD;
   return `
     @page { size: letter; margin: 11mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -76,18 +79,18 @@ function css(theme: "light" | "dark"): string {
     .brand-row { display: flex; align-items: center; gap: 14px; }
     .mark { width: 42px; height: 42px; flex: 0 0 auto; }
     .brand-copy { min-width: 0; flex: 1 1 auto; }
-    .brand-name { font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: ${GOLD}; font-weight: 700; }
+    .brand-name { font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: ${goldInk}; font-weight: 700; }
     .doc-title { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; margin-top: 2px; }
     .stamp-slot { margin-left: auto; flex: 0 0 auto; padding: 14px 16px 8px 10px; }
-    .stamp-seal { display: inline-block; white-space:nowrap; border: 2.5px solid ${GOLD}; color: ${GOLD}; font-weight: 800; letter-spacing: 1px; font-size: 12px; line-height: 1; padding: 6px 10px; transform: rotate(-8deg); transform-origin: right center; }
+    .stamp-seal { display: inline-block; white-space:nowrap; border: 2.5px solid ${goldInk}; color: ${goldInk}; font-weight: 800; letter-spacing: 1px; font-size: 12px; line-height: 1; padding: 6px 10px; transform: rotate(-8deg); transform-origin: right center; }
     .gold-rule { height: 2px; background: ${GOLD}; border: 0; margin: 10px 0 12px; }
     .meta { display: flex; gap: 14px; margin-bottom: 12px; }
     .meta-col { width: 50%; background: ${p.card}; border: 1px solid ${p.line}; border-radius: 10px; padding: 10px 12px; }
-    .meta-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: ${p.muted}; font-weight: 700; margin-bottom: 2px; }
+    .meta-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: ${p.muted}; font-weight: 700; margin-bottom: 2px; }
     .meta-value { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
     .meta-value:last-child { margin-bottom: 0; }
     .sig { font-size: 12px; font-weight: 700; margin: 0 0 6px; }
-    .sig.signed { color: ${GOLD}; }
+    .sig.signed { color: ${goldInk}; }
     .sig.unsigned { color: ${p.danger}; }
     .indicator { font-size: 11px; color: ${p.warnInk}; background: ${p.warnBg}; border: 1px solid ${p.warnInk}; border-radius: 8px; padding: 8px 10px; margin: 0 0 8px; }
     .integrity-line { font-size: 11px; color: ${p.muted}; margin: 0 0 10px; }
@@ -96,33 +99,33 @@ function css(theme: "light" | "dark"): string {
     .metric:last-child { border-right: none; }
     .metric.gross { background: ${p.gross}; box-shadow: inset 0 0 0 1.5px ${GOLD}; }
     .metric .num { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; text-align: right; }
-    .metric.gross .num { color: ${GOLD}; }
-    .metric .lbl { font-size: 8px; letter-spacing: 0.6px; text-transform: uppercase; color: ${p.muted}; margin-top: 4px; text-align: right; }
-    .lunch-line { font-size: 10px; color: ${p.muted}; margin: 0 0 12px; text-align: right; font-variant-numeric: tabular-nums; }
+    .metric.gross .num { color: ${goldInk}; }
+    .metric .lbl { font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: ${p.muted}; margin-top: 4px; text-align: right; }
+    .lunch-line { font-size: 11px; color: ${p.muted}; margin: 0 0 12px; text-align: right; font-variant-numeric: tabular-nums; }
     table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 11px; }
-    th { text-align: left; border-bottom: 2px solid ${p.ink}; padding: 7px 6px; text-transform: uppercase; font-size: 8px; letter-spacing: 0.6px; color: ${p.muted}; }
+    th { text-align: left; border-bottom: 2px solid ${p.ink}; padding: 7px 6px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.6px; color: ${p.muted}; }
     td { border-bottom: 1px solid ${p.line}; padding: 8px 6px; vertical-align: top; }
     th.fig, td.fig { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
-    .badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; display: inline-block; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-block; }
     .b-VALID { background: #e8f8ef; color: #1e8449; }
     .b-MANUAL { background: #fff4e0; color: #b9770e; }
     .b-AUTO { background: #eaf2fb; color: #2471a3; }
     .b-CONFLICT { background: #fdecea; color: #c0392b; }
-    .notes { font-style: italic; color: ${p.muted}; font-size: 10px; display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: break-word; }
+    .notes { font-style: italic; color: ${p.muted}; font-size: 11px; display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: break-word; }
     .grapheme { white-space: nowrap; display: inline; }
-    .addr { display: block; font-size: 9px; color: ${p.muted}; font-weight: normal; margin-top: 2px; }
+    .addr { display: block; font-size: 11px; color: ${p.muted}; font-weight: normal; margin-top: 2px; }
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 12px 0 6px; }
     .rule { font-size: 11px; margin: 0 0 4px; }
     .muted { color: ${p.muted}; font-size: 11px; line-height: 1.4; }
     .verify { display: flex; gap: 16px; align-items: flex-start; margin-top: 8px; }
     .verify-copy { flex: 1; }
-    .hash { font-family: "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 10px; word-break: break-all; background: ${p.hash}; padding: 8px; border-radius: 6px; }
+    .hash { font-family: "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; background: ${p.hash}; padding: 8px; border-radius: 6px; }
     .qr-pad { background: #FFFFFF; padding: 6px; border-radius: 8px; line-height: 0; }
-    .versions { font-size: 10px; color: ${p.muted}; margin-top: 12px; }
-    .footer { margin-top: 12px; text-align: center; font-size: 9px; color: ${p.muted}; border-top: 1px solid ${p.line}; padding-top: 8px; }
+    .versions { font-size: 11px; color: ${p.muted}; margin-top: 12px; }
+    .footer { margin-top: 12px; text-align: center; font-size: 11px; color: ${p.muted}; border-top: 1px solid ${p.line}; padding-top: 8px; }
     .uncertified { margin: 0 0 12px; padding: 8px; border: 2px dashed ${p.danger}; color: ${p.danger}; font-weight: 700; text-align: center; text-transform: uppercase; font-size: 11px; }
     .annex { break-before: page; page-break-before: always; }
-    .mono { font-family: "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 9px; word-break: break-all; }
+    .mono { font-family: "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; }
   `;
 }
 

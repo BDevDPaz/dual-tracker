@@ -1,7 +1,8 @@
 /** ToastContext: inset superior, título + leyenda, región viva, cola bajo modal bloqueante. */
 import React, { useEffect } from "react";
-import { StyleSheet } from "react-native";
+import { AccessibilityInfo, StyleSheet } from "react-native";
 import { act, render, screen } from "@testing-library/react-native";
+import { DURATIONS } from "../../constants/animations";
 import { setLanguage } from "../../i18n";
 import { ToastProvider, useToast, TOAST_TOP_GAP, type ToastType } from "../ToastContext";
 import { BlockingModals } from "../../components/feedback/blockingModals";
@@ -70,5 +71,26 @@ describe("ToastContext", () => {
     expect(screen.getByTestId("toast-title").props.children).toBe("Shift started");
     expect(screen.getByTestId("toast-caption").props.children).toBe("Geofence on");
     act(() => setLanguage("es"));
+  });
+
+  test("con lector de pantalla el aviso no se cierra solo", async () => {
+    const reader = jest.spyOn(AccessibilityInfo, "isScreenReaderEnabled").mockResolvedValue(true);
+    const listen = jest.spyOn(AccessibilityInfo, "addEventListener").mockReturnValue({ remove: () => undefined } as never);
+    jest.useFakeTimers();
+    try {
+      mount();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      show("Léeme");
+      act(() => {
+        jest.advanceTimersByTime(DURATIONS.toast + 500);
+      });
+      expect(screen.getByTestId("toast-title").props.children).toBe("Léeme");
+    } finally {
+      jest.useRealTimers();
+      reader.mockRestore();
+      listen.mockRestore();
+    }
   });
 });

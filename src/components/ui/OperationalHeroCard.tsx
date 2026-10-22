@@ -7,7 +7,7 @@ import { TOKENS, FONT, ICON, BREAKPOINTS } from "../../constants/theme";
 import { useResponsive } from "./responsive";
 import { useTheme } from "../../context/ThemeContext";
 import type { SessionStateUI } from "../../core/selectors";
-import { t, useLanguage } from "../../i18n";
+import { spokenDuration, t, useLanguage } from "../../i18n";
 import { StatusPill } from "./StatusPill";
 import { Button } from "./Button";
 import { GlassLayers, useGlass } from "./GlassSurface";
@@ -58,7 +58,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   pinPrimary = false,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
-  useLanguage();
+  const language = useLanguage();
   // Cristal: desenfoque + relleno 12 % + filo dorado; sólido si no hay blur o se reduce la transparencia.
   const { glass, containerStyle } = useGlass();
   // Teléfonos estrechos (< 360 dp): CTAs apilados a ancho completo; el texto nunca baja de 16.
@@ -75,7 +75,13 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
         <View style={styles.headerRow}>
           <StatusPill tone={ui.tone} label={t(ui.labelKey)} symbol={ui.state === "ACTIVA" ? "arrival" : undefined} />
           {onDestinationPress ? (
-            <Pressable onPress={onDestinationPress} accessibilityRole="link" style={styles.destinationHit}>
+            <Pressable
+              onPress={onDestinationPress}
+              accessibilityRole="link"
+              accessibilityLabel={destination ?? t("today.noDestination")}
+              accessibilityHint={t("a11y.destinationHint")}
+              style={styles.destinationHit}
+            >
               <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={2}>
                 {destination ?? t("today.noDestination")}
               </Text>
@@ -97,6 +103,8 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
               <Text
                 style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]}
                 testID="hero-timer"
+                accessibilityRole="timer"
+                accessibilityLabel={spokenDuration(timeString, language)}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
@@ -118,7 +126,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
           </View>
         ) : nextAction ? (
           <View style={styles.nextRow} testID="hero-next-action">
-            <Ionicons name="navigate-outline" size={ICON.sm} color={colors.status.info} />
+            <Ionicons name="navigate-outline" size={ICON.sm} color={colors.status.info} accessibilityElementsHidden importantForAccessibility="no" />
             <Text style={[styles.nextText, { color: colors.text.primary }]} numberOfLines={2}>
               {nextAction}
             </Text>
@@ -156,7 +164,7 @@ const styles = StyleSheet.create({
     borderWidth: TOKENS.layout.hairline,
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
-  destinationHit: { flex: 1, marginLeft: TOKENS.spacing.md },
+  destinationHit: { flex: 1, marginLeft: TOKENS.spacing.md, minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
   destinationPlain: { marginLeft: TOKENS.spacing.md },
   destinationText: { ...FONT.bodyStrong, flex: 1, textAlign: "right" },
   subText: { ...FONT.caption, marginBottom: TOKENS.spacing.md },

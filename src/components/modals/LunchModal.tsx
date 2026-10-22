@@ -114,7 +114,7 @@ export function LunchModal(props: LunchModalProps) {
           <SelectableCard
             key={min}
             label={min === 0 ? t("modals.lunchNo") : `${min} ${t("common.minutes")}`}
-            accessibilityLabel={`${min} ${t("common.minutes")}`}
+            accessibilityLabel={min === 0 ? t("modals.lunchNo") : `${min} ${t("common.minutes")}`}
             selected={selected === min}
             onPress={() => setSelected(min)}
             style={styles.optionPill}

@@ -1,12 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { TOKENS, FONT } from "../../constants/theme";
-import { useTheme } from "../../context/ThemeContext";
 import type { ScreenStatus } from "../../core/contracts";
 import { Banner } from "../ui/Banner";
 import { EmptyState } from "../ui/EmptyState";
-import { Skeleton } from "../ui/Skeleton";
+import { LoadingState } from "../ui/LoadingState";
 
 /**
  * Estados de pantalla obligatorios (Producto §4): loading, empty, degraded,
@@ -24,21 +21,8 @@ interface Props {
 }
 
 export function ScreenStatusBanner({ status, message, emptyDescription, onPress, emptyIcon }: Props) {
-  const { colors } = useTheme();
   if (status === "ready") return null;
-  if (status === "loading") {
-    return (
-      <View style={styles.center}>
-        <Skeleton />
-        {message ? <Text style={[styles.loadingText, { color: colors.text.secondary }]}>{message}</Text> : null}
-      </View>
-    );
-  }
+  if (status === "loading") return <LoadingState message={message} />;
   if (status === "empty") return <EmptyState title={message ?? ""} description={emptyDescription} icon={emptyIcon} />;
   return <Banner tone={status === "conflict" ? "danger" : "warning"} message={message ?? ""} onPress={onPress} />;
 }
-
-const styles = StyleSheet.create({
-  center: { alignItems: "center", justifyContent: "center", padding: TOKENS.spacing.xl },
-  loadingText: { ...FONT.caption, marginTop: TOKENS.spacing.md },
-});

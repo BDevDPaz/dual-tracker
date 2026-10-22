@@ -46,7 +46,7 @@ export default function SitesIndexScreen() {
         <ScrollView contentContainerStyle={styles.empty} refreshControl={refreshControl}>
           <EmptyState
             title={t("sites.empty")}
-            description={t("today.emptyHint")}
+            description={t("sites.emptyBody")}
             icon="location-outline"
             action={{ label: t("cta.createFirstSite"), onPress: () => router.push("/sites/new") }}
           />
@@ -66,23 +66,29 @@ export default function SitesIndexScreen() {
         keyExtractor={(s) => String(s.id)}
         refreshControl={refreshControl}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("sites.empty")} emptyIcon="location-outline" />}
+        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("sites.noResults", { query: q.trim() })} emptyIcon="location-outline" />}
         renderItem={({ item }) => {
           const lastVisit = selectSiteLastVisitAtMs(state, item.id);
+          const alias = item.unreadableFields?.includes("alias") && !item.alias ? t("fieldCrypto.unreadableSite") : item.alias;
+          const visit = lastVisit ? formatDate(lastVisit) : t("sites.never");
+          const meta = `${item.clientName ? `${item.clientName} · ` : ""}${item.radiusM ?? radiusDefault} m`;
           return (
-          <Pressable onPress={() => router.push(`/sites/${item.id}`)} accessibilityRole="button" style={[styles.row, { borderColor: TOKENS.colors.border }]}>
+          <Pressable
+            onPress={() => router.push(`/sites/${item.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`${alias}. ${meta}. ${t("sites.lastVisit")}: ${visit}`}
+            accessibilityHint={t("a11y.linkHint")}
+            style={[styles.row, { borderColor: TOKENS.colors.border }]}
+          >
             <View style={styles.flex}>
-              <Text style={[styles.alias, { color: TOKENS.colors.text.primary }]}>{item.unreadableFields?.includes("alias") && !item.alias ? t("fieldCrypto.unreadableSite") : item.alias}</Text>
-              <Text style={[styles.meta, { color: TOKENS.colors.text.secondary }]}>
-                {item.clientName ? `${item.clientName} · ` : ""}
-                {item.radiusM ?? radiusDefault} m
-              </Text>
+              <Text style={[styles.alias, { color: TOKENS.colors.text.primary }]}>{alias}</Text>
+              <Text style={[styles.meta, { color: TOKENS.colors.text.secondary }]}>{meta}</Text>
               <Text style={[styles.meta, { color: TOKENS.colors.text.muted }]}>
-                {t("sites.lastVisit")}: {lastVisit ? formatDate(lastVisit) : t("sites.never")}
+                {t("sites.lastVisit")}: {visit}
               </Text>
               {item.targetLat === null ? <Text style={[styles.meta, { color: TOKENS.colors.status.warning }]}>{t("sites.coordsMissing")}</Text> : null}
             </View>
-            <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} />
+            <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
           </Pressable>
           );
         }}

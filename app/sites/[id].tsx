@@ -8,7 +8,7 @@ import { Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ConfirmActionModal } from "../../src/components/modals";
 import { SiteRadiusField } from "../../src/components/sites/SiteRadiusField";
-import { Button, Card, EmptyState, Input, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
+import { Button, Card, Input, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
@@ -81,8 +81,7 @@ export default function SiteDetailScreen() {
   if (!site) {
     return (
       <ScreenContainer edges={SAFE_EDGES.stack}>
-        <EmptyState title={t("sites.notFound")} icon="location-outline" />
-        <Button label={t("common.back")} onPress={() => router.back()} />
+        <NotFoundState title={t("sites.notFound")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/sites"))} />
       </ScreenContainer>
     );
   }

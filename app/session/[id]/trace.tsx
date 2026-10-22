@@ -5,22 +5,23 @@
  */
 import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Chip, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
+import { Chip, NotFoundState, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
 import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TracePlane, type TraceSiteMark } from "../../../src/components/trace/TracePlane";
 import { TOKENS, FONT, ICON } from "../../../src/constants/theme";
 import { useTheme } from "../../../src/context/ThemeContext";
 import type { SpatialFact } from "../../../src/core/contracts";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectSessionById, selectSiteById } from "../../../src/core/selectors";
-import { t } from "../../../src/i18n";
+import { selectIsHydrated, selectSessionById, selectSiteById } from "../../../src/core/selectors";
+import { t, tSpatialType } from "../../../src/i18n";
 import { formatTime } from "../../../src/utils/dateUtils";
 
 type Layer = "PERIMETER" | "BREADCRUMB";
 
 export default function TraceScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const sessionId = Number(id);
@@ -59,10 +60,17 @@ export default function TraceScreen() {
   // FieldCrypto §14: coordenadas de una clave perdida → texto de ilegible (nunca ciphertext).
   const unreadable = all.some((f) => f.unreadable);
 
-  if (facts.loading && !facts.data) {
+  if (!selectIsHydrated(state) || (facts.loading && !facts.data)) {
     return (
       <ScreenContainer edges={SAFE_EDGES.stack}>
         <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
+  }
+  if (!session) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.stack}>
+        <NotFoundState title={t("trace.notFound")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/history"))} />
       </ScreenContainer>
     );
   }
@@ -73,7 +81,18 @@ export default function TraceScreen() {
       <Text style={[styles.offline, { color: colors.text.secondary }]}>{t("trace.offline")}</Text>
       {mapGaps.some((g) => g.kind === "retention") ? <ScreenStatusBanner status="degraded" message={t("trace.retentionGap")} /> : null}
       {mapGaps.some((g) => g.kind === "recording") ? <ScreenStatusBanner status="degraded" message={t("trace.recordingGap")} /> : null}
-      {mapFacts.length > 0 || siteMarks.length > 0 ? <TracePlane facts={mapFacts} sites={siteMarks} gaps={mapGaps} /> : null}
+      {mapFacts.length > 0 || siteMarks.length > 0 ? (
+        <TracePlane
+          facts={mapFacts}
+          sites={siteMarks}
+          gaps={mapGaps}
+          summary={t("trace.mapSummary", {
+            points: mapFacts.length,
+            exits: mapFacts.filter((f) => f.type === "EXIT").length,
+            distance: crumbs.length > 1 ? Math.round(queries.traceDistanceMeters(crumbs)) : 0,
+          })}
+        />
+      ) : null}
       <View style={styles.layers}>
         {(["PERIMETER", "BREADCRUMB"] as const).map((l) => (
           <Chip
@@ -97,13 +116,13 @@ export default function TraceScreen() {
         renderItem={({ item }) => {
           const bad = isUnreliable(item);
           const color = bad ? colors.status.warning : colors.text.primary;
+          const precision = bad ? t("trace.unreliable") : t("trace.reliable");
           return (
             <View style={[styles.row, { borderColor: colors.border }]}>
-              <Ionicons name={item.type === "BREADCRUMB" ? "ellipse" : item.type === "ENTER" ? "enter-outline" : item.type === "EXIT" ? "exit-outline" : "alert-circle-outline"} size={ICON.sm} color={color} />
+              <Ionicons name={item.type === "BREADCRUMB" ? "ellipse" : item.type === "ENTER" ? "enter-outline" : item.type === "EXIT" ? "exit-outline" : "alert-circle-outline"} size={ICON.sm} color={color} accessibilityElementsHidden importantForAccessibility="no" />
               <View style={styles.flex}>
                 <Text style={[styles.type, { color }]}>
-                  {item.type} · {formatTime(item.timestampMs)}
-                  {bad ? ` · ${t("trace.unreliable")}` : ""}
+                  {tSpatialType(item.type)} · {formatTime(item.timestampMs)} · {precision}
                 </Text>
                 <Text style={[styles.meta, { color: colors.text.secondary }]}>
                   {item.lat !== null && item.lon !== null ? `${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}` : "—"} · {t("trace.accuracy")}:{" "}
