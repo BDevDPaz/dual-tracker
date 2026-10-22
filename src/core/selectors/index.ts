@@ -171,6 +171,7 @@ export function sessionSiteLabel(session: SessionRecord, sitesById: Record<strin
 }
 
 export const selectComputedSessions = (s: DualTrackerState, nowMs: number, list?: SessionRecord[]): ComputedSession[] => {
+  // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
   const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
   return (list ?? selectVisibleSessions(s)).map((session) => ({
     session,
@@ -375,6 +376,7 @@ export function selectPeriodSessionRows(s: DualTrackerState, periodStart: number
   }));
   const policyId = policyForPeriod(packs, periodStart, periodEnd, s.settings.company.overtimePolicyId);
   const split = getPayrollPolicy(policyId).segmentation === "WORKDAY";
+  // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
   const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
   const visible = selectVisibleSessions(s);
   const statement = PayrollEngineService.buildStatement({
@@ -520,6 +522,7 @@ export interface ConflictView {
 }
 
 export const selectConflictViews = (s: DualTrackerState, nowMs: number): ConflictView[] => {
+  // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
   const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
   return selectConflictSessions(s).map((session) => {
     const o = session.bookkeeping.original;
