@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["DeviceIntegrityModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.deviceintegrity.DeviceIntegrityModule"]
+  }
+}

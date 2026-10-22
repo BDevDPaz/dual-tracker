@@ -16,7 +16,9 @@ import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { SettingsService } from "../persistence/SettingsService";
+import { reviewMonitoringAnomaliesSafely } from "./anomalyEngine";
 import { ForegroundWorkService } from "./ForegroundWorkService";
+import { buildForegroundNotice } from "./monitoringSnapshot";
 import { GeofenceRuntimeService } from "./GeofenceRuntimeService";
 import { readHeartbeat } from "./heartbeat";
 import { NotificationService } from "./NotificationService";
@@ -98,10 +100,11 @@ async function recoverBody(origin: "background" | "foreground"): Promise<void> {
         );
       });
       const settings = await SettingsService.load();
+      const notice = await buildForegroundNotice(session).catch(() => null);
       let recovered = false;
       let lastError: string | null = null;
       for (let attempt = 1; attempt <= RECOVERY_ATTEMPTS; attempt++) {
-        const result = await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode);
+        const result = await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, notice ? { notice } : undefined);
         const success = result.status === "running";
         await PersistenceService.transaction(async (db) => {
           await IntegrityLedgerService.append(
@@ -147,6 +150,7 @@ async function recoverBody(origin: "background" | "foreground"): Promise<void> {
     }
   }
   await ensureGeofences(session);
+  await reviewMonitoringAnomaliesSafely(session);
 }
 
 /** Si la jornada está abierta y el FGS no corre, intenta arrancarlo (hasta 3 veces). */

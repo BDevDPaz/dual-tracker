@@ -17,17 +17,22 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Linking from "expo-linking";
 import * as Location from "expo-location";
 import { Platform } from "react-native";
-import type { OsSettingsTarget, PermissionKey, PermissionState, SessionRecordStatus, SystemHealthSnapshot } from "../../core/contracts";
+import type { OsSettingsTarget, PermissionKey, PermissionState, SessionRecord, SessionRecordStatus, SystemHealthSnapshot } from "../../core/contracts";
+import { deriveMonitoringState } from "../../core/monitoringState";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { StoreActions, Store } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
+import { SettingsService } from "../persistence/SettingsService";
+import { observeDeviceIntegrity } from "./deviceIntegrity";
 import { ForegroundWorkService } from "./ForegroundWorkService";
 import { GeofenceRuntimeService } from "./GeofenceRuntimeService";
+import { buildForegroundNotice, loadMonitoringObservation, locationTrustForSession, rootedFromSession } from "./monitoringSnapshot";
 import { NotificationService } from "./NotificationService";
 import { recordOperationalChangesSafely } from "./operationalHealthLedger";
+import { readServiceHealth } from "./serviceHealth";
 
 function toState(p: Location.LocationPermissionResponse): PermissionState {
   if (p.status === "granted") return "granted";
@@ -54,6 +59,39 @@ export function locationAccuracyOf(
 
 type RevokedHandler = () => Promise<void>;
 let onBackgroundRevoked: RevokedHandler | null = null;
+
+/** Estado derivado, latidos y confianza. No escribe la jornada. La integridad del dispositivo solo se asienta si cambia. */
+async function fillMonitoring(snapshot: SystemHealthSnapshot, open: SessionRecord | null): Promise<void> {
+  const nowMs = snapshot.checkedAtMs ?? TimeAuthorityService.now();
+  const observation = await loadMonitoringObservation(open, nowMs);
+  snapshot.monitoringState = deriveMonitoringState(observation);
+  snapshot.lastHeartbeatAt = observation.lastHeartbeatMs;
+  snapshot.serviceHealth = await readServiceHealth();
+  const integrity = await observeDeviceIntegrity(open ? { id: open.id, domainStatus: open.domainStatus } : null);
+  if (integrity) {
+    snapshot.deviceIntegrity = {
+      developerOptionsEnabled: integrity.developerOptionsEnabled,
+      emulator: integrity.emulator,
+      emulatorHits: integrity.emulatorHits,
+      rooted: integrity.rooted,
+      rootHits: integrity.rootHits,
+      isDevice: integrity.isDevice,
+      checkedAtMs: nowMs,
+    };
+  }
+  const target = open ?? (await PersistenceService.latestSession().catch(() => null));
+  if (target) {
+    const trust = await locationTrustForSession(target.id, await rootedFromSession(target.id, integrity));
+    snapshot.locationTrust = { sessionId: trust.sessionId, score: trust.score, label: trust.label };
+  } else {
+    snapshot.locationTrust = null;
+  }
+  if (open && (await ForegroundWorkService.isRunning())) {
+    const settings = await SettingsService.load();
+    const notice = await buildForegroundNotice(open).catch(() => null);
+    if (notice) await ForegroundWorkService.sync(open.domainStatus, settings.company.traceMode, { notice }).catch(() => {});
+  }
+}
 
 export const PermissionsHealthService = {
   setOnBackgroundRevoked(h: RevokedHandler | null): void {
@@ -85,8 +123,10 @@ export const PermissionsHealthService = {
     } else snapshot.batteryOptimization = "n/a";
     snapshot.geofenceDiag = await GeofenceRuntimeService.recentDiagnostics();
     let openSession: { id: number; domainStatus: SessionRecordStatus } | null = null;
+    let openRecord: SessionRecord | null = null;
     try {
       const open = await PersistenceService.getOpenSession();
+      openRecord = open;
       openSession = open ? { id: open.id, domainStatus: open.domainStatus } : null;
       snapshot.mockLocation = open ? (await PersistenceService.countMockedFacts(open.id)) > 0 : false;
     } catch {
@@ -96,6 +136,7 @@ export const PermissionsHealthService = {
     snapshot.clockDriftExceeded = TimeAuthorityService.isDriftExceeded();
     snapshot.lastSpatialFactAt = await PersistenceService.lastSpatialFactAt().catch(() => prev.lastSpatialFactAt);
     snapshot.checkedAtMs = TimeAuthorityService.now();
+    await fillMonitoring(snapshot, openRecord).catch(() => {});
 
     StoreActions.healthUpdated(snapshot);
     await recordOperationalChangesSafely(snapshot, openSession);

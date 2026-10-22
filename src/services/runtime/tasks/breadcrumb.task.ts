@@ -10,7 +10,10 @@ import { serializeError } from "../../../utils/serializeError";
 import { SiteRegistryService } from "../../domain/SiteRegistryService";
 import { observeClock } from "../../evidence/clockSample";
 import { TraceRecorderService } from "../../evidence/TraceRecorderService";
+import { reviewMonitoringAnomaliesSafely } from "../anomalyEngine";
 import { ForegroundWorkService } from "../ForegroundWorkService";
+import { buildForegroundNotice } from "../monitoringSnapshot";
+import { touchServiceHealth } from "../serviceHealth";
 import { LoggingService } from "../../persistence/LoggingService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { SettingsService } from "../../persistence/SettingsService";
@@ -22,6 +25,7 @@ export async function runBreadcrumbTask(
   heartbeat: () => Promise<void>,
 ): Promise<void> {
   if (body.error || !body.data?.locations?.length) return;
+  await touchServiceHealth("location");
   try {
     await observeClock("BREADCRUMB").catch(() => {});
     const session = await PersistenceService.getOpenSession();
@@ -44,8 +48,10 @@ export async function runBreadcrumbTask(
       mocked: l.mocked === true,
     }));
     await TraceRecorderService.ingest(session, samples, { mode: settings.company.traceMode, radiusM, battery: level });
-    // Solo reinicia el servicio si la banda de batería cambió el intervalo.
-    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, { battery: level }).catch(() => {});
+    const notice = await buildForegroundNotice(session).catch(() => null);
+    // Solo reinicia el servicio si la banda de batería o el texto de la notificación cambió.
+    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, { battery: level, ...(notice ? { notice } : {}) }).catch(() => {});
+    await reviewMonitoringAnomaliesSafely(session);
     const last = samples[samples.length - 1];
     await GeofenceRuntimeService.observeSample({
       lat: last.lat,

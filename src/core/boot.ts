@@ -37,6 +37,7 @@ import { PersistenceService } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
 import { KV_KEYS } from "../services/persistence/schema";
 import { ForegroundWorkService } from "../services/runtime/ForegroundWorkService";
+import { buildForegroundNotice } from "../services/runtime/monitoringSnapshot";
 import { GeofenceRuntimeService } from "../services/runtime/GeofenceRuntimeService";
 import { NotificationService } from "../services/runtime/NotificationService";
 import { PermissionsHealthService } from "../services/runtime/PermissionsHealthService";
@@ -55,7 +56,8 @@ async function syncRuntimeFor(session: SessionRecord, geofenceSiteId: number | n
     await ForegroundWorkService.stop();
   } else {
     if (geofenceSiteId !== null) await GeofenceRuntimeService.startMonitoring(session.id, geofenceSiteId);
-    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode);
+    const notice = await buildForegroundNotice(session).catch(() => null);
+    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, notice ? { notice } : undefined);
   }
   StoreActions.healthUpdated({
     isMonitoring: await GeofenceRuntimeService.isMonitoring(),

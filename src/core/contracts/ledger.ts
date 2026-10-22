@@ -77,7 +77,18 @@ export type LedgerIntent =
   /** Android puede restringir la app por batería. */
   | "BATTERY_OPTIMIZATION_ENABLED"
   /** La app quedó sin restricción de batería. */
-  | "BATTERY_OPTIMIZATION_DISABLED";
+  | "BATTERY_OPTIMIZATION_DISABLED"
+  /** Anomalía operacional con severidad. `data.kind` dice cuál. No cambia la jornada. */
+  | "ANOMALY"
+  /** Se perdió la señal de ubicación con la jornada abierta. No es el GPS apagado. */
+  | "GPS_LOST"
+  /** Volvió una lectura después de GPS_LOST. */
+  | "GPS_RESTORED"
+  /**
+   * Integridad del dispositivo (emulador, root, opciones de desarrollador).
+   * Solo cuando cambia. No bloquea ni baja el pago.
+   */
+  | "DEVICE_INTEGRITY";
 
 export interface LedgerEntry {
   id: number;

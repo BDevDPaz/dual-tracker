@@ -1,0 +1,11 @@
+{
+  "name": "device-integrity",
+  "version": "1.0.0",
+  "description": "Evidencia best-effort de emulador, root y opciones de desarrollador. No bloquea.",
+  "main": "index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

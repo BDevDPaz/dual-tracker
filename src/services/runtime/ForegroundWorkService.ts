@@ -23,6 +23,8 @@ import { Platform } from "react-native";
 import type { SessionRecordStatus, TraceMode } from "../../core/contracts";
 import { BREADCRUMB_TASK_NAME } from "../../constants/geolocation";
 import { t } from "../../i18n";
+import type { ForegroundNotice } from "./monitoringSnapshot";
+import { renderForegroundBody } from "./monitoringSnapshot";
 import { serializeError } from "../../utils/serializeError";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
@@ -33,6 +35,8 @@ import { PersistenceService } from "../persistence/PersistenceService";
 let currentProfileKey: string | null = null;
 /** Misma causa no se vuelve a asentar hasta que un arranque tenga éxito. */
 let lastFailureKey: string | null = null;
+/** Texto ya aplicado a la notificación. null hasta el primer arranque. */
+let appliedBody: string | null = null;
 
 export type ForegroundSyncReason = "NOT_REQUIRED" | "UNCHANGED" | "STARTED" | "BACKGROUND_DENIED" | "START_FAILED";
 
@@ -93,7 +97,7 @@ export const ForegroundWorkService = {
   async sync(
     status: SessionRecordStatus | "NO_INICIADA",
     mode: TraceMode,
-    opts?: { relabel?: boolean; battery?: number | null },
+    opts?: { relabel?: boolean; battery?: number | null; notice?: ForegroundNotice | null },
   ): Promise<ForegroundSyncResult> {
     const profile = ForegroundWorkService.shouldRun(status) ? TraceRecorderService.profileFor(status, mode, opts?.battery) : null;
     if (!profile) {
@@ -101,8 +105,9 @@ export const ForegroundWorkService = {
       return { status: "stopped", reason: "NOT_REQUIRED", errorName: null };
     }
     const key = `${Platform.OS}:${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
+    const body = opts?.notice !== undefined || opts?.relabel ? renderForegroundBody(opts?.notice ?? null) : (appliedBody ?? renderForegroundBody(null));
     const running = await ForegroundWorkService.isRunning();
-    if (running && key === currentProfileKey && !opts?.relabel) {
+    if (running && key === currentProfileKey && !opts?.relabel && body === appliedBody) {
       lastFailureKey = null;
       return { status: "running", reason: "UNCHANGED", errorName: null };
     }
@@ -132,12 +137,13 @@ export const ForegroundWorkService = {
           : {
               foregroundService: {
                 notificationTitle: t("notifications.fgsTitle"),
-                notificationBody: t("notifications.fgsBody"),
+                notificationBody: body,
                 killServiceOnDestroy: false,
               },
             }),
       });
       currentProfileKey = key;
+      appliedBody = body;
       lastFailureKey = null;
       LoggingService.log("VERDE", "SERVICIOS_ACTIVOS", "INFO", "Servicio en primer plano activo", { status, platform: Platform.OS });
       return { status: "running", reason: "STARTED", errorName: null };
@@ -151,6 +157,7 @@ export const ForegroundWorkService = {
 
   async stop(): Promise<void> {
     currentProfileKey = null;
+    appliedBody = null;
     if (await ForegroundWorkService.isRunning()) {
       await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
       LoggingService.log("NARANJA", "MONITOREO_DETENIDO", "INFO", "Servicio en primer plano detenido");
@@ -160,5 +167,6 @@ export const ForegroundWorkService = {
   __resetForTests(): void {
     currentProfileKey = null;
     lastFailureKey = null;
+    appliedBody = null;
   },
 };

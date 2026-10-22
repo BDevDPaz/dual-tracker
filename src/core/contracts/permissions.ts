@@ -2,6 +2,7 @@
  * Salud real del sistema (PermissionsHealthService, Propuesta Técnica §5.9;
  * Propuesta de Producto §5.15 lista de sensores).
  */
+import type { DeviceIntegritySnapshot, LocationTrustSnapshot, MonitoringState, ServiceHealthBeat } from "./monitoring";
 export type PermissionState = "unknown" | "granted" | "denied" | "blocked";
 
 export type PermissionKey = "locationForeground" | "locationBackground" | "notifications";
@@ -33,6 +34,16 @@ export interface SystemHealthSnapshot {
    * VALIDADA y no cambia el pago. El fichaje automático sí queda suspendido.
    */
   mockLocation: boolean;
+  /** Estado de monitoreo derivado. No es el estado de la jornada. */
+  monitoringState: MonitoringState;
+  /** Último heartbeat agregado (KV o el componente más reciente). */
+  lastHeartbeatAt: number | null;
+  /** Latidos por componente. Vacío si la tabla todavía no tiene filas. */
+  serviceHealth: ServiceHealthBeat[];
+  /** Integridad del dispositivo. null si aún no hubo una lectura concreta. */
+  deviceIntegrity: DeviceIntegritySnapshot | null;
+  /** Puntaje informativo de la jornada abierta o, si no hay, de la última. */
+  locationTrust: LocationTrustSnapshot | null;
   locationServicesEnabled: boolean | null;
   /**
    * Precisión del permiso de ubicación en Android 12+. "coarse" es solo
@@ -90,4 +101,7 @@ export type HealthSensor = keyof Pick<
   | "lastSpatialFactAt"
   | "networkTime"
   | "mockLocation"
+  | "monitoringState"
+  | "lastHeartbeatAt"
+  | "deviceIntegrity"
 >;

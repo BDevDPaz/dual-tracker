@@ -10,6 +10,7 @@ export * from "./intents";
 export * from "./sites";
 export * from "./settings";
 export * from "./permissions";
+export * from "./monitoring";
 export * from "./evidence";
 export * from "./feedback";
 export * from "./screen";

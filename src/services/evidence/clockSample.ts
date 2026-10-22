@@ -9,6 +9,7 @@ import type { SessionRecord } from "../../core/contracts";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { Store, StoreActions } from "../../core/store";
 import { SessionEngineService } from "../domain/SessionEngineService";
+import { noteClockDriftAnomaly } from "../runtime/anomalyEngine";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
@@ -162,6 +163,7 @@ async function observeClockBody(origin: ClockSampleOrigin): Promise<void> {
       samples: window.length,
       spanMs: window[window.length - 1].atMs - window[0].atMs,
     });
+    await noteClockDriftAnomaly(open.id, driftMs, open.domainStatus).catch(() => {});
     if (!goodLocation && open.integrityClass !== "CONFLICT") {
       await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: "CLOCK_DRIFT" }, "SYSTEM");
     }

@@ -56,6 +56,40 @@ export interface EvidenceSummary {
    * del periodo se cerró con sello. No entra en la nómina.
    */
   sessionSeals?: SessionSealExport[];
+  /**
+   * Confianza de la ubicación por jornada. Ausente en packs anteriores:
+   * no entra en su contentHash. Informativa: no cambia el pago.
+   */
+  locationTrust?: LocationTrustExport[];
+  /**
+   * Integridad del dispositivo al sellar. Ausente en packs anteriores.
+   * null si no hubo lectura. No entra en la nómina.
+   */
+  deviceIntegrity?: DeviceIntegrityExport | null;
+}
+
+export interface LocationTrustExport {
+  sessionId: number;
+  score: number;
+  label: "EXCELLENT" | "GOOD" | "FAIR" | "SUSPICIOUS";
+  penalties: {
+    accuracy: number;
+    mock: number;
+    root: number;
+    jumps: number;
+    stability: number;
+    gaps: number;
+  };
+}
+
+export interface DeviceIntegrityExport {
+  developerOptionsEnabled: boolean | null;
+  emulator: boolean | null;
+  emulatorHits: string[];
+  rooted: boolean | null;
+  rootHits: string[];
+  isDevice: boolean | null;
+  platform: string;
 }
 
 /** Sello de una jornada: SHA-256 de los hashes de sus asientos, en orden, sin este sello. */
