@@ -6,6 +6,7 @@ import { useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { PermissionGuidancePanel } from "../../src/components/blocks/PermissionGuidancePanel";
 import { Button, Card, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
@@ -15,6 +16,7 @@ import { t, useLanguage } from "../../src/i18n";
 import { FAQ_IDS, FLOW_IDS, INTEGRITY_IDS, MACHINE_STATE_IDS, SCREEN_IDS, TROUBLE_IDS } from "../../src/support/catalog";
 import { resetTips } from "../../src/support/tips";
 import { currentVersionLine } from "../../src/support/versionLine";
+import { troubleGuidance } from "../../src/utils/permissionGuidance";
 
 export default function SupportIndexScreen() {
   useLanguage();
@@ -24,6 +26,7 @@ export default function SupportIndexScreen() {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [openTrouble, setOpenTrouble] = useState<string | null>(null);
   const { busy, run } = useBusyAction();
+  const settings = useBusyAction();
 
   const share = () =>
     run(async () => {
@@ -68,16 +71,37 @@ export default function SupportIndexScreen() {
       </Section>
 
       <Section title={t("support.troubleTitle")}>
-        {TROUBLE_IDS.map((id) => (
-          <Card key={id} style={styles.card}>
-            <Pressable accessibilityRole="button" onPress={() => setOpenTrouble((cur) => (cur === id ? null : id))}>
-              <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`support.trouble.${id}.title`)}</Text>
-            </Pressable>
-            {openTrouble === id ? (
-              <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.trouble.${id}.body`)}</Text>
-            ) : null}
-          </Card>
-        ))}
+        {TROUBLE_IDS.map((id) => {
+          const guide = troubleGuidance(id);
+          return (
+            <Card key={id} style={styles.card}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: openTrouble === id }}
+                onPress={() => setOpenTrouble((cur) => (cur === id ? null : id))}
+                style={styles.troubleHeader}
+              >
+                <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`support.trouble.${id}.title`)}</Text>
+              </Pressable>
+              {openTrouble === id ? (
+                <View style={styles.answerBlock}>
+                  <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.trouble.${id}.body`)}</Text>
+                  {guide ? (
+                    <PermissionGuidancePanel
+                      body={t(guide.bodyKey)}
+                      steps={guide.stepKeys.map((key) => t(key))}
+                      extras={guide.extraKeys.map((key) => t(key))}
+                      actionLabel={t(guide.actionLabelKey)}
+                      accessibilityLabel={t("a11y.permissionSettings", { title: t(guide.titleKey) })}
+                      disabled={settings.busy}
+                      onAction={() => void settings.run(() => emit({ type: "OPEN_OS_SETTINGS", target: guide.target }))}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+            </Card>
+          );
+        })}
       </Section>
 
       <Section title={t("support.glossaryTitle")}>
@@ -120,8 +144,10 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
 const styles = StyleSheet.create({
   blurb: { ...FONT.body },
   card: { padding: TOKENS.spacing.md, gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
+  troubleHeader: { minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
   question: { ...FONT.bodyStrong },
   answer: { ...FONT.body },
+  answerBlock: { gap: TOKENS.spacing.sm },
   gloss: { gap: TOKENS.spacing.xxs, marginBottom: TOKENS.spacing.sm },
   link: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: TOKENS.spacing.sm },
   linkText: { ...FONT.body, flex: 1 },

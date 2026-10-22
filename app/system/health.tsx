@@ -7,9 +7,10 @@
  * Intenciones: REQUEST_PERMISSION, OPEN_OS_SETTINGS.
  */
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { HealthRow, ScreenStatusBanner } from "../../src/components/blocks";
+import * as Device from "expo-device";
+import { HealthRow, PermissionGuidancePanel, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { Button, Card, Input, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
@@ -24,6 +25,7 @@ import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTrack
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
 import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
+import { androidApiLevel, guidanceForHealthSensor, isSamsungManufacturer } from "../../src/utils/permissionGuidance";
 
 interface Row {
   sensor: HealthSensor;
@@ -179,17 +181,42 @@ export default function HealthScreen() {
           })}
         </Card>
       </Section>
-      {rows.map((r) => (
-        <HealthRow
-          key={r.sensor}
-          label={t(`health.sensors.${r.sensor}`)}
-          value={r.value}
-          ok={r.ok}
-          blocksValid={r.blocksValid}
-          busy={busy}
-          onRepair={r.repair ? () => void run(() => emit(r.repair!)) : undefined}
-        />
-      ))}
+      {rows.map((r) => {
+        const guide = guidanceForHealthSensor(r.sensor, {
+          platform: Platform.OS,
+          apiLevel: androidApiLevel(Platform.OS, Platform.Version),
+          samsung: isSamsungManufacturer(Device.brand, Device.manufacturer),
+          foreground: h.locationForeground,
+          background: h.locationBackground,
+          notifications: h.notifications,
+          battery: h.batteryOptimization,
+        });
+        const repairOpensSettings = guide != null && r.repair?.type === "OPEN_OS_SETTINGS";
+        return (
+          <HealthRow
+            key={r.sensor}
+            label={t(`health.sensors.${r.sensor}`)}
+            value={r.value}
+            ok={r.ok}
+            blocksValid={r.blocksValid}
+            busy={busy}
+            onRepair={!repairOpensSettings && r.repair ? () => void run(() => emit(r.repair!)) : undefined}
+            guidance={
+              guide ? (
+                <PermissionGuidancePanel
+                  body={t(guide.bodyKey)}
+                  steps={guide.stepKeys.map((key) => t(key))}
+                  extras={guide.extraKeys.map((key) => t(key))}
+                  actionLabel={t(guide.actionLabelKey)}
+                  accessibilityLabel={t("a11y.permissionSettings", { title: t(guide.titleKey) })}
+                  disabled={busy}
+                  onAction={() => void run(() => emit({ type: "OPEN_OS_SETTINGS", target: guide.target }))}
+                />
+              ) : undefined
+            }
+          />
+        );
+      })}
       <Section title={t("health.review.title")}>
         <Card style={styles.card}>
           {reviews.length === 0 ? (

@@ -13,29 +13,36 @@ interface Props {
   blocksValid: boolean;
   busy?: boolean;
   onRepair?: () => void;
+  /** Misma guía que el alta (segundo plano, avisos, batería). No sustituye al impacto. */
+  guidance?: React.ReactNode;
 }
 
-export function HealthRow({ label, value, ok, blocksValid, busy = false, onRepair }: Props) {
+export function HealthRow({ label, value, ok, blocksValid, busy = false, onRepair, guidance }: Props) {
   useLanguage();
   const { colors } = useTheme();
   const color = ok ? colors.status.success : colors.status.warning;
   return (
-    <View style={[styles.row, { borderColor: colors.border }]}>
-      <View style={styles.texts}>
-        <Text style={[styles.label, { color: colors.text.primary }]}>{label}</Text>
-        <Text style={[styles.value, { color }]}>{value}</Text>
-        <Text style={[styles.impact, { color: blocksValid ? colors.status.warning : colors.text.muted }]}>
-          {blocksValid ? t("health.impactBlocking") : t("health.impactWarning")}
-        </Text>
-        {!ok && blocksValid ? <Text style={[styles.impact, { color: colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
+    <View style={[styles.block, { borderColor: colors.border }]}>
+      <View style={styles.row}>
+        <View style={styles.texts}>
+          <Text style={[styles.label, { color: colors.text.primary }]}>{label}</Text>
+          <Text style={[styles.value, { color }]}>{value}</Text>
+          <Text style={[styles.impact, { color: blocksValid ? colors.status.warning : colors.text.muted }]}>
+            {blocksValid ? t("health.impactBlocking") : t("health.impactWarning")}
+          </Text>
+          {!ok && blocksValid ? <Text style={[styles.impact, { color: colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
+        </View>
+        {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" disabled={busy} onPress={onRepair} /> : null}
       </View>
-      {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" disabled={busy} onPress={onRepair} /> : null}
+      {guidance ? <View style={styles.guidance}>{guidance}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: TOKENS.spacing.md, borderBottomWidth: TOKENS.layout.hairline },
+  block: { paddingVertical: TOKENS.spacing.md, borderBottomWidth: TOKENS.layout.hairline, gap: TOKENS.spacing.sm },
+  row: { flexDirection: "row", alignItems: "center" },
+  guidance: { gap: TOKENS.spacing.sm },
   texts: { flex: 1 },
   label: { ...FONT.bodyStrong },
   value: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
