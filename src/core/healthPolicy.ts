@@ -5,6 +5,7 @@
  * hecho espacial no bloquean.
  */
 import type { HealthSensor, IntegrityReason, SystemHealthSnapshot } from "./contracts";
+import { SAMPLE_STALE_MS } from "./monitoringState";
 
 export type SensorImpact = "blocking" | "warning";
 
@@ -19,10 +20,23 @@ export const HEALTH_SENSOR_IMPACT: Record<HealthSensor, SensorImpact> = {
   lastSpatialFactAt: "warning",
   networkTime: "warning",
   mockLocation: "warning",
+  monitoringState: "warning",
+  lastHeartbeatAt: "warning",
+  deviceIntegrity: "warning",
 };
 
 export function sensorBlocksValid(sensor: HealthSensor): boolean {
   return HEALTH_SENSOR_IMPACT[sensor] === "blocking";
+}
+
+/**
+ * Verde solo si la lectura existe y tiene menos de 5 min.
+ * Sin lectura: verde cuando no se exige (no hay jornada abierta).
+ * Una lectura de hace horas no queda verde.
+ */
+export function readingLooksOk(atMs: number | null, nowMs: number, required: boolean): boolean {
+  if (atMs === null || !Number.isFinite(atMs)) return !required;
+  return nowMs - atMs < SAMPLE_STALE_MS;
 }
 
 /** Android 12+ concedió solo la ubicación aproximada. No es un permiso pleno. */

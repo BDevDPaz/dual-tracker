@@ -27,6 +27,7 @@ import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { SettingsService } from "../persistence/SettingsService";
 import { ForegroundWorkService } from "../runtime/ForegroundWorkService";
+import { buildForegroundNotice } from "../runtime/monitoringSnapshot";
 import { GeofenceRuntimeService } from "../runtime/GeofenceRuntimeService";
 import { NotificationService } from "../runtime/NotificationService";
 import { PermissionsHealthService } from "../runtime/PermissionsHealthService";
@@ -52,7 +53,8 @@ async function publishLanguage(lang: Language, settings: SettingsSnapshot): Prom
   const activeId = Store.getState().sessions.activeSessionId;
   const session = activeId !== null ? Store.getState().sessions.byId[String(activeId)] : undefined;
   if (session && ForegroundWorkService.shouldRun(session.domainStatus)) {
-    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, { relabel: true }).catch(() => {});
+    const notice = await buildForegroundNotice(session).catch(() => null);
+    await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, { relabel: true, ...(notice ? { notice } : {}) }).catch(() => {});
   }
 }
 

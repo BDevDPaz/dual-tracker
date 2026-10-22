@@ -36,6 +36,8 @@ import { chainHash, sha256Hex } from "./HashChain";
 import { sessionSealFailure, sessionSealsFromExport } from "./sessionSeal";
 import { powerOffSentence } from "./reportPremium";
 import { MICROCOPY_REJECTIONS } from "../../i18n/microcopy";
+import { loadDeviceIntegrity } from "../runtime/deviceIntegrity";
+import { locationTrustForSession, rootedFromSession } from "../runtime/monitoringSnapshot";
 import { fingerprintFromB64url, fingerprintsMatch } from "../runtime/keyFingerprint";
 import { canSignPacks, readPinnedPackSigningKey, signCanonicalBody, verifyCanonicalBody } from "./packSignature";
 import { ReportService } from "./ReportService";
@@ -160,6 +162,8 @@ export function contentOf(statement: PayrollStatement, evidence: EvidenceSummary
   // Ausente en packs anteriores: no entra en su contentHash.
   if ("transitSegments" in evidence) body.transitSegments = evidence.transitSegments ?? [];
   if ("sessionSeals" in evidence) body.sessionSeals = evidence.sessionSeals ?? [];
+  if ("locationTrust" in evidence) body.locationTrust = evidence.locationTrust ?? [];
+  if ("deviceIntegrity" in evidence) body.deviceIntegrity = evidence.deviceIntegrity ?? null;
   return normalizeContent({
     statement: { ...statementForHash(statement), packHash: null },
     evidence: body,
@@ -279,6 +283,23 @@ async function assemblePeriod(input: { periodStart: number; periodEnd: number })
   const evidence = await IntegrityLedgerService.summarize(included, input.periodStart, input.periodEnd, traces);
   evidence.transitSegments = included.flatMap((s) => exportSessionTransits(s, settings.company));
   evidence.sessionSeals = sessionSealsFromExport(evidence.ledgerHashes, new Set(statement.sessionIds));
+  const device = await loadDeviceIntegrity();
+  evidence.deviceIntegrity = device
+    ? {
+        developerOptionsEnabled: device.developerOptionsEnabled,
+        emulator: device.emulator,
+        emulatorHits: device.emulatorHits,
+        rooted: device.rooted,
+        rootHits: device.rootHits,
+        isDevice: device.isDevice,
+        platform: device.platform,
+      }
+    : null;
+  evidence.locationTrust = [];
+  for (const session of included) {
+    const trust = await locationTrustForSession(session.id, await rootedFromSession(session.id, device));
+    evidence.locationTrust.push({ sessionId: trust.sessionId, score: trust.score, label: trust.label, penalties: trust.penalties });
+  }
   const contentHash = await computeContentHash(statement, evidence);
   return { ok: true, statement, evidence, contentHash, included };
 }

@@ -520,6 +520,29 @@ function transitAnnex(input: ReportInput, lang: Language): string {
     </section>`;
 }
 
+function trustBlock(input: ReportInput, lang: Language): string {
+  const rows = input.evidence.locationTrust ?? [];
+  if (!rows.length) return "";
+  const body = rows
+    .map(
+      (row) =>
+        `<tr data-location-trust="${row.sessionId}"><td class="fig">#${row.sessionId}</td><td class="fig">${row.score}</td><td>${escapeHtml(t(`health.trust.labels.${row.label}`, {}, lang))}</td></tr>`,
+    )
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.trustTitle", {}, lang))}</div><p class="muted">${escapeHtml(t("comprobante.trustHint", {}, lang))}</p><table data-location-trust="1"><tbody>${body}</tbody></table>`;
+}
+
+function deviceBlock(input: ReportInput, lang: Language): string {
+  const device = input.evidence.deviceIntegrity;
+  if (!device) return "";
+  const bits: string[] = [];
+  if (device.rooted) bits.push(t("comprobante.deviceRoot", { hits: device.rootHits.join(", ") || "—" }, lang));
+  if (device.emulator) bits.push(t("comprobante.deviceEmulator", { hits: device.emulatorHits.join(", ") || "—" }, lang));
+  if (device.developerOptionsEnabled) bits.push(t("comprobante.deviceDeveloper", {}, lang));
+  const text = bits.length ? bits.join(" · ") : t("comprobante.deviceClear", {}, lang);
+  return `<div class="seal-warning" data-device-integrity="1">${escapeHtml(t("comprobante.deviceTitle", {}, lang))}: ${escapeHtml(text)}</div>`;
+}
+
 function forensicBlock(input: ReportInput, lang: Language): string {
   const seals = input.evidence.sessionSeals ?? [];
   if (!seals.length) return "";
@@ -583,6 +606,8 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${metricsBlock(input, lang)}
       ${rows.html}
       ${forensicBlock(input, lang)}
+      ${trustBlock(input, lang)}
+      ${deviceBlock(input, lang)}
       ${powerOffBlock(input, lang)}
       ${employer}
       ${policyBlock(input, lang)}

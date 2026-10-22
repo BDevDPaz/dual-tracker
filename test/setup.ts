@@ -18,6 +18,7 @@ jest.mock("expo-print", () => require("./mocks/expo-print"));
 jest.mock("expo-secure-store", () => require("./mocks/expo-secure-store"));
 // Bordes nativos adicionales usados por servicios de runtime/evidencia.
 jest.mock("expo-battery", () => require("./mocks/expo-battery"));
+jest.mock("expo-device", () => require("./mocks/expo-device"));
 jest.mock("expo-background-task", () => require("./mocks/expo-background-task"));
 jest.mock("expo-sharing", () => require("./mocks/expo-sharing"));
 jest.mock("expo-mail-composer", () => require("./mocks/expo-mail-composer"));
@@ -47,6 +48,7 @@ const RESETTABLE = [
   "expo-print",
   "expo-secure-store",
   "expo-battery",
+  "expo-device",
   "expo-background-task",
   "expo-sharing",
   "expo-mail-composer",
@@ -60,6 +62,7 @@ beforeEach(async () => {
   GeofenceRuntimeService.__resetForTests();
   ForegroundWorkService.__resetForTests();
   __resetMonitoringRecoveryForTests();
+  (require("../src/services/runtime/deviceIntegrity") as typeof import("../src/services/runtime/deviceIntegrity")).__setDeviceProbeForTests(null);
   Store.reset();
   FieldCryptoService.__resetForTests();
   (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();

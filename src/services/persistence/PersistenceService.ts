@@ -749,6 +749,28 @@ export const PersistenceService = {
     return Number(r?.n ?? 0);
   },
 
+  async latestSession(): Promise<SessionRecord | null> {
+    const d = await ensureReady();
+    const row = await d.getFirstAsync<DbSessionRow>(`SELECT * FROM sessions WHERE is_deleted = 0 ORDER BY id DESC LIMIT 1`);
+    return row ? rowToSession(row) : null;
+  },
+
+  async upsertServiceHealth(component: string, atMs: number): Promise<void> {
+    const d = await ensureReady();
+    await d.runAsync(
+      `INSERT OR REPLACE INTO service_health (component, last_heartbeat_ms, updated_at_ms) VALUES (?, ?, ?)`,
+      [component, atMs, atMs],
+    );
+  },
+
+  async listServiceHealth(): Promise<{ component: string; lastHeartbeatMs: number }[]> {
+    const d = await ensureReady();
+    const rows = await d.getAllAsync<{ component: string; last_heartbeat_ms: number }>(
+      `SELECT component, last_heartbeat_ms FROM service_health`,
+    );
+    return rows.map((row) => ({ component: String(row.component), lastHeartbeatMs: Number(row.last_heartbeat_ms) }));
+  },
+
   async lastSpatialFactAt(): Promise<number | null> {
     const d = await ensureReady();
     const r = await d.getFirstAsync<{ t: unknown }>(`SELECT MAX(timestamp_ms) AS t FROM spatial_facts`);

@@ -37,6 +37,7 @@ import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
 import { GEOFENCE_ENTER_AFTER_EXIT_MS, GEOFENCE_ENTER_COALESCE_MS } from "../../constants/geolocation";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
+import { noteSpatialAnomaly } from "../runtime/anomalyEngine";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 import { FeedbackService } from "../application/FeedbackService";
@@ -437,6 +438,9 @@ export const SessionEngineService = {
       if (s) StoreActions.sessionUpserted(s);
     }
     StoreActions.healthUpdated({ lastSpatialFactAt: fact.timestampMs });
+    if (fact.reason === "MOCK_LOCATION" || fact.reason === "LOCATION_JUMP_DETECTED" || fact.reason === "IMPOSSIBLE_SPEED") {
+      await noteSpatialAnomaly(fact).catch(() => {});
+    }
     if (fact.type !== "BREADCRUMB") {
       await PersistenceService.transaction(async (db) => {
         await IntegrityLedgerService.append(

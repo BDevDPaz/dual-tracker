@@ -17,8 +17,9 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { PIN_MIN_LENGTH } from "../../src/constants/security";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
-import type { HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
-import { foregroundLocationHealth, sensorBlocksValid } from "../../src/core/healthPolicy";
+import type { DeviceIntegritySnapshot, HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
+import { foregroundLocationHealth, readingLooksOk, sensorBlocksValid } from "../../src/core/healthPolicy";
+import { SERVICE_COMPONENTS } from "../../src/core/contracts";
 import { useAutoRefresh, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
@@ -30,6 +31,15 @@ interface Row {
   ok: boolean;
   blocksValid: boolean;
   repair?: ViewIntent;
+}
+
+function deviceValue(device: DeviceIntegritySnapshot | null): string {
+  if (!device || device.checkedAtMs === null) return t("health.device.unavailable");
+  const parts: string[] = [];
+  if (device.rooted) parts.push(t("health.device.rooted"));
+  if (device.emulator) parts.push(t("health.device.emulator"));
+  if (device.developerOptionsEnabled) parts.push(t("health.device.developer"));
+  return parts.length ? parts.join(" · ") : t("health.device.clear");
 }
 
 export default function HealthScreen() {
@@ -89,7 +99,20 @@ export default function HealthScreen() {
     { sensor: "clockDriftMs", value: `${Math.round(h.clockDriftMs / 1000)} s`, ok: !h.clockDriftExceeded, blocksValid: sensorBlocksValid("clockDriftMs") },
     { sensor: "isMonitoring", value: h.isMonitoring ? t("health.ok") : "—", ok: h.isMonitoring || !hasOpenSession, blocksValid: sensorBlocksValid("isMonitoring") },
     { sensor: "mockLocation", value: h.mockLocation ? t("health.mockDetected") : t("health.mockClear"), ok: !h.mockLocation, blocksValid: sensorBlocksValid("mockLocation") },
-    { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: true, blocksValid: sensorBlocksValid("lastSpatialFactAt") },
+    {
+      sensor: "monitoringState",
+      value: t(`health.monitoring.${h.monitoringState}`),
+      ok: h.monitoringState === "IDLE" || h.monitoringState === "MONITORING" || h.monitoringState === "STARTING",
+      blocksValid: sensorBlocksValid("monitoringState"),
+    },
+    { sensor: "lastSpatialFactAt", value: formatDateTime(h.lastSpatialFactAt), ok: readingLooksOk(h.lastSpatialFactAt, nowMs, hasOpenSession), blocksValid: sensorBlocksValid("lastSpatialFactAt") },
+    { sensor: "lastHeartbeatAt", value: formatDateTime(h.lastHeartbeatAt), ok: readingLooksOk(h.lastHeartbeatAt, nowMs, hasOpenSession), blocksValid: sensorBlocksValid("lastHeartbeatAt") },
+    {
+      sensor: "deviceIntegrity",
+      value: deviceValue(h.deviceIntegrity),
+      ok: !h.deviceIntegrity?.rooted && !h.deviceIntegrity?.emulator && !h.deviceIntegrity?.developerOptionsEnabled,
+      blocksValid: sensorBlocksValid("deviceIntegrity"),
+    },
     { sensor: "networkTime", value: t(`health.network.${h.networkTime}`), ok: h.networkTime !== "offline", blocksValid: sensorBlocksValid("networkTime") },
   ];
 
@@ -109,6 +132,32 @@ export default function HealthScreen() {
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}
       </Text>
       {foreground.approximate ? <ScreenStatusBanner status="degraded" message={t("health.approximateWarning")} /> : null}
+      <Section title={t("health.trust.title")}>
+        <Card style={styles.card}>
+          {h.locationTrust ? (
+            <>
+              <Text style={[styles.label, { color: colors.text.primary }]}>
+                {t("health.trust.score", { score: h.locationTrust.score, label: t(`health.trust.labels.${h.locationTrust.label}`) })}
+              </Text>
+              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("health.trust.hint")}</Text>
+            </>
+          ) : (
+            <Text style={[styles.hint, { color: colors.text.muted }]}>{t("health.trust.empty")}</Text>
+          )}
+        </Card>
+      </Section>
+      <Section title={t("health.components.title")}>
+        <Card style={styles.card}>
+          {SERVICE_COMPONENTS.map((component) => {
+            const beat = h.serviceHealth.find((row) => row.component === component);
+            return (
+              <Text key={component} style={[styles.hint, { color: colors.text.secondary }]}>
+                {t(`health.components.${component}`)} · {beat ? formatDateTime(beat.lastHeartbeatMs) : t("health.components.never")}
+              </Text>
+            );
+          })}
+        </Card>
+      </Section>
       {rows.map((r) => (
         <HealthRow
           key={r.sensor}

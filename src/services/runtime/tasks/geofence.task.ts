@@ -11,6 +11,7 @@ import { LoggingService } from "../../persistence/LoggingService";
 import { appendGeofenceDiag } from "../geofenceDiag";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
 import { touchHeartbeat } from "../heartbeat";
+import { touchServiceHealth } from "../serviceHealth";
 import { reviewAbandonedSession } from "../orphanSession";
 
 interface GeofenceTaskData {
@@ -33,6 +34,7 @@ export async function runGeofenceTask(body: TaskManagerTaskBody<GeofenceTaskData
     await observeClock("GEOFENCE").catch(() => {});
     await reviewAbandonedSession().catch(() => {});
     await touchHeartbeat();
+    await touchServiceHealth("geofence");
     await GeofenceRuntimeService.handleGeofenceEvent(data.eventType, data.region);
   } catch (error) {
     LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "fallo en tarea de geocerca", serializeError(error));

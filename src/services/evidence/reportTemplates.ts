@@ -294,6 +294,26 @@ function sealWarningBlock(input: ReportInput): string {
   return `<div class="seal-warning">${escapeHtml(SEAL_WARNING_TEXT)}<div style="font-size:9px;margin-top:4px;">Jornadas: ${escapeHtml(ids)}</div></div>`;
 }
 
+function trustBlock(evidence: { locationTrust?: { sessionId: number; score: number; label: string }[] }): string {
+  const rows = evidence.locationTrust ?? [];
+  if (!rows.length) return "";
+  const body = rows
+    .map((row) => `<div class="log-item" data-location-trust="${row.sessionId}">#${row.sessionId}: ${row.score}/100 · ${escapeHtml(t(`health.trust.labels.${row.label}`))}</div>`)
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.trustTitle"))}</div><p>${escapeHtml(t("comprobante.trustHint"))}</p>${body}`;
+}
+
+function deviceBlock(evidence: { deviceIntegrity?: { rooted: boolean | null; emulator: boolean | null; developerOptionsEnabled: boolean | null; rootHits: string[]; emulatorHits: string[] } | null }): string {
+  const device = evidence.deviceIntegrity;
+  if (!device) return "";
+  const bits: string[] = [];
+  if (device.rooted) bits.push(t("comprobante.deviceRoot", { hits: device.rootHits.join(", ") || "—" }));
+  if (device.emulator) bits.push(t("comprobante.deviceEmulator", { hits: device.emulatorHits.join(", ") || "—" }));
+  if (device.developerOptionsEnabled) bits.push(t("comprobante.deviceDeveloper"));
+  const text = bits.length ? bits.join(" · ") : t("comprobante.deviceClear");
+  return `<div class="seal-warning" data-device-integrity="1">${escapeHtml(t("comprobante.deviceTitle"))}: ${escapeHtml(text)}</div>`;
+}
+
 /** Id forense de cada jornada sellada. Sin sellos, el HTML no cambia. */
 function forensicBlock(evidence: { sessionSeals?: { sessionId: number; sessionHash: string }[] }): string {
   const seals = evidence.sessionSeals ?? [];
@@ -321,6 +341,8 @@ export function renderEmployeeReceipt(input: ReportInput): string {
     ${sealWarningBlock(input)}
     ${mockLocationBlock(input.evidence.traces)}
     ${forensicBlock(input.evidence)}
+    ${trustBlock(input.evidence)}
+    ${deviceBlock(input.evidence)}
     ${stats(input.statement)}
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${rows.html}</tbody></table>
     ${omittedNote(rows.omitted)}
@@ -348,6 +370,8 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${sealWarningBlock(input)}
     ${mockLocationBlock(input.evidence.traces)}
     ${forensicBlock(input.evidence)}
+    ${trustBlock(input.evidence)}
+    ${deviceBlock(input.evidence)}
     ${stats(input.statement)}
     <div class="section-title">Sesiones</div>
     <table><thead><tr><th>Fecha</th><th>Sitio</th><th>Horario</th><th>Hrs</th><th>Importe</th><th>Integridad</th></tr></thead><tbody>${sessionRows(input, false).html}</tbody></table>

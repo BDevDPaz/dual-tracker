@@ -28,6 +28,7 @@ import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { readHeartbeat, touchHeartbeat } from "./heartbeat";
+import { touchServiceHealth } from "./serviceHealth";
 import { recoverMonitoring } from "./monitoringRecovery";
 import { NotificationService } from "./NotificationService";
 import type { ExitDecisionDeadline } from "./tasks";
@@ -124,6 +125,7 @@ export const TaskOrchestratorService = {
       // fallos (enfriamiento) y vuelve a registrar la geocerca si falta.
       await recoverMonitoring("background");
       await TaskOrchestratorService.heartbeat();
+      await touchServiceHealth("worker");
       await runIntegritySweep().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "INTEGRITY_SWEEP", serializeError(e)));
       await runPayrollExport().catch((e) => LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "PAYROLL_EXPORT", serializeError(e)));
     });

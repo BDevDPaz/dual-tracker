@@ -12,11 +12,13 @@ import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
 import { recoverMonitoring } from "../monitoringRecovery";
+import { touchServiceHealth } from "../serviceHealth";
 import { reviewAbandonedSession } from "../orphanSession";
 
 export async function runSessionWatchdog(): Promise<void> {
   const session = await PersistenceService.getOpenSession();
   if (!session) return;
+  await touchServiceHealth("watchdog");
   // Antes del cierre de 12 h y del hueco de huérfana: el último asiento de
   // esas pruebas sigue siendo el del motor, y el hueco se mide con el
   // heartbeat todavía sin renovar.

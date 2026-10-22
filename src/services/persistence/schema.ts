@@ -16,7 +16,8 @@ export const DB_NAME = "dual_tracker_v1.db";
 // v2: reparación de date_string; v3: FieldCrypto v1.3 (DDL sin clave + paso de datos con clave, §7).
 // v4: claves foráneas (reconstrucción de tablas) y recorded_timezone.
 // v5: spatial_facts.mocked (ubicación simulada). Columna NULL: las filas viejas siguen.
-export const SCHEMA_VERSION = 5;
+// v6: service_health (último latido por componente). Tabla nueva: no toca filas viejas.
+export const SCHEMA_VERSION = 6;
 
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
@@ -207,6 +208,12 @@ export const CREATE_TABLES_SQL = `
     orphan_reason TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS service_health (
+    component TEXT PRIMARY KEY NOT NULL,
+    last_heartbeat_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS offline_queue_orphans (
     id INTEGER PRIMARY KEY,
     pack_id TEXT NOT NULL,
@@ -242,6 +249,10 @@ export const KV_KEYS = {
   CLOCK_PROBE: "runtime.clock_probe",
   /** Último estado operacional ya asentado (permisos, GPS, batería). Solo cambia al cambiar. */
   OPS_HEALTH: "runtime.ops_health",
+  /** Anomalías ya asentadas, para no repetir la misma condición. */
+  ANOMALY_LATCH: "runtime.anomaly_latch",
+  /** Última integridad de dispositivo ya asentada (huella del resultado). */
+  DEVICE_INTEGRITY: "runtime.device_integrity",
   LAST_PACK_WEEK: "runtime.last_payroll_export_week",
   MUTEX_PREFIX: "mutex.",
   /** Migración única de pausas antiguas desde el ledger (spec v1.3 §5.3). */
