@@ -135,9 +135,9 @@ export const Button = React.memo(function Button({
         };
       case "secondary":
         return {
-          backgroundColor: "transparent",
+          backgroundColor: colors.input,
           textColor: colors.text.primary,
-          borderColor: colors.border,
+          borderColor: colors.divider,
         };
       case "danger":
         return {

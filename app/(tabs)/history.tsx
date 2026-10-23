@@ -28,7 +28,7 @@ import {
   type ComputedSession,
   type PeriodSessionRow,
 } from "../../src/core/selectors";
-import { t } from "../../src/i18n";
+import { t, useLanguage } from "../../src/i18n";
 import { formatRange, formatUiDecimal, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
 
 type Filter = "ALL" | "WEEK" | "MANUAL" | "AUTO" | "CONFLICT";
@@ -37,6 +37,7 @@ const FILTERS: Filter[] = ["ALL", "WEEK", "MANUAL", "AUTO", "CONFLICT"];
 export default function HistoryScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const lang = useLanguage();
   const [vmac, setVmac] = useState(false);
   const { state } = useWorkTracker();
   const nowMs = useClock(60_000);
@@ -62,7 +63,6 @@ export default function HistoryScreen() {
     return map;
   }, [state, nowMs]);
   const hoursFor = (minutes: number) => `${formatHundredths(minutesToHundredths(minutes))} ${t("common.hours")}`;
-  const hoursById = new Map(weekRows.map((r) => [r.session.id, hoursFor(r.netMinutes ?? 0)]));
   const weekHours = formatHundredths(minutesToHundredths(weekRows.reduce((a, r) => a + (r.netMinutes ?? 0), 0)));
   const weekGrossCents = weekRows.reduce((a, r) => a + (r.grossCents ?? 0), 0);
   const counts = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
@@ -72,17 +72,21 @@ export default function HistoryScreen() {
 
   // Interpretación: "Todo" = historial completo; el resto se acota a la semana seleccionada.
   type HistoryRow = { key: string; item: ComputedSession; slice?: PeriodSessionRow; hoursText?: string };
-  const items: HistoryRow[] =
-    filter === "ALL"
-      ? selectComputedSessions(state, nowMs, selectVisibleSessions(state)).map((item) => ({
-          key: String(item.session.id),
-          item,
-        }))
-      : (filter === "WEEK" ? weekRows : weekRows.filter((c) => c.session.integrityClass === filter)).flatMap((slice) => {
-          const item = computedById.get(slice.session.id);
-          if (!item) return [];
-          return [{ key: String(slice.session.id), item, slice, hoursText: hoursById.get(slice.session.id) }];
-        });
+  const items = useMemo((): HistoryRow[] => {
+    const hoursById = new Map(weekRows.map((r) => [r.session.id, hoursFor(r.netMinutes ?? 0)]));
+    if (filter === "ALL") {
+      return selectComputedSessions(state, nowMs, selectVisibleSessions(state)).map((item) => ({
+        key: String(item.session.id),
+        item,
+      }));
+    }
+    const pool = filter === "WEEK" ? weekRows : weekRows.filter((c) => c.session.integrityClass === filter);
+    return pool.flatMap((slice) => {
+      const item = computedById.get(slice.session.id);
+      if (!item) return [];
+      return [{ key: String(slice.session.id), item, slice, hoursText: hoursById.get(slice.session.id) }];
+    });
+  }, [filter, state, nowMs, weekRows, computedById, lang]);
 
   return (
     <ScreenContainer edges={SAFE_EDGES.tab}>
@@ -166,6 +170,7 @@ export default function HistoryScreen() {
             <Chip key={f} label={t(`history.filters.${f}`)} selected={filter === f} onPress={() => setFilter(f)} />
           ))}
         </ScrollView>
+        {filter === "ALL" ? <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("history.allHint")}</Text> : null}
       </View>
 
       <FlatList
@@ -190,7 +195,8 @@ const styles = StyleSheet.create({
   weekText: { ...FONT.bodyStrong, flex: 1, textAlign: "center" },
   rollup: { padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
-  filters: { gap: TOKENS.spacing.sm, paddingBottom: TOKENS.spacing.md },
+  filters: { gap: TOKENS.spacing.sm, paddingBottom: TOKENS.spacing.sm },
+  hint: { ...FONT.caption, marginBottom: TOKENS.spacing.md },
   vmac: { minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
   vmacText: { ...FONT.label },
   listFlex: { flex: 1 },

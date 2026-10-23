@@ -1,7 +1,7 @@
 /**
- * THEME TOKENS — Obsidian premium.
- * Fondo #050505–#0A0A0A, tarjetas #121212–#161616, oro #C5A059 solo en
- * acciones primarias, selección y dinero. Montserrat 400/500/600.
+ * THEME TOKENS — W Tracker «Control diario», sobre el cristal oscuro.
+ * Fondo #0A0A0C, tarjetas #121214, campos y secundarios #1A1A1C,
+ * divisores #33343A, oro #D4AF37. Montserrat 400/500/600.
  */
 
 import { Platform } from "react-native";
@@ -12,18 +12,19 @@ export type ThemePreference = "system" | "dark" | "light";
 
 /** Paleta oscura (por defecto, userInterfaceStyle "dark"). */
 export const PALETTE_DARK = {
-  obsidian: "#050505", // Fondo
-  graphite: "#121212", // Tarjetas
-  carbonMist: "#161616", // Tarjetas elevadas
-  steelLine: "#1F1F1F", // Borde 1 px
+  obsidian: "#0A0A0C", // Fondo
+  graphite: "#121214", // Tarjetas
+  carbonMist: "#1A1A1C", // Campos y botón secundario
+  steelLine: "#1F1F22", // Borde 1 px
+  divider: "#33343A",
   textPrimary: "#FFFFFF",
-  textSecondary: "#A0A0A0", // Metadatos
-  textMuted: "#8A8A8A",
-  mutedGold: "#C5A059", // Solo acción primaria, selección y dinero
-  successGreen: "#146C43", // Esmeralda oscura
-  amberWarning: "#C4841D", // Ámbar contenido
-  deepRed: "#8E2424",
-  slateBlue: "#7D8C96",
+  textSecondary: "#9A9AA0",
+  textMuted: "#6B6B72",
+  mutedGold: "#D4AF37", // Acción primaria, selección y dinero
+  successGreen: "#27AE60",
+  amberWarning: "#F2994A",
+  deepRed: "#EB5757",
+  slateBlue: "#2F80ED",
 };
 
 /**
@@ -35,10 +36,11 @@ export const PALETTE_CONTRAST: typeof PALETTE_DARK = {
   graphite: "#0A0A0A",
   carbonMist: "#121212",
   steelLine: "#FFFFFF",
+  divider: "#FFFFFF",
   textPrimary: "#FFFFFF",
   textSecondary: "#F2F2F2",
   textMuted: "#D0D0D0",
-  mutedGold: "#C5A059",
+  mutedGold: "#D4AF37",
   successGreen: "#3DDC97",
   amberWarning: "#FFC14D",
   deepRed: "#FF6B6B",
@@ -51,6 +53,7 @@ export const PALETTE_LIGHT: typeof PALETTE_DARK = {
   graphite: "#ECE7DC",
   carbonMist: "#FBF9F4",
   steelLine: "#D6CFC1",
+  divider: "#C8C0B2",
   textPrimary: "#1A1714", // ink
   textSecondary: "#5A534A",
   textMuted: "#8A8378",
@@ -103,12 +106,15 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
     onDanger: "#FFFFFF",
     onSuccess: "#FFFFFF",
     /** Anillo de foco de Input: primario al 40 %. */
+    /** Campos y botón secundario (#1A1A1C en oscuro). */
+    input: p.carbonMist,
+    divider: p.divider,
     focusRing: withAlpha(p.mutedGold, 0.4),
-    overlay: scheme === "dark" ? "rgba(0, 0, 0, 0.6)" : "rgba(26, 23, 20, 0.35)",
-    /** Cristal (hero y modales): relleno blanco 12 % + filo neutro 1 px. El oro no decora. */
+    overlay: scheme === "dark" ? "rgba(0, 0, 0, 0.65)" : "rgba(26, 23, 20, 0.35)",
+    /** Cristal (hero y modales): la tarjeta sólida se lee debajo del desenfoque. */
     glass: {
-      fill: scheme === "dark" ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.55)",
-      hairline: scheme === "dark" ? "rgba(255, 255, 255, 0.16)" : "rgba(26, 23, 20, 0.16)",
+      fill: scheme === "dark" ? "rgba(18, 18, 20, 0.92)" : "rgba(255, 255, 255, 0.72)",
+      hairline: p.steelLine,
       blurTint: scheme === "dark" ? ("dark" as const) : ("light" as const),
     },
     /** "Papel" de la vista previa del reporte (igual en ambos esquemas: es un documento). */
@@ -207,8 +213,9 @@ export const TOKENS = {
     sm: 8,
     /** Banner. */
     md: 12,
-    /** Botón. */
-    button: 14,
+    /** Botón (10) y pastilla de estado (6). */
+    button: 10,
+    badge: 6,
     /** Tarjeta. */
     lg: 16,
     xl: 24,
@@ -330,6 +337,14 @@ export const FONT = {
   h2: { fontSize: 26, lineHeight: 38, letterSpacing: -0.3, ...font("600") },
   h3: { fontSize: 18, lineHeight: 26, ...font("600") },
   display: { fontSize: 28, lineHeight: 42, letterSpacing: -0.4, ...font("600") },
+  /** Cronómetro del hero (40, tabular). */
+  timer: { fontSize: 40, lineHeight: 48, ...font("600"), fontVariant: TABULAR_NUMS },
+  /** Título de tarjeta 15/600. */
+  cardTitle: { fontSize: 15, lineHeight: 22, ...font("600") },
+  /** Subtítulo de tarjeta en mayúsculas. */
+  kicker: { fontSize: 10, lineHeight: 14, letterSpacing: 1.5, ...font("600") },
+  /** Texto de badge 10/600. */
+  badge: { fontSize: 10, lineHeight: 14, letterSpacing: 1, ...font("600") },
   /** Cifras grandes (22–28) de tiempo y dinero. */
   metric: { fontSize: 28, lineHeight: 40, ...font("600"), fontVariant: TABULAR_NUMS },
   metricCompact: { fontSize: 22, lineHeight: 32, ...font("600"), fontVariant: TABULAR_NUMS },

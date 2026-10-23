@@ -41,6 +41,10 @@ interface OperationalHeroCardProps {
   inset?: boolean;
   /** La acción primaria vive en el pie fijo de la pantalla. */
   pinPrimary?: boolean;
+  /** Antes de la llegada no se muestra el estimado. */
+  showEarnings?: boolean;
+  /** Contador compacto (p. ej. visitas de hoy). */
+  counter?: string | null;
 }
 
 export const OperationalHeroCard = React.memo(function OperationalHeroCard({
@@ -56,6 +60,8 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   onDestinationPress,
   inset = false,
   pinPrimary = false,
+  showEarnings = true,
+  counter = null,
 }: OperationalHeroCardProps) {
   const { colors } = useTheme();
   const language = useLanguage();
@@ -74,24 +80,29 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
         <GlassLayers enabled={glass} />
         <View style={styles.headerRow}>
           <StatusPill tone={ui.tone} label={t(ui.labelKey)} symbol={ui.state === "ACTIVA" ? "arrival" : undefined} />
-          {onDestinationPress ? (
-            <Pressable
-              onPress={onDestinationPress}
-              accessibilityRole="link"
-              accessibilityLabel={destination ?? t("today.noDestination")}
-              accessibilityHint={t("a11y.destinationHint")}
-              style={styles.destinationHit}
-            >
-              <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={2}>
-                {destination ?? t("today.noDestination")}
-              </Text>
-            </Pressable>
-          ) : (
-            <Text style={[styles.destinationText, styles.destinationPlain, { color: colors.text.primary }]} numberOfLines={2}>
+          {counter ? (
+            <Text style={[styles.counter, { color: colors.text.secondary }]} accessibilityLabel={counter}>
+              {counter}
+            </Text>
+          ) : null}
+        </View>
+        {onDestinationPress ? (
+          <Pressable
+            onPress={onDestinationPress}
+            accessibilityRole="link"
+            accessibilityLabel={destination ?? t("today.noDestination")}
+            accessibilityHint={t("a11y.destinationHint")}
+            style={styles.destinationHit}
+          >
+            <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={2}>
               {destination ?? t("today.noDestination")}
             </Text>
-          )}
-        </View>
+          </Pressable>
+        ) : (
+          <Text style={[styles.destinationText, { color: colors.text.primary }]} numberOfLines={2}>
+            {destination ?? t("today.noDestination")}
+          </Text>
+        )}
 
         <Text style={[styles.subText, { color: colors.text.secondary }]}>{t(ui.subKey)}</Text>
         {uncertified ? <StatusPill tone="warning" label={t("today.uncertified")} /> : null}
@@ -99,9 +110,9 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
         {ui.showTimer ? (
           <View style={[styles.metricsRow, narrow && styles.metricsStack]}>
             <View style={styles.metricBlock}>
-              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.netHours").toUpperCase()}</Text>
+              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.elapsed").toUpperCase()}</Text>
               <Text
-                style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]}
+                style={[styles.timerValue, narrow && styles.metricBigValueNarrow, { color: colors.text.primary }]}
                 testID="hero-timer"
                 accessibilityRole="timer"
                 accessibilityLabel={spokenDuration(timeString, language)}
@@ -112,17 +123,20 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
                 {timeString}
               </Text>
             </View>
+            {showEarnings ? (
             <View style={[styles.metricBlockRight, narrow && styles.metricBlock]}>
-              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.estimate").toUpperCase()}</Text>
+              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.gross").toUpperCase()}</Text>
               <Text
-                style={[styles.metricBigValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}
+                style={[styles.timerValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
+                testID="hero-earnings"
               >
                 {earnings}
               </Text>
             </View>
+            ) : null}
           </View>
         ) : nextAction ? (
           <View style={styles.nextRow} testID="hero-next-action">
@@ -164,16 +178,16 @@ const styles = StyleSheet.create({
     borderWidth: TOKENS.layout.hairline,
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
-  destinationHit: { flex: 1, marginLeft: TOKENS.spacing.md, minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
-  destinationPlain: { marginLeft: TOKENS.spacing.md },
-  destinationText: { ...FONT.bodyStrong, flex: 1, textAlign: "right" },
+  destinationHit: { minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center", marginBottom: TOKENS.spacing.xs },
+  destinationText: { ...FONT.cardTitle },
+  counter: { ...FONT.caption, marginLeft: "auto" },
   subText: { ...FONT.caption, marginBottom: TOKENS.spacing.md },
   metricsRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: TOKENS.spacing.lg, gap: TOKENS.spacing.md },
   metricsStack: { flexDirection: "column", alignItems: "flex-start" },
   metricBlock: { flex: 1 },
   metricBlockRight: { flex: 1, alignItems: "flex-end" },
   metricLabel: { ...FONT.label, marginBottom: TOKENS.spacing.xs },
-  metricBigValue: { ...FONT.metric },
+  timerValue: { ...FONT.timer },
   metricBigValueNarrow: { ...FONT.metricCompact },
   spacer: { height: TOKENS.spacing.lg },
   nextRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, marginVertical: TOKENS.spacing.md },

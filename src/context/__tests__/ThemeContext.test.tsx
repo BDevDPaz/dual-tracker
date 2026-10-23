@@ -48,13 +48,17 @@ describe("ThemeContext", () => {
     expect(theme.highContrast).toBe(true);
     expect(theme.scheme).toBe("dark");
     expect(theme.colors.background).toBe(CONTRAST_COLORS.background);
-    expect(theme.colors.primary).toBe("#C5A059");
+    expect(theme.colors.primary).toBe("#D4AF37");
     expect(theme.colors.text.primary).toBe("#FFFFFF");
     expect(theme.colors.border).toBe("#FFFFFF");
   });
 
   test("fondos de estado son rgba fijos por tono (no `${color}15`)", () => {
     for (const v of Object.values(COLORS.dark.statusBg)) expect(v).toMatch(/^rgba\(\d+, \d+, \d+, 0\.12\)$/);
-    expect(COLORS.dark.focusRing).toBe("rgba(197, 160, 89, 0.4)");
+    expect(COLORS.dark.focusRing).toBe("rgba(212, 175, 55, 0.4)");
+    expect(COLORS.dark.background).toBe("#0A0A0C");
+    expect(COLORS.dark.surface).toBe("#121214");
+    expect(COLORS.dark.input).toBe("#1A1A1C");
+    expect(COLORS.dark.divider).toBe("#33343A");
   });
 });

@@ -10,27 +10,30 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import {
   Chip,
-  DailySummaryBlock,
+  GpsExceptionCard,
   Input,
+  LiveShiftPanel,
   ModalShell,
-  OperationalHeroCard,
   PageHeader,
   PrimaryButton,
   SAFE_EDGES,
   ScreenScroll,
   SystemHealthBlock,
   EmptyState,
+  selectGpsExceptionKind,
+  type GpsExceptionKind,
 } from "../../src/components/ui";
-import { DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
+import { AddNoteModal, DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
 import { OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
+import { useToast } from "../../src/context/ToastContext";
+import { gpsNoticeState } from "../../src/core/monitoringState";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import {
   getSessionStateUI,
-  selectActiveElapsedMs,
   selectActiveSession,
   selectCurrentTargetSite,
   selectHasConflict,
@@ -46,21 +49,21 @@ import {
   selectSystemHealth,
   selectTodaySummary,
   selectUiRequests,
-  formatHundredths,
-  minutesToHundredths,
   sessionSiteLabel,
   type HeroAction,
 } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
-import { formatCurrency, formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
+import { formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
-type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "CANCEL_TRANSFER";
+type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "CANCEL_TRANSFER" | "NOTE";
 
 export default function TodayScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { state, emit } = useWorkTracker();
-  const nowMs = useClock(1000);
+  const nowMs = useClock(60_000);
+  const { showToast } = useToast();
+  const [dismissedGps, setDismissedGps] = useState<GpsExceptionKind | null>(null);
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
   const [modal, setModal] = useState<OpenModal>(null);
@@ -145,7 +148,35 @@ export default function TodayScreen() {
 
   const noSitesNoSession = sites.length === 0 && !active;
   const visited = summary.visitedSiteIds.map((id) => selectSiteById(state, id)).filter((x) => !!x);
+  const visitedCount = visited.length;
   const uncertified = health.degraded || (!!active && active.integrityClass !== "VALID") || !summary.certified;
+  const gpsKind = selectGpsExceptionKind({
+    sessionState,
+    clockDrift: healthRaw.clockDriftExceeded,
+    integrityReason: active?.bookkeeping.integrityReason ?? null,
+    gps: gpsNoticeState({
+      servicesEnabled: healthRaw.locationServicesEnabled,
+      mocked: healthRaw.mockLocation,
+      lastFixMs: healthRaw.lastSpatialFactAt,
+      nowMs,
+      sessionOpen: active !== null,
+    }),
+    monitoring: healthRaw.monitoringState,
+  });
+
+  const onGpsPrimary = (kind: GpsExceptionKind) => {
+    if (kind === "no_show") return onHeroAction("CONFIRM_ARRIVAL");
+    if (kind === "zone_exit") return onHeroAction("STAY_WORKING");
+    setDismissedGps(kind);
+  };
+  const onGpsSecondary = (kind: GpsExceptionKind) => {
+    if (kind === "zone_exit") return setModal("EXIT");
+    if (kind === "no_show") {
+      setDismissedGps(kind);
+      return;
+    }
+    router.push("/system/health");
+  };
 
   return (
     <ScreenScroll
@@ -160,7 +191,7 @@ export default function TodayScreen() {
         />
       }
     >
-        <PageHeader title={t("app.name")} subtitle={formatDate(nowMs)} helpScreen="today" showHealth />
+        <PageHeader title={t("tabs.today")} subtitle={formatDate(nowMs)} helpScreen="today" showHealth />
         <ScreenTips
           screen="today"
           sessionState={sessionState}
@@ -202,15 +233,13 @@ export default function TodayScreen() {
           onPress={() => router.push("/system/health")}
         />
 
-        <OperationalHeroCard
+        <LiveShiftPanel
           ui={ui}
           destination={
             target?.alias ??
             (lastToday && sessionState === "CERRADA" ? sessionSiteLabel(lastToday, state.sites.byId) || null : null)
           }
           onDestinationPress={target ? () => router.push(`/sites/${target.id}`) : undefined}
-          timeString={formatDuration(selectActiveElapsedMs(state, nowMs))}
-          earnings={formatCurrency(summary.grossEstimate)}
           uncertified={uncertified}
           nextAction={
             sessionState === "ESPERANDO"
@@ -219,6 +248,8 @@ export default function TodayScreen() {
           }
           busy={busy}
           pinPrimary
+          counter={visitedCount > 0 ? String(visitedCount) : null}
+          showSummary={sessionState !== "NO_INICIADA" || summary.netMinutes > 0}
           onPrimaryAction={() => onHeroAction(ui.primary.action)}
           onSecondaryAction={ui.secondary ? () => onHeroAction(ui.secondary!.action) : undefined}
         />
@@ -232,9 +263,19 @@ export default function TodayScreen() {
           />
         ) : null}
 
-        {/* Resumen del día solo con la jornada cerrada: nunca junto al temporizador del hero. */}
-        {sessionState === "CERRADA" ? (
-          <DailySummaryBlock hours={`${formatHundredths(minutesToHundredths(summary.netMinutes))} ${t("common.hours")}`} earnings={formatCurrency(summary.grossEstimate)} />
+        {gpsKind && gpsKind !== dismissedGps ? (
+          <GpsExceptionCard
+            kind={gpsKind}
+            busy={busy}
+            onPrimary={() => onGpsPrimary(gpsKind)}
+            onSecondary={() => onGpsSecondary(gpsKind)}
+          />
+        ) : null}
+
+        {active && sessionState !== "NO_INICIADA" && sessionState !== "CERRADA" ? (
+          <Pressable onPress={() => setModal("NOTE")} accessibilityRole="button" style={styles.footerLink}>
+            <Text style={[styles.link, { color: colors.text.primary }]}>{t("today.quickNote")}</Text>
+          </Pressable>
         ) : null}
 
         {visited.length > 1 ? (
@@ -274,6 +315,8 @@ export default function TodayScreen() {
         sessionEndMs={
           active?.domainStatus === "SALIDA" && active.bookkeeping.firstExitAtMs ? active.bookkeeping.firstExitAtMs : nowMs
         }
+        netMinutes={summary.netMinutes}
+        grossEstimate={summary.grossEstimate}
         onCancel={() => setModal(null)}
         onConfirm={(minutes, startHHmm) => {
           // "HH:mm" → primer instante ≥ inicio de la jornada con esa hora de pared (§5.3).
@@ -284,7 +327,10 @@ export default function TodayScreen() {
             modal === "LUNCH_CLOSE_EXIT"
               ? { type: "CONFIRM_EXIT", lunchDeductedMinutes: minutes, lunchStartAtMs }
               : { type: "CLOSE_DAY", lunchDeductedMinutes: minutes, lunchStartAtMs },
-            () => setModal(null),
+            () => {
+              setModal(null);
+              showToast(minutes && minutes > 0 ? t("today.lunchDeducted", { minutes }) : t("today.lunchNone"), "info");
+            },
           );
         }}
       />
@@ -314,6 +360,17 @@ export default function TodayScreen() {
       >
         <Input label={t("modals.cancelTransferNote")} value={cancelNote} onChangeText={setCancelNote} placeholder={t("modals.cancelTransferPlaceholder")} />
       </ModalShell>
+
+      <AddNoteModal
+        visible={modal === "NOTE"}
+        title={t("today.quickNote")}
+        busy={busy}
+        onCancel={() => setModal(null)}
+        onSave={(note) => {
+          if (!active) return;
+          void run({ type: "ADD_NOTE", sessionId: active.id, note }, () => setModal(null));
+        }}
+      />
 
       <ExitDetectionModal
         visible={modal === "EXIT"}

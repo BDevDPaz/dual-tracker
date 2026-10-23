@@ -8,7 +8,9 @@ import type { IntegrityClass, PayrollLine, SessionRecord, Site } from "../../cor
 import { t, tWarning, type Language } from "../../i18n";
 import { formatCurrency, formatDate, formatDateTime, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
-import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
+import { displayClockSpanMinutes, displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
+import { APP_VERSION } from "../../constants/app";
+import { readBuildLabel, readGitCommit } from "../../support/buildLabel";
 import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { periodSliceOf } from "../domain/periodSlice";
 import { checkedInSiteIds } from "../domain/siteVisits";
@@ -21,7 +23,7 @@ export type PremiumRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
 
 const GOLD = "#C5A059";
 /** Texto oro sobre blanco del comprobante claro. ≥ 4.5:1; el adorno sigue en GOLD. */
-export const PDF_LIGHT_TEXT_GOLD = "#6A5018";
+export const PDF_LIGHT_TEXT_GOLD = "#8A6D1F";
 
 const PALETTE = {
   light: {
@@ -89,7 +91,8 @@ function css(theme: "light" | "dark"): string {
     .meta-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: ${p.muted}; font-weight: 700; margin-bottom: 2px; }
     .meta-value { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
     .meta-value:last-child { margin-bottom: 0; }
-    .sig { font-size: 12px; font-weight: 700; margin: 0 0 6px; }
+    .sig-box { display: inline-block; border: 1.5px solid ${goldInk}; border-radius: 8px; padding: 8px 12px; margin: 0 0 8px; background: ${p.card}; }
+    .sig { font-size: 12px; font-weight: 700; margin: 0; }
     .sig.signed { color: ${goldInk}; }
     .sig.unsigned { color: ${p.danger}; }
     .indicator { font-size: 11px; color: ${p.warnInk}; background: ${p.warnBg}; border: 1px solid ${p.warnInk}; border-radius: 8px; padding: 8px 10px; margin: 0 0 8px; }
@@ -120,9 +123,11 @@ function css(theme: "light" | "dark"): string {
     .verify { display: flex; gap: 16px; align-items: flex-start; margin-top: 8px; }
     .verify-copy { flex: 1; }
     .hash { font-family: "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; background: ${p.hash}; padding: 8px; border-radius: 6px; }
-    .qr-pad { background: #FFFFFF; padding: 6px; border-radius: 8px; line-height: 0; }
-    .versions { font-size: 11px; color: ${p.muted}; margin-top: 12px; }
-    .footer { margin-top: 12px; text-align: center; font-size: 11px; color: ${p.muted}; border-top: 1px solid ${p.line}; padding-top: 8px; }
+    .qr-pad { background: #FFFFFF; padding: 4px; border-radius: 8px; line-height: 0; flex: 0 0 auto; }
+    .qr { width: 96px; height: 96px; }
+    .versions { font-size: 11px; color: ${p.muted}; margin: 8px 0 0; }
+    .sheet-tail { break-inside: avoid; page-break-inside: avoid; }
+    .footer { margin-top: 8px; text-align: center; font-size: 11px; color: ${p.muted}; border-top: 1px solid ${p.line}; padding-top: 8px; }
     .uncertified { margin: 0 0 12px; padding: 8px; border: 2px dashed ${p.danger}; color: ${p.danger}; font-weight: 700; text-align: center; text-transform: uppercase; font-size: 11px; }
     .annex { break-before: page; page-break-before: always; }
     .mono { font-family: "ui-monospace", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; }
@@ -160,6 +165,22 @@ function sessionIntegrityLabel(session: SessionRecord, lang: Language): string {
   }
   const key = integrityKey(session.integrityClass);
   return key ? t(key, {}, lang) : session.integrityClass;
+}
+
+const MANUAL_EXIT_REASONS = new Set(["MANUAL_ACTION_EXPLICIT", "EXIT_CONFIRMED_BY_USER"]);
+
+/** Minutos del reloj impreso (sin segundos). No sustituye lunchMinutes de la nómina. */
+function lunchRangeNote(session: SessionRecord, lang: Language): string {
+  const start = session.lunch.startAtMs;
+  const end = session.lunch.endAtMs;
+  if (start == null || end == null || end < start) return "";
+  const fmt: FormatOptions = { lang };
+  const text = t(
+    "comprobante.lunchRange",
+    { from: formatTime(start, fmt), to: formatTime(end, fmt), minutes: displayClockSpanMinutes(start, end) },
+    lang,
+  );
+  return `<span class="notes">${escapeHtml(text)}</span>`;
 }
 
 function lineLabel(line: PayrollLine, lang: Language): string {
@@ -223,6 +244,7 @@ function signatureBlock(input: ReportInput, lang: Language): string {
   const line = signed
     ? `<p class="sig signed" data-signature="Ed25519">${escapeHtml(t("comprobante.signed", { keyId: signature.keyId }, lang))}</p>`
     : `<p class="sig unsigned" data-signature="none">${escapeHtml(t("comprobante.unsigned", {}, lang))}</p>`;
+  const signatureBox = `<div class="sig-box">${line}</div>`;
   const fingerprintLine = fingerprint
     ? `<p class="sig-fp" data-key-fingerprint="${escapeHtml(fingerprint)}">${escapeHtml(t("comprobante.keyFingerprint", { fingerprint }, lang))}</p>`
     : "";
@@ -261,7 +283,7 @@ function signatureBlock(input: ReportInput, lang: Language): string {
     ),
   )}</p>`;
   const uncertified = input.manifest.certified ? "" : `<div class="uncertified">${escapeHtml(t("comprobante.uncertified", {}, lang))}</div>`;
-  return `${uncertified}${line}${fingerprintLine}${indicator}${cryptoHtml}${other}${integrity}`;
+  return `${uncertified}${signatureBox}${fingerprintLine}${indicator}${cryptoHtml}${other}${integrity}`;
 }
 
 function metricsBlock(input: ReportInput, lang: Language): string {
@@ -312,12 +334,13 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
       if (slice?.continuesUntilMs != null) cont.push(t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs, fmt) }, lang));
       const zero = slice?.zeroDuration ?? (s.endAtMs !== null && Math.round((s.endAtMs - start) / 60000) <= 0);
       const note = s.bookkeeping.manualNote ? noteToHtml(s.bookkeeping.manualNote, escapeHtml) : "";
+      const lunchNote = lunchRangeNote(s, lang);
       const badge = sessionIntegrityLabel(s, lang);
       return `
         <tr>
           <td><strong>${escapeHtml(formatDate(from, fmt))}</strong></td>
           <td>${sessionSitesLabel(s, input.sites, lang)}${note ? `<span class="notes">"${note}"</span>` : ""}</td>
-          <td>${escapeHtml(formatTime(from, fmt))} - ${to != null ? escapeHtml(formatTime(to, fmt)) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">${escapeHtml(t("comprobante.zeroDuration", {}, lang))}</span>` : ""}</td>
+          <td>${escapeHtml(formatTime(from, fmt))} - ${to != null ? escapeHtml(formatTime(to, fmt)) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${lunchNote}${zero ? `<span class="notes">${escapeHtml(t("comprobante.zeroDuration", {}, lang))}</span>` : ""}</td>
           <td class="fig"><strong>${escapeHtml(hours)}</strong><span class="notes">${minutes} min</span></td>
           <td class="fig">${escapeHtml(row?.amount ?? formatCurrency(0))}</td>
           <td><span class="badge b-${s.integrityClass}">${escapeHtml(badge)}</span></td>
@@ -412,12 +435,16 @@ function versionsBlock(input: ReportInput, lang: Language): string {
   const doc = input.manifest.documentVersion ?? 1;
   const manifest = input.manifest.manifestVersion ?? 1;
   const lines = [t("comprobante.versions", { doc, manifest, packId: input.manifest.packId }, lang)];
-  if (input.manifest.appVersion !== undefined || input.manifest.versionCode !== undefined || input.manifest.gitCommit !== undefined) {
-    const version = input.manifest.appVersion ?? "—";
-    const code = input.manifest.versionCode ?? "—";
-    const commit = input.manifest.gitCommit ? input.manifest.gitCommit.slice(0, 7) : "—";
-    lines.push(t("comprobante.versionsBuild", { version, code, commit }, lang));
-  }
+  const version = input.manifest.appVersion?.trim() || APP_VERSION;
+  const codeNum = input.manifest.versionCode;
+  const code = codeNum != null && Number.isFinite(codeNum) ? String(codeNum) : readBuildLabel();
+  const commitRaw = (input.manifest.gitCommit ?? readGitCommit() ?? "").trim();
+  const commit = /^[0-9a-f]{7,40}$/i.test(commitRaw) ? commitRaw.slice(0, 7) : "";
+  lines.push(
+    commit
+      ? t("comprobante.versionsBuild", { version, code, commit }, lang)
+      : t("comprobante.versionsBuildNoCommit", { version, code }, lang),
+  );
   const zones = input.manifest.sessionTimeZones;
   if (zones?.length) {
     const zone = [...new Set(zones.map((z) => z.timeZone))].join(", ");
@@ -618,10 +645,27 @@ function mockLocationBlock(traces: { mockedFacts?: number }[], lang: Language): 
   return `<div class="seal-warning" data-mock-location="1">${escapeHtml(t("comprobante.mockLocation", { n }, lang))}</div>`;
 }
 
+function isManualExitLedger(row: ForensicLedgerRow): boolean {
+  if (row.intent !== "CLOSE_DAY" || row.sessionId == null) return false;
+  if (MANUAL_EXIT_REASONS.has(row.reason)) return true;
+  return row.integrityClass === "MANUAL" && row.reason !== "RECOVERED_CLOSED";
+}
+
 function enterExitAnnex(input: ReportInput, lang: Language): string {
   const fmt: FormatOptions = { lang };
   const events = input.evidence.traces.flatMap((tr) => tr.enterExit.map((e) => ({ sessionId: tr.sessionId, type: e.type, timestampMs: e.timestampMs, reliable: e.reliable })));
-  const body = events
+  const exitSessions = new Set(events.filter((e) => e.type === "EXIT").map((e) => e.sessionId));
+  const manualFromLedger = (input.ledger ?? []).filter(isManualExitLedger);
+  const listed = new Set(manualFromLedger.map((row) => row.sessionId));
+  const manualFromSessions = input.sessions.filter((session) => {
+    if (session.endAtMs == null || exitSessions.has(session.id) || listed.has(session.id)) return false;
+    const reason = session.bookkeeping.integrityReason;
+    if (reason === "RECOVERED_CLOSED" || reason === "ORPHAN_END_CONFIRMED" || reason === "AUTO_CLOSE_12H" || reason === "AUTO_CLOSE_ABANDONMENT" || reason === "EXIT_DECISION_EXPIRED") {
+      return false;
+    }
+    return session.integrityClass === "MANUAL" || MANUAL_EXIT_REASONS.has(reason);
+  });
+  const gpsRows = events
     .map(
       (e) => `<tr>
         <td class="fig">#${e.sessionId}</td>
@@ -631,6 +675,25 @@ function enterExitAnnex(input: ReportInput, lang: Language): string {
       </tr>`,
     )
     .join("");
+  const manualRows = [
+    ...manualFromLedger.map(
+      (row) => `<tr data-manual-exit="${row.sessionId}">
+        <td class="fig">#${row.sessionId}</td>
+        <td>${escapeHtml(t("comprobante.manualExit", {}, lang))}</td>
+        <td>${escapeHtml(formatDateTime(row.timestampMs, fmt))}</td>
+        <td>—</td>
+      </tr>`,
+    ),
+    ...manualFromSessions.map(
+      (session) => `<tr data-manual-exit="${session.id}">
+        <td class="fig">#${session.id}</td>
+        <td>${escapeHtml(t("comprobante.manualExit", {}, lang))}</td>
+        <td>${escapeHtml(formatDateTime(session.endAtMs ?? 0, fmt))}</td>
+        <td>—</td>
+      </tr>`,
+    ),
+  ].join("");
+  const body = `${gpsRows}${manualRows}`;
   return `
     <section class="annex" data-annex="enter-exit">
       <div class="section-title">${escapeHtml(t("comprobante.annexEnterTitle", {}, lang))}</div>
@@ -671,9 +734,11 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${employer}
       ${policyBlock(input, lang)}
       ${retentionBlock(input, lang)}
-      ${verifyBlock(input, lang)}
-      ${versionsBlock(input, lang)}
-      <div class="footer">${escapeHtml(t("comprobante.legalFooter", {}, lang))}</div>
+      <div class="sheet-tail">
+        ${verifyBlock(input, lang)}
+        ${versionsBlock(input, lang)}
+        <div class="footer">${escapeHtml(t("comprobante.legalFooter", {}, lang))}</div>
+      </div>
       ${annexes}
     </div>
   </body></html>`;

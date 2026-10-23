@@ -11,7 +11,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
 import { fixedLunchExceedsSession, lunchOutsideSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
-import { wallMinutesOnOrAfter } from "../../utils/dateUtils";
+import { formatCurrency, wallMinutesOnOrAfter } from "../../utils/dateUtils";
 
 /**
  * LunchModal — portado de GEOTrack con dos modos (Producto §7):
@@ -31,6 +31,9 @@ type LunchModalProps =
       sessionStartMs?: number;
       sessionEndMs?: number;
       busy?: boolean;
+      /** Minutos y estimado actuales, solo para la vista previa. */
+      netMinutes?: number;
+      grossEstimate?: number;
       onCancel: () => void;
       onConfirm: (minutes: number | null, startHHmm: string | null) => void;
     }
@@ -121,6 +124,14 @@ export function LunchModal(props: LunchModalProps) {
           />
         ))}
       </View>
+      {selected !== null ? (
+        <Text style={[styles.hint, { color: colors.text.secondary }]} testID="lunch-preview" accessibilityLiveRegion="polite">
+          {t("modals.lunchPreview", { minutes: selected })}
+          {props.netMinutes != null && props.netMinutes > 0 && props.grossEstimate != null
+            ? ` · ${formatCurrency((props.grossEstimate * Math.max(0, props.netMinutes - selected)) / props.netMinutes)}`
+            : ""}
+        </Text>
+      ) : null}
       {lunchError && !needsStart ? <Text style={[styles.hint, { color: colors.status.warning }]}>{lunchError}</Text> : null}
       {needsStart ? (
         <View style={styles.startRow}>

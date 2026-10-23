@@ -3,6 +3,7 @@ import { makeStatement } from "../../../../test/fixtures/payroll.fixture";
 import { setLanguage } from "../../../i18n";
 import {
   allocateDisplayHundredths,
+  displayClockSpanMinutes,
   displayStatement,
   formatCents,
   formatHundredths,
@@ -14,6 +15,16 @@ import {
   splitEmojiSequences,
   trimDisplayNote,
 } from "../payrollDisplay";
+
+describe("payrollDisplay — reloj y nómina", () => {
+  test("3:32:40 a 3:34:00 se lee como 2 min en el reloj y 1 min si se redondea el lapso", () => {
+    const start = 1_000_000 * 60_000 + 40_000;
+    const end = start + 80_000;
+    expect(Math.round((end - start) / 60_000)).toBe(1);
+    expect(displayClockSpanMinutes(start, end)).toBe(2);
+    expect(displayClockSpanMinutes(end, start)).toBe(0);
+  });
+});
 
 describe("payrollDisplay — centavos y horas", () => {
   afterEach(() => setLanguage("es"));

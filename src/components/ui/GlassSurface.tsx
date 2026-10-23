@@ -22,7 +22,7 @@ export function useGlass(): { glass: boolean; containerStyle: ViewStyle } {
   const glass = BLUR_SUPPORTED && !reduceTransparency;
   return glass
     ? { glass, containerStyle: { backgroundColor: "transparent", borderColor: colors.glass.hairline, borderWidth: TOKENS.layout.hairline, overflow: "hidden" } }
-    : { glass, containerStyle: { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: TOKENS.layout.hairline } };
+    : { glass, containerStyle: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: TOKENS.layout.hairline } };
 }
 
 /** Capas de fondo (desenfoque + relleno). Primer hijo de un contenedor con useGlass().containerStyle. */

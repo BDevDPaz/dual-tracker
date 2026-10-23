@@ -30,6 +30,7 @@ import {
   selectComputedSessions,
   selectIsHydrated,
   selectSessionById,
+  selectSettings,
   trimDisplayNote,
 } from "../../src/core/selectors";
 import { t, tLedgerIntent, tLineKind } from "../../src/i18n";
@@ -53,6 +54,7 @@ export default function SessionDetailScreen() {
   const { busy, run: guard } = useBusyAction();
 
   const session = Number.isFinite(sessionId) ? selectSessionById(state, sessionId) : null;
+  const settings = selectSettings(state);
   const updatedAt = session?.bookkeeping.updatedAtMs ?? 0;
   const ledger = useQuery(() => queries.loadSessionLedger(sessionId), [sessionId, updatedAt], ["ledger"]);
   const trace = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
@@ -201,6 +203,9 @@ export default function SessionDetailScreen() {
         visible={modal === "EDIT"}
         session={session}
         busy={busy}
+        rates={{ hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier }}
+        company={settings.company}
+        nowMs={nowMs}
         onCancel={() => setModal(null)}
         checkOverlap={queries.checkOverlap}
         onSave={(p) => void run({ type: "PATCH_SESSION", sessionId: session.id, declaredStartAtMs: p.declaredStartAtMs, endAtMs: p.endAtMs, note: p.note })}

@@ -22,5 +22,5 @@ export function verificationQrSvg(payload: string): string {
     }
   }
   const safe = escapeHtml(payload);
-  return `<svg class="qr" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="128" height="128" role="img" data-qr-payload="${safe}"><rect width="100%" height="100%" fill="#FFFFFF"/><path fill="#1C1915" d="${path}"/></svg>`;
+  return `<svg class="qr" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="96" height="96" role="img" data-qr-payload="${safe}"><rect width="100%" height="100%" fill="#FFFFFF"/><path fill="#1C1915" d="${path}"/></svg>`;
 }

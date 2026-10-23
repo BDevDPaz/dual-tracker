@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     minWidth: TOKENS.layout.minTouchTarget,
     paddingVertical: TOKENS.spacing.sm,
     paddingHorizontal: TOKENS.spacing.md,
-    borderRadius: TOKENS.radius.pill,
+    borderRadius: TOKENS.radius.sm,
     borderWidth: TOKENS.layout.hairline,
     alignItems: "center",
     justifyContent: "center",

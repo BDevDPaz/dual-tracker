@@ -22,12 +22,12 @@ describe("Glass", () => {
     expect(card.borderWidth).toBe(1);
   });
 
-  test("reducir transparencia → surfaceElevated sólido, sin blur", () => {
+  test("reducir transparencia → tarjeta sólida, sin blur", () => {
     act(() => ReduceTransparencyPref.__set(true));
     render(hero());
     expect(screen.queryByTestId("glass-blur")).toBeNull();
     const card = StyleSheet.flatten(screen.getByTestId("hero-card").props.style);
-    expect(card.backgroundColor).toBe(COLORS.dark.surfaceElevated);
+    expect(card.backgroundColor).toBe(COLORS.dark.surface);
   });
 
   test("ModalShell usa la misma superficie", () => {

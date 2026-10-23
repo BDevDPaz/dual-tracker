@@ -8,7 +8,7 @@ import { useTheme } from "../../context/ThemeContext";
 import type { SystemHealthView } from "../../core/selectors";
 import { ICONS } from "../../constants/icons";
 import { t, useLanguage } from "../../i18n";
-import { Card } from "./Card";
+import { Card, CardHeader } from "./Card";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
@@ -57,7 +57,9 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   const content = (
     <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: TOKENS.layout.hairline, borderColor: warn }]}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: colors.text.primary }]}>{t("health.title").toUpperCase()}</Text>
+        <View style={styles.titleGrow}>
+          <CardHeader icon={ICONS.domain.gps} title={t("health.systemTitle")} subtitle={t("health.systemSubtitle")} />
+        </View>
         {onPress ? <Ionicons name="chevron-forward" size={ICON.sm} color={health.degraded ? warn : colors.text.secondary} /> : null}
       </View>
       {rows.map((r) => (
@@ -82,7 +84,12 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   return (
     <Animated.View entering={reduceMotion ? FadeIn.duration(REDUCED_FADE_MS) : FadeInDown.delay(200).duration(400)}>
       {onPress ? (
-        <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={t("health.title")}>
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={t("health.systemTitle")}
+          accessibilityHint={t("health.openGuidance")}
+        >
           {content}
         </Pressable>
       ) : (
@@ -95,8 +102,8 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
 const styles = StyleSheet.create({
   inset: { marginHorizontal: TOKENS.layout.screenPadding },
   block: { marginHorizontal: 0 },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: TOKENS.spacing.md },
-  title: { ...FONT.label, letterSpacing: 1 },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  titleGrow: { flex: 1 },
   row: { flexDirection: "row", alignItems: "center", marginBottom: TOKENS.spacing.sm },
   dot: { width: TOKENS.spacing.sm, height: TOKENS.spacing.sm, borderRadius: TOKENS.radius.xs, marginRight: TOKENS.spacing.sm },
   icon: { marginRight: TOKENS.spacing.sm },

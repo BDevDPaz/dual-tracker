@@ -34,7 +34,7 @@ import {
 import { companyTimezone, legalFlags } from "../../src/utils/companyPolicy";
 import { PAYROLL_TIMEZONES, calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
 import { getLanguage, t, tHealthValue, useLanguage } from "../../src/i18n";
-import { currentVersionLine } from "../../src/support/versionLine";
+import { settingsFooterLine } from "../../src/support/versionLine";
 
 const TIMEZONE_LABEL: Record<(typeof PAYROLL_TIMEZONES)[number], string> = {
   "America/Los_Angeles": "pacific",
@@ -142,7 +142,21 @@ export default function SettingsScreen() {
   const dirty = (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== initial[k]);
 
   const num = (s: string) => Number(s.replace(",", "."));
+  const finiteAtLeast = (s: string, min: number) => {
+    const n = num(s);
+    return s.trim() !== "" && Number.isFinite(n) && n >= min;
+  };
+  const rateOk = finiteAtLeast(draft.hourlyRate, 0.0001);
+  const adminNumbersOk =
+    rateOk &&
+    finiteAtLeast(draft.overtimeMultiplier, 0.0001) &&
+    finiteAtLeast(draft.traceRetentionDays, 0) &&
+    finiteAtLeast(draft.defaultRadiusM, 1) &&
+    finiteAtLeast(draft.arrivalDwellMin, 0);
+  const canSave = dirty && !busy && (!unlocked || adminNumbersOk);
+  const numberError = (s: string, min: number) => (finiteAtLeast(s, min) ? undefined : t("settings.numberInvalid"));
   const onSave = async () => {
+    if (!canSave) return { ok: false as const, code: "INVALID_VALUE" as const };
     const patch: SettingsPatch = {
       profile: { employeeName: draft.employeeName.trim(), language: getLanguage(), dailyReminderTime: draft.dailyReminderTime },
     };
@@ -186,12 +200,12 @@ export default function SettingsScreen() {
     });
 
   const permTone = (ok: boolean) => (ok ? "success" : "warning");
-  const profileChain = useFormFocusChain(FORM_FIELDS.settingsProfile, { onSubmit: () => void onSave(), canSubmit: dirty && !busy });
+  const profileChain = useFormFocusChain(FORM_FIELDS.settingsProfile, { onSubmit: () => void onSave(), canSubmit: canSave });
   const pinChain = useFormFocusChain(FORM_FIELDS.settingsPin, {
     onSubmit: () => void onAdminPin(),
     canSubmit: pin.length >= PIN_MIN_LENGTH && !busy && admin.status !== "locked_out",
   });
-  const adminChain = useFormFocusChain(FORM_FIELDS.settingsAdmin, { onSubmit: () => void onSave(), canSubmit: dirty && !busy && unlocked });
+  const adminChain = useFormFocusChain(FORM_FIELDS.settingsAdmin, { onSubmit: () => void onSave(), canSubmit: canSave && unlocked });
   const provisionChain = useFormFocusChain(provisionFields, {
     onSubmit: () => void onProvision(),
     canSubmit: canProvision,
@@ -206,7 +220,7 @@ export default function SettingsScreen() {
     <ScreenScroll
       edges={SAFE_EDGES.tab}
       refreshControl={refreshControl}
-      footer={dirty ? <PrimaryButton label={t("common.save")} isLoading={busy} onPress={() => void onSave()} /> : null}
+      footer={dirty ? <PrimaryButton label={t("common.save")} disabled={!canSave} isLoading={busy} onPress={() => void onSave()} /> : null}
     >
         <PageHeader title={t("settings.title")} helpScreen="settings" showHealth />
 
@@ -294,8 +308,8 @@ export default function SettingsScreen() {
             </Card>
           ) : (
             <Card style={styles.card}>
-              <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} prefix="$" suffix={t("common.perHour")} />
-              <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} />
+              <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} prefix="$" suffix={t("common.perHour")} error={!rateOk ? (Number.isFinite(num(draft.hourlyRate)) ? t("onboarding.rateInvalid") : t("settings.numberInvalid")) : undefined} />
+              <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} error={numberError(draft.overtimeMultiplier, 0.0001)} />
               <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
               <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} />
               <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
@@ -326,10 +340,10 @@ export default function SettingsScreen() {
                 ))}
               </View>
               <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.timezoneHint")}</Text>
-              <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} />
-              <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} />
+              <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} error={numberError(draft.traceRetentionDays, 0)} />
+              <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} error={numberError(draft.defaultRadiusM, 1)} />
               <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
-              <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} />
+              <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} error={numberError(draft.arrivalDwellMin, 0)} />
               <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.arrivalDwellHint")}</Text>
               <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalOn")}</Text>
               <View style={styles.row}>
@@ -387,7 +401,7 @@ export default function SettingsScreen() {
         <Section title={t("support.title")}>
           <Card style={styles.card}>
             <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("support.blurb")}</Text>
-            <Text style={[styles.hint, { color: colors.text.muted }]}>{currentVersionLine()}</Text>
+            <Text style={[styles.hint, { color: colors.text.muted }]} testID="settings-footer">{settingsFooterLine()}</Text>
             <Button label={t("support.open")} variant="secondary" size="sm" onPress={() => router.push("/support")} />
           </Card>
         </Section>

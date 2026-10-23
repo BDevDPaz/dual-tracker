@@ -61,6 +61,7 @@ describe("Input mask=HH:mm", () => {
 describe("Input secureToggle", () => {
   test("oculto por defecto; el botón alterna mostrar/ocultar", () => {
     render(<Controlled secureToggle />);
+    expect(screen.getByTestId("in").props.placeholder).toBe("••••");
     expect(screen.getByTestId("in").props.secureTextEntry).toBe(true);
     fireEvent.press(screen.getByLabelText(t("a11y.showSecret")));
     expect(screen.getByTestId("in").props.secureTextEntry).toBe(false);

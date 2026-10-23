@@ -7,11 +7,12 @@ import { FORM_FIELDS } from "../ui/formFields";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import type { SessionRecord } from "../../core/contracts";
+import type { CompanyPolicy, PayrollRates, SessionRecord } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
+import { PayrollEngineService } from "../../services/domain/PayrollEngineService";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
 import { fixedLunchExceedsSession, timePickerMaximum } from "../../services/domain/sessionTimeGuard";
-import { resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
+import { formatCurrency, resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
 
 /**
  * EditSessionModal — portado de GEOTrack (que traía horas de ejemplo en duro
@@ -35,9 +36,13 @@ interface EditSessionModalProps {
   onCancel: () => void;
   onSave: (patch: { declaredStartAtMs: number; endAtMs: number | null; note: string }) => void;
   checkOverlap: (startMs: number, endMs: number | null, excludeId: number | null) => Promise<boolean>;
+  /** Solo para la vista previa de solo lectura. No guarda el total. */
+  rates?: PayrollRates;
+  company?: CompanyPolicy;
+  nowMs?: number;
 }
 
-export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap }: EditSessionModalProps) {
+export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap, rates, company, nowMs }: EditSessionModalProps) {
   useLanguage();
   const { colors } = useTheme();
   const base = session ? session.actualStartAtMs ?? session.declaredStartAtMs : 0;
@@ -92,6 +97,18 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
     };
   }, [session, start, end, invalidEnd, checkOverlap]);
 
+  let previewTotal = "—";
+  if (session && rates && company && start !== null && end !== null && !invalidEnd && !orderError) {
+    const clone: SessionRecord = {
+      ...session,
+      declaredStartAtMs: start,
+      actualStartAtMs: start,
+      endAtMs: end,
+      domainStatus: "CERRADA",
+    };
+    const preview = PayrollEngineService.previewSession(clone, rates, company, nowMs ?? end);
+    if (preview && Number.isFinite(preview.grossEstimate)) previewTotal = formatCurrency(preview.grossEstimate);
+  }
   const canSave = !!session && start !== null && !invalidEnd && !future && !orderError && !lunchTooLong && changed && note.trim().length > 0 && !overlap;
   const chain = useFormFocusChain(FORM_FIELDS.editSession, {
     canSubmit: canSave && !busy,
@@ -127,6 +144,9 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
       </View>
       {nextDay ? <Text style={[styles.nextDay, { color: colors.text.secondary }]}>{t("modals.endsNextDay")}</Text> : null}
       <Input {...chain.props("note")} label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} testID="edit-note" />
+      <Text style={[styles.nextDay, { color: colors.text.secondary }]} testID="edit-preview" accessibilityLiveRegion="polite">
+        {t("modals.editPreview", { total: previewTotal })}
+      </Text>
     </ModalShell>
   );
 }
