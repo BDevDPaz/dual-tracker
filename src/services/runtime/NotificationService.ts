@@ -16,6 +16,8 @@ import { Platform } from "react-native";
 import type { PermissionState, SessionIntent } from "../../core/contracts";
 import { NOTIFICATION_ACTIONS, NOTIFICATION_CATEGORIES, NOTIFICATION_CHANNELS } from "../../constants/notifications";
 import { reminderTitleForHour, t } from "../../i18n";
+import { formatTime } from "../../utils/dateUtils";
+import { planMealRestNotices } from "../domain/caPremiums";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
@@ -77,6 +79,9 @@ async function ensureChannels(): Promise<void> {
 }
 
 async function ensureCategories(): Promise<void> {
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.REST_BREAK, [
+    { identifier: NOTIFICATION_ACTIONS.REST_TAKEN, buttonTitle: t("notifications.restTaken"), options: { opensAppToForeground: false } },
+  ]);
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.EXIT_DETECTION, [
     { identifier: NOTIFICATION_ACTIONS.STAY_WORKING, buttonTitle: t("notifications.actionStay"), options: { opensAppToForeground: false } },
     { identifier: NOTIFICATION_ACTIONS.END_SESSION, buttonTitle: t("notifications.actionClose"), options: { opensAppToForeground: false } },
@@ -148,6 +153,9 @@ async function handleResponse(response: Notifications.NotificationResponse): Pro
         break;
       case NOTIFICATION_ACTIONS.DAILY_SETUP:
         uiSink?.({ openDailySetup: "start" });
+        break;
+      case NOTIFICATION_ACTIONS.REST_TAKEN:
+        if (sessionId) await intentSink?.({ type: "ACK_REST", taken: true }, sessionId);
         break;
       default:
         if (action === Notifications.DEFAULT_ACTION_IDENTIFIER) {
@@ -282,6 +290,38 @@ export const NotificationService = {
     }
   },
 
+  /**
+   * Aviso de comida (4 h 30 del día) o de descanso (3 h 30). El cuerpo de la
+   * comida lleva la hora límite. «Lo tomé» no descuenta minutos.
+   */
+  async scheduleMealRestNotices(input: {
+    sessionId: number;
+    nowMs: number;
+    workedMinutes: number;
+    mealAlreadyStarted: boolean;
+    restAcknowledged: boolean;
+  }): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    const notices = planMealRestNotices({
+      nowMs: input.nowMs,
+      workedMinutes: input.workedMinutes,
+      mealAlreadyStarted: input.mealAlreadyStarted,
+      restAcknowledged: input.restAcknowledged,
+      formatTime: (ms) => formatTime(ms),
+    });
+    let any = false;
+    for (const n of notices) {
+      const title = t(n.code === "N11" ? "notifications.mealDueTitle" : "notifications.restDueTitle");
+      const body = n.code === "N11" ? t("notifications.mealDueBody", { time: formatTime(n.deadlineMs ?? input.nowMs) }) : t("notifications.restDueBody");
+      const ok = await NotificationService.notifyImmediate(title, body, { kind: n.code, sessionId: input.sessionId }, {
+        identifier: `dualtracker-${n.code}-${input.sessionId}`,
+        ...(n.code === "N20" ? { categoryIdentifier: NOTIFICATION_CATEGORIES.REST_BREAK } : {}),
+      });
+      any = any || ok;
+    }
+    return any;
+  },
+
   /** Decisión de salida con tres acciones (cerrar / seguir / trasladar). */
   async notifyExitDetected(sessionId: number, firstExitAtMs: number): Promise<boolean> {
     // Una tarea headless arranca un JS nuevo: los botones se registran aquí,
@@ -302,5 +342,13 @@ export const NotificationService = {
   dispose(): void {
     responseSub?.remove();
     responseSub = null;
+  },
+
+  __resetForTests(): void {
+    responseSub?.remove();
+    responseSub = null;
+    intentSink = null;
+    uiSink = null;
+    lastScheduled.clear();
   },
 };

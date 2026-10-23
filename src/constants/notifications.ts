@@ -12,11 +12,14 @@ export const NOTIFICATION_ACTIONS = {
   TRANSFER: "ACTION_TRANSFER",
   /** Recordatorio diario → abre Hoy y dispara DailySetupModal si NO_INICIADA. */
   DAILY_SETUP: "ACTION_DAILY_SETUP",
+  /** «Lo tomé»: reconoce el descanso sin descontar tiempo. */
+  REST_TAKEN: "ACTION_REST_TAKEN",
 } as const;
 
 export const NOTIFICATION_CATEGORIES = {
   EXIT_DETECTION: "CATEGORY_EXIT_DETECTION",
   DAILY_REMINDER: "CATEGORY_DAILY_REMINDER",
+  REST_BREAK: "CATEGORY_REST_BREAK",
 } as const;
 
 export const NOTIFICATION_CHANNELS = {

@@ -109,7 +109,13 @@ function intentOf(entry: LedgerEntry, data: Record<string, unknown>): SessionInt
         mode: data.mode === "EXIT_CONFIRMED" ? "EXIT_CONFIRMED" : "MANUAL",
         ...(typeof data.lunchDeductedMinutes === "number" ? { lunchDeductedMinutes: data.lunchDeductedMinutes } : {}),
         ...(typeof data.lunchStartAtMs === "number" ? { lunchStartAtMs: data.lunchStartAtMs } : {}),
+        ...(typeof data.waiveFirstMeal === "boolean" ? { waiveFirstMeal: data.waiveFirstMeal } : {}),
+        ...(typeof data.waiveSecondMeal === "boolean" ? { waiveSecondMeal: data.waiveSecondMeal } : {}),
+        ...(typeof data.mealInterrupted === "boolean" ? { mealInterrupted: data.mealInterrupted } : {}),
+        ...(typeof data.restBreaksTaken === "boolean" ? { restBreaksTaken: data.restBreaksTaken } : {}),
       };
+    case "ACK_REST":
+      return { type: "ACK_REST", taken: data.taken !== false };
     case "AUTO_CLOSE":
       return {
         type: "AUTO_CLOSE",

@@ -78,6 +78,8 @@ const LINE_KIND_KEY: Record<string, string> = {
   TRANSIT: "reports.transit",
   LUNCH_DEDUCTION: "reports.lunch",
   PAUSE_DEDUCTION: "reports.pause",
+  MEAL_PREMIUM: "reports.mealPremium",
+  REST_PREMIUM: "reports.restPremium",
 };
 
 /** Tipo de línea de nómina (REGULAR, …) → etiqueta del idioma activo. */

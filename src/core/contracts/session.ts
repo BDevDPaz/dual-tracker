@@ -106,6 +106,29 @@ export interface LunchRecord {
   endAtMs: number | null;
   /** Minutos declarados en LunchModal al cerrar (0/30/45/60). */
   deductedMinutes: number | null;
+  /** No fue libre de deber. No se descuenta y no cuenta como comida. */
+  interrupted?: boolean;
+}
+
+/** Segunda comida u otro intervalo declarado aparte del almuerzo principal. */
+export interface MealInterval {
+  startAtMs: number | null;
+  endAtMs: number | null;
+  deductedMinutes?: number | null;
+  interrupted?: boolean;
+}
+
+/**
+ * Respuestas de comida y descanso de la jornada. Ausente si no hay ninguna:
+ * no cambia el registro de una jornada que no las contestó.
+ */
+export interface PayrollCompliance {
+  waiveFirstMeal?: boolean;
+  waiveSecondMeal?: boolean;
+  /** false = el operario dijo que no tomó el descanso. true = «Lo tomé». */
+  restBreaksTaken?: boolean;
+  mealInterrupted?: boolean;
+  secondMeal?: MealInterval;
 }
 
 /** Tramo de traslado entre sitios (TransitPolicy, Propuesta §5.6). */
@@ -234,6 +257,8 @@ export interface SessionRecord {
      * clase ni un motivo de CONFLICT. Solo presente si no está vacío.
      */
     certificationBlockers?: CertificationBlocker[];
+    /** Comida, renuncias y descanso. Solo presente si el operario contestó algo. */
+    compliance?: PayrollCompliance;
   };
 }
 

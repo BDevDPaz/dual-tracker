@@ -34,29 +34,34 @@ function statement(sessions: SessionRecord[]) {
   });
 }
 
-describe("schema v8 — migración", () => {
-  test("versión 8 y columna en el CREATE TABLE", () => {
-    expect(SCHEMA_VERSION).toBe(8);
+describe("schema v9 — migración", () => {
+  test("versión 9 y columnas en el CREATE TABLE", () => {
+    expect(SCHEMA_VERSION).toBe(9);
     expect(SESSION_V8_COLUMNS).toEqual([["hourly_rate_snapshot", "REAL"]]);
     expect(CREATE_TABLES_SQL).toMatch(/hourly_rate_snapshot REAL/);
+    expect(CREATE_TABLES_SQL).toMatch(/compliance_json TEXT/);
     expect(SESSION_COLUMNS).toContain("hourly_rate_snapshot");
+    expect(SESSION_COLUMNS).toContain("compliance_json");
   });
 
-  test("una base v7 (sin la columna) gana hourly_rate_snapshot sin backfill y guarda schema 8", async () => {
+  test("una base v7 (sin las columnas nuevas) gana hourly_rate_snapshot y compliance_json y guarda schema 9", async () => {
     await jest.isolateModulesAsync(async () => {
       const sqlite = require("expo-sqlite") as typeof import("../../../../test/mocks/expo-sqlite");
-      const legacySql = CREATE_TABLES_SQL.replace(/,\s*hourly_rate_snapshot REAL/, "");
+      const legacySql = CREATE_TABLES_SQL.replace(/,\s*hourly_rate_snapshot REAL/, "").replace(/,\s*compliance_json TEXT/, "");
       expect(legacySql).not.toMatch(/hourly_rate_snapshot/);
+      expect(legacySql).not.toMatch(/compliance_json/);
       const raw = await sqlite.openDatabaseAsync(DB_NAME);
       await raw.execAsync(legacySql);
       const cols = async () => (await raw.getAllAsync<{ name: string }>(`PRAGMA table_info(sessions)`)).map((c) => c.name);
       expect(await cols()).not.toContain("hourly_rate_snapshot");
+      expect(await cols()).not.toContain("compliance_json");
 
       const { PersistenceService: PS } = require("../../persistence/PersistenceService") as typeof import("../../persistence/PersistenceService");
       await PS.init();
       expect(await cols()).toContain("hourly_rate_snapshot");
+      expect(await cols()).toContain("compliance_json");
       const kv = await raw.getFirstAsync<{ value: string }>(`SELECT value_json AS value FROM app_kv WHERE key = ?`, [KV_KEYS.SCHEMA_VERSION]);
-      expect(JSON.parse(kv!.value)).toBe(8);
+      expect(JSON.parse(kv!.value)).toBe(9);
     });
   });
 });
@@ -93,20 +98,20 @@ describe("PayrollEngine — tarifa por jornada", () => {
     const reg = (id: number) => st.lines.filter((l) => l.sessionId === id && l.kind === "REGULAR");
     expect(reg(1).every((l) => l.rate === 20)).toBe(true);
     expect(reg(2).every((l) => l.rate === 30)).toBe(true);
-    expect(st.grossEstimate).toBe(3 * 20 + 3 * 30);
+    expect(st.grossEstimate).toBe(3 * 20 + 3 * 30 + 25);
     expect(st.warnings.some((w) => w.startsWith("RATE_FALLBACK_CURRENT"))).toBe(false);
   });
 
   test("el OT de una jornada usa su propia tarifa congelada", () => {
     const st = statement([withRate(makeClosedSession(MONDAY_8AM, 9, { id: 1 }), 40)]);
-    expect(st.grossEstimate).toBe(8 * 40 + 1 * 60);
+    expect(st.grossEstimate).toBe(8 * 40 + 1 * 60 + 40);
   });
 
   test("jornada antigua sin tarifa → tarifa actual + RATE_FALLBACK_CURRENT", () => {
     const old = makeClosedSession(MONDAY_8AM, 8, { id: 7 });
     expect(sessionRates(old, RATES)).toEqual({ rates: RATES, fallback: true });
     const st = statement([old, withRate(makeClosedSession(MONDAY_8AM + DAY, 8, { id: 8 }), 25)]);
-    expect(st.grossEstimate).toBe(8 * 20 + 8 * 25);
+    expect(st.grossEstimate).toBe(8 * 20 + 8 * 25 + 20 + 25);
     expect(st.warnings).toContain("RATE_FALLBACK_CURRENT#7");
     expect(st.warnings).not.toContain("RATE_FALLBACK_CURRENT#8");
   });
@@ -119,7 +124,7 @@ describe("PayrollEngine — tarifa por jornada", () => {
 
   test("previewSession usa la tarifa congelada", () => {
     const p = PayrollEngineService.previewSession(withRate(makeClosedSession(MONDAY_8AM, 8), 50), RATES, COMPANY, MONDAY_8AM + DAY)!;
-    expect(p.grossEstimate).toBe(8 * 50);
+    expect(p.grossEstimate).toBe(8 * 50 + 50);
   });
 });
 

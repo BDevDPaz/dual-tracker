@@ -25,8 +25,10 @@ import type {
   SessionState,
   TransitSegment,
   PauseInterval,
+  PayrollCompliance,
 } from "../../core/contracts";
 import { companyCalendar, companyTimezone } from "../../utils/companyPolicy";
+import { applyRestAcknowledgement } from "./caPremiums";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
 import { siteCheckedInBefore } from "./siteVisits";
 import { fixedLunchExceedsSession, isFutureInstant, lunchOutsideSession, recordedPauseMinutes, sessionSpanMinutes, FUTURE_TIME_TOLERANCE_MS } from "./sessionTimeGuard";
@@ -268,6 +270,31 @@ function ok(
 /** Cierra la pausa abierta de pauses_json (spec v1.3 §5.3). */
 function closeOpenPause(s: SessionRecord, atMs: number): PauseInterval[] {
   return (s.bookkeeping.pauses ?? []).map((p) => (p.endAtMs === null ? { ...p, endAtMs: Math.max(p.startAtMs, atMs) } : p));
+}
+
+/** Copia las respuestas de comida y descanso sin rechazar una renuncia inválida. */
+function withCloseCompliance(next: SessionRecord, intent: Extract<SessionIntent, { type: "CLOSE_DAY" }>): SessionRecord {
+  const compliance: PayrollCompliance = { ...(next.bookkeeping.compliance ?? {}) };
+  let changed = false;
+  if (intent.waiveFirstMeal !== undefined) {
+    compliance.waiveFirstMeal = intent.waiveFirstMeal;
+    changed = true;
+  }
+  if (intent.waiveSecondMeal !== undefined) {
+    compliance.waiveSecondMeal = intent.waiveSecondMeal;
+    changed = true;
+  }
+  if (intent.restBreaksTaken !== undefined) {
+    compliance.restBreaksTaken = intent.restBreaksTaken;
+    changed = true;
+  }
+  if (intent.mealInterrupted) {
+    compliance.mealInterrupted = true;
+    changed = true;
+    next = { ...next, lunch: { ...next.lunch, interrupted: true } };
+  }
+  if (!changed) return next;
+  return { ...next, bookkeeping: { ...next.bookkeeping, compliance } };
 }
 
 /** Cierre común: cierra almuerzo/pausa/tramo abiertos y fija endAtMs. */
@@ -755,6 +782,13 @@ export function transition(
       return ok(open, next, ctx, "USER_CONFIRMED_CONTINUE", [sync(next, next.siteId), { type: "CANCEL_EXIT_DECISION", sessionId: open.id }], "STAY_WORKING");
     }
 
+    // ------------------------------------------------------------ ACK_REST
+    case "ACK_REST": {
+      if (!open) return reject("NO_OPEN_SESSION");
+      const next = applyRestAcknowledgement(open);
+      return ok(open, next, ctx, "REST_ACKNOWLEDGED", [sync(next, next.siteId)], null);
+    }
+
     // ------------------------------------------------------------ CLOSE_DAY
     case "CLOSE_DAY": {
       if (!open) return reject("NO_OPEN_SESSION");
@@ -794,6 +828,7 @@ export function transition(
         }
         next = { ...next, lunch };
       }
+      next = withCloseCompliance(next, intent);
       // Cierre VALID exige confirmación humana o Enter/Exit limpio (§7.3).
       if (ctx.actor !== "USER") next = withIntegrity(next, "CONFLICT", "UNRELIABLE_FIX");
       else next = labelUserClose(next);

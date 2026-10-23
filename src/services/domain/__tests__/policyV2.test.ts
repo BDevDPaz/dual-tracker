@@ -1,11 +1,7 @@
-/** P2 (spec v1.3 §5.2) — Política v2: segmentación por jornada, política por periodo, migración, edición nocturna, DST. */
+/** P2 (spec v1.3 §5.2) — Política v2: segmentación por jornada, política por periodo, edición nocturna, DST. */
 import type { CalendarEntry, CompanyPolicy, SessionRecord } from "../../../core/contracts";
 import { atTimeOfDayAfter, getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
-import { migratePayrollPolicyToV2 } from "../../application/useCases/policyMigration";
-import { previewPayroll } from "../../application/useCases/generateWeeklyPayroll";
-import { EvidencePackService } from "../../evidence/EvidencePackService";
 import { PersistenceService } from "../../persistence/PersistenceService";
-import { SettingsService } from "../../persistence/SettingsService";
 import { PayrollEngineService, policyForPeriod } from "../PayrollEngineService";
 import { SessionEngineService } from "../SessionEngineService";
 import { CA_DAILY8_WEEKLY40_V1, CA_DAILY8_WEEKLY40_V2 } from "../payrollPolicies";
@@ -136,56 +132,6 @@ describe("P2 — CA_DAILY8_WEEKLY40_v2", () => {
     ];
     expect(policyForPeriod(packs, 1, 2, V2)).toBe(V1);
     expect(policyForPeriod(packs, 3, 4, V2)).toBe(V2);
-  });
-
-  describe("migración de política y periodos sellados", () => {
-    beforeEach(() => PersistenceService.init());
-
-    test("asiento PAYROLL_POLICY_CHANGED; sellado con v1 se resella con v1 y reutiliza; no sellado → v2", async () => {
-      // Semana 1: jornada nocturna que en v1 da OT diaria; se sella con v1.
-      time.set(Date.UTC(2026, 8, 22, 3)); // lun 21-sep 20:00 PDT
-      const { siteA } = await seedWorld();
-      await startAndArrive(siteA, 0);
-      time.travel(11 * HOUR);
-      await mustDispatch({ type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 0 });
-      const w1 = { periodStart: getWeekStart(time.now()), periodEnd: getWeekEnd(time.now()) };
-      const sealed = await EvidencePackService.seal(w1);
-      if (!sealed.ok) throw new Error(sealed.code);
-      expect(sealed.data.statement.policyId).toBe(V1);
-      expect(sealed.data.statement.overtimeDailyHours).toBe(3);
-
-      // Semana 2: la misma jornada, sin sellar.
-      time.set(Date.UTC(2026, 8, 29, 3));
-      await startAndArrive(siteA, 0);
-      time.travel(11 * HOUR);
-      await mustDispatch({ type: "CLOSE_DAY", mode: "MANUAL", lunchDeductedMinutes: 0 });
-      const w2 = { periodStart: getWeekStart(time.now()), periodEnd: getWeekEnd(time.now()) };
-
-      const m = await migratePayrollPolicyToV2();
-      expect(m).toEqual({ migrated: true, sealedPeriodsKeptOnFrom: ["W2026-09-21"] });
-      expect((await SettingsService.load()).company.overtimePolicyId).toBe(V2);
-      const entry = (await PersistenceService.listLedger()).find((e) => e.intent === "PAYROLL_POLICY_CHANGED")!;
-      expect(entry.sessionId).toBeNull();
-      expect(JSON.parse(entry.payloadJson).data).toEqual({ from: V1, to: V2, changedAtMs: time.now(), sealedPeriodsKeptOnFrom: ["W2026-09-21"], ledgerPayloadVersion: 2 });
-      expect(await migratePayrollPolicyToV2()).toEqual({ migrated: false, sealedPeriodsKeptOnFrom: [] });
-
-      // Resello del periodo v1: sigue en v1 y reutiliza el pack (mismo contentHash).
-      const again = await EvidencePackService.seal(w1);
-      if (!again.ok) throw new Error(again.code);
-      expect(again.reused).toBe(true);
-      expect(again.data.id).toBe(sealed.data.id);
-      expect(again.data.manifest.contentHash).toBe(sealed.data.manifest.contentHash);
-      // Reemisión explícita: sigue calculando con v1.
-      const re = await EvidencePackService.seal({ ...w1, reissue: true });
-      if (!re.ok) throw new Error(re.code);
-      expect(re.data.statement.policyId).toBe(V1);
-      expect(re.data.manifest.contentHash).toBe(sealed.data.manifest.contentHash);
-
-      // Periodo sin sellar: v2 (sin OT diaria).
-      const p2 = await previewPayroll(w2.periodStart, w2.periodEnd);
-      expect(p2.policyId).toBe(V2);
-      expect(p2.overtimeDailyHours).toBe(0);
-    });
   });
 
   describe("edición: salida al día siguiente (N6)", () => {

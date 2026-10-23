@@ -110,8 +110,8 @@ describe("hora futura", () => {
     expect(paidMinutes("OVERTIME_DOUBLE", statement.lines)).toBe(633);
     expect(paidMinutes("LUNCH_DEDUCTION", statement.lines)).toBe(60);
     expect(paidMinutes("REGULAR", statement.lines) + paidMinutes("OVERTIME_DAILY", statement.lines) + paidMinutes("OVERTIME_DOUBLE", statement.lines)).toBe(1353);
-    expect(statement.grossEstimate).toBe(877.5);
-    expect(statement.appliedRules).toEqual(["CA_DOUBLE_TIME_12H"]);
+    expect(statement.grossEstimate).toBe(902.5);
+    expect(statement.appliedRules).toEqual(["CA_DOUBLE_TIME_12H", "CA_MEAL_PREMIUM"]);
   });
 
   test("el repositorio no persiste un fin futuro y un fallo revierte el libro", async () => {

@@ -4,7 +4,7 @@ import { PersistenceService } from "../../persistence/PersistenceService";
 import { IntegrityLedgerService } from "../IntegrityLedgerService";
 import { PayrollEngineService } from "../PayrollEngineService";
 import { SessionEngineService } from "../SessionEngineService";
-import { LEGACY_DAILY8_V1 } from "../payrollPolicies";
+import { CA_DAILY8_WEEKLY40_V1 } from "../payrollPolicies";
 import { transition } from "../sessionMachine";
 import { COMPANY, HOUR, MIN, MONDAY_8AM, RATES, makeClosedSession, makeCtx, makeSegment, makeSession } from "../../../../test/fixtures/session.fixture";
 import { makeBreadcrumb } from "../../../../test/fixtures/spatial.fixture";
@@ -140,8 +140,8 @@ describe("P4 — RESOLVE_SPLIT (máquina)", () => {
     expect(split(s, MONDAY_8AM + 4 * HOUR, "x", makeCtx({ splitOverlap: { a: true, b: true } }))).toMatchObject({ ok: false, code: "OVERLAP" });
   });
 
-  test("LEGACY_DAILY8_v1: ambas mitades comparten la cubeta del original (sin OT extra)", () => {
-    const s = makeClosedSession(MONDAY_8AM, 10, { policyId: LEGACY_DAILY8_V1.id });
+  test("CA: ambas mitades del mismo día comparten la cubeta diaria", () => {
+    const s = makeClosedSession(MONDAY_8AM, 10, { policyId: CA_DAILY8_WEEKLY40_V1.id });
     const { a, b } = mustSplit(s, MONDAY_8AM + 5 * HOUR);
     const st = (xs: SessionRecord[]) =>
       PayrollEngineService.buildStatement({
@@ -149,8 +149,8 @@ describe("P4 — RESOLVE_SPLIT (máquina)", () => {
         periodEnd: MONDAY_8AM + 6 * 24 * HOUR,
         sessions: xs,
         rates: RATES,
-        company: { ...COMPANY, overtimePolicyId: LEGACY_DAILY8_V1.id },
-        policyId: LEGACY_DAILY8_V1.id,
+        company: COMPANY,
+        policyId: CA_DAILY8_WEEKLY40_V1.id,
         nowMs: MONDAY_8AM + 30 * 24 * HOUR,
       });
     const whole = st([s]);

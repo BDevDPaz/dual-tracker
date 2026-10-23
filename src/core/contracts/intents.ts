@@ -33,6 +33,8 @@ export type SessionIntent =
   | { type: "TRANSFER_CANCEL"; note?: string | null }
   | { type: "EXIT_DETECTED"; fact: SpatialFact }
   | { type: "STAY_WORKING" }
+  /** «Lo tomé»: el descanso se reconoce y no se descuenta tiempo. */
+  | { type: "ACK_REST"; taken: boolean }
   | {
       type: "CLOSE_DAY";
       /** "EXIT_CONFIRMED" usa la primera salida como hora de cierre. */
@@ -40,6 +42,11 @@ export type SessionIntent =
       lunchDeductedMinutes?: number | null;
       /** Hora de inicio del almuerzo declarado (obligatoria si la jornada cruza un límite de jornada, §5.3). */
       lunchStartAtMs?: number | null;
+      waiveFirstMeal?: boolean;
+      waiveSecondMeal?: boolean;
+      mealInterrupted?: boolean;
+      /** false al cerrar = descanso no tomado (una prima REST_PREMIUM si correspondía). */
+      restBreaksTaken?: boolean;
     }
   | {
       type: "AUTO_CLOSE";
@@ -144,7 +151,15 @@ export type ViewIntent =
   | { type: "CANCEL_TRANSFER"; note?: string | null }
   | { type: "STAY_WORKING" }
   | { type: "CONFIRM_EXIT"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }
-  | { type: "CLOSE_DAY"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }
+  | {
+      type: "CLOSE_DAY";
+      lunchDeductedMinutes?: number | null;
+      lunchStartAtMs?: number | null;
+      waiveFirstMeal?: boolean;
+      waiveSecondMeal?: boolean;
+      mealInterrupted?: boolean;
+      restBreaksTaken?: boolean;
+    }
   // Sesión
   | { type: "PATCH_SESSION"; sessionId: number; declaredStartAtMs: number; endAtMs: number | null; note: string }
   | { type: "ADD_NOTE"; sessionId: number; note: string }

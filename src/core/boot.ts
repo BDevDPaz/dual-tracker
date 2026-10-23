@@ -22,7 +22,6 @@ import { FeedbackService } from "../services/application/FeedbackService";
 import { refreshMirror } from "../services/application/refreshMirror";
 import { refreshFieldCryptoHealth } from "../services/application/useCases/fieldCryptoHealth";
 import { checkLedgerIntegrity } from "../services/application/useCases/ledgerIntegrity";
-import { migratePayrollPolicyToV2 } from "../services/application/useCases/policyMigration";
 import { SessionEngineService } from "../services/domain/SessionEngineService";
 import { SiteRegistryService } from "../services/domain/SiteRegistryService";
 import { monitoredSiteId } from "../services/domain/siteVisits";
@@ -119,10 +118,6 @@ export function ensureRuntimeReady(): Promise<void> {
       // 2-5. Clave maestra (alias, estado), pérdida de clave, paso de datos con
       //      clave y barrido único de hasta 500 filas. Nunca lanza.
       await bootFieldCrypto();
-      // Migración de política a v2 (spec v1.3 §5.2 N2 / §11 paso 6).
-      await migratePayrollPolicyToV2().catch((e) =>
-        LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Migración de política falló", serializeError(e)),
-      );
       // Verificación incremental del ledger (spec v1.3 §5.5 / §11 paso 6).
       await checkLedgerIntegrity("INCREMENTAL").catch((e) =>
         LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "Verificación del ledger falló", serializeError(e)),

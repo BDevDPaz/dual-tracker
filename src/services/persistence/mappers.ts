@@ -13,6 +13,7 @@ import type {
   IntegrityReason,
   OriginalTimes,
   PauseInterval,
+  PayrollCompliance,
   PausesSource,
   SessionRecord,
   SessionRecordStatus,
@@ -82,6 +83,7 @@ export interface DbSessionRow {
   cert_blockers_json?: string | null;
   recorded_timezone?: string | null;
   hourly_rate_snapshot?: number | null;
+  compliance_json?: string | null;
 }
 
 export interface DbSiteRow {
@@ -239,6 +241,7 @@ export async function rowToSession(row: DbSessionRow): Promise<SessionRecord> {
       dateString: repairDateString(row.date_string, actualStartAtMs ?? declaredStartAtMs),
       ...(typeof row.recorded_timezone === "string" && row.recorded_timezone ? { recordedTimeZone: row.recorded_timezone } : {}),
       ...(validRate(row.hourly_rate_snapshot) ? { hourlyRateSnapshot: Number(row.hourly_rate_snapshot) } : {}),
+      ...complianceField(row.compliance_json),
       isDeleted: Boolean(row.is_deleted),
       cancelled: Boolean(row.cancelled),
       lastPauseStartMs: ms(row.last_pause_start_ms),
@@ -289,6 +292,7 @@ export const SESSION_COLUMNS = [
   "cert_blockers_json",
   "recorded_timezone",
   "hourly_rate_snapshot",
+  "compliance_json",
 ] as const;
 
 /**
@@ -329,7 +333,19 @@ export function sessionToParams(s: SessionRecord, noteStored: string | null): (s
     JSON.stringify(b.certificationBlockers ?? []),
     b.recordedTimeZone ?? null,
     validRate(b.hourlyRateSnapshot) ? Number(b.hourlyRateSnapshot) : null,
+    b.compliance && Object.keys(b.compliance).length ? JSON.stringify(b.compliance) : null,
   ];
+}
+
+function complianceField(raw: string | null | undefined): { compliance: PayrollCompliance } | Record<string, never> {
+  if (!raw) return {};
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!v || typeof v !== "object" || Array.isArray(v) || !Object.keys(v).length) return {};
+    return { compliance: v as PayrollCompliance };
+  } catch {
+    return {};
+  }
 }
 
 export async function rowToSite(row: DbSiteRow): Promise<Site> {
