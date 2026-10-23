@@ -13,6 +13,10 @@ describe("SettingsService", () => {
     expect(s.company.employerPortalEnabled).toBe(false);
     expect(s.company.employerPortalUrl).toBeNull();
     expect(s.company.destinationLimit).toBe(20);
+    expect(s.company.defaultRadiusM).toBe(150);
+    expect(s.company.arrivalDwellMs).toBe(120_000);
+    expect(s.company.arrivalAccuracyM).toBe(50);
+    expect(s.company.arrivalReadings).toBe(2);
   });
 
   test("companyEmail se guarda sellado y se abre al cargar", async () => {

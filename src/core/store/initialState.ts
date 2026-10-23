@@ -41,6 +41,6 @@ export function createInitialState(): DualTrackerState {
     admin: { hasPin: false, pinOrigin: "UNSET", isUnlocked: false, unlockedUntilMs: null, lockedUntilMs: null, status: "IDLE" },
     packs: { byId: {}, order: [], sharedIds: [] },
     feedback: { pending: [] },
-    uiRequests: { openExitModal: false, openDailySetup: null, openExtendConfirm: false, correctSessionId: null, openOrphanReview: false },
+    uiRequests: { openExitModal: false, openDailySetup: null, openExtendConfirm: false, correctSessionId: null, openOrphanReview: false, openHealth: false, openMoveSite: false, dismissArrival: false },
   };
 }

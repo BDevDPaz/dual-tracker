@@ -13,22 +13,99 @@
  */
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { PermissionState, SessionIntent } from "../../core/contracts";
+import type { PermissionState, SessionIntent, SessionPayrollPreview, SessionRecord, SpatialFact } from "../../core/contracts";
 import { NOTIFICATION_ACTIONS, NOTIFICATION_CATEGORIES, NOTIFICATION_CHANNELS } from "../../constants/notifications";
 import { reminderTitleForHour, t } from "../../i18n";
-import { formatTime } from "../../utils/dateUtils";
-import { planMealRestNotices } from "../domain/caPremiums";
+import { activeCorporateTimezone, formatTime, fromWallClock } from "../../utils/dateUtils";
+import { FIRST_MEAL_DEADLINE_MIN, mealAlreadyStarted, planMealRestNotices } from "../domain/caPremiums";
+import { computeSessionMinutes } from "../domain/PayrollEngineService";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
+import { PersistenceService } from "../persistence/PersistenceService";
+import { KV_KEYS } from "../persistence/schema";
+import { SettingsService } from "../persistence/SettingsService";
 import { criticalKindsOf, recordCriticalNotice, type CriticalNoticeKind } from "./criticalNotices";
 import { autoCloseContent, daySummaryContent, extendShiftContent, lunchResumeContent, LUNCH_RESUME_AFTER_MS, orphanNoticeContent } from "./dayNotices";
-import type { SessionPayrollPreview, SessionRecord } from "../../core/contracts";
 
 const DAILY_REMINDER_ID = "dualtracker-daily-reminder";
 const exitNotificationId = (sessionId: number) => `dualtracker-exit-${sessionId}`;
+const exitReminderId = (sessionId: number) => `dualtracker-exit-remind-${sessionId}`;
+const exitCloseId = (sessionId: number) => `dualtracker-exit-close-${sessionId}`;
+const arrivalNotificationId = (sessionId: number) => `dualtracker-arrival-${sessionId}`;
+export const EXIT_REMINDER_AFTER_MS = 10 * 60_000;
+export const LUNCH_PROMPT_WAIT_MS = 15 * 60_000;
+const integrityNotificationId = (sessionId: number) => `dualtracker-integrity-${sessionId}`;
 const DEDUPE_THRESHOLD_MS = 3000;
 const lastScheduled = new Map<string, number>();
+
+interface SilenceMark {
+  date: string;
+}
+interface LunchPrompt {
+  sessionId: number;
+  deadlineMs: number;
+}
+interface ReregisterGuard {
+  sessionId: number;
+  siteId: number;
+  atMs: number;
+}
+
+function corporateDateKey(ms: number): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: activeCorporateTimezone(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(ms));
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${pick("year")}-${pick("month")}-${pick("day")}`;
+}
+
+function addDaysKey(key: string, days: number): { y: number; m: number; d: number } {
+  const [y, m, d] = key.split("-").map(Number);
+  const utc = Date.UTC(y, m - 1, d + days);
+  const next = new Date(utc);
+  return { y: next.getUTCFullYear(), m: next.getUTCMonth() + 1, d: next.getUTCDate() };
+}
+
+/** Última jornada no cancelada. Si ese sitio ya no está activo, no se hereda otro. */
+async function reminderTarget(): Promise<{ siteId: number | null; name: string | null }> {
+  try {
+    const sessions = await PersistenceService.listSessions();
+    const usable = sessions.filter((s) => !s.bookkeeping.cancelled && !s.bookkeeping.isDeleted);
+    usable.sort((a, b) => (b.actualStartAtMs ?? b.declaredStartAtMs) - (a.actualStartAtMs ?? a.declaredStartAtMs));
+    const last = usable[0];
+    if (!last?.siteId) return { siteId: null, name: null };
+    const site = await PersistenceService.getSite(last.siteId);
+    if (!site?.active) return { siteId: null, name: null };
+    return { siteId: site.id, name: site.alias };
+  } catch {
+    return { siteId: null, name: null };
+  }
+}
+
+function button(identifier: string, buttonTitle: string, opensAppToForeground = false) {
+  return { identifier, buttonTitle, options: { opensAppToForeground } };
+}
+
+async function scheduleAt(identifier: string, content: Record<string, unknown>, atMs: number): Promise<void> {
+  if (atMs <= TimeAuthorityService.now()) return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier,
+      content,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: new Date(atMs),
+        channelId: Platform.OS === "android" ? NOTIFICATION_CHANNELS.DEFAULT : undefined,
+      },
+    });
+  } catch (error) {
+    LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo programar el aviso", serializeError(error));
+  }
+}
 
 export type NotificationIntentSink = (intent: SessionIntent, sessionId: number | null) => Promise<void>;
 export type NotificationUiSink = (req: {
@@ -37,6 +114,9 @@ export type NotificationUiSink = (req: {
   openExtendConfirm?: boolean;
   correctSessionId?: number | null;
   openOrphanReview?: boolean;
+  openHealth?: boolean;
+  openMoveSite?: boolean;
+  dismissArrival?: boolean;
 }) => void;
 
 let intentSink: NotificationIntentSink | null = null;
@@ -113,10 +193,37 @@ async function ensureCategories(): Promise<void> {
     { identifier: NOTIFICATION_ACTIONS.RESUME, buttonTitle: t("notifications.actionResume"), options: { opensAppToForeground: false } },
   ]);
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.EXIT_DETECTION, [
-    { identifier: NOTIFICATION_ACTIONS.STAY_WORKING, buttonTitle: t("notifications.actionStay"), options: { opensAppToForeground: false } },
-    { identifier: NOTIFICATION_ACTIONS.END_SESSION, buttonTitle: t("notifications.actionClose"), options: { opensAppToForeground: false } },
-    // Trasladar exige elegir destino → abre la app con DailySetupModal (modo transit).
-    { identifier: NOTIFICATION_ACTIONS.TRANSFER, buttonTitle: t("notifications.actionTransfer"), options: { opensAppToForeground: true } },
+    button(NOTIFICATION_ACTIONS.END_SESSION, t("notifications.actionDoneToday")),
+    button(NOTIFICATION_ACTIONS.OTHER_WORK, t("notifications.actionOtherWork"), true),
+    button(NOTIFICATION_ACTIONS.ERRAND, t("notifications.actionErrand")),
+    button(NOTIFICATION_ACTIONS.STAY_WORKING, t("notifications.actionStillHere")),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.DAILY_REMINDER, [
+    button(NOTIFICATION_ACTIONS.START_DAY, t("notifications.actionStartDay")),
+    button(NOTIFICATION_ACTIONS.SILENCE_DAY, t("notifications.actionSilenceDay")),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.ARRIVAL_HOLD, [
+    button(NOTIFICATION_ACTIONS.ARRIVAL_NOW, t("notifications.actionStartNow")),
+    button(NOTIFICATION_ACTIONS.ARRIVAL_HOLD_DISMISS, t("notifications.actionNotWork")),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.LUNCH_BEFORE_CLOSE, [
+    button(NOTIFICATION_ACTIONS.LUNCH_30, t("notifications.actionLunch30")),
+    button(NOTIFICATION_ACTIONS.LUNCH_60, t("notifications.actionLunch60")),
+    button(NOTIFICATION_ACTIONS.LUNCH_NONE, t("notifications.actionLunchNone")),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.TRANSIT, [
+    button(NOTIFICATION_ACTIONS.TRANSIT_BACK, t("notifications.actionBack")),
+    button(NOTIFICATION_ACTIONS.TRANSIT_ARRIVED, t("notifications.actionArrived")),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.INTEGRITY, [
+    button(NOTIFICATION_ACTIONS.REPAIR, t("notifications.actionRepair"), true),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.OFFSITE, [
+    button(NOTIFICATION_ACTIONS.OFFSITE_YES, t("notifications.actionYesHere"), true),
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.RETURN_OR_FINISH, [
+    button(NOTIFICATION_ACTIONS.RETURN_TO_SITE, t("notifications.actionReturn")),
+    button(NOTIFICATION_ACTIONS.FINISH_SHIFT, t("notifications.actionFinish")),
   ]);
 }
 
@@ -162,25 +269,174 @@ async function acknowledgeOsCritical(data: unknown): Promise<void> {
   }
 }
 
+function dataOf(data: unknown): Record<string, unknown> {
+  return data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+}
+
+function positiveInt(data: Record<string, unknown>, key: string): number | null {
+  const raw = data[key];
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+async function rejectIfStale(sessionId: number | null, identifier: string | undefined): Promise<boolean> {
+  if (sessionId == null) return false;
+  const session = await PersistenceService.getSession(sessionId);
+  const open = session && session.domainStatus !== "CERRADA" && !session.bookkeeping.cancelled && !session.bookkeeping.isDeleted;
+  if (open) return false;
+  if (identifier) await Notifications.dismissNotificationAsync(identifier).catch(() => {});
+  await NotificationService.notifyImmediate(t("notifications.staleActionTitle"), t("notifications.staleActionBody"), { kind: "STALE_ACTION" }, { identifier: "dualtracker-stale-action" });
+  return true;
+}
+
+async function needsLunchPrompt(sessionId: number): Promise<boolean> {
+  const session = await PersistenceService.getSession(sessionId);
+  if (!session || session.domainStatus === "CERRADA" || session.domainStatus === "ESPERANDO") return false;
+  if (mealAlreadyStarted([session])) return false;
+  const company = (await SettingsService.load()).company;
+  const minutes = computeSessionMinutes(session, company, TimeAuthorityService.now());
+  if (!minutes) return false;
+  return minutes.workMinutes + minutes.transitPaidMinutes > FIRST_MEAL_DEADLINE_MIN;
+}
+
+async function closeFromNotification(sessionId: number, lunchDeductedMinutes?: number): Promise<void> {
+  const pending = await PersistenceService.getKv<{ sessionId: number; firstExitAtMs: number; siteId: number | null; reliable: boolean }>(KV_KEYS.PENDING_EXIT);
+  const session = await PersistenceService.getSession(sessionId);
+  if (pending && pending.sessionId === sessionId && session?.domainStatus === "ACTIVA") {
+    const fact: SpatialFact = {
+      sessionId,
+      type: "EXIT",
+      lat: null,
+      lon: null,
+      accuracyM: null,
+      timestampMs: pending.firstExitAtMs,
+      source: "unknown",
+      reliable: pending.reliable,
+      siteId: pending.siteId,
+    };
+    await intentSink?.({ type: "EXIT_DETECTED", fact }, sessionId);
+  }
+  const close: SessionIntent =
+    lunchDeductedMinutes === undefined
+      ? { type: "CLOSE_DAY", mode: "EXIT_CONFIRMED" }
+      : { type: "CLOSE_DAY", mode: "EXIT_CONFIRMED", lunchDeductedMinutes };
+  await intentSink?.(close, sessionId);
+  await NotificationService.cancelExitFollowUps(sessionId);
+  await PersistenceService.deleteKv(KV_KEYS.LUNCH_PROMPT).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(`dualtracker-lunch-close-${sessionId}`).catch(() => {});
+}
+
 async function handleResponse(response: Notifications.NotificationResponse): Promise<void> {
   const action = response.actionIdentifier;
   const data = response.notification.request.content.data;
+  const fields = dataOf(data);
   const sessionId = parseSessionId(data);
+  const identifier = response.notification.request.identifier;
   LoggingService.log("AZUL", "NOTIFICACION", "INFO", "Acción de notificación recibida", { action, sessionId });
   await acknowledgeOsCritical(data).catch((error) => {
     LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo anotar el toque del aviso", serializeError(error));
   });
   try {
+    const sessionBound =
+      action === NOTIFICATION_ACTIONS.STAY_WORKING ||
+      action === NOTIFICATION_ACTIONS.END_SESSION ||
+      action === NOTIFICATION_ACTIONS.ERRAND ||
+      action === NOTIFICATION_ACTIONS.LUNCH_30 ||
+      action === NOTIFICATION_ACTIONS.LUNCH_60 ||
+      action === NOTIFICATION_ACTIONS.LUNCH_NONE ||
+      action === NOTIFICATION_ACTIONS.RESUME ||
+      action === NOTIFICATION_ACTIONS.TRANSIT_BACK ||
+      action === NOTIFICATION_ACTIONS.TRANSIT_ARRIVED ||
+      action === NOTIFICATION_ACTIONS.ARRIVAL_NOW ||
+      action === NOTIFICATION_ACTIONS.FINISH_SHIFT;
+    if (sessionBound && (await rejectIfStale(sessionId, identifier))) return;
     switch (action) {
       case NOTIFICATION_ACTIONS.STAY_WORKING:
-        if (sessionId) await intentSink?.({ type: "STAY_WORKING" }, sessionId);
+        if (sessionId) {
+          await NotificationService.cancelExitFollowUps(sessionId);
+          await intentSink?.({ type: "STAY_WORKING" }, sessionId);
+        }
         break;
       case NOTIFICATION_ACTIONS.END_SESSION:
-        if (sessionId) await intentSink?.({ type: "CLOSE_DAY", mode: "EXIT_CONFIRMED" }, sessionId);
+        if (!sessionId) break;
+        if (await needsLunchPrompt(sessionId)) {
+          await NotificationService.askLunchBeforeClose(sessionId);
+          break;
+        }
+        await closeFromNotification(sessionId);
         break;
+      case NOTIFICATION_ACTIONS.LUNCH_30:
+      case NOTIFICATION_ACTIONS.LUNCH_60:
+      case NOTIFICATION_ACTIONS.LUNCH_NONE:
+        if (sessionId) {
+          const minutes = action === NOTIFICATION_ACTIONS.LUNCH_30 ? 30 : action === NOTIFICATION_ACTIONS.LUNCH_60 ? 60 : 0;
+          await closeFromNotification(sessionId, minutes);
+        }
+        break;
+      case NOTIFICATION_ACTIONS.OTHER_WORK:
       case NOTIFICATION_ACTIONS.TRANSFER:
+        if (sessionId) await NotificationService.cancelExitFollowUps(sessionId);
         uiSink?.({ openDailySetup: "transit" });
         break;
+      case NOTIFICATION_ACTIONS.ERRAND:
+        if (sessionId) {
+          const siteId = positiveInt(fields, "siteId") ?? (await PersistenceService.getSession(sessionId))?.siteId ?? null;
+          await NotificationService.cancelExitFollowUps(sessionId);
+          if (siteId) await intentSink?.({ type: "TRANSFER_START", toSiteId: siteId, purpose: "ERRAND" }, sessionId);
+        }
+        break;
+      case NOTIFICATION_ACTIONS.START_DAY: {
+        const siteId = positiveInt(fields, "siteId");
+        if (siteId) await intentSink?.({ type: "START_DAY", siteId }, null);
+        else uiSink?.({ openDailySetup: "start" });
+        break;
+      }
+      case NOTIFICATION_ACTIONS.SILENCE_DAY:
+        await NotificationService.silenceToday();
+        break;
+      case NOTIFICATION_ACTIONS.ARRIVAL_NOW:
+        if (sessionId) await intentSink?.({ type: "ARRIVAL_CONFIRMED" }, sessionId);
+        break;
+      case NOTIFICATION_ACTIONS.ARRIVAL_HOLD_DISMISS:
+        uiSink?.({ dismissArrival: true });
+        if (sessionId) await Notifications.dismissNotificationAsync(arrivalNotificationId(sessionId)).catch(() => {});
+        break;
+      case NOTIFICATION_ACTIONS.TRANSIT_BACK:
+        if (sessionId) await intentSink?.({ type: "TRANSFER_CANCEL" }, sessionId);
+        break;
+      case NOTIFICATION_ACTIONS.TRANSIT_ARRIVED:
+        if (sessionId) await intentSink?.({ type: "ARRIVAL_CONFIRMED" }, sessionId);
+        break;
+      case NOTIFICATION_ACTIONS.REPAIR:
+        uiSink?.({ openHealth: true });
+        break;
+      case NOTIFICATION_ACTIONS.OFFSITE_YES:
+        uiSink?.({ openMoveSite: true });
+        break;
+      case NOTIFICATION_ACTIONS.RETURN_TO_SITE:
+        await PersistenceService.deleteKv(KV_KEYS.REREGISTER_EXIT_GUARD).catch(() => {});
+        if (identifier) await Notifications.dismissNotificationAsync(identifier).catch(() => {});
+        break;
+      case NOTIFICATION_ACTIONS.FINISH_SHIFT: {
+        const guard = await PersistenceService.getKv<ReregisterGuard>(KV_KEYS.REREGISTER_EXIT_GUARD);
+        await PersistenceService.deleteKv(KV_KEYS.REREGISTER_EXIT_GUARD).catch(() => {});
+        if (sessionId && guard && guard.sessionId === sessionId) {
+          const fact: SpatialFact = {
+            sessionId,
+            type: "EXIT",
+            lat: null,
+            lon: null,
+            accuracyM: null,
+            timestampMs: guard.atMs,
+            source: "unknown",
+            reliable: true,
+            reason: "REREGISTER_EXIT",
+            siteId: guard.siteId,
+          };
+          await intentSink?.({ type: "EXIT_DETECTED", fact }, sessionId);
+        }
+        break;
+      }
       case NOTIFICATION_ACTIONS.DAILY_SETUP:
         uiSink?.({ openDailySetup: "start" });
         break;
@@ -207,10 +463,12 @@ async function handleResponse(response: Notifications.NotificationResponse): Pro
         break;
       default:
         if (action === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-          // "Una notificación de salida abre Hoy con el modal ya visible" (Producto §8).
-          const kind = data && typeof data === "object" ? (data as Record<string, unknown>).kind : null;
+          const kind = fields.kind;
           if (kind === "EXIT_DECISION") uiSink?.({ openExitModal: true });
           if (kind === "DAILY_REMINDER") uiSink?.({ openDailySetup: "start" });
+          if (kind === "INTEGRITY") uiSink?.({ openHealth: true });
+          if (kind === "EXIT_CLOSE" && sessionId) await intentSink?.({ type: "AUTO_CLOSE", cause: "EXIT_DECISION_EXPIRED", confirmedOutside: false }, sessionId);
+          if (kind === "LUNCH_CLOSE" && sessionId) await closeFromNotification(sessionId, 0);
         }
     }
   } catch (error) {
@@ -279,7 +537,7 @@ export const NotificationService = {
     }
   },
 
-  /** Recordatorio diario (DAILY_REMINDER). timeString "HH:mm". */
+  /** Recordatorio diario (N01). timeString "HH:mm". El silencio de hoy no cambia la hora del perfil. */
   async scheduleDailyReminder(timeString: string, opts?: { force?: boolean }): Promise<boolean> {
     const [h, m] = (timeString ?? "").split(":");
     const hour = Number(h);
@@ -290,15 +548,37 @@ export const NotificationService = {
     }
     if ((await NotificationService.getPermission()) !== "granted") return false;
     if (!opts?.force && isSpam(`daily_${timeString}`)) return true;
+    await ensureCategories().catch(() => {});
+    const target = await reminderTarget();
+    const body = target.name ? t("notifications.reminderAsk", { site: target.name }) : t("notifications.reminderAskPick");
+    const content = {
+      title: reminderTitleForHour(hour),
+      body,
+      sound: true,
+      categoryIdentifier: NOTIFICATION_CATEGORIES.DAILY_REMINDER,
+      channelId: NOTIFICATION_CHANNELS.DEFAULT,
+      data: { kind: "DAILY_REMINDER", siteId: target.siteId },
+    };
     await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
+    const silence = await PersistenceService.getKv<SilenceMark>(KV_KEYS.SILENCE_DAY).catch(() => null);
+    const today = corporateDateKey(TimeAuthorityService.now());
+    if (silence?.date === today) {
+      const next = addDaysKey(today, 1);
+      const at = fromWallClock(next.y, next.m, next.d, hour, minute);
+      await Notifications.scheduleNotificationAsync({
+        identifier: DAILY_REMINDER_ID,
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(at),
+          channelId: Platform.OS === "android" ? NOTIFICATION_CHANNELS.DEFAULT : undefined,
+        },
+      });
+      return true;
+    }
     await Notifications.scheduleNotificationAsync({
       identifier: DAILY_REMINDER_ID,
-      content: {
-        title: reminderTitleForHour(hour),
-        body: t("notifications.reminderBody"),
-        sound: true,
-        data: { kind: "DAILY_REMINDER" },
-      },
+      content,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour,
@@ -309,12 +589,19 @@ export const NotificationService = {
     return true;
   },
 
+  /** T35: silencia solo la fecha corporativa de hoy. Mañana vuelve a sonar. */
+  async silenceToday(): Promise<void> {
+    const settings = await SettingsService.load();
+    await PersistenceService.setKv(KV_KEYS.SILENCE_DAY, { date: corporateDateKey(TimeAuthorityService.now()) } satisfies SilenceMark);
+    await NotificationService.scheduleDailyReminder(settings.profile.dailyReminderTime, { force: true });
+  },
+
   async cancelDailyReminder(): Promise<void> {
     await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
   },
 
   /** Aviso inmediato validado (título y cuerpo no vacíos). */
-  async notifyImmediate(title: string, body: string, data?: Record<string, unknown>, opts: { identifier?: string; categoryIdentifier?: string } = {}): Promise<boolean> {
+  async notifyImmediate(title: string, body: string, data?: Record<string, unknown>, opts: { identifier?: string; categoryIdentifier?: string; channelId?: string } = {}): Promise<boolean> {
     if (!title?.trim() || !body?.trim()) {
       LoggingService.log("NARANJA", "ADVERTENCIA", "WARN", "Notificación con payload inválido descartada");
       return false;
@@ -324,7 +611,14 @@ export const NotificationService = {
     try {
       await Notifications.scheduleNotificationAsync({
         identifier: opts.identifier,
-        content: { title, body, data, sound: true, categoryIdentifier: opts.categoryIdentifier },
+        content: {
+          title,
+          body,
+          data,
+          sound: true,
+          categoryIdentifier: opts.categoryIdentifier,
+          ...(opts.channelId ? { channelId: opts.channelId } : {}),
+        },
         trigger: null,
       });
       await noteOsCritical(data, true).catch((error) => {
@@ -370,16 +664,173 @@ export const NotificationService = {
     return any;
   },
 
-  /** Decisión de salida con tres acciones (cerrar / seguir / trasladar). */
+  /** N07. La tarea headless lo crea en la misma ejecución del EXIT, canal al máximo. */
   async notifyExitDetected(sessionId: number, firstExitAtMs: number): Promise<boolean> {
-    // Una tarea headless arranca un JS nuevo: los botones se registran aquí,
-    // ya con el idioma hidratado, no con el que tenía el proceso anterior.
+    await ensureChannels().catch(() => {});
     await ensureCategories().catch(() => {});
     return NotificationService.notifyImmediate(
       t("notifications.exitTitle"),
       t("notifications.exitBody"),
       { kind: "EXIT_DECISION", criticalKind: "EXIT", sessionId, firstExitAtMs },
-      { identifier: exitNotificationId(sessionId), categoryIdentifier: NOTIFICATION_CATEGORIES.EXIT_DETECTION },
+      {
+        identifier: exitNotificationId(sessionId),
+        categoryIdentifier: NOTIFICATION_CATEGORIES.EXIT_DETECTION,
+        channelId: NOTIFICATION_CHANNELS.DEFAULT,
+      },
+    );
+  },
+
+  /**
+   * N09 a los 10 min y el cierre D13 al vencer la ventana. Triggers del SO
+   * (DATE): siguen programados si el proceso muere. No sustituyen a N07.
+   */
+  async scheduleExitFollowUps(sessionId: number, firstExitAtMs: number, windowMs: number): Promise<void> {
+    if ((await NotificationService.getPermission()) !== "granted") return;
+    await ensureChannels().catch(() => {});
+    await ensureCategories().catch(() => {});
+    const closeAt = firstExitAtMs + windowMs;
+    const channelId = NOTIFICATION_CHANNELS.DEFAULT;
+    if (windowMs > EXIT_REMINDER_AFTER_MS) {
+      await scheduleAt(exitReminderId(sessionId), {
+        title: t("notifications.exitReminderTitle"),
+        body: t("notifications.exitReminderBody", { time: formatTime(closeAt) }),
+        data: { kind: "EXIT_REMINDER", sessionId, firstExitAtMs },
+        sound: true,
+        categoryIdentifier: NOTIFICATION_CATEGORIES.EXIT_DETECTION,
+        channelId,
+      }, firstExitAtMs + EXIT_REMINDER_AFTER_MS);
+    }
+    await scheduleAt(exitCloseId(sessionId), {
+      title: t("notifications.exitReminderTitle"),
+      body: t("notifications.exitReminderBody", { time: formatTime(closeAt) }),
+      data: { kind: "EXIT_CLOSE", sessionId, firstExitAtMs },
+      sound: true,
+      channelId,
+    }, closeAt);
+  },
+
+  async cancelExitFollowUps(sessionId: number): Promise<void> {
+    await NotificationService.dismissExit(sessionId);
+  },
+
+  /** N08. Sin respuesta en 15 min, el trigger cierra sin descontar almuerzo. */
+  async askLunchBeforeClose(sessionId: number): Promise<void> {
+    await ensureCategories().catch(() => {});
+    const deadlineMs = TimeAuthorityService.now() + LUNCH_PROMPT_WAIT_MS;
+    await PersistenceService.setKv(KV_KEYS.LUNCH_PROMPT, { sessionId, deadlineMs } satisfies LunchPrompt);
+    await NotificationService.notifyImmediate(
+      t("notifications.lunchAskTitle"),
+      t("notifications.lunchAskBody"),
+      { kind: "LUNCH_BEFORE_CLOSE", sessionId },
+      { identifier: `dualtracker-lunch-ask-${sessionId}`, categoryIdentifier: NOTIFICATION_CATEGORIES.LUNCH_BEFORE_CLOSE, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+    await scheduleAt(`dualtracker-lunch-close-${sessionId}`, {
+      title: t("notifications.lunchAskTitle"),
+      body: t("notifications.lunchAskBody"),
+      data: { kind: "LUNCH_CLOSE", sessionId },
+      sound: true,
+      channelId: NOTIFICATION_CHANNELS.DEFAULT,
+    }, deadlineMs);
+  },
+
+  /** El vigilante cierra si N08 se quedó sin respuesta. */
+  async runLunchPromptClose(): Promise<boolean> {
+    const prompt = await PersistenceService.getKv<LunchPrompt>(KV_KEYS.LUNCH_PROMPT);
+    if (!prompt || TimeAuthorityService.now() < prompt.deadlineMs) return false;
+    const session = await PersistenceService.getSession(prompt.sessionId);
+    if (!session || session.domainStatus === "CERRADA" || session.bookkeeping.cancelled) {
+      await PersistenceService.deleteKv(KV_KEYS.LUNCH_PROMPT).catch(() => {});
+      return false;
+    }
+    await closeFromNotification(prompt.sessionId, 0);
+    return true;
+  },
+
+  async notifyArrivalHold(sessionId: number, siteName: string): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(
+      t("notifications.arrivalHoldTitle", { site: siteName }),
+      t("notifications.arrivalHoldBody"),
+      { kind: "ARRIVAL_HOLD", sessionId },
+      { identifier: arrivalNotificationId(sessionId), categoryIdentifier: NOTIFICATION_CATEGORIES.ARRIVAL_HOLD, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async notifyArrivalRegistered(sessionId: number, timeLabel: string): Promise<boolean> {
+    return NotificationService.notifyImmediate(
+      t("notifications.arrivalRegisteredTitle", { time: timeLabel }),
+      t("notifications.arrivalRegisteredBody"),
+      { kind: "ARRIVAL_REGISTERED", sessionId },
+      { identifier: arrivalNotificationId(sessionId), channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async dismissArrival(sessionId: number): Promise<void> {
+    await Notifications.dismissNotificationAsync(arrivalNotificationId(sessionId)).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(arrivalNotificationId(sessionId)).catch(() => {});
+  },
+
+  async notifyWeakGps(sessionId: number): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(
+      t("notifications.weakGpsTitle"),
+      t("notifications.weakGpsBody"),
+      { kind: "GPS_WEAK", sessionId },
+      { identifier: `dualtracker-weak-${sessionId}`, categoryIdentifier: NOTIFICATION_CATEGORIES.ARRIVAL_HOLD, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async notifyOffsite(sessionId: number, address: string): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(
+      t("notifications.offsiteTitle"),
+      t("notifications.offsiteBody", { address }),
+      { kind: "OFFSITE", sessionId },
+      { identifier: `dualtracker-offsite-${sessionId}`, categoryIdentifier: NOTIFICATION_CATEGORIES.OFFSITE, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async notifyStillGoing(sessionId: number): Promise<boolean> {
+    return NotificationService.notifyImmediate(
+      t("notifications.stillGoingTitle"),
+      t("notifications.stillGoingBody"),
+      { kind: "STILL_GOING", sessionId },
+      { identifier: `dualtracker-still-${sessionId}`, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async notifyTransit(sessionId: number): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(
+      t("notifications.transitTitle"),
+      t("notifications.transitBody"),
+      { kind: "TRANSIT", sessionId },
+      { identifier: `dualtracker-transit-${sessionId}`, categoryIdentifier: NOTIFICATION_CATEGORIES.TRANSIT, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async dismissTransit(sessionId: number): Promise<void> {
+    await Notifications.dismissNotificationAsync(`dualtracker-transit-${sessionId}`).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(`dualtracker-transit-${sessionId}`).catch(() => {});
+  },
+
+  async notifyIntegrity(sessionId: number): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(
+      t("notifications.integrityTitle"),
+      t("notifications.integrityBody"),
+      { kind: "INTEGRITY", sessionId },
+      { identifier: integrityNotificationId(sessionId), categoryIdentifier: NOTIFICATION_CATEGORIES.INTEGRITY, channelId: NOTIFICATION_CHANNELS.DEFAULT },
+    );
+  },
+
+  async notifyReturnOrFinish(sessionId: number): Promise<boolean> {
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(
+      t("notifications.returnOrFinishTitle"),
+      t("notifications.returnOrFinishBody"),
+      { kind: "RETURN_OR_FINISH", sessionId },
+      { identifier: `dualtracker-return-${sessionId}`, categoryIdentifier: NOTIFICATION_CATEGORIES.RETURN_OR_FINISH, channelId: NOTIFICATION_CHANNELS.DEFAULT },
     );
   },
 
@@ -465,6 +916,10 @@ export const NotificationService = {
 
   async dismissExit(sessionId: number): Promise<void> {
     await Notifications.dismissNotificationAsync(exitNotificationId(sessionId)).catch(() => {});
+    await Notifications.dismissNotificationAsync(exitReminderId(sessionId)).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(exitReminderId(sessionId)).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(exitCloseId(sessionId)).catch(() => {});
+    await Notifications.cancelScheduledNotificationAsync(`dualtracker-lunch-close-${sessionId}`).catch(() => {});
   },
 
   dispose(): void {

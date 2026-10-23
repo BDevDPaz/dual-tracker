@@ -3,16 +3,22 @@
  * "updateStatus" de la propuesta = cualquier PersistenceService.updateSession
  * fuera de SessionEngineService.dispatch (no existe updateStatus en el código).
  */
+import * as Notifications from "expo-notifications";
+import { __state as notificationState } from "../../../../../test/mocks/expo-notifications";
+import { Platform } from "react-native";
 import { GEOFENCE_TASK_NAME } from "../../../../constants/geolocation";
+import { NOTIFICATION_ACTIONS, NOTIFICATION_CATEGORIES } from "../../../../constants/notifications";
 import { IntegrityLedgerService } from "../../../domain/IntegrityLedgerService";
 import { SessionEngineService } from "../../../domain/SessionEngineService";
 import { TimeAuthorityService } from "../../../evidence/TimeAuthorityService";
 import { PersistenceService } from "../../../persistence/PersistenceService";
+import { SettingsService } from "../../../persistence/SettingsService";
 import { KV_KEYS } from "../../../persistence/schema";
 import { GeofenceRuntimeService, geofenceIdentifier } from "../../GeofenceRuntimeService";
+import { NotificationService } from "../../NotificationService";
 import { TaskOrchestratorService } from "../../TaskOrchestratorService";
 import { runGeofenceTask } from "../geofence.task";
-import { HOUR } from "../../../../../test/fixtures/session.fixture";
+import { HOUR, MIN } from "../../../../../test/fixtures/session.fixture";
 import { SITE_LAT, SITE_LON } from "../../../../../test/fixtures/spatial.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../../test/helpers";
 import { LocationMock, TaskManagerMock, watchStatusWrites } from "../../../../../test/runtimeHarness";
@@ -223,14 +229,16 @@ describe("geofence.task", () => {
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
   });
 
-  test("precisión 80 m dentro de un radio de 100 m ficha (el tope de 50 m no veta)", async () => {
+  test("precisión 80 m dentro de un radio de 100 m no ficha: GPS débil, se pregunta", async () => {
     const { siteA } = await seedWorld();
     const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
     LocationMock.__setPosition(SITE_LAT, SITE_LON, 80);
     await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
-    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
     const [f] = await PersistenceService.listSpatialFacts(s.id, ["ENTER"]);
-    expect(f.reliable).toBe(true);
+    expect(f).toMatchObject({ reliable: false, reason: "GPS_WEAK" });
+    const notes = notificationState.scheduled as { content: { data?: { kind?: string } } }[];
+    expect(notes.some((n) => n.content.data?.kind === "GPS_WEAK")).toBe(true);
   });
 
   test("un salto de 10 km en 20 min no rechaza la llegada", async () => {
@@ -371,5 +379,147 @@ describe("geofence.task", () => {
     expect(raw).not.toContain(String(SITE_LAT));
     expect(raw).not.toContain("latitude");
     expect(raw).not.toContain("\"lat\"");
+  });
+
+  test("F01: el EXIT en frío publica N07 en la misma ejecución, sin esperar al temporizador", async () => {
+    const originalOs = Platform.OS;
+    Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+    const timers: number[] = [];
+    const real = global.setTimeout;
+    global.setTimeout = ((fn: TimerHandler, ms?: number, ...rest: unknown[]) => {
+      timers.push(ms ?? 0);
+      return real(fn as Parameters<typeof setTimeout>[0], ms, ...(rest as []));
+    }) as typeof setTimeout;
+    try {
+      const { siteA } = await seedWorld();
+      const s = await startAndArrive(siteA);
+      time.travel(8 * HOUR);
+      LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+      await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+      expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+      const notes = notificationState.scheduled as { identifier?: string; content: { data?: { kind?: string }; channelId?: string; categoryIdentifier?: string } }[];
+      const n07 = notes.find((n) => n.content.data?.kind === "EXIT_DECISION");
+      expect(n07?.identifier).toBe(`dualtracker-exit-${s.id}`);
+      expect(n07?.content.channelId).toBe("default");
+      expect(n07?.content.categoryIdentifier).toBe(NOTIFICATION_CATEGORIES.EXIT_DETECTION);
+      const channel = notificationState.channels.get("default") as { importance?: number } | undefined;
+      expect(channel?.importance).toBe(Notifications.AndroidImportance.MAX);
+      expect(timers.length).toBeGreaterThan(0);
+      expect(notes.some((n) => n.identifier === `dualtracker-exit-remind-${s.id}`)).toBe(true);
+      expect(notes.some((n) => n.identifier === `dualtracker-exit-close-${s.id}`)).toBe(true);
+    } finally {
+      global.setTimeout = real;
+      Object.defineProperty(Platform, "OS", { configurable: true, value: originalOs });
+    }
+  });
+
+  test("A03: un EXIT entregado 6 min tarde usa la última lectura dentro", async () => {
+    const { siteA } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(8 * HOUR);
+    const insideAt = time.now();
+    await GeofenceRuntimeService.observeSample({ lat: SITE_LAT, lon: SITE_LON, accuracyM: 10, timestampMs: insideAt });
+    time.travel(6 * MIN);
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    expect(await GeofenceRuntimeService.getPendingExit()).toMatchObject({ firstExitAtMs: insideAt });
+    time.travel(3 * MIN);
+    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(true);
+    expect((await PersistenceService.getSession(s.id))?.bookkeeping.firstExitAtMs).toBe(insideAt);
+  });
+
+  test("T03/C21: dos lecturas y 2 min fichan con la hora de la primera; una lectura no", async () => {
+    const { siteA } = await seedWorld();
+    const settings = await SettingsService.load();
+    await SettingsService.saveCompany({ ...settings.company, arrivalDwellMs: 2 * MIN, arrivalReadings: 2 });
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    const firstAt = time.now();
+    await GeofenceRuntimeService.observeSample({ lat: SITE_LAT, lon: SITE_LON, accuracyM: 12, timestampMs: firstAt });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+    const hold = await PersistenceService.getKv<{ goodReadings?: number }>(KV_KEYS.ARRIVAL_DWELL);
+    expect(hold?.goodReadings).toBe(1);
+    const notes = notificationState.scheduled as { identifier?: string; content: { data?: { kind?: string } } }[];
+    expect(notes.some((n) => n.identifier === `dualtracker-arrival-${s.id}` && n.content.data?.kind === "ARRIVAL_HOLD")).toBe(true);
+    time.travel(2 * MIN);
+    expect(await GeofenceRuntimeService.flushArrivalDwell()).toBe(false);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+    await GeofenceRuntimeService.observeSample({ lat: SITE_LAT, lon: SITE_LON, accuracyM: 12, timestampMs: time.now() });
+    const arrived = await PersistenceService.getSession(s.id);
+    expect(arrived?.domainStatus).toBe("ACTIVA");
+    expect(arrived?.actualStartAtMs).toBe(firstAt);
+    expect(await PersistenceService.listSpatialFacts(s.id, ["ENTER"])).toHaveLength(1);
+    const arrival = notes.filter((n) => n.identifier === `dualtracker-arrival-${s.id}`);
+    expect(arrival[0]?.content.data?.kind).toBe("ARRIVAL_HOLD");
+    expect(arrival.at(-1)?.content.data?.kind).toBe("ARRIVAL_REGISTERED");
+  });
+
+  test("E01: salir durante la espera borra N03 y no ficha", async () => {
+    const { siteA } = await seedWorld();
+    const settings = await SettingsService.load();
+    await SettingsService.saveCompany({ ...settings.company, arrivalDwellMs: 2 * MIN });
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    await GeofenceRuntimeService.observeSample({ lat: SITE_LAT, lon: SITE_LON, accuracyM: 10, timestampMs: time.now() });
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    expect(await PersistenceService.getKv(KV_KEYS.ARRIVAL_DWELL)).toBeNull();
+    expect((notificationState.dismissed as string[]).includes(`dualtracker-arrival-${s.id}`)).toBe(true);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+  });
+
+  test("N06: 10 min quieto fuera del radio avisa una vez y no cambia el estado", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    const far = { lat: SITE_LAT + 300 / 111_320, lon: SITE_LON, accuracyM: 10, timestampMs: time.now() };
+    await GeofenceRuntimeService.observeSample(far);
+    time.travel(10 * MIN);
+    await GeofenceRuntimeService.observeSample({ ...far, timestampMs: time.now() });
+    const notes = notificationState.scheduled as { content: { data?: { kind?: string } } }[];
+    expect(notes.filter((n) => n.content.data?.kind === "OFFSITE")).toHaveLength(1);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+    time.travel(MIN);
+    await GeofenceRuntimeService.observeSample({ ...far, timestampMs: time.now() });
+    expect(notes.filter((n) => n.content.data?.kind === "OFFSITE")).toHaveLength(1);
+  });
+
+  test("F04: cancelar el traslado fuera del origen no abre SALIDA con el EXIT de re-registro", async () => {
+    const { siteA, siteB } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    await mustDispatch({ type: "TRANSFER_START", toSiteId: siteB });
+    time.travel(20 * MIN);
+    LocationMock.__setPosition(SITE_LAT + 0.05, SITE_LON, 10);
+    await mustDispatch({ type: "TRANSFER_CANCEL" });
+    expect(await GeofenceRuntimeService.startMonitoring(s.id, siteA)).toBe(true);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    time.travel(6_000);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    const after = (await PersistenceService.getSession(s.id))!;
+    expect(after.domainStatus).toBe("ACTIVA");
+    expect(after.bookkeeping.firstExitAtMs).toBeNull();
+    expect(await GeofenceRuntimeService.getPendingExit()).toBeNull();
+    const ledger = await IntegrityLedgerService.listForSession(s.id);
+    expect(ledger.some((e) => e.intent === "EXIT_DETECTED")).toBe(false);
+    const notes = notificationState.scheduled as { content: { data?: { kind?: string } } }[];
+    expect(notes.some((n) => n.content.data?.kind === "RETURN_OR_FINISH")).toBe(true);
+    const guard = await PersistenceService.getKv<{ atMs: number }>(KV_KEYS.REREGISTER_EXIT_GUARD);
+    expect(guard?.atMs).toBeTruthy();
+    await NotificationService.init({
+      intent: async (intent, sessionId) => {
+        await SessionEngineService.dispatch(intent, "NOTIFICATION");
+      },
+      ui: () => {},
+    });
+    (Notifications as unknown as { __emit: (r: unknown) => void }).__emit({
+      actionIdentifier: NOTIFICATION_ACTIONS.FINISH_SHIFT,
+      notification: { request: { identifier: `dualtracker-return-${s.id}`, content: { data: { sessionId: s.id, kind: "RETURN_OR_FINISH" } } } },
+    });
+    const until = Date.now() + 2000;
+    let finished = (await PersistenceService.getSession(s.id))!;
+    while (finished.domainStatus !== "SALIDA" && Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 20));
+      finished = (await PersistenceService.getSession(s.id))!;
+    }
+    expect(finished.domainStatus).toBe("SALIDA");
+    expect(finished.bookkeeping.firstExitAtMs).toBe(guard!.atMs);
   });
 });

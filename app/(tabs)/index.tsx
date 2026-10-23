@@ -91,11 +91,13 @@ export default function TodayScreen() {
     else if (uiRequests.openDailySetup) setModal(uiRequests.openDailySetup === "transit" ? "SETUP_TRANSIT" : "SETUP_START");
     else if (uiRequests.openExtendConfirm) setModal("EXTEND");
     else if (uiRequests.correctSessionId) router.push(`/session/${uiRequests.correctSessionId}`);
+    else if (uiRequests.openHealth) router.push("/system/health");
+    else if (uiRequests.openMoveSite) router.push("/sites/new");
     else if (uiRequests.openOrphanReview) {
       // La tarjeta de revisión ya está en Hoy. El aviso solo abre la app.
-    } else return;
+    } else if (!uiRequests.dismissArrival) return;
     void emit({ type: "CONSUME_UI_REQUEST" });
-  }, [uiRequests.openExitModal, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, emit, router]);
+  }, [uiRequests.openExitModal, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, uiRequests.openHealth, uiRequests.openMoveSite, uiRequests.dismissArrival, emit, router]);
 
   // Si el estado deja de ser SALIDA (p. ej. decidido desde la notificación), cerrar el hub.
   useEffect(() => {
@@ -217,6 +219,10 @@ export default function TodayScreen() {
           hasSplitRow={false}
           hasZeroOmitted={false}
         />
+
+        {healthRaw.notifications === "denied" || healthRaw.notifications === "blocked" ? (
+          <ScreenStatusBanner status="degraded" message={t("notifications.noticesDenied")} />
+        ) : null}
 
         {hasConflict ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />

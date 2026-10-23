@@ -48,6 +48,8 @@ export function invalidCompanyFields(company: CompanyPolicy): string[] {
   if (company.arrivalDwellMs !== undefined && !(Number.isInteger(company.arrivalDwellMs) && company.arrivalDwellMs >= 0 && company.arrivalDwellMs <= MAX_ARRIVAL_DWELL_MS)) {
     bad.push("arrivalDwellMs");
   }
+  if (company.arrivalAccuracyM !== undefined && !isInt(company.arrivalAccuracyM, 1, 500)) bad.push("arrivalAccuracyM");
+  if (company.arrivalReadings !== undefined && !isInt(company.arrivalReadings, 1, 10)) bad.push("arrivalReadings");
   return bad;
 }
 

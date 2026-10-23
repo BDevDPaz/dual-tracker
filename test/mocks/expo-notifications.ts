@@ -8,6 +8,8 @@ export const __state = {
   dismissed: [] as string[],
   cancelled: [] as string[],
   channels: new Map<string, unknown>(),
+  categories: new Map<string, unknown>(),
+  lastResponse: null as NotificationResponse | null,
 };
 export function __reset(): void {
   __state.permission = { status: "granted", granted: true, canAskAgain: true };
@@ -15,6 +17,8 @@ export function __reset(): void {
   __state.dismissed = [];
   __state.cancelled = [];
   __state.channels.clear();
+  __state.categories.clear();
+  __state.lastResponse = null;
   listeners.length = 0;
 }
 export function __emit(response: NotificationResponse): void {
@@ -67,6 +71,7 @@ export async function deleteNotificationChannelAsync(id: string) {
   __state.channels.delete(id);
 }
 export async function setNotificationCategoryAsync(id: string, actions: unknown) {
+  __state.categories.set(id, actions);
   return { identifier: id, actions };
 }
 export function setNotificationHandler(): void {}
@@ -80,5 +85,5 @@ export function addNotificationResponseReceivedListener(cb: ResponseListener): E
   };
 }
 export async function getLastNotificationResponseAsync() {
-  return null;
+  return __state.lastResponse;
 }

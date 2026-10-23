@@ -181,11 +181,11 @@ export interface AllocItem extends SessionMinutes {
 
 interface AllocateCtx {
   history?: CalendarHistory;
-  /** Umbral semanal de un periodo de transición < 7 días [CONFIRMAR CON ASESORÍA LEGAL]. */
+  /** Umbral semanal de un periodo de transición < 7 días. */
   transitionWeeklyThreshold?: "FULL" | "PRORATED";
-  /** P6 [CONFIRMAR CON ASESORÍA LEGAL]: aplicar doble tiempo diario. */
+  /** P6: aplicar doble tiempo diario. Activo con la política de California. */
   caDoubleTime?: boolean;
-  /** P6 [CONFIRMAR CON ASESORÍA LEGAL]: aplicar la regla del séptimo día consecutivo. */
+  /** P6: aplicar la regla del séptimo día consecutivo. Activo con la política de California. */
   caSeventhDay?: boolean;
 }
 
@@ -251,7 +251,7 @@ function allocate(items: AllocItem[], policy: PayrollPolicy, ctx: AllocateCtx = 
     const above = (threshold: number) => Math.max(0, Math.min(it.workMinutes, totalBefore + it.workMinutes - threshold));
 
     if (seventh && seventhSet.has(key)) {
-      // P6 séptimo día [CONFIRMAR CON ASESORÍA LEGAL]: nada es regular; los
+      // P6 séptimo día: nada es regular; los
       // primeros minutos son OT (overtimeFirstMinutes) y lo que excede
       // doubleAfterMinutes es doble tiempo (un hueco entre ambos sigue siendo OT).
       otDouble = above(seventh.doubleAfterMinutes);
@@ -266,7 +266,7 @@ function allocate(items: AllocItem[], policy: PayrollPolicy, ctx: AllocateCtx = 
       otDaily = it.workMinutes - regular;
       dailyUsed.set(key, used + regular);
       if (doubleAfter !== null) {
-        // P6 doble tiempo diario [CONFIRMAR CON ASESORÍA LEGAL].
+        // P6 doble tiempo diario.
         otDouble = Math.min(otDaily, above(doubleAfter));
         otDaily -= otDouble;
       }

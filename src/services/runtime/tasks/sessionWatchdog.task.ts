@@ -33,6 +33,8 @@ export async function runSessionWatchdog(): Promise<void> {
   // heartbeat todavía sin renovar.
   await recoverMonitoring("background");
   const now = TimeAuthorityService.now();
+  await NotificationService.runLunchPromptClose().catch(() => {});
+  await remindStillWaiting(session, now).catch(() => {});
 
   // Hora de red también en el vigilante. Sin red no bloquea.
   await observeClock("WATCHDOG").catch(() => {});
@@ -86,6 +88,19 @@ async function shiftWasExtended(session: SessionRecord): Promise<boolean> {
   if (session.bookkeeping.compliance?.shiftExtended) return true;
   const rows = await IntegrityLedgerService.listForSession(session.id);
   return rows.some((e) => e.intent === "EXTEND_SHIFT" || e.reason === "SHIFT_EXTENDED");
+}
+
+const STILL_WAITING_MS = 3 * 60 * 60_000;
+
+/** N18. Una vez por jornada en ESPERANDO. No cambia el estado ni inventa horas. */
+async function remindStillWaiting(open: SessionRecord, nowMs: number): Promise<void> {
+  if (open.domainStatus !== "ESPERANDO") return;
+  const start = open.declaredStartAtMs;
+  if (nowMs - start < STILL_WAITING_MS) return;
+  const sent = await PersistenceService.getKv<{ sessionId: number }>(KV_KEYS.STILL_GOING);
+  if (sent?.sessionId === open.id) return;
+  await NotificationService.notifyStillGoing(open.id);
+  await PersistenceService.setKv(KV_KEYS.STILL_GOING, { sessionId: open.id });
 }
 
 async function remindMealRest(open: SessionRecord, nowMs: number): Promise<void> {

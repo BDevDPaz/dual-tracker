@@ -65,6 +65,8 @@ interface Draft {
   traceMode: TraceMode;
   defaultRadiusM: string;
   arrivalDwellMin: string;
+  arrivalAccuracyM: string;
+  arrivalReadings: string;
   portalUrl: string;
   portalEnabled: boolean;
   timezone: string;
@@ -98,6 +100,8 @@ export default function SettingsScreen() {
       traceMode: settings.company.traceMode,
       defaultRadiusM: String(settings.company.defaultRadiusM),
       arrivalDwellMin: String(Math.round((settings.company.arrivalDwellMs ?? 0) / 60_000)),
+      arrivalAccuracyM: String(settings.company.arrivalAccuracyM ?? 50),
+      arrivalReadings: String(settings.company.arrivalReadings ?? 2),
       portalUrl: settings.company.employerPortalUrl ?? "",
       portalEnabled: settings.company.employerPortalEnabled === true,
       timezone: companyTimezone(settings.company),
@@ -152,7 +156,9 @@ export default function SettingsScreen() {
     finiteAtLeast(draft.overtimeMultiplier, 0.0001) &&
     finiteAtLeast(draft.traceRetentionDays, 0) &&
     finiteAtLeast(draft.defaultRadiusM, 1) &&
-    finiteAtLeast(draft.arrivalDwellMin, 0);
+    finiteAtLeast(draft.arrivalDwellMin, 0) &&
+    finiteAtLeast(draft.arrivalAccuracyM, 1) &&
+    finiteAtLeast(draft.arrivalReadings, 1);
   const canSave = dirty && !busy && (!unlocked || adminNumbersOk);
   const numberError = (s: string, min: number) => (finiteAtLeast(s, min) ? undefined : t("settings.numberInvalid"));
   const onSave = async () => {
@@ -172,6 +178,8 @@ export default function SettingsScreen() {
         traceMode: draft.traceMode,
         defaultRadiusM: Math.round(num(draft.defaultRadiusM)),
         arrivalDwellMs: Math.min(30, Math.max(0, Math.round(num(draft.arrivalDwellMin) || 0))) * 60_000,
+        arrivalAccuracyM: Math.min(500, Math.max(1, Math.round(num(draft.arrivalAccuracyM) || 50))),
+        arrivalReadings: Math.min(10, Math.max(1, Math.round(num(draft.arrivalReadings) || 2))),
         employerPortalUrl: draft.portalUrl.trim() ? draft.portalUrl.trim() : null,
         employerPortalEnabled: draft.portalEnabled,
         timezone: draft.timezone,
@@ -345,6 +353,8 @@ export default function SettingsScreen() {
               <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
               <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} error={numberError(draft.arrivalDwellMin, 0)} />
               <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.arrivalDwellHint")}</Text>
+              <Input {...adminChain.props("arrivalAccuracy")} label={t("settings.arrivalAccuracy")} value={draft.arrivalAccuracyM} onChangeText={(v) => set("arrivalAccuracyM", v)} error={numberError(draft.arrivalAccuracyM, 1)} />
+              <Input {...adminChain.props("arrivalReadings")} label={t("settings.arrivalReadings")} value={draft.arrivalReadings} onChangeText={(v) => set("arrivalReadings", v)} error={numberError(draft.arrivalReadings, 1)} />
               <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalOn")}</Text>
               <View style={styles.row}>
                 <Chip label={t("settings.portalOff")} selected={!draft.portalEnabled} onPress={() => set("portalEnabled", false)} />

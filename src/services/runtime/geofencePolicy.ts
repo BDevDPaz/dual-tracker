@@ -6,7 +6,7 @@
  * ANDROID_MIN_OS_RADIUS_M, porque por debajo de ~100 m la geocerca parpadea
  * (ENTER y EXIT en el mismo minuto: el cierre de 0.00 h del 18 oct 2026).
  */
-import { IMPOSSIBLE_SPEED_KMH } from "../../constants/geolocation";
+import { IMPOSSIBLE_SPEED_KMH, MAX_ACCEPTABLE_ACCURACY_METERS } from "../../constants/geolocation";
 
 /** Mínimo que Play Services recomienda para no perder o duplicar transiciones. */
 export const ANDROID_MIN_OS_RADIUS_M = 100;
@@ -83,6 +83,30 @@ export function isFarOutside(distM: number, radiusM: number, accuracyM: number |
   return distM - accuracyM >= radiusM + FAR_DEPARTURE_M;
 }
 
+/**
+ * buena: precisión ≤ umbral (defecto 50 m) y sirve para fichar.
+ * débil: peor que el umbral pero no peor que el radio. Solo se pregunta.
+ * inútil: peor que el radio, o sin número.
+ */
+export type GpsReadingClass = "good" | "weak" | "useless";
+
+export function gpsReadingClass(accuracyM: number | null, radiusM: number, goodMaxM = MAX_ACCEPTABLE_ACCURACY_METERS): GpsReadingClass {
+  if (accuracyM === null || !Number.isFinite(accuracyM) || accuracyM < 0 || radiusM <= 0) return "useless";
+  if (accuracyM > radiusM) return "useless";
+  if (accuracyM > goodMaxM) return "weak";
+  return "good";
+}
+
+/** Salida inequívoca por distancia al sitio (3,2 km), aparte de la histéresis. */
+export const IMMEDIATE_EXIT_DISTANCE_M = 3_200;
+
+export function isImmediateDeparture(distM: number, radiusM: number, accuracyM: number | null): boolean {
+  if (!Number.isFinite(distM) || radiusM <= 0) return false;
+  if (accuracyM === null || !Number.isFinite(accuracyM) || accuracyM < 0) return false;
+  if (accuracyM > radiusM) return false;
+  return distM - accuracyM >= IMMEDIATE_EXIT_DISTANCE_M;
+}
+
 export type ExitGate = "clear" | "wait" | "confirm";
 
 /**
@@ -103,8 +127,11 @@ export function confirmExitDecision(opts: {
   debounceMs: number;
   strikes: number;
   pendingReliable: boolean;
+  /** A más de 3,2 km se confirma en el acto. No cambia la histéresis de 50 m. */
+  immediate?: boolean;
 }): ExitGate {
   if (opts.zone === "inside") return "clear";
+  if (opts.immediate) return "confirm";
   if (opts.dwellMs < MIN_DWELL_BEFORE_EXIT_MS && !opts.far) return "clear";
   const due = opts.elapsedMs >= opts.debounceMs || opts.strikes >= EXIT_CONFIRM_STRIKES;
   if (!due) return "wait";

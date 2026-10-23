@@ -59,5 +59,8 @@ export interface DualTrackerState {
     openExtendConfirm: boolean;
     correctSessionId: number | null;
     openOrphanReview: boolean;
+    openHealth: boolean;
+    openMoveSite: boolean;
+    dismissArrival: boolean;
   };
 }

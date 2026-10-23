@@ -16,7 +16,7 @@ import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { SettingsService } from "../persistence/SettingsService";
-import { reviewMonitoringAnomaliesSafely } from "./anomalyEngine";
+import { recordAnomaly, reviewMonitoringAnomaliesSafely } from "./anomalyEngine";
 import { ForegroundWorkService } from "./ForegroundWorkService";
 import { buildForegroundNotice } from "./monitoringSnapshot";
 import { GeofenceRuntimeService } from "./GeofenceRuntimeService";
@@ -99,6 +99,13 @@ async function recoverBody(origin: "background" | "foreground"): Promise<void> {
           db,
         );
       });
+      await recordAnomaly({
+        sessionId: session.id,
+        kind: "SERVICE_STOPPED",
+        token: `stopped:${now}`,
+        reason: "SERVICE_STOPPED",
+        state: session.domainStatus,
+      }).catch(() => {});
       const settings = await SettingsService.load();
       const notice = await buildForegroundNotice(session).catch(() => null);
       let recovered = false;

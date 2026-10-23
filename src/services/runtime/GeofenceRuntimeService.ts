@@ -8,7 +8,8 @@
  * seis sesiones sueltas, un CIERRE AUTOMÁTICO de 0.00 h y tránsito 0):
  *  - La llegada en coche ya no se rechaza por ir a más de 15 km/h ni por un
  *    salto > 500 m desde el sitio anterior. Solo una velocidad imposible.
- *  - Precisión peor que 50 m pero dentro del radio del sitio sí ficha.
+ *  - Precisión peor que el umbral (50 m) y no peor que el radio no ficha sola:
+ *    se pregunta (GPS débil). Peor que el radio sigue sin servir.
  *  - Histéresis: salir exige quedar más allá del radio, no rozarlo.
  *  - Los primeros 90 s se ignora un EXIT que no sea una salida clara
  *    (Android dispara EXIT al registrar estando ya dentro → cierre de 0 min).
@@ -25,7 +26,7 @@ import type { SessionRecord, SpatialFact, SpatialSource } from "../../core/contr
 import { GEOFENCE_ANTI_REBOUNCE_MS, GEOFENCE_TASK_NAME, MAX_ACCEPTABLE_ACCURACY_METERS } from "../../constants/geolocation";
 import { getDistanceFromLatLonInMeters, isValidCoordinate } from "../../utils/geoUtils";
 import { serializeError } from "../../utils/serializeError";
-import { resolveArrivalDwellMs } from "../domain/arrivalDwell";
+import { requiredArrivalReadings, resolveArrivalDwellMs } from "../domain/arrivalDwell";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
 import { monitoredSiteId } from "../domain/siteVisits";
@@ -34,6 +35,8 @@ import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { SettingsService } from "../persistence/SettingsService";
+import { t } from "../../i18n";
+import { activeCorporateTimezone, formatTime } from "../../utils/dateUtils";
 import { appendGeofenceDiag, readGeofenceDiag } from "./geofenceDiag";
 import {
   MAX_MONITORED_REGIONS,
@@ -42,7 +45,9 @@ import {
   clampSampleTimestamp,
   confirmExitDecision,
   effectiveJumpMeters,
+  gpsReadingClass,
   isFarOutside,
+  isImmediateDeparture,
   movementIssue,
   osGeofenceRadius,
   parseGeofenceIdentifier,
@@ -51,6 +56,7 @@ import {
   type PresenceZone,
 } from "./geofencePolicy";
 import { noteMockedFix } from "./mockLocationNotice";
+import { NotificationService } from "./NotificationService";
 
 export interface PendingExit {
   sessionId: number;
@@ -172,6 +178,11 @@ async function reliabilityIssue(type: "ENTER" | "EXIT", fix: Fix | null, target:
   if (type === "ENTER" && zone !== "inside") return dist > target.radiusM ? "OUTSIDE_RADIUS" : "HYSTERESIS";
   if (type === "EXIT" && zone === "inside") return "INSIDE_RADIUS";
   if (type === "EXIT" && zone !== "outside") return "HYSTERESIS";
+  if (type === "ENTER") {
+    const company = (await SettingsService.load()).company;
+    const max = company.arrivalAccuracyM ?? MAX_ACCEPTABLE_ACCURACY_METERS;
+    if (gpsReadingClass(fix.accuracyM, target.radiusM, max) === "weak") return "GPS_WEAK";
+  }
   return null;
 }
 
@@ -259,6 +270,31 @@ interface ArrivalHold {
   siteId: number;
   sinceMs: number;
   fact: SpatialFact;
+  /** Lecturas buenas acumuladas. La primera es la que abre la espera. */
+  goodReadings?: number;
+}
+
+interface LastInside {
+  sessionId: number;
+  siteId: number;
+  atMs: number;
+}
+
+interface ReregisterGuard {
+  sessionId: number;
+  siteId: number;
+  atMs: number;
+}
+
+const REREGISTER_GUARD_MS = 60_000;
+const OFFSITE_STILL_MS = 10 * 60_000;
+
+interface OffsiteStill {
+  sessionId: number;
+  latKey: string;
+  lonKey: string;
+  sinceMs: number;
+  prompted: string[];
 }
 
 async function arrivalDwellFor(siteId: number): Promise<number> {
@@ -273,7 +309,13 @@ type HoldGate = { action: "continue" } | { action: "waiting" } | { action: "disp
  * Si ya hay una espera en curso para este sitio: o sigue esperando (sin otro
  * ENTER) o ya cumplió y ficha con la hora de la primera lectura. 0 ms no espera.
  */
-async function consumeArrivalHold(session: SessionRecord, siteId: number, kind: "ENTER" | "SAMPLE", silentWait = false): Promise<HoldGate> {
+async function consumeArrivalHold(
+  session: SessionRecord,
+  siteId: number,
+  kind: "ENTER" | "SAMPLE",
+  silentWait = false,
+  countReading = false,
+): Promise<HoldGate> {
   const dwell = await arrivalDwellFor(siteId);
   if (dwell <= 0) {
     await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
@@ -282,7 +324,14 @@ async function consumeArrivalHold(session: SessionRecord, siteId: number, kind: 
   const pending = await PersistenceService.getKv<ArrivalHold>(KV_KEYS.ARRIVAL_DWELL);
   if (!pending || pending.sessionId !== session.id || pending.siteId !== siteId) return { action: "continue" };
   const now = TimeAuthorityService.now();
-  if (now - pending.sinceMs < dwell) {
+  const company = (await SettingsService.load()).company;
+  const need = requiredArrivalReadings(dwell, company);
+  let readings = pending.goodReadings ?? 1;
+  if (countReading) {
+    readings += 1;
+    await PersistenceService.setKv(KV_KEYS.ARRIVAL_DWELL, { ...pending, goodReadings: readings });
+  }
+  if (now - pending.sinceMs < dwell || readings < need) {
     if (!silentWait) {
       await appendGeofenceDiag({
         kind,
@@ -290,7 +339,7 @@ async function consumeArrivalHold(session: SessionRecord, siteId: number, kind: 
         siteId,
         accuracyM: pending.fact.accuracyM,
         accepted: false,
-        reason: "ARRIVAL_DWELL",
+        reason: readings < need ? "ARRIVAL_READINGS" : "ARRIVAL_DWELL",
         atMs: now,
       });
     }
@@ -298,6 +347,7 @@ async function consumeArrivalHold(session: SessionRecord, siteId: number, kind: 
   }
   await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL);
   const r = await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", fact: pending.fact }, "GEOFENCE");
+  if (r.ok) await NotificationService.notifyArrivalRegistered(session.id, formatTime(pending.fact.timestampMs)).catch(() => {});
   await appendGeofenceDiag({
     kind,
     region: geofenceIdentifier(session.id, siteId),
@@ -318,7 +368,10 @@ async function rememberArrivalHold(session: SessionRecord, fact: SpatialFact, ki
     siteId,
     sinceMs: fact.timestampMs,
     fact,
+    goodReadings: 1,
   });
+  const site = await PersistenceService.getSite(siteId);
+  await NotificationService.notifyArrivalHold(session.id, site?.alias ?? "").catch(() => {});
   await appendGeofenceDiag({
     kind,
     region: geofenceIdentifier(session.id, siteId),
@@ -339,7 +392,7 @@ async function commitArrival(
   acceptReason?: string | null,
 ): Promise<boolean> {
   if (session.domainStatus !== "ESPERANDO" && session.domainStatus !== "TRASLADO") return false;
-  const held = await consumeArrivalHold(session, siteId, kind);
+  const held = await consumeArrivalHold(session, siteId, kind, false, true);
   if (held.action === "waiting") return false;
   if (held.action === "dispatched") return held.ok;
   atMs = await arrivalInstant(session, siteId, atMs);
@@ -370,6 +423,7 @@ async function commitArrival(
   };
   await SessionEngineService.recordSpatialFact(fact);
   if (issue !== null) {
+    if (issue === "GPS_WEAK") await NotificationService.notifyWeakGps(session.id).catch(() => {});
     await appendGeofenceDiag({
       kind,
       region: geofenceIdentifier(session.id, siteId),
@@ -481,6 +535,102 @@ async function foreignSiteInside(fix: Fix, exceptSiteId: number | null): Promise
   return best?.id ?? null;
 }
 
+async function exitInstant(sessionId: number, siteId: number, nowMs: number): Promise<number> {
+  const last = await PersistenceService.getKv<LastInside>(KV_KEYS.LAST_INSIDE);
+  if (last && last.sessionId === sessionId && last.siteId === siteId && last.atMs <= nowMs) return last.atMs;
+  return nowMs;
+}
+
+async function rememberLastInside(sessionId: number, siteId: number, atMs: number): Promise<void> {
+  await PersistenceService.setKv(KV_KEYS.LAST_INSIDE, { sessionId, siteId, atMs } satisfies LastInside);
+}
+
+async function publishArmedExit(sessionId: number, firstExitAtMs: number, debounceMs: number): Promise<void> {
+  const settings = await SettingsService.load();
+  await NotificationService.notifyExitDetected(sessionId, firstExitAtMs);
+  await NotificationService.scheduleExitFollowUps(sessionId, firstExitAtMs, settings.company.exitDecisionWindowMs);
+  GeofenceRuntimeService.armDebounceTimer(debounceMs);
+}
+
+async function reregisterGuard(sessionId: number): Promise<ReregisterGuard | null> {
+  const guard = await PersistenceService.getKv<ReregisterGuard>(KV_KEYS.REREGISTER_EXIT_GUARD);
+  if (!guard || guard.sessionId !== sessionId) return null;
+  return guard;
+}
+
+/** Tras cancelar un traslado lejos del origen, el EXIT de re-registro no es una salida nueva. */
+async function maybeArmReregisterGuard(session: SessionRecord | null | undefined, target: Target): Promise<void> {
+  if (!session || session.domainStatus !== "ACTIVA") return;
+  const latest = session.transitSegments[session.transitSegments.length - 1];
+  if (!latest?.cancelled || latest.endAtMs == null) return;
+  const now = TimeAuthorityService.now();
+  if (now - latest.endAtMs > REREGISTER_GUARD_MS) {
+    await PersistenceService.deleteKv(KV_KEYS.REREGISTER_EXIT_GUARD).catch(() => {});
+    return;
+  }
+  const fix = await readFix();
+  if (zoneOf(fix, target).zone === "inside") {
+    await PersistenceService.deleteKv(KV_KEYS.REREGISTER_EXIT_GUARD).catch(() => {});
+    return;
+  }
+  await PersistenceService.setKv(KV_KEYS.REREGISTER_EXIT_GUARD, {
+    sessionId: session.id,
+    siteId: target.siteId,
+    atMs: latest.endAtMs,
+  } satisfies ReregisterGuard);
+}
+
+function corporateDay(ms: number): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: activeCorporateTimezone(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(ms));
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${pick("year")}-${pick("month")}-${pick("day")}`;
+}
+
+/** N06: 10 min quieto, fuera del radio, en ESPERANDO. Una vez por punto y día. No cambia el estado. */
+async function maybeNotifyOffsite(session: SessionRecord, fix: Fix, target: Target, atMs: number): Promise<void> {
+  if (session.domainStatus !== "ESPERANDO") return;
+  const dist = getDistanceFromLatLonInMeters(fix.lat, fix.lon, target.lat, target.lon);
+  if (!Number.isFinite(dist) || dist <= target.radiusM) return;
+  const company = (await SettingsService.load()).company;
+  if (gpsReadingClass(fix.accuracyM, target.radiusM, company.arrivalAccuracyM ?? MAX_ACCEPTABLE_ACCURACY_METERS) !== "good") return;
+  const latKey = fix.lat.toFixed(3);
+  const lonKey = fix.lon.toFixed(3);
+  const pointKey = `${corporateDay(atMs)}:${latKey}:${lonKey}`;
+  const prev = await PersistenceService.getKv<OffsiteStill>(KV_KEYS.OFFSITE_PROMPT);
+  const same = prev && prev.sessionId === session.id && prev.latKey === latKey && prev.lonKey === lonKey;
+  const prompted = prev?.prompted ?? [];
+  if (prompted.includes(pointKey)) return;
+  const sinceMs = same ? prev.sinceMs : atMs;
+  if (!same || atMs - sinceMs < OFFSITE_STILL_MS) {
+    await PersistenceService.setKv(KV_KEYS.OFFSITE_PROMPT, { sessionId: session.id, latKey, lonKey, sinceMs, prompted });
+    return;
+  }
+  let address = t("notifications.offsiteTitle");
+  try {
+    const rows = await Location.reverseGeocodeAsync({ latitude: fix.lat, longitude: fix.lon });
+    const row = rows?.[0];
+    if (row) {
+      const line = [row.street, row.city, row.name].filter((part) => !!part && String(part).trim()).join(", ");
+      if (line) address = line;
+    }
+  } catch {
+    address = t("notifications.offsiteTitle");
+  }
+  await NotificationService.notifyOffsite(session.id, address);
+  await PersistenceService.setKv(KV_KEYS.OFFSITE_PROMPT, {
+    sessionId: session.id,
+    latKey,
+    lonKey,
+    sinceMs,
+    prompted: [...prompted, pointKey],
+  });
+}
+
 export const GeofenceRuntimeService = {
   /** Arranca la geocerca del sitio objetivo y, en sitio o en salida, la de los demás destinos. */
   async startMonitoring(sessionId: number, siteId: number): Promise<boolean> {
@@ -538,6 +688,7 @@ export const GeofenceRuntimeService = {
         });
       }
       await GeofenceRuntimeService.resumePendingTimer();
+      await maybeArmReregisterGuard(session, target);
       if (session && (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO")) {
         await GeofenceRuntimeService.confirmPresence();
       }
@@ -558,7 +709,9 @@ export const GeofenceRuntimeService = {
       LoggingService.log("ROJO", "UBICACION", "ERROR", "fallo deteniendo geocerca", serializeError(error));
     }
     registeredKey = null;
+    const pending = await GeofenceRuntimeService.getPendingExit();
     await GeofenceRuntimeService.clearPendingExit();
+    if (pending) await NotificationService.cancelExitFollowUps(pending.sessionId).catch(() => {});
   },
 
   async isMonitoring(): Promise<boolean> {
@@ -665,10 +818,15 @@ export const GeofenceRuntimeService = {
     if (issue === "MOCK_LOCATION") await noteMockedFix(session.id);
     if (fix && !fix.mocked) await rememberFix(fix);
     if (type === "ENTER" && (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO")) {
-      const held = await consumeArrivalHold(session, target.siteId, "ENTER");
+      const held = await consumeArrivalHold(session, target.siteId, "ENTER", false, true);
       if (held.action !== "continue") return;
     }
-    if (type === "EXIT") await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
+    if (type === "EXIT") {
+      await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
+      await NotificationService.dismissArrival(session.id).catch(() => {});
+    }
+    const guard = type === "EXIT" ? await reregisterGuard(session.id) : null;
+    const guarded = guard !== null && session.domainStatus === "ACTIVA";
     const fact: SpatialFact = {
       sessionId: session.id,
       type,
@@ -677,18 +835,32 @@ export const GeofenceRuntimeService = {
       accuracyM: fix?.accuracyM ?? null,
       timestampMs: nowMs,
       source: sourceOf(fix?.accuracyM ?? null),
-      reliable: reason === null,
-      reason,
+      reliable: guarded ? false : reason === null,
+      reason: guarded ? "REREGISTER_GUARD" : reason,
       siteId: target.siteId,
       ...(fix?.mocked ? { mocked: true } : {}),
     };
     await SessionEngineService.recordSpatialFact(fact);
+    if (guarded) {
+      await NotificationService.notifyReturnOrFinish(session.id).catch(() => {});
+      await appendGeofenceDiag({
+        kind: "EXIT",
+        region: region.identifier ?? null,
+        siteId: target.siteId,
+        accuracyM: fix?.accuracyM ?? null,
+        accepted: false,
+        reason: "REREGISTER_GUARD",
+        atMs: nowMs,
+      });
+      return;
+    }
 
     if (type === "ENTER") {
       const pending = await GeofenceRuntimeService.getPendingExit();
       if (pending && pending.sessionId === session.id && zone !== "outside") {
         const sameSite = pending.siteId === target.siteId;
         await GeofenceRuntimeService.clearPendingExit();
+        await NotificationService.cancelExitFollowUps(session.id).catch(() => {});
         await appendGeofenceDiag({
           kind: "ENTER",
           region: region.identifier ?? null,
@@ -706,6 +878,11 @@ export const GeofenceRuntimeService = {
           if (!arriving) return;
         }
       }
+      if (session.domainStatus === "ACTIVA" && zone === "inside" && fix && !fix.mocked) {
+        await rememberLastInside(session.id, target.siteId, nowMs);
+        await PersistenceService.deleteKv(KV_KEYS.REREGISTER_EXIT_GUARD).catch(() => {});
+      }
+      if (reason === "GPS_WEAK") await NotificationService.notifyWeakGps(session.id).catch(() => {});
       if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && reason === null && fix) {
         if ((await arrivalDwellFor(target.siteId)) > 0) {
           await rememberArrivalHold(session, fact, "ENTER");
@@ -783,16 +960,19 @@ export const GeofenceRuntimeService = {
       });
       return;
     }
+    const firstExitAtMs = await exitInstant(session.id, target.siteId, nowMs);
     const pending: PendingExit = {
       sessionId: session.id,
       siteId: target.siteId,
-      firstExitAtMs: nowMs,
+      firstExitAtMs,
       reliable: fact.reliable,
       reason: fact.reason ?? null,
       strikes: 0,
     };
     await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, pending);
-    GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
+    await publishArmedExit(session.id, firstExitAtMs, ctx.exitDebounceMs);
+    const immediate = fix ? isImmediateDeparture(getDistanceFromLatLonInMeters(fix.lat, fix.lon, target.lat, target.lon), target.radiusM, fix.accuracyM) : false;
+    if (immediate) await GeofenceRuntimeService.checkPendingExit();
     await appendGeofenceDiag({
       kind: "EXIT",
       region: region.identifier ?? null,
@@ -869,7 +1049,13 @@ export const GeofenceRuntimeService = {
       });
       return false;
     }
-    const { zone, far } = zoneOf(fix, ctx.target);
+    if (await reregisterGuard(ctx.session.id)) {
+      await GeofenceRuntimeService.clearPendingExit();
+      await NotificationService.cancelExitFollowUps(ctx.session.id).catch(() => {});
+      return false;
+    }
+    const { zone, far, dist } = zoneOf(fix, ctx.target);
+    const immediate = fix ? isImmediateDeparture(dist, ctx.target.radiusM, fix.accuracyM) : false;
     const gate = confirmExitDecision({
       zone,
       far,
@@ -878,9 +1064,11 @@ export const GeofenceRuntimeService = {
       debounceMs: ctx.exitDebounceMs,
       strikes: pending.strikes,
       pendingReliable: pending.reliable,
+      immediate,
     });
     if (gate === "clear") {
       await GeofenceRuntimeService.clearPendingExit();
+      await NotificationService.cancelExitFollowUps(ctx.session.id).catch(() => {});
       await appendGeofenceDiag({
         kind: "EXIT",
         region: geofenceIdentifier(ctx.session.id, ctx.target.siteId),
@@ -993,9 +1181,14 @@ export const GeofenceRuntimeService = {
     }
     const { zone } = zoneOf(fix, ctx.target);
     const { session, target } = ctx;
+    if (session.domainStatus === "ACTIVA" && zone === "inside") {
+      await rememberLastInside(session.id, target.siteId, at);
+      await PersistenceService.deleteKv(KV_KEYS.REREGISTER_EXIT_GUARD).catch(() => {});
+    }
     const pending = await GeofenceRuntimeService.getPendingExit();
     if (pending && pending.sessionId === session.id && zone === "inside") {
       await GeofenceRuntimeService.clearPendingExit();
+      await NotificationService.cancelExitFollowUps(session.id).catch(() => {});
       const openDest = session.transitSegments.find((t) => t.endAtMs === null && !t.cancelled && !t.suppressed);
       const arriving =
         (session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") &&
@@ -1016,6 +1209,8 @@ export const GeofenceRuntimeService = {
 
     if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && zone !== "inside") {
       await PersistenceService.deleteKv(KV_KEYS.ARRIVAL_DWELL).catch(() => {});
+      await NotificationService.dismissArrival(session.id).catch(() => {});
+      if (session.domainStatus === "ESPERANDO") await maybeNotifyOffsite(session, fix, target, at);
     }
 
     if ((session.domainStatus === "ESPERANDO" || session.domainStatus === "TRASLADO") && zone === "inside") {
@@ -1054,18 +1249,23 @@ export const GeofenceRuntimeService = {
     }
 
     if (session.domainStatus === "ACTIVA" && zone === "outside") {
+      if (await reregisterGuard(session.id)) {
+        await NotificationService.notifyReturnOrFinish(session.id).catch(() => {});
+        return;
+      }
       const { far } = zoneOf(fix, target);
       if (!shouldArmExit({ zone, far, dwellMs: dwellMs(session, at) })) return;
+      const firstExitAtMs = await exitInstant(session.id, target.siteId, at);
       const armed: PendingExit = {
         sessionId: session.id,
         siteId: target.siteId,
-        firstExitAtMs: at,
+        firstExitAtMs,
         reliable: true,
         reason: null,
         strikes: 1,
       };
       await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, armed);
-      GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
+      await publishArmedExit(session.id, firstExitAtMs, ctx.exitDebounceMs);
       await appendGeofenceDiag({
         kind: "SAMPLE",
         region: geofenceIdentifier(session.id, target.siteId),

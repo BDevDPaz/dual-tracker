@@ -36,6 +36,7 @@ export const __state = {
   geofences: new Map<string, unknown[]>(),
   locationUpdates: new Map<string, unknown>(),
   geocode: [] as { latitude: number; longitude: number }[],
+  reverseGeocode: [{ street: "Main St", city: "Oakland", name: "Main St" }] as { street?: string; city?: string; name?: string }[],
   startUpdatesError: null as Error | null,
 };
 
@@ -48,6 +49,7 @@ export function __reset(): void {
   __state.geofences.clear();
   __state.locationUpdates.clear();
   __state.geocode = [];
+  __state.reverseGeocode = [{ street: "Main St", city: "Oakland", name: "Main St" }];
   __state.startUpdatesError = null;
 }
 export function __setAndroidAccuracy(accuracy: "fine" | "coarse" | "none" | null): void {
@@ -115,4 +117,7 @@ export async function hasStartedLocationUpdatesAsync(task: string) {
 }
 export async function geocodeAsync() {
   return __state.geocode;
+}
+export async function reverseGeocodeAsync() {
+  return __state.reverseGeocode;
 }

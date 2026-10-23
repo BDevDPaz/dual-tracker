@@ -37,6 +37,8 @@ let currentProfileKey: string | null = null;
 let lastFailureKey: string | null = null;
 /** Texto ya aplicado a la notificación. null hasta el primer arranque. */
 let appliedBody: string | null = null;
+/** Causa del texto (estado o aviso), independiente del idioma. */
+let appliedCue: string | null = null;
 
 export type ForegroundSyncReason = "NOT_REQUIRED" | "UNCHANGED" | "STARTED" | "BACKGROUND_DENIED" | "START_FAILED";
 
@@ -44,6 +46,16 @@ export interface ForegroundSyncResult {
   status: "running" | "stopped";
   reason: ForegroundSyncReason;
   errorName: string | null;
+}
+
+function statusPhrase(status: SessionRecordStatus | "NO_INICIADA"): string {
+  if (status === "PAUSADA") return t("notifications.fgsPaused");
+  return t("notifications.fgsFollowing");
+}
+
+function bodyCue(status: SessionRecordStatus | "NO_INICIADA", notice?: ForegroundNotice | null): string {
+  if (notice) return notice.gps === "off" ? "gps:off" : `notice:${notice.site}|${notice.gps}|${notice.monitoring}`;
+  return status === "PAUSADA" ? "paused" : "following";
 }
 
 function errorNameOf(error: unknown): string {
@@ -105,7 +117,13 @@ export const ForegroundWorkService = {
       return { status: "stopped", reason: "NOT_REQUIRED", errorName: null };
     }
     const key = `${Platform.OS}:${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
-    const body = opts?.notice !== undefined || opts?.relabel ? renderForegroundBody(opts?.notice ?? null) : (appliedBody ?? renderForegroundBody(null));
+    const cue = bodyCue(status, opts?.notice);
+    const nextBody = opts?.notice
+      ? opts.notice.gps === "off"
+        ? t("notifications.fgsNoGps")
+        : renderForegroundBody(opts.notice)
+      : statusPhrase(status);
+    const body = opts?.relabel || appliedBody == null || cue !== appliedCue ? nextBody : appliedBody;
     const running = await ForegroundWorkService.isRunning();
     if (running && key === currentProfileKey && !opts?.relabel && body === appliedBody) {
       lastFailureKey = null;
@@ -144,6 +162,7 @@ export const ForegroundWorkService = {
       });
       currentProfileKey = key;
       appliedBody = body;
+      appliedCue = cue;
       lastFailureKey = null;
       LoggingService.log("VERDE", "SERVICIOS_ACTIVOS", "INFO", "Servicio en primer plano activo", { status, platform: Platform.OS });
       return { status: "running", reason: "STARTED", errorName: null };
@@ -158,6 +177,7 @@ export const ForegroundWorkService = {
   async stop(): Promise<void> {
     currentProfileKey = null;
     appliedBody = null;
+    appliedCue = null;
     if (await ForegroundWorkService.isRunning()) {
       await Location.stopLocationUpdatesAsync(BREADCRUMB_TASK_NAME).catch(() => {});
       LoggingService.log("NARANJA", "MONITOREO_DETENIDO", "INFO", "Servicio en primer plano detenido");
@@ -168,5 +188,6 @@ export const ForegroundWorkService = {
     currentProfileKey = null;
     lastFailureKey = null;
     appliedBody = null;
+    appliedCue = null;
   },
 };

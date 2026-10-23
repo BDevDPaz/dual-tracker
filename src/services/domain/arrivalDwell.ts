@@ -13,6 +13,20 @@ export function normalizeArrivalDwellMs(value: number | null | undefined): numbe
   return value;
 }
 
+/** Lecturas buenas que exige el fichaje automático cuando hay espera. */
+export const DEFAULT_ARRIVAL_READINGS = 2;
+
+/**
+ * Con espera 0 basta una lectura (el comportamiento de siempre).
+ * Con espera, hacen falta las lecturas configuradas (defecto 2).
+ */
+export function requiredArrivalReadings(dwellMs: number, company: { arrivalReadings?: number | null }): number {
+  if (dwellMs <= 0) return 1;
+  const n = company.arrivalReadings;
+  if (typeof n === "number" && Number.isInteger(n) && n >= 1) return n;
+  return DEFAULT_ARRIVAL_READINGS;
+}
+
 /** Milisegundos que hay que permanecer dentro antes del auto check-in. */
 export function resolveArrivalDwellMs(
   site: { arrivalDwellMs?: number | null } | null | undefined,
