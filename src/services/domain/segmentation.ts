@@ -93,6 +93,47 @@ export function cappedFixedLunchMinutes(deductedMinutes: number, spanMinutes: nu
   return Math.min(declared, room);
 }
 
+const MEAL_QUALIFY_MS = 30 * MIN;
+
+export interface DeductibleLunch {
+  taken?: boolean;
+  startAtMs: number | null;
+  endAtMs: number | null;
+  deductedMinutes: number | null;
+  interrupted?: boolean;
+}
+
+/**
+ * Minutos de comida que sí se restan. Menos de 30 min exactos (ms) o una
+ * comida interrumpida no se descuentan. Una comida con hora usa floor, no
+ * redondeo hacia arriba. Una declarada de 30 min o más sigue el tope de jornada.
+ */
+export function deductibleLunchMinutes(
+  meal: DeductibleLunch,
+  spanMinutes: number,
+  pauseMinutes: number,
+  nowMs: number,
+  open: boolean,
+): { minutes: number; unknown: boolean } {
+  if (meal.interrupted) return { minutes: 0, unknown: false };
+  const timed =
+    meal.startAtMs != null && meal.endAtMs != null
+      ? Math.max(0, meal.endAtMs - meal.startAtMs)
+      : meal.startAtMs != null && meal.endAtMs == null && open
+        ? Math.max(0, nowMs - meal.startAtMs)
+        : null;
+  if (timed != null) {
+    if (timed < MEAL_QUALIFY_MS) return { minutes: 0, unknown: false };
+    return { minutes: Math.floor(timed / MIN), unknown: false };
+  }
+  if (meal.deductedMinutes !== null && meal.deductedMinutes !== undefined) {
+    if (meal.deductedMinutes < 30) return { minutes: 0, unknown: false };
+    return { minutes: cappedFixedLunchMinutes(meal.deductedMinutes, spanMinutes, pauseMinutes), unknown: false };
+  }
+  if (meal.taken) return { minutes: 0, unknown: true };
+  return { minutes: 0, unknown: false };
+}
+
 /** Prorrateo por peso (minutos de segmento): floor y resto al primer segmento. */
 export function prorate(totalMinutes: number, weights: readonly number[]): number[] {
   const sum = weights.reduce((a, w) => a + w, 0);
@@ -163,20 +204,51 @@ export function computeSegmentMinutes(
   }
   if (b.breaksClipped) warn[0].push("PAUSE_CLIPPED");
 
-  // Almuerzo
+  // Almuerzo. Menos de 30 min o interrumpido no se descuenta (no se inventan 30).
   let lunch = segs.map(() => 0);
   const l = session.lunch;
+  const interrupted = Boolean(l.interrupted || b.compliance?.mealInterrupted);
   const lunchEnd = l.startAtMs && !l.endAtMs && session.domainStatus === "PAUSADA" ? nowMs : l.endAtMs;
-  if (l.startAtMs && lunchEnd) {
-    lunch = n === 1 ? [Math.max(0, Math.round((lunchEnd - l.startAtMs) / MIN))] : cumulativeMinutes([[l.startAtMs, lunchEnd]], segs);
-  } else if (l.deductedMinutes !== null && l.deductedMinutes !== undefined) {
-    const spanTotal = spans.reduce((a, x) => a + x, 0);
-    const pauseSum = pause.reduce((a, x) => a + x, 0);
-    const total = cappedFixedLunchMinutes(l.deductedMinutes, spanTotal, pauseSum);
-    lunch = n === 1 ? [total] : prorate(total, spans);
-    if (n > 1 && total > 0) warn[0].push("LUNCH_PRORATED");
-  } else if (l.taken) {
-    warn[0].push("LUNCH_DURATION_UNKNOWN");
+  const spanTotal = spans.reduce((a, x) => a + x, 0);
+  const pauseSum = pause.reduce((a, x) => a + x, 0);
+  const deducted = deductibleLunchMinutes(
+    { ...l, endAtMs: lunchEnd, interrupted },
+    spanTotal,
+    pauseSum,
+    nowMs,
+    session.domainStatus === "PAUSADA",
+  );
+  if (deducted.unknown) warn[0].push("LUNCH_DURATION_UNKNOWN");
+  if (deducted.minutes > 0 && l.startAtMs && lunchEnd) {
+    lunch = n === 1 ? [deducted.minutes] : cumulativeMinutes([[l.startAtMs, lunchEnd]], segs);
+  } else if (deducted.minutes > 0) {
+    lunch = n === 1 ? [deducted.minutes] : prorate(deducted.minutes, spans);
+    if (n > 1) warn[0].push("LUNCH_PRORATED");
+  }
+  const second = b.compliance?.secondMeal;
+  if (second) {
+    const extra = deductibleLunchMinutes(
+      {
+        taken: true,
+        startAtMs: second.startAtMs,
+        endAtMs: second.endAtMs,
+        deductedMinutes: second.deductedMinutes ?? null,
+        interrupted: second.interrupted,
+      },
+      spanTotal,
+      pauseSum + lunch.reduce((a, x) => a + x, 0),
+      nowMs,
+      false,
+    );
+    if (extra.minutes > 0) {
+      if (n === 1) lunch = [lunch[0] + extra.minutes];
+      else if (second.startAtMs != null && second.endAtMs != null) {
+        const part = cumulativeMinutes([[second.startAtMs, second.endAtMs]], segs);
+        lunch = lunch.map((x, i) => x + part[i]);
+      } else {
+        lunch = lunch.map((x, i) => x + (i === 0 ? extra.minutes : 0));
+      }
+    }
   }
 
   // Tránsito

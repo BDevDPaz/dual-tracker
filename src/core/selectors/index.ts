@@ -394,7 +394,7 @@ export function selectPeriodSessionRows(s: DualTrackerState, periodStart: number
   for (const line of statement.lines) {
     const row = pay.get(line.sessionId);
     if (!row) continue;
-    if (!line.kind.endsWith("DEDUCTION")) row.minutes += line.minutes;
+    if (!line.kind.endsWith("DEDUCTION") && !line.kind.endsWith("PREMIUM")) row.minutes += line.minutes;
     row.cents += moneyCents(line.minutes, line.rate);
   }
   const siteOf = (session: SessionRecord) => (session.siteId !== null ? s.sites.byId[String(session.siteId)] ?? null : null);

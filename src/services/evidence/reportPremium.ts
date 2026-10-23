@@ -198,8 +198,22 @@ function lineLabel(line: PayrollLine, lang: Language): string {
     TRANSIT: "comprobante.lineTransit",
     LUNCH_DEDUCTION: "comprobante.lineLunch",
     PAUSE_DEDUCTION: "comprobante.linePause",
+    MEAL_PREMIUM: "comprobante.lineMealPremium",
+    REST_PREMIUM: "comprobante.lineRestPremium",
   }[line.kind];
   return t(key, {}, lang);
+}
+
+function premiumLinesBlock(input: ReportInput, lang: Language): string {
+  const lines = input.statement.lines.filter((l) => l.kind === "MEAL_PREMIUM" || l.kind === "REST_PREMIUM");
+  if (!lines.length) return "";
+  const rows = lines
+    .map(
+      (l) =>
+        `<tr data-premium="${l.kind}"><td>${escapeHtml(lineLabel(l, lang))}</td><td class="fig">${l.minutes}</td><td class="fig">${escapeHtml(formatCurrency(l.amount))}</td></tr>`,
+    )
+    .join("");
+  return `<div class="section-title">${escapeHtml(t("comprobante.premiumTitle", {}, lang))}</div><table>${rows}</table>`;
 }
 
 function headerBlock(input: ReportInput, role: PremiumRole, lang: Language): string {
@@ -364,8 +378,12 @@ function policyBlock(input: ReportInput, lang: Language): string {
   else if (flags.caDoubleTime) lines.push(t("comprobante.flagDouble", {}, lang));
   if (applied.has("CA_SEVENTH_DAY")) lines.push(t("comprobante.ruleSeventh", {}, lang));
   else if (flags.caSeventhDay) lines.push(t("comprobante.flagSeventh", {}, lang));
+  if (applied.has("CA_MEAL_PREMIUM")) lines.push(t("comprobante.ruleMeal", {}, lang));
+  if (applied.has("CA_REST_PREMIUM")) lines.push(t("comprobante.ruleRest", {}, lang));
   for (const code of applied) {
-    if (code !== "CA_DOUBLE_TIME_12H" && code !== "CA_SEVENTH_DAY") lines.push(t("comprobante.ruleUnknown", { code }, lang));
+    if (code !== "CA_DOUBLE_TIME_12H" && code !== "CA_SEVENTH_DAY" && code !== "CA_MEAL_PREMIUM" && code !== "CA_REST_PREMIUM") {
+      lines.push(t("comprobante.ruleUnknown", { code }, lang));
+    }
   }
   if (applied.size === 0 && !flags.caDoubleTime && !flags.caSeventhDay) lines.push(t("comprobante.rulesNone", {}, lang));
   if (input.company.transitPaid) lines.push(t("comprobante.flagTransit", { mult: input.company.transitRateMultiplier }, lang));
@@ -731,6 +749,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${replayBlock(input, lang)}
       ${deviceBlock(input, lang)}
       ${powerOffBlock(input, lang)}
+      ${premiumLinesBlock(input, lang)}
       ${employer}
       ${policyBlock(input, lang)}
       ${retentionBlock(input, lang)}

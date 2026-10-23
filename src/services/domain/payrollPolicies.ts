@@ -1,33 +1,27 @@
 /**
  * Catálogo de políticas de nómina versionadas (Propuesta Técnica §5.2).
- * "Política declarada y versionada (por ejemplo California daily OT + weekly 40).
- *  Un cambio de regla no reescribe historial cerrado; genera un recálculo con policyId."
+ * Una sola familia California: > 8 h por día y > 40 h por semana.
  *
- * Doble tiempo > 12 h y séptimo día consecutivo (spec v1.3 §5.6, P6): la
- * política v2 declara los umbrales, pero el motor SOLO los aplica si la
- * empresa activa payrollLegalFlags.caDoubleTime / caSeventhDay
- * [CONFIRMAR CON ASESORÍA LEGAL]. Por defecto NO se aplican.
- * El motor redondea al minuto más cercano el tiempo real (ms). Esta ficha
- * no ofrece otro modo. Los periodos de comida obligatorios no están modelados.
+ * Doble tiempo > 12 h y séptimo día consecutivo usan los umbrales de esta
+ * ficha. El motor los aplica cuando la empresa tiene caDoubleTime /
+ * caSeventhDay (por defecto sí). allocate() no se reescribe: solo lee estos
+ * campos. v1 atribuye la sesión al día de inicio; v2 la parte por jornada.
  */
 import type { PayrollPolicy } from "../../core/contracts";
 
-/** Réplica exacta de calculatePay() de GEOTrack: > 8 h por sesión = OT. */
-export const LEGACY_DAILY8_V1: PayrollPolicy = {
-  id: "LEGACY_DAILY8_v1",
-  label: "Heredada GEOTrack: > 8 h por sesión",
-  dailyOvertimeAfterMinutes: 8 * 60,
-  weeklyOvertimeAfterMinutes: null,
-  dailyScope: "SESSION",
-};
+const P6 = {
+  doubleTimeDailyAfterMinutes: 12 * 60,
+  seventhDayRule: { overtimeFirstMinutes: 8 * 60, doubleAfterMinutes: 8 * 60 },
+} as const;
 
-/** Ejemplo citado en la propuesta: California daily OT (> 8 h/día) + weekly 40. */
+/** California daily OT (> 8 h/día) + weekly 40, con doble tiempo y séptimo día. */
 export const CA_DAILY8_WEEKLY40_V1: PayrollPolicy = {
   id: "CA_DAILY8_WEEKLY40_v1",
   label: "California: > 8 h/día y > 40 h/semana",
   dailyOvertimeAfterMinutes: 8 * 60,
   weeklyOvertimeAfterMinutes: 40 * 60,
   dailyScope: "DAY",
+  ...P6,
 };
 
 /**
@@ -38,17 +32,15 @@ export const CA_DAILY8_WEEKLY40_V1: PayrollPolicy = {
  */
 export const CA_DAILY8_WEEKLY40_V2: PayrollPolicy = {
   id: "CA_DAILY8_WEEKLY40_v2",
-  label: "California v2: > 8 h por jornada y > 40 h/semana (por jornada del calendario; doble tiempo y 7.º día solo si se activan)",
+  label: "California v2: > 8 h por jornada y > 40 h/semana (por jornada del calendario)",
   dailyOvertimeAfterMinutes: 8 * 60,
   weeklyOvertimeAfterMinutes: 40 * 60,
   dailyScope: "DAY",
   segmentation: "WORKDAY",
-  doubleTimeDailyAfterMinutes: 12 * 60,
-  seventhDayRule: { overtimeFirstMinutes: 8 * 60, doubleAfterMinutes: 8 * 60 },
+  ...P6,
 };
 
 export const PAYROLL_POLICIES: Record<string, PayrollPolicy> = {
-  [LEGACY_DAILY8_V1.id]: LEGACY_DAILY8_V1,
   [CA_DAILY8_WEEKLY40_V1.id]: CA_DAILY8_WEEKLY40_V1,
   [CA_DAILY8_WEEKLY40_V2.id]: CA_DAILY8_WEEKLY40_V2,
 };

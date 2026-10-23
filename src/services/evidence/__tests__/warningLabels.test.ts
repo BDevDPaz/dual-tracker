@@ -21,7 +21,7 @@ describe("tWarning", () => {
   });
 
   test("todos los códigos que emite el motor tienen etiqueta en ambos idiomas", () => {
-    for (const c of ["RATE_FALLBACK_CURRENT", "HOURLY_RATE_ZERO", "LEDGER_CHAIN_SEGMENTED", "LUNCH_DURATION_UNKNOWN", "NO_WORK_MINUTES", "OPEN_SESSION_EXCLUDED", "QUARANTINED_SESSION_EXCLUDED", "TRANSIT_CLIPPED"]) {
+    for (const c of ["RATE_FALLBACK_CURRENT", "HOURLY_RATE_ZERO", "LEDGER_CHAIN_SEGMENTED", "LUNCH_DURATION_UNKNOWN", "NO_WORK_MINUTES", "OPEN_SESSION_EXCLUDED", "QUARANTINED_SESSION_EXCLUDED", "TRANSIT_CLIPPED", "MEAL_GAP_AMBIGUOUS"]) {
       expect(tWarning(c, "es")).not.toBe(c);
       expect(tWarning(c, "en")).not.toBe(c);
     }

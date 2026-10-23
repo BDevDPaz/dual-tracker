@@ -34,7 +34,8 @@ import type {
 import { companyCalendar, legalFlags } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
 import { moneyCents } from "./payrollDisplay";
-import { cappedFixedLunchMinutes, computeSegmentMinutes, sessionEndMs } from "./segmentation";
+import { evaluateDayPremiums } from "./caPremiums";
+import { computeSegmentMinutes, deductibleLunchMinutes, sessionEndMs } from "./segmentation";
 import { getPayrollPolicy } from "./payrollPolicies";
 import { TransitPolicyService } from "./TransitPolicyService";
 
@@ -85,16 +86,35 @@ export function computeSessionMinutes(
   const pauseMinutes = Math.round((session.totalPausedMs + openPause) / MS_PER_MIN);
 
   // Almuerzo. Un fijo ya guardado no puede descontar más que la jornada (dato viejo).
-  let lunchMinutes = 0;
+  // Menos de 30 min o interrumpido no se descuenta: no se inventan 30 min.
   const l = session.lunch;
-  if (l.startAtMs && l.endAtMs) {
-    lunchMinutes = Math.max(0, Math.round((l.endAtMs - l.startAtMs) / MS_PER_MIN));
-  } else if (l.startAtMs && !l.endAtMs && session.domainStatus === "PAUSADA") {
-    lunchMinutes = Math.max(0, Math.round((nowMs - l.startAtMs) / MS_PER_MIN));
-  } else if (l.deductedMinutes !== null && l.deductedMinutes !== undefined) {
-    lunchMinutes = cappedFixedLunchMinutes(l.deductedMinutes, spanMinutes, pauseMinutes);
-  } else if (l.taken) {
-    warnings.push("LUNCH_DURATION_UNKNOWN");
+  const openLunch = Boolean(l.startAtMs && !l.endAtMs && session.domainStatus === "PAUSADA");
+  const lunchEnd = openLunch ? nowMs : l.endAtMs;
+  const deducted = deductibleLunchMinutes(
+    { ...l, endAtMs: lunchEnd, interrupted: Boolean(l.interrupted || b.compliance?.mealInterrupted) },
+    spanMinutes,
+    pauseMinutes,
+    nowMs,
+    openLunch,
+  );
+  let lunchMinutes = deducted.minutes;
+  if (deducted.unknown) warnings.push("LUNCH_DURATION_UNKNOWN");
+  const second = b.compliance?.secondMeal;
+  if (second) {
+    const extra = deductibleLunchMinutes(
+      {
+        taken: true,
+        startAtMs: second.startAtMs,
+        endAtMs: second.endAtMs,
+        deductedMinutes: second.deductedMinutes ?? null,
+        interrupted: second.interrupted,
+      },
+      spanMinutes,
+      pauseMinutes + lunchMinutes,
+      nowMs,
+      false,
+    );
+    lunchMinutes += extra.minutes;
   }
 
   // Tránsito
@@ -481,6 +501,17 @@ export const PayrollEngineService = {
     const appliedRules = [...(doubleApplied ? ["CA_DOUBLE_TIME_12H"] : []), ...(seventhApplied ? ["CA_SEVENTH_DAY"] : [])];
     // Cada jornada paga con su propia tarifa (aunque haya varias el mismo día).
     const lines = items.flatMap((it, i) => buildLines(it, alloc[i], sessionRates(byId.get(it.sessionId), input.rates).rates));
+    const premium = evaluateDayPremiums({
+      items,
+      sessions: byId,
+      rates: input.rates,
+      hourlyRateOf: (id) => sessionRates(byId.get(id), input.rates).rates.hourlyRate,
+      splitByWorkday: policy.segmentation === "WORKDAY",
+      history,
+    });
+    lines.push(...premium.lines);
+    for (const w of premium.warnings) if (!warnings.includes(w)) warnings.push(w);
+    appliedRules.push(...premium.appliedRules);
     const grossCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
 
     const sumMin = (kinds: PayrollLine["kind"][]) =>
@@ -554,8 +585,18 @@ export const PayrollEngineService = {
     }
     const flags = legalFlags(company);
     const a = allocate(items, { ...policy, weeklyOvertimeAfterMinutes: null, seventhDayRule: null }, { history, caDoubleTime: flags.caDoubleTime });
-    const lines = items.flatMap((it, i) => buildLines(it, a[i], sessionRates(session, rates).rates));
-    const previewCents = lines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
+    const priced = sessionRates(session, rates).rates;
+    const lines = items.flatMap((it, i) => buildLines(it, a[i], priced));
+    const premium = evaluateDayPremiums({
+      items,
+      sessions: new Map([[session.id, session]]),
+      rates,
+      hourlyRateOf: () => priced.hourlyRate,
+      splitByWorkday: policy.segmentation === "WORKDAY",
+      history,
+    });
+    const previewLines = lines.concat(premium.lines);
+    const previewCents = previewLines.reduce((acc, l) => acc + moneyCents(l.minutes, l.rate), 0);
     const sum = (f: (x: AllocItem) => number) => items.reduce((acc, x) => acc + f(x), 0);
     return {
       sessionId: session.id,

@@ -16,7 +16,10 @@ export type PayrollLineKind =
   | "OVERTIME_DOUBLE"
   | "TRANSIT"
   | "LUNCH_DEDUCTION"
-  | "PAUSE_DEDUCTION";
+  | "PAUSE_DEDUCTION"
+  /** 1 h a la tarifa regular. No suma horas ni overtime. */
+  | "MEAL_PREMIUM"
+  | "REST_PREMIUM";
 
 export interface PayrollLine {
   sessionId: number;
@@ -135,4 +138,9 @@ export interface PayrollRates {
   overtimeMultiplier: number;
   /** P6: multiplicador del doble tiempo (por defecto 2). */
   doubleTimeMultiplier?: number;
+  /**
+   * Bono no discrecional por hora (Ferra). Solo entra en la prima de comida
+   * o descanso. Ausente = 0, y las líneas de horas no cambian.
+   */
+  nondiscretionaryBonusPerHour?: number;
 }

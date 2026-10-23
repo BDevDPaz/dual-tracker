@@ -82,6 +82,10 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
         mode: "MANUAL",
         lunchDeductedMinutes: i.lunchDeductedMinutes ?? null,
         ...(i.lunchStartAtMs != null ? { lunchStartAtMs: i.lunchStartAtMs } : {}),
+        ...(i.waiveFirstMeal !== undefined ? { waiveFirstMeal: i.waiveFirstMeal } : {}),
+        ...(i.waiveSecondMeal !== undefined ? { waiveSecondMeal: i.waiveSecondMeal } : {}),
+        ...(i.mealInterrupted !== undefined ? { mealInterrupted: i.mealInterrupted } : {}),
+        ...(i.restBreaksTaken !== undefined ? { restBreaksTaken: i.restBreaksTaken } : {}),
       };
     case "PATCH_SESSION":
       return { type: "MANUAL_PATCH", sessionId: i.sessionId, declaredStartAtMs: i.declaredStartAtMs, endAtMs: i.endAtMs, note: i.note };

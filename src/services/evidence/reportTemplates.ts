@@ -123,6 +123,8 @@ const LINE_LABEL: Record<PayrollLine["kind"], string> = {
   TRANSIT: "Tránsito",
   LUNCH_DEDUCTION: "Almuerzo (deducción)",
   PAUSE_DEDUCTION: "Pausa (deducción)",
+  MEAL_PREMIUM: "Prima de comida",
+  REST_PREMIUM: "Prima de descanso",
 };
 
 const BASE_CSS = `

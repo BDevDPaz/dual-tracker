@@ -1,4 +1,7 @@
 /** Doble de expo-notifications: scheduleNotificationAsync empuja a un array; permiso configurable. */
+type ResponseListener = (response: NotificationResponse) => void;
+const listeners: ResponseListener[] = [];
+
 export const __state = {
   permission: { status: "granted", granted: true, canAskAgain: true } as { status: string; granted: boolean; canAskAgain: boolean },
   scheduled: [] as { identifier?: string; content: unknown; trigger: unknown }[],
@@ -12,6 +15,10 @@ export function __reset(): void {
   __state.dismissed = [];
   __state.cancelled = [];
   __state.channels.clear();
+  listeners.length = 0;
+}
+export function __emit(response: NotificationResponse): void {
+  for (const listener of [...listeners]) listener(response);
 }
 export function __setPermission(status: "granted" | "denied" | "undetermined", canAskAgain = true): void {
   __state.permission = { status, granted: status === "granted", canAskAgain };
@@ -63,8 +70,14 @@ export async function setNotificationCategoryAsync(id: string, actions: unknown)
   return { identifier: id, actions };
 }
 export function setNotificationHandler(): void {}
-export function addNotificationResponseReceivedListener(): EventSubscription {
-  return { remove: () => {} };
+export function addNotificationResponseReceivedListener(cb: ResponseListener): EventSubscription {
+  listeners.push(cb);
+  return {
+    remove: () => {
+      const i = listeners.indexOf(cb);
+      if (i >= 0) listeners.splice(i, 1);
+    },
+  };
 }
 export async function getLastNotificationResponseAsync() {
   return null;

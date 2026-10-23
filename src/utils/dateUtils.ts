@@ -587,6 +587,32 @@ export const periodIdAt = (input: DateInput, history?: CalendarHistory | null): 
   return `${isTransitionPeriodAt(ts, history) ? "T" : "W"}${d}`;
 };
 
+/**
+ * Quincena anclada al lunes 2024-01-01 00:00 America/Los_Angeles: 14 días,
+ * de un lunes 00:00 al domingo siguiente 23:59:59.999. El índice de semanas
+ * usa el calendario (DST incluido), no un múltiplo fijo de 7×24 h.
+ */
+export function biweeklyContaining(nowMs: number, history?: CalendarHistory | null): { start: number; end: number } {
+  const anchor = workweekStartAt(Date.UTC(2024, 0, 1, 8), history);
+  const week = workweekStartAt(nowMs, history);
+  let start = anchor;
+  let guard = 0;
+  if (week >= anchor) {
+    while (guard++ < 4000) {
+      const next = shiftWeek(start, 2, history);
+      if (!Number.isFinite(next) || next > week) break;
+      start = next;
+    }
+  } else {
+    while (guard++ < 4000 && start > week) {
+      const prev = shiftWeek(start, -2, history);
+      if (!Number.isFinite(prev) || prev === start) break;
+      start = prev;
+    }
+  }
+  return { start, end: workweekEndAt(shiftWeek(start, 1, history), history) };
+}
+
 /** Desplaza N periodos desde el periodo que contiene `ts` (devuelve su inicio). */
 export const shiftPeriod = (ts: number, n: number, history?: CalendarHistory | null): number => {
   const h = histOrDefault(history);

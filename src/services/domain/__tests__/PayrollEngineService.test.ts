@@ -1,8 +1,8 @@
 /** T1 — PayrollEngine + políticas. Tiempo solo vía fixtures (prohibido Date.now() suelto). */
 import type { SessionRecord } from "../../../core/contracts";
-import { getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
+import { biweeklyContaining, getWeekEnd, getWeekStart, shiftWeek, toDateString } from "../../../utils/dateUtils";
 import { PayrollEngineService, computeSessionMinutes, rollupIntegrity } from "../PayrollEngineService";
-import { CA_DAILY8_WEEKLY40_V1, LEGACY_DAILY8_V1, getPayrollPolicy } from "../payrollPolicies";
+import { CA_DAILY8_WEEKLY40_V1, getPayrollPolicy } from "../payrollPolicies";
 import { CA_POLICY_ID, COMPANY, HOUR, MIN, MONDAY_8AM, RATES, makeClosedSession, makeSegment, makeSession } from "../../../../test/fixtures/session.fixture";
 
 const DAY = 24 * HOUR;
@@ -26,13 +26,15 @@ describe("PayrollEngineService", () => {
     expect(getPayrollPolicy("desconocida").id).toBe(CA_POLICY_ID);
   });
 
-  test("[obligatorio #4] 9 h en un día = 8 regular + 1 OT con CA_DAILY8_WEEKLY40_v1", () => {
+  test("R01 9 h en un día = 480 regular + 60 OT diario", () => {
     const st = statement([makeClosedSession(MONDAY_8AM, 9)]);
     expect(st.policyId).toBe(CA_POLICY_ID);
+    expect(kinds(st, "REGULAR")[0].minutes).toBe(480);
+    expect(kinds(st, "OVERTIME_DAILY")[0].minutes).toBe(60);
     expect(st.regularHours).toBe(8);
     expect(st.overtimeHours).toBe(1);
     expect(st.overtimeDailyHours).toBe(1);
-    expect(st.grossEstimate).toBe(8 * 20 + 1 * 30);
+    expect(st.grossEstimate).toBe(8 * 20 + 1 * 30 + 20);
   });
 
   test("[obligatorio #5] almuerzo de 60 min no entra al bruto", () => {
@@ -86,10 +88,15 @@ describe("PayrollEngineService", () => {
     expect(st.overtimeDailyHours).toBe(2);
   });
 
-  test("LEGACY_DAILY8_v1: umbral por sesión (GEOTrack)", () => {
-    const st = statement([makeClosedSession(MONDAY_8AM, 5, { id: 1 }), makeClosedSession(MONDAY_8AM + 6 * HOUR, 5, { id: 2 })], LEGACY_DAILY8_V1.id);
-    expect(st.regularHours).toBe(10);
-    expect(st.overtimeHours).toBe(0);
+  test("R02 5×8 h + 4 h = 4 h de OT semanal, sin doble conteo con la OT diaria", () => {
+    const week = [0, 1, 2, 3, 4].map((d) => makeClosedSession(MONDAY_8AM + d * DAY, 8, { id: d + 1 }));
+    week.push(makeClosedSession(MONDAY_8AM + 5 * DAY, 4, { id: 6 }));
+    const st = statement(week);
+    expect(st.regularHours).toBe(40);
+    expect(st.overtimeWeeklyHours).toBe(4);
+    expect(st.overtimeDailyHours).toBe(0);
+    expect(st.overtimeDoubleHours).toBeUndefined();
+    expect(st.overtimeHours).toBe(4);
   });
 
   test("40 h semanales: el sexto día de 8 h es OT semanal", () => {
@@ -107,7 +114,7 @@ describe("PayrollEngineService", () => {
     expect(st.transitHours).toBe(0.5);
     expect(st.regularHours).toBe(7.5);
     expect(st.overtimeDailyHours).toBe(0.5);
-    expect(st.grossEstimate).toBe(7.5 * 20 + 0.5 * 30 + 0.5 * 20);
+    expect(st.grossEstimate).toBe(7.5 * 20 + 0.5 * 30 + 0.5 * 20 + 20);
   });
 
   test("paid congelado no sigue un cambio posterior de transitPaid", () => {
@@ -157,11 +164,24 @@ describe("PayrollEngineService", () => {
   });
 
   test("policyId inmutable: el preview usa la política con la que nació la sesión", () => {
-    const s = makeClosedSession(MONDAY_8AM, 10, { policyId: LEGACY_DAILY8_V1.id });
+    const s = makeClosedSession(MONDAY_8AM, 10, { policyId: CA_POLICY_ID });
     const p = PayrollEngineService.previewSession(s, RATES, COMPANY, MONDAY_8AM + DAY)!;
-    expect(p.policyId).toBe(LEGACY_DAILY8_V1.id);
+    expect(p.policyId).toBe(CA_POLICY_ID);
     expect(p.regularMinutes).toBe(480);
     expect(p.overtimeDailyMinutes).toBe(120);
+  });
+
+  test("C16 la semana es lun 00:00–dom 23:59 y la quincena cubre 14 días", () => {
+    const start = getWeekStart(MONDAY_8AM);
+    const end = getWeekEnd(MONDAY_8AM);
+    expect(toDateString(start)).toBe("2026-09-21");
+    expect(toDateString(end)).toBe("2026-09-27");
+    const period = biweeklyContaining(MONDAY_8AM);
+    expect(period.start).toBeLessThanOrEqual(MONDAY_8AM);
+    expect(period.end).toBeGreaterThanOrEqual(MONDAY_8AM);
+    expect(getWeekStart(period.start)).toBe(period.start);
+    expect(period.end).toBe(getWeekEnd(shiftWeek(period.start, 1)));
+    expect(biweeklyContaining(period.end + 1).start).toBe(period.end + 1);
   });
 
   test("computeSessionMinutes: SALIDA abierta cuenta hasta la primera salida", () => {
@@ -176,6 +196,6 @@ describe("PayrollEngineService", () => {
       periodStart: getWeekStart(MONDAY_8AM), periodEnd: getWeekEnd(MONDAY_8AM),
     });
     expect(lines.every((l) => l.sessionId === 1)).toBe(true);
-    expect(lines.map((l) => l.kind)).toEqual(["REGULAR", "OVERTIME_DAILY"]);
+    expect(lines.map((l) => l.kind)).toEqual(["REGULAR", "OVERTIME_DAILY", "MEAL_PREMIUM"]);
   });
 });

@@ -32,7 +32,7 @@ import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtil
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
 import { ensureForeignKeys } from "./foreignKeyMigration";
-import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SESSION_V8_COLUMNS, SITE_ADDED_COLUMNS, SPATIAL_ADDED_COLUMNS } from "./schema";
+import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SESSION_V8_COLUMNS, SESSION_V9_COLUMNS, SITE_ADDED_COLUMNS, SPATIAL_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
@@ -239,6 +239,7 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   // v8: después de la reconstrucción de foráneas (ver SESSION_V8_COLUMNS). Sin backfill:
   // las jornadas antiguas quedan en NULL y la nómina las marca como tarifa de respaldo.
   for (const [col, def] of SESSION_V8_COLUMNS) await addColumnIfMissing(database, "sessions", col, def);
+  for (const [col, def] of SESSION_V9_COLUMNS) await addColumnIfMissing(database, "sessions", col, def);
   await ensureUniquePrevHash(database);
   await database.runAsync(
     `INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`,
