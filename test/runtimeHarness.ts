@@ -13,7 +13,7 @@ export type LocationMock = typeof Location & {
   __setPosition(lat: number, lon: number, accuracy?: number | null, speed?: number | null, extra?: { timestamp?: number; mocked?: boolean }): void;
   __setStartLocationUpdatesError(error: Error | null): void;
   __setPermissions(p: { foreground?: "granted" | "denied" | "undetermined"; background?: "granted" | "denied" | "undetermined"; canAskAgain?: boolean }): void;
-  __state: { servicesEnabled: boolean; geofences: Map<string, unknown[]>; locationUpdates: Map<string, unknown> };
+  __state: { servicesEnabled: boolean; position: unknown; geofences: Map<string, unknown[]>; locationUpdates: Map<string, unknown> };
 };
 export type TaskManagerMock = typeof TaskManager & {
   __run<T>(name: string, data: T, error?: { code: string | number; message: string } | null): Promise<unknown>;

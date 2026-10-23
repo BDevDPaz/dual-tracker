@@ -1,5 +1,6 @@
 /** T5 — exitDecisionTimer.task: usa firstExit, no lastExit. */
 import * as Notifications from "expo-notifications";
+import { __setPermission, __state as notificationState } from "../../../../../test/mocks/expo-notifications";
 import { PersistenceService } from "../../../persistence/PersistenceService";
 import { KV_KEYS } from "../../../persistence/schema";
 import { TaskOrchestratorService } from "../../TaskOrchestratorService";
@@ -60,6 +61,29 @@ describe("exitDecisionTimer.task", () => {
     LocationMock.__setPosition(SITE_LAT + 120 / 111_320, SITE_LON, 10);
     expect(await runExitDecisionTimer()).toBe(false);
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("F02: el recordatorio de 10 min y el cierre de 15 se programan y se cancelan", async () => {
+    const { s, firstExit } = await inSalida();
+    const scheduled = notificationState.scheduled as { identifier?: string; trigger: { type?: string; date?: Date } }[];
+    const remind = scheduled.find((n) => n.identifier === `dualtracker-exit-remind-${s.id}`);
+    const close = scheduled.find((n) => n.identifier === `dualtracker-exit-close-${s.id}`);
+    expect(remind?.trigger.type).toBe(Notifications.SchedulableTriggerInputTypes.DATE);
+    expect(close?.trigger.type).toBe(Notifications.SchedulableTriggerInputTypes.DATE);
+    expect(new Date(remind!.trigger.date as Date).getTime()).toBe(firstExit + 10 * MIN);
+    expect(new Date(close!.trigger.date as Date).getTime()).toBe(firstExit + 30 * MIN);
+    await TaskOrchestratorService.cancelExitDecision(s.id);
+    expect(notificationState.cancelled).toEqual(expect.arrayContaining([`dualtracker-exit-remind-${s.id}`, `dualtracker-exit-close-${s.id}`]));
+  });
+
+  test("E19: sin permiso de avisos el plazo igual cierra la jornada", async () => {
+    const { s } = await inSalida();
+    __setPermission("denied");
+    await TaskOrchestratorService.scheduleExitDecision(s.id, (await PersistenceService.getSession(s.id))!.bookkeeping.firstExitAtMs!, 30 * MIN);
+    time.travel(45 * MIN);
+    LocationMock.__setPosition(SITE_LAT + 0.05, SITE_LON, 10);
+    expect(await runExitDecisionTimer()).toBe(true);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("CERRADA");
   });
 
   test("si el usuario ya eligió STAY_WORKING, el plazo caduca sin cerrar", async () => {

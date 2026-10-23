@@ -182,7 +182,7 @@ describe("fase 3 · 22 oct 2026", () => {
       const notice = await buildForegroundNotice(session);
       expect(notice).toEqual({ site: "Sitio A", gps: "ok", monitoring: "MONITORING" });
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toMatchObject({ status: "running" });
-      expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
+      expect(fgsBody()).toBe(t("notifications.fgsFollowing", {}, "es"));
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB", { notice })).toMatchObject({ status: "running", reason: "STARTED" });
       expect(fgsBody()).toBe("Sitio A · GPS correcto · Monitoreando");
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB", { notice })).toMatchObject({ reason: "UNCHANGED" });

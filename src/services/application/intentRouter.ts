@@ -26,6 +26,7 @@ import { monitoredSiteId } from "../domain/siteVisits";
 import { EvidencePackService, latestPackFor } from "../evidence/EvidencePackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
+import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
 import { ForegroundWorkService } from "../runtime/ForegroundWorkService";
 import { buildForegroundNotice } from "../runtime/monitoringSnapshot";
@@ -204,6 +205,12 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
 
       // ---- Destinos ----
       case "UPSERT_SITE": {
+        if (intent.site.id) {
+          const existing = await PersistenceService.getSite(intent.site.id);
+          const radiusChanged = !!existing && intent.site.radiusM !== undefined && intent.site.radiusM !== (existing.radiusM ?? null);
+          const dwellChanged = !!existing && intent.site.arrivalDwellMs !== undefined && (intent.site.arrivalDwellMs ?? null) !== (existing.arrivalDwellMs ?? null);
+          if ((radiusChanged || dwellChanged) && !SecurityService.isUnlocked()) return report({ ok: false, code: "ADMIN_LOCKED" });
+        }
         const r = await SiteRegistryService.upsert(intent.site, state.settings.company);
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.siteUpserted(r.site);

@@ -13,7 +13,9 @@ export const HOUR = 60 * MIN;
 /** "california-daily-8-weekly-40" de la propuesta = CA_DAILY8_WEEKLY40_v1 en el código. */
 export const CA_POLICY_ID = CA_DAILY8_WEEKLY40_V1.id;
 
-export const COMPANY: CompanyPolicy = { ...DEFAULT_COMPANY_POLICY, overtimePolicyId: CA_POLICY_ID };
+// El defecto de producto espera 2 min. Esta suite ficha al entrar, como hasta
+// el PR 3, salvo el caso que fija la espera a propósito.
+export const COMPANY: CompanyPolicy = { ...DEFAULT_COMPANY_POLICY, overtimePolicyId: CA_POLICY_ID, arrivalDwellMs: 0 };
 export const RATES = { hourlyRate: 20, overtimeMultiplier: 1.5 };
 
 type SessionOverrides = Partial<Omit<SessionRecord, "bookkeeping">> & { bookkeeping?: Partial<SessionRecord["bookkeeping"]> };

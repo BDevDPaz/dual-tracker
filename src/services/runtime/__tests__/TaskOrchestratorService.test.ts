@@ -42,7 +42,7 @@ describe("TaskOrchestratorService", () => {
 
   test("BREADCRUMB en ESPERANDO con Solo geocerca ficha la llegada y no graba rastro", async () => {
     const { siteA } = await seedWorld();
-    await SettingsService.saveCompany({ ...DEFAULT_COMPANY_POLICY, traceMode: "PERIMETER" });
+    await SettingsService.saveCompany({ ...DEFAULT_COMPANY_POLICY, traceMode: "PERIMETER", arrivalDwellMs: 0 });
     const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
     await TaskManagerMock.__run(BREADCRUMB_TASK_NAME, { locations: [loc()] });
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");

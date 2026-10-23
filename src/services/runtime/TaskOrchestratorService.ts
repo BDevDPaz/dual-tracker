@@ -186,6 +186,7 @@ export const TaskOrchestratorService = {
     const deadline: ExitDecisionDeadline = { sessionId, firstExitAtMs, deadlineMs: TimeAuthorityService.now() + windowMs };
     await PersistenceService.setKv(KV_KEYS.EXIT_DECISION, deadline);
     await NotificationService.notifyExitDetected(sessionId, firstExitAtMs);
+    await NotificationService.scheduleExitFollowUps(sessionId, firstExitAtMs, windowMs);
     if (exitTimer) clearTimeout(exitTimer);
     exitTimer = setTimeout(() => {
       exitTimer = null;

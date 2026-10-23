@@ -69,7 +69,12 @@ export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
   transitRateMultiplier: 1,
   transitCountsTowardOvertime: true,
   timezone: "America/Los_Angeles",
-  arrivalDwellMs: 0,
+  /** Espera de 2 min antes del fichaje automático. 0 sigue siendo inmediato. */
+  arrivalDwellMs: 120_000,
+  /** Precisión máxima de una lectura «buena». Por encima solo se pregunta. */
+  arrivalAccuracyM: 50,
+  /** Lecturas buenas dentro del radio antes del fichaje automático. */
+  arrivalReadings: 2,
 };
 
 export const DEFAULT_DEVICE_PREFS: DevicePreferences = {

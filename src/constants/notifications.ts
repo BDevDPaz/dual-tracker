@@ -26,6 +26,32 @@ export const NOTIFICATION_ACTIONS = {
   EXTEND_SHIFT: "ACTION_EXTEND_SHIFT",
   /** N12: reanudar el almuerzo. */
   RESUME: "ACTION_RESUME",
+  /** N01: empieza la jornada del sitio propuesto, sin abrir la app. */
+  START_DAY: "ACTION_START_DAY",
+  /** N01 / T35: silencia solo el día en curso. */
+  SILENCE_DAY: "ACTION_SILENCE_DAY",
+  /** N03: ficha ya, sin esperar los 2 min. */
+  ARRIVAL_NOW: "ACTION_ARRIVAL_NOW",
+  /** N03: borra la espera y sigue en ESPERANDO. */
+  ARRIVAL_HOLD_DISMISS: "ACTION_ARRIVAL_HOLD_DISMISS",
+  /** N07: otro trabajo. Abre el selector de traslado. */
+  OTHER_WORK: "ACTION_OTHER_WORK",
+  /** N07: mandado de trabajo. TRANSFER_START con propósito ERRAND. */
+  ERRAND: "ACTION_ERRAND",
+  /** N08. */
+  LUNCH_30: "ACTION_LUNCH_30",
+  LUNCH_60: "ACTION_LUNCH_60",
+  LUNCH_NONE: "ACTION_LUNCH_NONE",
+  /** N13. */
+  TRANSIT_BACK: "ACTION_TRANSIT_BACK",
+  TRANSIT_ARRIVED: "ACTION_TRANSIT_ARRIVED",
+  /** N14: abre Salud. */
+  REPAIR: "ACTION_REPAIR",
+  /** N06: la persona confirma que trabaja en ese punto. */
+  OFFSITE_YES: "ACTION_OFFSITE_YES",
+  /** Tras cancelar un traslado lejos del origen. */
+  RETURN_TO_SITE: "ACTION_RETURN_TO_SITE",
+  FINISH_SHIFT: "ACTION_FINISH_SHIFT",
 } as const;
 
 export const NOTIFICATION_CATEGORIES = {
@@ -38,6 +64,12 @@ export const NOTIFICATION_CATEGORIES = {
   ORPHAN_REVIEW: "CATEGORY_ORPHAN_REVIEW",
   EXTEND_SHIFT: "CATEGORY_EXTEND_SHIFT",
   LUNCH_RESUME: "CATEGORY_LUNCH_RESUME",
+  ARRIVAL_HOLD: "CATEGORY_ARRIVAL_HOLD",
+  LUNCH_BEFORE_CLOSE: "CATEGORY_LUNCH_BEFORE_CLOSE",
+  TRANSIT: "CATEGORY_TRANSIT",
+  INTEGRITY: "CATEGORY_INTEGRITY",
+  OFFSITE: "CATEGORY_OFFSITE",
+  RETURN_OR_FINISH: "CATEGORY_RETURN_OR_FINISH",
 } as const;
 
 export const NOTIFICATION_CHANNELS = {

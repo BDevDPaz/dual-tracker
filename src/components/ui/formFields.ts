@@ -44,6 +44,8 @@ export const FORM_FIELDS = {
     { id: "radius", kind: "integer" },
     { id: "portalUrl", kind: "text" },
     { id: "arrivalDwell", kind: "integer" },
+    { id: "arrivalAccuracy", kind: "integer" },
+    { id: "arrivalReadings", kind: "integer" },
   ],
   settingsCalendar: [{ id: "start", kind: "time" }],
   siteNew: [

@@ -68,6 +68,8 @@ export interface SessionRuntimePorts {
   /** Programa EXIT_DECISION_TIMER (ventana = policy.exitDecisionWindowMs). */
   scheduleExitDecision(sessionId: number, firstExitAtMs: number, windowMs: number): Promise<void>;
   cancelExitDecision(sessionId: number): Promise<void>;
+  /** N14. Opcional: los tests que no lo cablean no avisan. */
+  notifyIntegrity?(sessionId: number): Promise<void>;
 }
 
 const NOOP_PORTS: SessionRuntimePorts = {
@@ -375,6 +377,14 @@ export const SessionEngineService = {
             else await ports.cancelExitDecision(saved.id);
           } catch (error) {
             LoggingService.log("ROJO", "ERROR_EFECTO", "ERROR", `Efecto ${effect.type} falló`, serializeError(error));
+          }
+        }
+
+        if (intent.type === "INTEGRITY_DEGRADE") {
+          try {
+            await ports.notifyIntegrity?.(saved.id);
+          } catch (error) {
+            LoggingService.log("ROJO", "ERROR_EFECTO", "ERROR", "Aviso de integridad falló", serializeError(error));
           }
         }
 

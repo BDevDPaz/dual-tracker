@@ -104,11 +104,18 @@ export interface CompanyPolicy {
    */
   timezone?: string;
   /**
-   * Espera antes del fichaje automático, en milisegundos. 0 o ausente = la
-   * llegada fiable entra al momento. Un sitio puede poner otro valor.
-   * No cambia la fórmula de la nómina.
+   * Espera antes del fichaje automático, en milisegundos. 0 = la llegada
+   * fiable entra al momento. El defecto de una instalación nueva es 2 min.
+   * Un sitio puede poner otro valor. No cambia la fórmula de la nómina.
    */
   arrivalDwellMs?: number;
+  /**
+   * Precisión máxima (m) de una lectura que puede fichar sola. Por encima,
+   * y aún dentro del radio, solo se pregunta. Defecto 50. No recorta el pago.
+   */
+  arrivalAccuracyM?: number;
+  /** Lecturas buenas exigidas durante la espera. Defecto 2. Con espera 0 basta una. */
+  arrivalReadings?: number;
 }
 
 /** Preferencias de dispositivo (no sensibles). */

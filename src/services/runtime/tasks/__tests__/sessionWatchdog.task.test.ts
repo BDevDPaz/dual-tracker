@@ -5,7 +5,8 @@ import { runSessionWatchdog } from "../sessionWatchdog.task";
 import { HOUR, MIN } from "../../../../../test/fixtures/session.fixture";
 import { touchHeartbeat } from "../../heartbeat";
 import { SITE_LAT, SITE_LON } from "../../../../../test/fixtures/spatial.fixture";
-import { seedWorld, startAndArrive } from "../../../../../test/helpers";
+import { mustDispatch, seedWorld, startAndArrive } from "../../../../../test/helpers";
+import { __state as notificationState } from "../../../../../test/mocks/expo-notifications";
 import { LocationMock, watchStatusWrites } from "../../../../../test/runtimeHarness";
 import { time } from "../../../../../test/time";
 
@@ -83,6 +84,20 @@ describe("sessionWatchdog.task", () => {
     await runSessionWatchdog();
     expect(await PersistenceService.listSpatialFacts(s.id, ["PROVIDER_LOSS"])).toHaveLength(1);
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("N18: 3 h en ESPERANDO avisa una vez y no cambia el estado", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    time.travel(3 * HOUR);
+    await touchHeartbeat();
+    await runSessionWatchdog();
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+    const notes = notificationState.scheduled as { content: { data?: { kind?: string } } }[];
+    expect(notes.filter((n) => n.content.data?.kind === "STILL_GOING")).toHaveLength(1);
+    await runSessionWatchdog();
+    expect(notes.filter((n) => n.content.data?.kind === "STILL_GOING")).toHaveLength(1);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
   });
 
   test("sin jornada abierta no hace nada", async () => {

@@ -45,14 +45,24 @@ describe("ForegroundWorkService", () => {
   test("relabel reescribe la notificación del FGS; sin relabel el texto queda", async () => {
     setLanguage("es");
     expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });
-    expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
+    expect(fgsBody()).toBe(t("notifications.fgsFollowing", {}, "es"));
     setLanguage("en");
     expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running", reason: "UNCHANGED" });
-    expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
+    expect(fgsBody()).toBe(t("notifications.fgsFollowing", {}, "es"));
     expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { relabel: true })).toMatchObject({ status: "running" });
-    expect(fgsBody()).toBe("Shift in progress · zone monitoring active");
+    expect(fgsBody()).toBe("I'm following you");
     await ForegroundWorkService.stop();
     setLanguage("es");
+  });
+
+  test("N02: el texto cambia con el estado", async () => {
+    setLanguage("es");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Te estoy siguiendo");
+    expect(await ForegroundWorkService.sync("PAUSADA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Pausado");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { notice: { site: "Sitio A", gps: "off", monitoring: "MONITORING" } })).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Sin GPS");
   });
 
   test("en iOS arranca con deferred updates y sin foregroundService", async () => {

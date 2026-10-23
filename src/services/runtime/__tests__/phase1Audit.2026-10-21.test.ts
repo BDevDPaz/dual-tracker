@@ -205,6 +205,7 @@ describe("fase 1 · 21 oct 2026", () => {
     expect(rows.some((e) => e.intent === "MONITORING_STOPPED_DETECTED")).toBe(true);
     const recovery = rows.filter((e) => e.intent === "SERVICE_RECOVERY");
     expect(recovery).toHaveLength(1);
+    expect(rows.some((e) => e.intent === "ANOMALY" && JSON.parse(e.payloadJson).data?.kind === "SERVICE_STOPPED")).toBe(true);
     expect(dataOf(recovery[0].payloadJson).success).toBe(true);
     expect(recovery[0].fromState).toBe("ACTIVA");
     expect(recovery[0].toState).toBe("ACTIVA");

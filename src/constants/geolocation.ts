@@ -46,8 +46,8 @@ export const IMPOSSIBLE_SPEED_KMH = 200;
  */
 export { DEFAULT_EXIT_DEBOUNCE_MS } from "../config/provisional";
 
-/** Radio por defecto si el sitio no declara el suyo (GEOTrack: 200 m). */
-export const DEFAULT_SITE_RADIUS_METERS = 200;
+/** Radio por defecto de un sitio nuevo (150 m). El de GEOTrack era 200 m. */
+export const DEFAULT_SITE_RADIUS_METERS = 150;
 
 /** Nombres de tareas nativas de ubicación. */
 export const GEOFENCE_TASK_NAME = "DUALTRACKER_GEOFENCE_TASK";

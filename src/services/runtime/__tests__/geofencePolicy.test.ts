@@ -1,5 +1,5 @@
 /** Histéresis y radio mínimo del SO: sin geocerca nativa. */
-import { ANDROID_MIN_OS_RADIUS_M, confirmExitDecision, effectiveJumpMeters, isFarOutside, movementIssue, osGeofenceRadius, presenceZone, shouldArmExit } from "../geofencePolicy";
+import { ANDROID_MIN_OS_RADIUS_M, confirmExitDecision, effectiveJumpMeters, gpsReadingClass, isFarOutside, isImmediateDeparture, movementIssue, osGeofenceRadius, presenceZone, shouldArmExit } from "../geofencePolicy";
 
 describe("geofencePolicy", () => {
   test("Android no registra por debajo de 100 m; iOS conserva el radio lógico", () => {
@@ -36,6 +36,17 @@ describe("geofencePolicy", () => {
     expect(
       confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: false }),
     ).toBe("clear");
+  });
+
+  test("30 m es buena, 80 m dentro del radio es débil, 250 m es inútil", () => {
+    expect(gpsReadingClass(30, 150)).toBe("good");
+    expect(gpsReadingClass(80, 150)).toBe("weak");
+    expect(gpsReadingClass(120, 150)).toBe("weak");
+    expect(gpsReadingClass(120, 100)).toBe("useless");
+    expect(gpsReadingClass(250, 150)).toBe("useless");
+    expect(isImmediateDeparture(400, 100, 10)).toBe(false);
+    expect(isImmediateDeparture(3400, 100, 10)).toBe(true);
+    expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 1_000, debounceMs: 120_000, strikes: 0, pendingReliable: true, immediate: true })).toBe("confirm");
   });
 
   test("40 km/h no es imposible; un teleport de 10 km en 5 s sí", () => {
