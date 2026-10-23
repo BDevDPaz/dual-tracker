@@ -33,6 +33,7 @@ export default function NewSiteScreen() {
 
   const radiusM = parseSiteRadius(radius);
   const valid = address.trim().length > 0 && radiusM !== null;
+  const canSaveUnlocated = alias.trim().length > 0 && radiusM !== null;
   const onSave = () => {
     if (radiusM === null || saved) return;
     const savedRadius = radiusM;
@@ -42,6 +43,26 @@ export default function NewSiteScreen() {
         site: {
           alias: alias.trim() || address.trim(),
           address: address.trim(),
+          clientName: client.trim() || null,
+          notes: notes.trim() || null,
+          radiusM: savedRadius,
+          arrivalDwellMs: dwell.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwell.replace(",", ".")) || 0))) * 60_000,
+        },
+      });
+      if (res.ok && res.data) setSaved(res.data as Site);
+      return res;
+    });
+  };
+  const onSaveUnlocated = () => {
+    if (radiusM === null || saved || !alias.trim()) return;
+    const savedRadius = radiusM;
+    return run(async () => {
+      const res = await emit({
+        type: "UPSERT_SITE",
+        site: {
+          alias: alias.trim(),
+          address: "",
+          unlocated: true,
           clientName: client.trim() || null,
           notes: notes.trim() || null,
           radiusM: savedRadius,
@@ -80,7 +101,10 @@ export default function NewSiteScreen() {
       {saved ? (
         <Button label={t("common.continue")} onPress={() => router.replace(`/sites/${saved.id}`)} />
       ) : (
-        <Button label={t("sites.saveSite")} disabled={!valid || busy} isLoading={busy} onPress={() => void onSave()} />
+        <>
+          <Button label={t("sites.saveSite")} disabled={!valid || busy} isLoading={busy} onPress={() => void onSave()} />
+          <Button label={t("sites.saveUnlocated")} variant="secondary" disabled={!canSaveUnlocated || busy} onPress={() => void onSaveUnlocated()} />
+        </>
       )}
     </ScreenScroll>
   );

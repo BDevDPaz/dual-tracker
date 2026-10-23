@@ -35,4 +35,6 @@ export interface SiteDraft {
   radiusM?: number | null;
   /** null = heredar el de la empresa. 0 = inmediato. */
   arrivalDwellMs?: number | null;
+  /** Alta sin coordenadas. La dirección puede ir vacía («Sin ubicar»). */
+  unlocated?: boolean;
 }

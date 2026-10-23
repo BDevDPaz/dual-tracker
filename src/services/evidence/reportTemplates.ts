@@ -26,6 +26,7 @@ import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
 import type { PowerOffNote } from "./deviceOffGap";
+import { siteMoveBlock, type SiteMoveNote } from "./siteMoves";
 import { periodSliceOf } from "../domain/periodSlice";
 import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { checkedInSiteIds } from "../domain/siteVisits";
@@ -96,6 +97,10 @@ export interface ReportInput {
    * el PDF es presentación. Ausente si no hubo OS_KILL.
    */
   powerOffs?: PowerOffNote[];
+  /**
+   * Movimientos de sitio leídos del ledger al pintar. No entran en packHash.
+   */
+  siteMoves?: SiteMoveNote[];
 }
 
 export function isPremiumDocument(input: ReportInput): boolean {
@@ -447,6 +452,7 @@ export function renderEmployerDossier(input: ReportInput): string {
     ${conflicts || '<div class="log-item">Sin conflictos abiertos.</div>'}
     ${input.statement.appliedRules?.length ? `<div class="section-title">Reglas legales opcionales aplicadas</div>${input.statement.appliedRules.map((r) => `<div class="log-item">${escapeHtml(r)}</div>`).join("")}` : ""}
     ${input.statement.warnings.length ? `<div class="section-title">Advertencias</div>${input.statement.warnings.map((w) => `<div class="log-item">${escapeHtml(tWarning(w, "es"))}</div>`).join("")}` : ""}
+    ${siteMoveBlock(input.siteMoves, input.sites, "es")}
     <div class="section-title">Resumen de traza</div>
     ${traces || '<div class="log-item">Periodo registrado solo por geocerca.</div>'}
     ${hashBlock(input)}

@@ -71,7 +71,9 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
     case "RESUME":
       return { type: "RESUME" };
     case "START_TRANSFER":
-      return { type: "TRANSFER_START", toSiteId: i.toSiteId };
+      return i.purpose === "ERRAND"
+        ? { type: "TRANSFER_START", toSiteId: i.toSiteId, purpose: "ERRAND" }
+        : { type: "TRANSFER_START", toSiteId: i.toSiteId };
     case "CANCEL_TRANSFER":
       return i.note?.trim() ? { type: "TRANSFER_CANCEL", note: i.note.trim() } : { type: "TRANSFER_CANCEL" };
     case "STAY_WORKING":
@@ -103,6 +105,10 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
       return { type: "CONTINUE_ORPHAN" };
     case "CONFIRM_ORPHAN_END":
       return { type: "CONFIRM_ORPHAN_END", endAtMs: i.endAtMs, note: i.note };
+    case "EXTEND_SHIFT":
+      return { type: "EXTEND_SHIFT" };
+    case "ACK_DAY_SUMMARY":
+      return { type: "ACK_DAY_SUMMARY", sessionId: i.sessionId };
     default:
       return null;
   }
@@ -199,6 +205,14 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       // ---- Destinos ----
       case "UPSERT_SITE": {
         const r = await SiteRegistryService.upsert(intent.site, state.settings.company);
+        if (!r.ok) return report({ ok: false, code: r.code });
+        StoreActions.siteUpserted(r.site);
+        await resyncGeofenceIfTarget(r.site);
+        FeedbackService.emit("SITE_SAVED");
+        return { ok: true, data: r.site };
+      }
+      case "LOCATE_SITE": {
+        const r = await SiteRegistryService.locate(intent.siteId, intent.readings);
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.siteUpserted(r.site);
         await resyncGeofenceIfTarget(r.site);

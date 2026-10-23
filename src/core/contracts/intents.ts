@@ -29,7 +29,7 @@ export type SessionIntent =
   | { type: "ARRIVAL_CONFIRMED"; fact?: SpatialFact }
   | { type: "LUNCH_START" }
   | { type: "RESUME" }
-  | { type: "TRANSFER_START"; toSiteId: number }
+  | { type: "TRANSFER_START"; toSiteId: number; purpose?: "ERRAND" }
   | { type: "TRANSFER_CANCEL"; note?: string | null }
   | { type: "EXIT_DETECTED"; fact: SpatialFact }
   | { type: "STAY_WORKING" }
@@ -72,6 +72,16 @@ export type SessionIntent =
   | { type: "CONTINUE_ORPHAN" }
   /** El operario confirma la hora de fin (obligatoria) y una nota. */
   | { type: "CONFIRM_ORPHAN_END"; endAtMs: number; note: string }
+  /**
+   * A partir de 11 h 30 min: la persona confirma que sigue.
+   * Asiento SHIFT_EXTENDED. No cierra ni cambia la clase.
+   */
+  | { type: "EXTEND_SHIFT" }
+  /**
+   * Resumen del día (Todo bien). Solo asiento ACK_DAY_SUMMARY.
+   * El estado de la jornada no cambia.
+   */
+  | { type: "ACK_DAY_SUMMARY"; sessionId: number }
   | {
       type: "INTEGRITY_DEGRADE";
       cause:
@@ -147,7 +157,7 @@ export type ViewIntent =
   | { type: "CONFIRM_ARRIVAL" }
   | { type: "START_LUNCH" }
   | { type: "RESUME" }
-  | { type: "START_TRANSFER"; toSiteId: number }
+  | { type: "START_TRANSFER"; toSiteId: number; purpose?: "ERRAND" }
   | { type: "CANCEL_TRANSFER"; note?: string | null }
   | { type: "STAY_WORKING" }
   | { type: "CONFIRM_EXIT"; lunchDeductedMinutes?: number | null; lunchStartAtMs?: number | null }
@@ -176,6 +186,8 @@ export type ViewIntent =
         notes?: string | null;
         radiusM?: number | null;
         arrivalDwellMs?: number | null;
+        /** Alta sin coordenadas. La dirección puede ir vacía. */
+        unlocated?: boolean;
       };
     }
   | { type: "ARCHIVE_SITE"; siteId: number }
@@ -218,6 +230,9 @@ export type ViewIntent =
   | { type: "RESOLVE_SPLIT"; sessionId: number; splitAtMs: number; note: string }
   | { type: "CONTINUE_ORPHAN" }
   | { type: "CONFIRM_ORPHAN_END"; endAtMs: number; note: string }
+  | { type: "EXTEND_SHIFT" }
+  | { type: "ACK_DAY_SUMMARY"; sessionId: number }
+  | { type: "LOCATE_SITE"; siteId: number; readings: { lat: number; lon: number }[] }
   // Integridad del ledger (spec v1.3 §5.5)
   | { type: "ACKNOWLEDGE_LEDGER_BREAK"; pin: string; incident: import("./ledger").LedgerIncident }
   | { type: "EXPORT_LEDGER_INCIDENT" }
@@ -253,6 +268,8 @@ export const VIEW_TO_SESSION_INTENT: Partial<Record<ViewIntentType, SessionInten
   RESOLVE_SPLIT: "RESOLVE_SPLIT",
   CONTINUE_ORPHAN: "CONTINUE_ORPHAN",
   CONFIRM_ORPHAN_END: "CONFIRM_ORPHAN_END",
+  EXTEND_SHIFT: "EXTEND_SHIFT",
+  ACK_DAY_SUMMARY: "ACK_DAY_SUMMARY",
 };
 
 /** Resultado uniforme de emitir una intención. */

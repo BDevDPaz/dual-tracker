@@ -18,6 +18,7 @@ import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTrack
 import { selectComputedSessions, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
+import { readTwoPositions } from "../../src/utils/locateReadings";
 import { parseSiteRadius } from "../../src/utils/siteRadius";
 
 export default function SiteDetailScreen() {
@@ -32,6 +33,8 @@ export default function SiteDetailScreen() {
   const [radius, setRadius] = useState<string | null>(null);
   const [dwell, setDwell] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmMove, setConfirmMove] = useState(false);
+  const [locateError, setLocateError] = useState(false);
   const { busy, run } = useBusyAction();
   const storedRadius = site?.radiusM ?? state.settings.company.defaultRadiusM;
   const radiusValue = radius ?? String(storedRadius);
@@ -93,6 +96,21 @@ export default function SiteDetailScreen() {
   );
   const lastVisit = selectSiteLastVisitAtMs(state, site.id);
 
+  const hasPoint = site.targetLat !== null && site.targetLon !== null;
+  const locate = () =>
+    run(async () => {
+      setLocateError(false);
+      const readings = await readTwoPositions();
+      if (!readings) {
+        setLocateError(true);
+        return { ok: false as const, code: "INVALID_POINT" };
+      }
+      const res = await emit({ type: "LOCATE_SITE", siteId: site.id, readings });
+      if (res.ok) setConfirmMove(false);
+      else setLocateError(true);
+      return res;
+    });
+
   const archive = () =>
     run(async () => {
       const res = await emit({ type: "ARCHIVE_SITE", siteId: site.id });
@@ -115,6 +133,15 @@ export default function SiteDetailScreen() {
             mono
           />
           <KeyValueRow label={t("sites.lastVisit")} value={lastVisit ? formatDate(lastVisit) : t("sites.never")} />
+          {site.active ? (
+            <Button
+              label={hasPoint ? t("sites.locateConfirm") : t("sites.locateHere")}
+              size="sm"
+              disabled={busy}
+              onPress={() => (hasPoint ? setConfirmMove(true) : void locate())}
+            />
+          ) : null}
+          {locateError ? <Text style={{ color: TOKENS.colors.status.warning }}>{t("sites.locateFailed")}</Text> : null}
         </Card>
 
         {site.active ? (
@@ -136,6 +163,15 @@ export default function SiteDetailScreen() {
         </Section>
 
         {site.active ? <Button label={t("sites.archive")} variant="danger" disabled={busy} onPress={() => setConfirmArchive(true)} /> : null}
+        <ConfirmActionModal
+          visible={confirmMove}
+          title={t("sites.moveTitle")}
+          description={t("sites.moveBody")}
+          confirmLabel={t("sites.locateConfirm")}
+          busy={busy}
+          onCancel={() => setConfirmMove(false)}
+          onConfirm={() => void locate()}
+        />
         <ConfirmActionModal
           visible={confirmArchive}
           title={t("sites.archiveTitle")}

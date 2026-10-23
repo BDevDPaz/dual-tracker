@@ -102,7 +102,12 @@ export type LedgerIntent =
    * El teléfono se reinició con jornada abierta y una tarea de Expo volvió a
    * correr. No afirma que el servicio en primer plano haya arrancado.
    */
-  | "BOOT_RESUME";
+  | "BOOT_RESUME"
+  /**
+   * El operario fijó o movió el punto de un sitio.
+   * `data.previous` es el punto anterior (null si no había) y `data.next` el nuevo.
+   */
+  | "SITE_LOCATED";
 
 export interface LedgerEntry {
   id: number;

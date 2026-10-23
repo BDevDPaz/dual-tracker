@@ -20,5 +20,8 @@ export const BACKGROUND_WORKER_MIN_INTERVAL_MIN = 15;
 /** Tope de jornada abierta antes de proponer AUTO-CLOSE (Propuesta §4.1: 12 h). */
 export const MAX_OPEN_SESSION_MS = 12 * 60 * 60 * 1000;
 
+/** Aviso N16: a partir de aquí se puede confirmar la extensión (2× después de 12 h). */
+export const EXTEND_PROMPT_MS = 11.5 * 60 * 60 * 1000;
+
 /** Hueco de heartbeat. La cifra está en src/config/provisional.ts. */
 export { HEARTBEAT_GAP_MS } from "../config/provisional";

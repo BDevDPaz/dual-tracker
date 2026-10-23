@@ -32,7 +32,7 @@ import { isDateString, parseTimestamp, toDateString } from "../../utils/dateUtil
 import { FieldCryptoService } from "./FieldCryptoService";
 import { LoggingService } from "./LoggingService";
 import { ensureForeignKeys } from "./foreignKeyMigration";
-import { CREATE_TABLES_SQL, DB_NAME, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SESSION_V8_COLUMNS, SESSION_V9_COLUMNS, SITE_ADDED_COLUMNS, SPATIAL_ADDED_COLUMNS } from "./schema";
+import { CREATE_TABLES_SQL, DB_NAME, INSTALL_EPOCH, KV_KEYS, OFFLINE_QUEUE_ADDED_COLUMNS, SCHEMA_VERSION, SESSION_ADDED_COLUMNS, SESSION_V8_COLUMNS, SESSION_V9_COLUMNS, SITE_ADDED_COLUMNS, SPATIAL_ADDED_COLUMNS } from "./schema";
 import {
   DbSessionRow,
   DbSiteRow,
@@ -223,6 +223,56 @@ async function readKv(database: SQLite.SQLiteDatabase, key: string): Promise<unk
   return row ? JSON.parse(row.value_json) : null;
 }
 
+/**
+ * L01: una base de prueba de una época anterior se borra al abrir la build.
+ * Una base vacía (o ya de esta época) se conserva. No hay migración de asientos.
+ */
+export async function wipePreviousTestDatabase(database: SQLite.SQLiteDatabase): Promise<"wiped" | "kept"> {
+  const stored = await readKv(database, KV_KEYS.INSTALL_EPOCH);
+  if (stored === INSTALL_EPOCH) return "kept";
+  const countOf = async (table: string): Promise<number> => {
+    try {
+      const row = await database.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
+      return row?.n ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+  const hasHistory = (await countOf("sessions")) > 0 || (await countOf("ledger_entries")) > 0;
+  if (!hasHistory) return "kept";
+  await database.execAsync(`
+    PRAGMA foreign_keys = OFF;
+    DROP TRIGGER IF EXISTS trg_ledger_no_update;
+    DROP TRIGGER IF EXISTS trg_ledger_no_delete;
+    DROP TABLE IF EXISTS spatial_facts;
+    DROP TABLE IF EXISTS spatial_facts_orphans;
+    DROP TABLE IF EXISTS ledger_entries;
+    DROP TABLE IF EXISTS evidence_packs;
+    DROP TABLE IF EXISTS offline_queue;
+    DROP TABLE IF EXISTS offline_queue_orphans;
+    DROP TABLE IF EXISTS service_health;
+    DROP TABLE IF EXISTS audit_logs;
+    DROP TABLE IF EXISTS system_logs;
+    DROP TABLE IF EXISTS sessions;
+    DROP TABLE IF EXISTS sites;
+    DROP TABLE IF EXISTS app_kv;
+  `);
+  await database.execAsync(CREATE_TABLES_SQL);
+  await database.execAsync(`PRAGMA foreign_keys = ON;`);
+  LoggingService.log("AMARILLO", "ADVERTENCIA", "WARN", "Base de prueba anterior borrada: ledger nuevo", { epoch: INSTALL_EPOCH });
+  return "wiped";
+}
+
+async function stampInstallEpoch(database: SQLite.SQLiteDatabase): Promise<void> {
+  const stored = await readKv(database, KV_KEYS.INSTALL_EPOCH);
+  if (stored === INSTALL_EPOCH) return;
+  await database.runAsync(`INSERT OR REPLACE INTO app_kv (key, value_json, updated_at_ms) VALUES (?, ?, ?)`, [
+    KV_KEYS.INSTALL_EPOCH,
+    JSON.stringify(INSTALL_EPOCH),
+    TimeAuthorityService.now(),
+  ]);
+}
+
 async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   // v1: esquema inicial. Columnas aditivas (spec v1.3 §5.3: pausas por intervalo).
   for (const [col, def] of SESSION_ADDED_COLUMNS) await addColumnIfMissing(database, "sessions", col, def);
@@ -363,7 +413,9 @@ export const PersistenceService = {
       db = database;
       await configure(database);
       await database.execAsync(CREATE_TABLES_SQL);
+      await wipePreviousTestDatabase(database);
       await runMigrations(database);
+      await stampInstallEpoch(database);
       await LoggingService.attachDatabase(database);
       ready = true;
       LoggingService.system({

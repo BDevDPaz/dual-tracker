@@ -56,5 +56,8 @@ export interface DualTrackerState {
   uiRequests: {
     openExitModal: boolean;
     openDailySetup: "start" | "transit" | null;
+    openExtendConfirm: boolean;
+    correctSessionId: number | null;
+    openOrphanReview: boolean;
   };
 }

@@ -17,6 +17,7 @@ import { checkedInSiteIds } from "../domain/siteVisits";
 import { fingerprintFromB64url } from "../runtime/keyFingerprint";
 import { verificationQrSvg } from "./qrSvg";
 import type { PowerOffNote } from "./deviceOffGap";
+import { siteMoveBlock } from "./siteMoves";
 import type { ForensicLedgerRow, ReportInput } from "./reportTemplates";
 
 export type PremiumRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
@@ -733,7 +734,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
   const watermark = input.practice
     ? `<div class="watermark" data-practice="1"><span>${escapeHtml(t("support.practice.watermark", {}, lang))}</span></div>`
     : "";
-  const employer = role === "EMPLOYER_DOSSIER" ? `${linesTable(input, lang)}${warningsBlock(input, lang)}` : "";
+  const employer = role === "EMPLOYER_DOSSIER" ? `${siteMoveBlock(input.siteMoves, input.sites, lang)}${linesTable(input, lang)}${warningsBlock(input, lang)}` : "";
   const annexes = `${transitAnnex(input, lang)}${input.annex?.ledger ? ledgerAnnex(input.ledger, lang) : ""}${input.annex?.enterExit ? enterExitAnnex(input, lang) : ""}`;
   return `<html data-document-version="${input.manifest.documentVersion ?? 2}" data-theme="${theme}" data-locale="${lang}"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><style>${css(theme)}</style></head><body class="theme-${theme}">
     ${watermark}

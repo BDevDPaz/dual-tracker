@@ -204,7 +204,8 @@ export function boot(): Promise<void> {
         intent: async (intent, sessionId) => {
           const current = Store.getState().sessions.activeSessionId;
           // Payload validado: una acción de una sesión ya cerrada no actúa sobre otra.
-          if (sessionId !== null && current !== sessionId) {
+          // ACK_DAY_SUMMARY nombra la jornada cerrada: ya no es la abierta.
+          if (intent.type !== "ACK_DAY_SUMMARY" && sessionId !== null && current !== sessionId) {
             LoggingService.log("AMARILLO", "NOTIFICACION", "WARN", "Acción de notificación obsoleta ignorada", { sessionId, current });
             return;
           }

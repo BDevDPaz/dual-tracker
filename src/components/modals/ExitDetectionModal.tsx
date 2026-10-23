@@ -24,11 +24,12 @@ interface ExitDetectionModalProps {
   onStay: () => void;
   onLunch: () => void;
   onTransfer: () => void;
+  onErrand?: () => void;
   onCloseDay: () => void;
   onDismiss: () => void;
 }
 
-export function ExitDetectionModal({ visible, firstExitTime, busy = false, onStay, onLunch, onTransfer, onCloseDay, onDismiss }: ExitDetectionModalProps) {
+export function ExitDetectionModal({ visible, firstExitTime, busy = false, onStay, onLunch, onTransfer, onErrand, onCloseDay, onDismiss }: ExitDetectionModalProps) {
   useLanguage();
   return (
     <ModalShell
@@ -45,6 +46,7 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
         <SelectableCard role="button" label={t("modals.exitStay")} onPress={onStay} disabled={busy} />
         <SelectableCard role="button" label={t("modals.exitLunch")} onPress={onLunch} disabled={busy} />
         <SelectableCard role="button" label={t("modals.exitTransfer")} onPress={onTransfer} disabled={busy} />
+        {onErrand ? <SelectableCard role="button" label={t("modals.exitErrand")} onPress={onErrand} disabled={busy} /> : null}
         <SelectableCard role="button" label={t("modals.exitClose")} onPress={onCloseDay} disabled={busy} />
       </View>
     </ModalShell>

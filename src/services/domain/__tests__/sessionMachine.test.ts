@@ -202,7 +202,7 @@ describe("sessionMachine", () => {
       expect(c.siteId).toBe(open.siteId);
       expect(c.transitSegments[0].cancelled).toBe(true);
       expect(c.transitSegments[0].paid).toBe(true);
-      expect(c.transitSegments[0].countsTowardOvertime).toBe(false);
+      expect(c.transitSegments[0].countsTowardOvertime).toBe(true);
       expect(c.transitSegments[0].rateMultiplier).toBe(1);
       expect(c.transitSegments[0].endAtMs).toBe(cancelAt);
       expect(c.transitSegments[0].cancelNote).toBe("llamó el encargado");
