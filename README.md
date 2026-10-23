@@ -1,14 +1,28 @@
 # Dual Tracker
 
-App Expo / React Native (TypeScript, **Expo SDK 54**, **expo-router 6**) que consolida los linajes **W Tracker**, **LEDTracker** y **GEOTrack (WTracker Trial_and_TraceT)** en un solo producto con dos garantías:
+Aplicación de evidencia laboral y nómina para trabajadores de California. El expediente es de grado forense: la jornada deja un rastro que se puede recomputar, y el comprobante sale de un periodo sellado. Stack: TypeScript, **Expo SDK 54** (`expo` ~54.0.35), **React Native 0.81.5**, **expo-router 6**. El producto se prueba y se documenta primero en **Android** (servicio en primer plano, geocerca y la guía de permisos, incluida Samsung). iOS está en el proyecto (`npm run ios` y los perfiles EAS). La candidata 1.0.0-rc.1 no tiene acta de iPhone, y el hallazgo de actualizaciones diferidas en iOS sigue sin medirse en un iPhone (`CHANGELOG.md`).
 
-- **Tu tiempo**: horas, almuerzo, traslados y horas extra calculados con una política visible y versionada.
+Consolida los linajes **W Tracker**, **LEDTracker** y **GEOTrack (WTracker Trial_and_TraceT)** con dos garantías:
+
+- **Tu tiempo**: horas, almuerzo, traslados y horas extra calculados con una política visible y versionada (`CA_DAILY8_WEEKLY40_V1` por defecto).
 - **Tu rastro de jornada**: hechos espaciales (geocerca y, opcionalmente, miga de pan) registrados solo con la jornada abierta. Sirven de evidencia compartida entre empleado y empleador, con el mismo hash.
 
-La estructura sigue las dos propuestas del proyecto, que son la fuente de verdad:
+La interfaz está en español y en inglés. La estructura sigue las dos propuestas del proyecto, que son la fuente de verdad:
 
 1. **PROPUESTA TÉCNICA – Arquitectura de servicios para Dual Tracker** (`DualTracker_ServiceLayer`), citada aquí como *Técnica §n*.
 2. **PROPUESTA DE PRODUCTO – CAPA APP: Directorio app/ y blueprints de vistas**, citada aquí como *Producto §n*.
+
+## Qué cubre el código vigente
+
+- **Jornadas con geocerca.** Llegada y salida con la jornada abierta (`GeofenceRuntimeService`). Un fix no fiable pide confirmación. Una ubicación simulada (`LocationObject.mocked`) no ficha sola y queda en el libro.
+- **Libro append-only, SHA-256.** `ledger_entries` aborta `UPDATE` y `DELETE` (`trg_ledger_no_update`, `trg_ledger_no_delete` en `src/services/persistence/schema.ts`). El hash de un eslabón es `sha256(prevHash + payloadCanónico)` (`src/services/evidence/HashChain.ts`).
+- **Expediente firmado, manifiesto v5.** `PACK_MANIFEST_VERSION = 5` en `src/core/contracts/evidence.ts`. La firma Ed25519 cubre el cuerpo canónico y no entra en `packHash` ni en `contentHash`. Sin llavero el sello sigue y añade `PACK_UNSIGNED`.
+- **Comprobante claro (PDF).** Plantilla `DOCUMENT_VERSION = 3`. El tema por defecto es claro (`documentTheme` ausente, o distinto de `"dark"`). El QR es el `packHash`, sin URL ni red, a 96 px (`src/services/evidence/qrSvg.ts`). La firma Ed25519 va en un recuadro (`data-signature`). `documentVersion`, `documentTheme` y `documentLocale` quedan fuera de los dos hashes.
+- **Traslados, incluido el cancelado.** El tramo entre dos destinos de la misma jornada se congela al cerrarlo. Uno cancelado nuevo queda `paid: true`, `rateMultiplier: 1` y `countsTowardOvertime: false` (`sessionMachine`). El comprobante lo pinta como «Tránsito (cancelado)». Un cancelado legado (`paid !== true`) no genera esa línea: ese tiempo sigue como trabajo en el sitio.
+- **Señales de riesgo, asentadas y sin recortar el pago.** Anomalías, ubicación simulada, integridad del dispositivo, cobertura y `sessionReplay` se escriben como evidencia y no cambian la nómina ni bloquean el fichaje (`anomalyEngine`: no borra hechos, no bloquea fichajes y no toca la nómina). Ubicación, servicio en primer plano y reloj sí pueden impedir VALIDADA (`src/core/healthPolicy.ts`). No reescriben minutos ya calculados. Batería, avisos y la ubicación aproximada de Android 12+ avisan y no bajan el pago.
+- **Español e inglés.** El chip aplica el idioma en el acto. `en.ts` y `supportEn.ts` tienen la misma forma que el español; `src/i18n/__tests__/i18n.test.ts` exige esa paridad.
+
+En `main`, después del README del PR #28, entraron la tarifa congelada por jornada (schema v8, PR #29) y cuatro cambios de presentación y de robustez que no tocan el cálculo, la máquina de estados, los hashes del libro ni el sello: #30, #31, #32 y #33. El detalle está en «Hecho en», más abajo.
 
 ---
 
@@ -73,7 +87,7 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 - `test/setup.ts`: reloj fijo `2026-09-26T15:00:00.000Z` (`test/time.ts`: `time.set`, `time.travel`, `time.jumpWall` para simular deriva), reset de candados del ConcurrencyGuard y del anti-rebote de geocerca, SQLite en memoria recreada por caso, dobles de Expo cableados aquí.
 - `test/mocks/`: un doble por módulo. `expo-sqlite` es SQLite real en memoria (sql.js), así los triggers append-only del ledger y `checkOverlap` se prueban de verdad.
 - `test/fixtures/`: `SessionRecord`, `SpatialFact`, `PayrollStatement`, `LedgerEntry` tipados con los contratos (sin `any`).
-- `__tests__/` colocados por capa. En `3a632ba`: **119 archivos** de prueba (`**/__tests__/**/*.test.ts` y `*.test.tsx`) y **859 tests** (`npx jest --runInBand --watchman=false`, 119 suites en verde). Los componentes cubiertos van más allá de `IntegrityBadge`, `StatusPill` y `SessionTimeline`: `src/components/ui`, `src/components/brand`, `src/components/blocks`, `src/components/feedback`, `src/components/modals` y `src/components/trace`, más ocho flujos de `app/` (fichar, cerrar, almuerzo, sellar, ajustes, PIN, edición y cuarentena).
+- `__tests__/` colocados por capa. Medido con `npm test` (`jest --runInBand --watchman=false`): **135 archivos** (`**/*.test.ts` y `**/*.test.tsx`, fuera de `node_modules`), **135 suites**, **942 tests** y **2 snapshots**, todos en verde. Los componentes cubiertos van más allá de `IntegrityBadge`, `StatusPill` y `SessionTimeline`: `src/components/ui`, `src/components/brand`, `src/components/blocks`, `src/components/feedback`, `src/components/modals`, `src/components/sites` y `src/components/trace`, más ocho flujos de `app/` (fichar, cerrar, almuerzo, sellar, ajustes, PIN, edición y cuarentena).
 - Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_V1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
 - Ya no queda ningún `test.failing`: el de cifrado de campos pasa desde C2 (spec FieldCrypto v1.3 §17 #3).
 - Estático (`src/core/__tests__/staticGuards.test.ts`): `FieldCryptoService` solo se importa desde `src/services/persistence/**` y `src/core/boot.ts`; `LoggingService` no recibe campos sensibles; Jest resuelve los subpaths `.js` de `@noble`.
@@ -89,7 +103,7 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 
 ```
 dual-tracker/
-├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 36 archivos (Producto §2)
+├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 36 rutas, sin `__tests__` (Producto §2)
 │   ├── _layout.tsx              fuentes Montserrat, Theme/Toast, FeedbackBridge, boot(), registro de tareas
 │   ├── index.tsx                gate: hidratación → onboarding → descargo → tabs
 │   ├── +not-found.tsx  +html.tsx
@@ -113,7 +127,7 @@ dual-tracker/
 │   │   ├── store/               store reactivo + acciones (portado de GEOTrack)
 │   │   ├── selectors/           derivaciones puras para las vistas (getSessionStateUI, rollups, conflicto…)
 │   │   ├── hooks/               useWorkTracker (exporta también useClock y useQuery), usePractice,
-│   │   │                        useScreenRefresh (useAutoRefresh, usePullToRefresh)
+│   │   │                        useScreenRefresh (useAutoRefresh, usePullToRefresh), useBusyAction
 │   │   ├── refresh/             dataRevision, weekCursor
 │   │   ├── boot.ts              ensureRuntimeReady(), boot(), registerBackgroundTasks()
 │   │   ├── healthPolicy.ts      qué sensor bloquea VALIDADA
@@ -146,14 +160,16 @@ dual-tracker/
 │   │   ├── ui/                  design system (portado de GEOTrack): OperationalHeroCard, SystemHealthBlock,
 │   │   │                        SessionTimeline, IntegrityBadge, StatusPill, ModalShell, PageHeader, Button, Input,
 │   │   │                        Card, Chip, Banner, GlassSurface, VmacSheet, SealAnimation, PracticeWatermark,
-│   │   │                        DocumentPreviewWidget, EmptyState, keyboard, motion, responsive
+│   │   │                        DocumentPreviewWidget, EmptyState, LiveShiftPanel, DailySummaryBlock,
+│   │   │                        GpsExceptionCard, NotFoundState, LoadingState, keyboard, motion, responsive
 │   │   ├── brand/               PinClockMark, ArrivalMark, BrandHeaderTitle
+│   │   ├── sites/               SiteRadiusField
 │   │   ├── support/             HelpButton, LanguageSwitch, ScreenTips, Walkthrough
 │   │   ├── trace/               TracePlane (plano local, sin teselas)
 │   │   ├── modals/              DailySetupModal, ExitDetectionModal, LunchModal, EditSessionModal,
-│   │   │                        DeleteSessionModal, AddNoteModal (Producto §7)
-│   │   ├── blocks/              ScreenStatusBanner, PermissionCard, HealthRow, KeyValueRow, SessionListItem,
-│   │   │                        BackupAdviceCard, OrphanReviewCard
+│   │   │                        DeleteSessionModal, AddNoteModal (Producto §7), ConfirmActionModal
+│   │   ├── blocks/              ScreenStatusBanner, PermissionCard, PermissionGuidancePanel, PermissionsStep,
+│   │   │                        HealthRow, KeyValueRow, SessionListItem, BackupAdviceCard, OrphanReviewCard
 │   │   ├── feedback/            FeedbackBridge (FeedbackService → toast / diálogo)
 │   │   └── legal/               DisclosureContent (compartido por onboarding y legal/)
 │   ├── i18n/                    es.ts (base), en.ts (completo), supportEs.ts, supportEn.ts, microcopy.ts,
@@ -161,7 +177,8 @@ dual-tracker/
 │   ├── constants/               theme, icons, animations, geolocation, notifications, tasks, security, flags, app, uiLiterals
 │   ├── context/                 ThemeContext, ToastContext
 │   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError,
-│                                hhmm, localPlane, reportRange, companyPolicy
+│                                hhmm, localPlane, reportRange, companyPolicy, permissionChain,
+│                                permissionGuidance, siteRadius
 ├── assets/images/               icon, splash, adaptive-icon, favicon, notification (marca A y D)
 ├── assets/brand/                SVG fuente A y D; se regeneran con scripts/brand/build.py
 ├── docs/                        28 archivos
@@ -217,7 +234,7 @@ Reglas que se cumplen en el código:
 
 | Origen | Portado a | Notas |
 |---|---|---|
-| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | Design system obsidian/oro. Se quitaron los nombres en duro ("GEOTrack Solutions Inc.", "W Tracker"). |
+| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | El design system salió de GEOTrack. Los tokens vigentes son W Tracker «Control diario» (`src/constants/theme.ts`, PR #33): fondo `#0A0A0C`, tarjetas `#121214`, oro `#D4AF37`, Montserrat 400/500/600. El nombre del producto sigue siendo Dual Tracker. Se quitaron los nombres en duro ("GEOTrack Solutions Inc."). |
 | **GEOTrack** | `core/store`, `core/selectors`, `core/hooks/useWorkTracker` | Suscripción reactiva real. `dispatch(DomainEvent)` pasa a ser `emit(ViewIntent)`. |
 | **GEOTrack** | `domain/sessionMachine`, `SessionEngineService` | Transiciones de jornada, almuerzo, traslado, salida, auto-cierre de 12 h, anti-rebote. Estados en español (NO_INICIADA…CERRADA). |
 | **GEOTrack** | `persistence/PersistenceService`, `schema`, `mappers` | SQLite WAL, migraciones, `checkOverlap`, borrado lógico. |
@@ -272,7 +289,7 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
   - Política por defecto `CA_DAILY8_WEEKLY40_V1`. La política heredada se conserva.
   - El almuerzo no tiene 60 min por defecto: si no se declara, la nómina lo marca `LUNCH_DURATION_UNKNOWN`.
   - Solo se pueden eliminar sesiones CERRADAS, y el borrado es lógico.
-  - La tarifa horaria se fija en el alta; después solo se edita en la zona admin (`SAVE_SETTINGS` la rechaza con `ADMIN_LOCKED`).
+  - La tarifa horaria se fija en el alta; después solo se edita en la zona admin (`SAVE_SETTINGS` la rechaza con `ADMIN_LOCKED` si el PIN no está abierto). Al iniciar la jornada se congela en `bookkeeping.hourlyRateSnapshot` (schema v8, columna `sessions.hourly_rate_snapshot`, PR #29). Un cambio posterior deja `HOURLY_RATE_CHANGED` y no reescribe las jornadas ya iniciadas. Una jornada anterior al campo, sin snapshot, usa la tarifa actual y el statement lo marca `RATE_FALLBACK_CURRENT`. Una tarifa 0 en el cálculo añade `HOURLY_RATE_ZERO`. En el alta y en Ajustes, un campo vacío no se guarda como 0, y el alta no acepta $0 (`rateInvalid`).
 - **Hoy**
   - En PAUSADA, "Finalizar jornada" abre `LunchModal` en modo supervisor (tabla §5.7).
   - En TRASLADO, "Ver estado" abre el detalle de la sesión en curso.
@@ -495,6 +512,44 @@ Detalle: `docs/PRUEBA_CAMPO_8.md`. PR #27. La regresión queda en `src/services/
 - Espera de llegada (`src/services/domain/arrivalDwell.ts`): 0 ms es el fichaje de siempre. El valor del sitio gana al de la empresa. El máximo es 30 minutos. Cuando la espera se cumple, la hora de llegada sigue siendo la primera lectura dentro del sitio.
 - `BOOT_RESUME` (`src/services/runtime/bootResume.ts`): una vez por arranque, si el reloj de uptime dice que el teléfono se reinició después del último latido. Expo no ejecuta JavaScript en el instante de `BOOT_COMPLETED`. Sin ese reloj no se inventa un reinicio.
 
+## Hecho en la robustez (PR #30)
+
+No cambia el cálculo de nómina, la máquina de estados, los asientos, los hashes del libro, el manifiesto ni el sellado.
+
+- `useBusyAction` (`src/core/hooks/useBusyAction.ts`): el mismo gate, `busy` y `try/finally` de Conflicto. Mientras corre, un segundo toque no dispara otra acción. Tras soltar, `BUSY_HOLD_MS` (800 ms) tampoco deja escribir otro asiento. Si `emit` lanza o devuelve `{ ok: false }` y nadie publicó un aviso, se avisa por `FeedbackService`. Un rechazo que el router ya avisó no se duplica.
+- `ConfirmActionModal` pide confirmación antes de archivar un sitio, dividir un conflicto y cambiar un chip legal de nómina en Ajustes. El chip sigue guardando el mismo parche.
+- El radio del sitio (`SiteRadiusField`, `src/utils/siteRadius.ts`) usa teclado numérico. NaN o un valor ≤ 0 muestra el error en línea y deja Guardar deshabilitado. La etiqueta ya dice «(m)».
+- En el alta, una petición de permiso que termina en `unknown` marca el intento y no deja la tarjeta siguiente apagada (`src/utils/permissionChain.ts`). «Abrir ajustes» de ubicación usa `Linking.openSettings()` (permisos de la app). La batería sigue abriendo su ajuste.
+- Reconocer una rotura del ledger solo vacía el campo del PIN si el reconocimiento sale bien (`app/system/health.tsx`).
+
+## Hecho en los permisos de Android (PR #31)
+
+Guía para el alta, reutilizada en Salud y en los problemas de Soporte (`PermissionGuidancePanel`, `src/utils/permissionGuidance.ts`). El alta no se bloquea. Ni la batería ni el resto de estos permisos cambian el pago. Nómina, máquina, libro, manifiesto y sello no se tocan.
+
+- En Android, la tarjeta de batería abre `IGNORE_BATTERY_OPTIMIZATION_SETTINGS` (`PermissionsHealthService`). Si la marca es Samsung, el texto añade el paso de One UI (apps en suspensión). Sin batería sin restricciones, la geocerca puede no registrar la llegada.
+- Con solo ubicación en primer plano (Android 11+), la tarjeta explica que hay que elegir «Permitir todo el tiempo» / “Allow all the time” y lista los pasos.
+- El botón de continuar cambia de etiqueta: «Continuar en modo limitado» si no hay nada concedido, «Continuar con permisos incompletos» si falta alguno, «Continuar» si están los tres. No se deshabilita.
+- Notificaciones bloqueadas en Android 13+ (`POST_NOTIFICATIONS`): guía a Ajustes › Notificaciones.
+- Las tarjetas ya concedidas se colapsan. La pendiente lleva el acento del tema y no se apaga con opacidad 0.5.
+
+## Hecho en accesibilidad y textos (PR #32)
+
+Etiquetas para TalkBack, textos y contraste del comprobante. No cambia la matemática de nómina, la máquina de estados, los asientos, los hashes, el manifiesto, el sello ni el QR.
+
+- `NotFoundState` es el estado único de «no existe» (sesión, rastro, expediente, destino, periodo). El botón dice Volver / Back.
+- Objetivos táctiles de la guía y de las tarjetas de permiso: `TOKENS.layout.minTouchTarget` es 48. Las etiquetas viven en `a11y.*` (`src/i18n/es.ts` y `en.ts`): cerrar, volver, PIN visible u oculto, llegada confirmada, permiso pendiente o concedido.
+- El cronómetro y las duraciones se anuncian en horas y minutos (`src/i18n/labels.ts`, claves `a11y.hour` / `a11y.hours` / `a11y.minute` / `a11y.minutes`).
+- El texto oro del comprobante claro es `PDF_LIGHT_TEXT_GOLD` (`#8A6D1F` en `reportPremium.ts`; el comentario del código lo deja en ≥ 4.5:1). El adorno sigue en `#C5A059`. Las etiquetas del PDF no bajan de 11 px. El QR, la firma y el hash no cambian de contenido.
+- `StatusPill` acompaña el tono con un glifo (`PILL_GLYPH`): el estado no depende solo del color. Alto contraste (`profile.highContrast`) aclara texto y bordes y conserva el oro de la interfaz. No cambia la nómina.
+
+## Hecho en el rediseño visual (PR #33)
+
+Capa de presentación, sobre los tokens que ya existían (`ModalShell`, `OperationalHeroCard`). No hay un tema paralelo. Las marcas A «Pin-Reloj» y D «Llegada confirmada» se quedan. La paleta de la interfaz es W Tracker «Control diario»: fondo `#0A0A0C`, tarjetas `#121214`, oro `#D4AF37` (`PALETTE_DARK` en `src/constants/theme.ts`). El selector claro de la app sigue oculto. La nómina, la máquina de estados, los hashes del libro, el manifiesto v5 y el sello no cambian.
+
+- **Hoy.** `LiveShiftPanel`: hero con badge, cronómetro y estimado, y «Resumen del día» en el mismo reloj de 1 s. El resto de la pantalla sigue en 60 s. Sin estimado antes de la llegada. `GpsExceptionCard` cubre retraso de señal, asincronía, no show y abandono de zona (`gpsException.ts`). Cada caso es presentación de un estado que ya existía: no cierra la jornada ni cambia el pago. La salida detectada ofrece seguir en operación. El cierre muestra chips de almuerzo 0/30/45/60. Un tránsito cancelado se lee «tránsito (cancelado)».
+- **Historial, Reportes, Ajustes y alta.** Historial filtra con chips y cada fila muestra el id (`history.sessionId` en `SessionListItem`). La vista previa de Reportes pasa `settings.profile.employeeName` a `DocumentPreviewWidget`. Ajustes valida tarifa y números en línea: Guardar no persiste `NaN`, y un campo de tarifa vacío no se guarda como 0. El pie usa `settingsFooterLine`: versión, build y, si la build lo trae, los 7 primeros caracteres del commit. La bienvenida lee `useTheme()` y deja Continuar en el `footer` de `ScreenScroll`.
+- **Comprobante.** Sigue siendo el PDF claro por defecto (v3). El QR mide 96 px y el bloque de verificación no se parte. La firma va en un recuadro visible. Si no hay commit, el pie usa `versionsBuildNoCommit` («App {version} · build {code}») y no imprime una raya en su lugar. El anexo de entrada y salida incluye «Salida manual». Los minutos de almuerzo que se leen junto al reloj impreso no sustituyen `lunchMinutes` del motor.
+
 ## Límites conocidos
 
 - **Android 12+ y el servicio en primer plano.** El sistema puede negar el arranque desde segundo plano (`ForegroundServiceStartNotAllowedException`), salvo exenciones; la que importa aquí es tener Dual Tracker fuera de la optimización de batería. La app lo anota como `SERVICE_RECOVERY_FAILED` y pide abrir Dual Tracker. No hay forma de forzarlo desde el worker. Android 14 exige además el tipo `location`. Ver `src/services/runtime/monitoringRecovery.ts`, `src/services/runtime/bootResume.ts` y `docs/PRUEBA_CAMPO_5.md`.
@@ -517,3 +572,15 @@ Se marcan en el código como `TODO(propuesta)`:
 ## No aplica
 
 - Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico. No aplica: las versiones anteriores nunca se publicaron.
+
+## Licencia
+
+Software propietario. Todos los derechos reservados.
+
+Copyright (c) 2026 Byron Efrain De Paz Garcia (GitHub: BDevDPaz).
+
+El software, el código fuente, el diseño y la aplicación Dual Tracker son propietarios y confidenciales. No se concede permiso para usarlos, copiarlos, modificarlos, fusionarlos, publicarlos, distribuirlos, sublicenciarlos, venderlos ni explotarlos de otro modo, en todo o en parte, sin autorización previa por escrito del titular. El acceso a este repositorio no concede ninguna licencia.
+
+El texto completo está en [LICENSE](LICENSE): primero en inglés y después en español. Si las dos versiones difieren, prevalece el inglés.
+
+`package.json` declara `"private": true` y `"license": "UNLICENSED"`.

@@ -4,6 +4,7 @@
   "main": "index.js",
   "version": "1.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
