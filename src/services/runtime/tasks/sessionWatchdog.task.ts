@@ -5,7 +5,7 @@
  * Idempotente: si la sesión ya está cerrada, el engine rechaza la intención.
  */
 import * as Location from "expo-location";
-import { MAX_OPEN_SESSION_MS } from "../../../constants/tasks";
+import { EXTEND_PROMPT_MS, MAX_OPEN_SESSION_MS } from "../../../constants/tasks";
 import { mealAlreadyStarted } from "../../domain/caPremiums";
 import { computeSessionMinutes } from "../../domain/PayrollEngineService";
 import { SessionEngineService } from "../../domain/SessionEngineService";
@@ -21,6 +21,8 @@ import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
 import { recoverMonitoring } from "../monitoringRecovery";
 import { touchServiceHealth } from "../serviceHealth";
 import { reviewAbandonedSession } from "../orphanSession";
+import { IntegrityLedgerService } from "../../domain/IntegrityLedgerService";
+import { KV_KEYS } from "../../persistence/schema";
 
 export async function runSessionWatchdog(): Promise<void> {
   const session = await PersistenceService.getOpenSession();
@@ -52,12 +54,38 @@ export async function runSessionWatchdog(): Promise<void> {
   const current = (await PersistenceService.getOpenSession()) ?? session;
   await remindMealRest(current, now).catch(() => {});
 
-  // 5) Tope de 12 h (solo si no quedó en revisión por abandono).
+  // 5) Aviso a las 11 h 30 min y tope de 12 h. Con SHIFT_EXTENDED no se cierra.
+  if (current.domainStatus === "CERRADA") return;
   const start = current.actualStartAtMs ?? current.declaredStartAtMs;
-  if (now - start > MAX_OPEN_SESSION_MS && current.domainStatus !== "CERRADA") {
-    const outside = await GeofenceRuntimeService.isCurrentlyOutside();
-    await SessionEngineService.dispatch({ type: "AUTO_CLOSE", cause: "MAX_OPEN_12H", confirmedOutside: outside === true }, "WATCHDOG");
+  const elapsed = now - start;
+  const extended = current.domainStatus !== "ESPERANDO" && (await shiftWasExtended(current));
+  if (!extended && current.domainStatus !== "ESPERANDO" && elapsed >= EXTEND_PROMPT_MS && elapsed <= MAX_OPEN_SESSION_MS) {
+    const sent = await PersistenceService.getKv<number>(extendNoticeKey(current.id));
+    if (sent == null) {
+      await NotificationService.notifyExtendShift(current.id);
+      await PersistenceService.setKv(extendNoticeKey(current.id), now);
+    }
   }
+  if (elapsed > MAX_OPEN_SESSION_MS) {
+    if (extended) return;
+    const outside = await GeofenceRuntimeService.isCurrentlyOutside();
+    const closed = await SessionEngineService.dispatch(
+      { type: "AUTO_CLOSE", cause: "MAX_OPEN_12H", confirmedOutside: outside === true },
+      "WATCHDOG",
+    );
+    if (closed.ok && closed.data?.session) await NotificationService.notifyAutoClose(closed.data.session);
+  }
+}
+
+function extendNoticeKey(sessionId: number): string {
+  return `${KV_KEYS.EXIT_DECISION}.n16.${sessionId}`;
+}
+
+/** El asiento manda. El flag de la fila evita releer el libro en cada toque. */
+async function shiftWasExtended(session: SessionRecord): Promise<boolean> {
+  if (session.bookkeeping.compliance?.shiftExtended) return true;
+  const rows = await IntegrityLedgerService.listForSession(session.id);
+  return rows.some((e) => e.intent === "EXTEND_SHIFT" || e.reason === "SHIFT_EXTENDED");
 }
 
 async function remindMealRest(open: SessionRecord, nowMs: number): Promise<void> {

@@ -22,6 +22,8 @@ import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { criticalKindsOf, recordCriticalNotice, type CriticalNoticeKind } from "./criticalNotices";
+import { autoCloseContent, daySummaryContent, extendShiftContent, lunchResumeContent, LUNCH_RESUME_AFTER_MS, orphanNoticeContent } from "./dayNotices";
+import type { SessionPayrollPreview, SessionRecord } from "../../core/contracts";
 
 const DAILY_REMINDER_ID = "dualtracker-daily-reminder";
 const exitNotificationId = (sessionId: number) => `dualtracker-exit-${sessionId}`;
@@ -29,11 +31,25 @@ const DEDUPE_THRESHOLD_MS = 3000;
 const lastScheduled = new Map<string, number>();
 
 export type NotificationIntentSink = (intent: SessionIntent, sessionId: number | null) => Promise<void>;
-export type NotificationUiSink = (req: { openExitModal?: boolean; openDailySetup?: "start" | "transit" | null }) => void;
+export type NotificationUiSink = (req: {
+  openExitModal?: boolean;
+  openDailySetup?: "start" | "transit" | null;
+  openExtendConfirm?: boolean;
+  correctSessionId?: number | null;
+  openOrphanReview?: boolean;
+}) => void;
 
 let intentSink: NotificationIntentSink | null = null;
 let uiSink: NotificationUiSink | null = null;
 let responseSub: Notifications.EventSubscription | null = null;
+
+/** El listener vive en el módulo. Los tests lo sueltan para volver a cablearlo. */
+export function __resetNotificationSinksForTests(): void {
+  responseSub?.remove();
+  responseSub = null;
+  intentSink = null;
+  uiSink = null;
+}
 
 function isSpam(key: string): boolean {
   const now = TimeAuthorityService.now();
@@ -81,6 +97,20 @@ async function ensureChannels(): Promise<void> {
 async function ensureCategories(): Promise<void> {
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.REST_BREAK, [
     { identifier: NOTIFICATION_ACTIONS.REST_TAKEN, buttonTitle: t("notifications.restTaken"), options: { opensAppToForeground: false } },
+  ]);
+  const ack = { identifier: NOTIFICATION_ACTIONS.ACK_DAY, buttonTitle: t("notifications.actionAck"), options: { opensAppToForeground: false } };
+  const correct = { identifier: NOTIFICATION_ACTIONS.CORRECT_DAY, buttonTitle: t("notifications.actionCorrect"), options: { opensAppToForeground: true } };
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.DAY_SUMMARY, [ack, correct]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.DAY_SUMMARY_CORRECT, [correct, ack]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.ORPHAN_REVIEW, [
+    { identifier: NOTIFICATION_ACTIONS.ORPHAN_CONTINUE, buttonTitle: t("notifications.actionOrphanContinue"), options: { opensAppToForeground: false } },
+    { identifier: NOTIFICATION_ACTIONS.ORPHAN_END, buttonTitle: t("notifications.actionOrphanEnd"), options: { opensAppToForeground: true } },
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.EXTEND_SHIFT, [
+    { identifier: NOTIFICATION_ACTIONS.EXTEND_SHIFT, buttonTitle: t("notifications.actionExtend"), options: { opensAppToForeground: true } },
+  ]);
+  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.LUNCH_RESUME, [
+    { identifier: NOTIFICATION_ACTIONS.RESUME, buttonTitle: t("notifications.actionResume"), options: { opensAppToForeground: false } },
   ]);
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.EXIT_DETECTION, [
     { identifier: NOTIFICATION_ACTIONS.STAY_WORKING, buttonTitle: t("notifications.actionStay"), options: { opensAppToForeground: false } },
@@ -156,6 +186,24 @@ async function handleResponse(response: Notifications.NotificationResponse): Pro
         break;
       case NOTIFICATION_ACTIONS.REST_TAKEN:
         if (sessionId) await intentSink?.({ type: "ACK_REST", taken: true }, sessionId);
+        break;
+      case NOTIFICATION_ACTIONS.ACK_DAY:
+        if (sessionId) await intentSink?.({ type: "ACK_DAY_SUMMARY", sessionId }, sessionId);
+        break;
+      case NOTIFICATION_ACTIONS.CORRECT_DAY:
+        uiSink?.({ correctSessionId: sessionId });
+        break;
+      case NOTIFICATION_ACTIONS.ORPHAN_CONTINUE:
+        if (sessionId) await intentSink?.({ type: "CONTINUE_ORPHAN" }, sessionId);
+        break;
+      case NOTIFICATION_ACTIONS.ORPHAN_END:
+        uiSink?.({ openOrphanReview: true });
+        break;
+      case NOTIFICATION_ACTIONS.EXTEND_SHIFT:
+        uiSink?.({ openExtendConfirm: true });
+        break;
+      case NOTIFICATION_ACTIONS.RESUME:
+        if (sessionId) await intentSink?.({ type: "RESUME" }, sessionId);
         break;
       default:
         if (action === Notifications.DEFAULT_ACTION_IDENTIFIER) {
@@ -333,6 +381,86 @@ export const NotificationService = {
       { kind: "EXIT_DECISION", criticalKind: "EXIT", sessionId, firstExitAtMs },
       { identifier: exitNotificationId(sessionId), categoryIdentifier: NOTIFICATION_CATEGORIES.EXIT_DETECTION },
     );
+  },
+
+  /** N10 al cerrar a mano o al confirmar el fin de una huérfana. */
+  async notifyDaySummary(session: SessionRecord, preview: SessionPayrollPreview | null): Promise<boolean> {
+    if (session.bookkeeping.cancelled) return false;
+    const notice = daySummaryContent(session, preview);
+    const correctFirst = notice.actions[0] === NOTIFICATION_ACTIONS.CORRECT_DAY;
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(notice.title, notice.body, {
+      kind: "DAY_SUMMARY",
+      sessionId: session.id,
+      actions: notice.actions,
+      correctFirst,
+    }, {
+      identifier: `dualtracker-day-${session.id}`,
+      categoryIdentifier: correctFirst ? NOTIFICATION_CATEGORIES.DAY_SUMMARY_CORRECT : NOTIFICATION_CATEGORIES.DAY_SUMMARY,
+    });
+  },
+
+  /** N17. El texto depende de la clase. Nunca anuncia Validada. */
+  async notifyAutoClose(session: SessionRecord): Promise<boolean> {
+    const notice = autoCloseContent(session.integrityClass, session.endAtMs);
+    return NotificationService.notifyImmediate(notice.title, notice.body, {
+      kind: session.integrityClass === "AUTO" ? "AUTO_CLOSE" : "CONFLICT_CLOSE",
+      sessionId: session.id,
+      integrityClass: session.integrityClass,
+    }, { identifier: `dualtracker-autoclose-${session.id}` });
+  },
+
+  /** N16. */
+  async notifyExtendShift(sessionId: number): Promise<boolean> {
+    const notice = extendShiftContent();
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(notice.title, notice.body, {
+      kind: "EXTEND_SHIFT",
+      sessionId,
+      actions: notice.actions,
+    }, {
+      identifier: `dualtracker-extend-${sessionId}`,
+      categoryIdentifier: NOTIFICATION_CATEGORIES.EXTEND_SHIFT,
+    });
+  },
+
+  /** N15. */
+  async notifyOrphan(sessionId: number): Promise<boolean> {
+    const notice = orphanNoticeContent();
+    await ensureCategories().catch(() => {});
+    return NotificationService.notifyImmediate(notice.title, notice.body, {
+      kind: "ORPHAN_REVIEW",
+      sessionId,
+      actions: notice.actions,
+    }, {
+      identifier: `dualtracker-orphan-${sessionId}`,
+      categoryIdentifier: NOTIFICATION_CATEGORIES.ORPHAN_REVIEW,
+    });
+  },
+
+  /** N12, +30 min desde el inicio del almuerzo. */
+  async scheduleLunchResume(sessionId: number, lunchStartAtMs: number): Promise<boolean> {
+    const notice = lunchResumeContent();
+    if ((await NotificationService.getPermission()) !== "granted") return false;
+    await ensureCategories().catch(() => {});
+    const when = lunchStartAtMs + LUNCH_RESUME_AFTER_MS;
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `dualtracker-lunch-${sessionId}`,
+        content: {
+          title: notice.title,
+          body: notice.body,
+          data: { kind: "LUNCH_RESUME", sessionId, actions: notice.actions },
+          sound: true,
+          categoryIdentifier: NOTIFICATION_CATEGORIES.LUNCH_RESUME,
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(when) },
+      });
+      return true;
+    } catch (error) {
+      LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo programar el aviso de almuerzo", serializeError(error));
+      return false;
+    }
   },
 
   async dismissExit(sessionId: number): Promise<void> {

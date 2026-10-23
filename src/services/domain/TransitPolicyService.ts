@@ -26,8 +26,10 @@ export interface TransitDecision {
 
 /**
  * Un cancelado legado (`paid !== true`) no se paga: ese tiempo contaba como
- * jornada. Uno nuevo se congela `paid: true` y se paga a 1× sin contar para
- * extra. Un tramo suprimido por un recorte tampoco se paga.
+ * jornada. Uno nuevo se congela `paid: true`. Si `countsTowardOvertime` es
+ * true, entra en la cubeta de extras (D11). Un mandado (`purpose: ERRAND`)
+ * se paga a 1× y cuenta para extras, también de vuelta al mismo sitio.
+ * Un tramo suprimido por un recorte no se paga.
  */
 export function transitIgnored(segment: TransitSegment): boolean {
   if (segment.suppressed) return true;
@@ -38,8 +40,15 @@ export function transitIgnored(segment: TransitSegment): boolean {
 export const TransitPolicyService = {
   decide(segment: TransitSegment, company: CompanyPolicy): TransitDecision {
     if (segment.suppressed || segment.paid === false) return { paid: false, rateMultiplier: 0, countsTowardOvertime: false };
+    if (segment.purpose === "ERRAND") {
+      return { paid: true, rateMultiplier: segment.rateMultiplier ?? 1, countsTowardOvertime: true };
+    }
     if (segment.cancelled && segment.paid === true) {
-      return { paid: true, rateMultiplier: segment.rateMultiplier ?? 1, countsTowardOvertime: false };
+      return {
+        paid: true,
+        rateMultiplier: segment.rateMultiplier ?? 1,
+        countsTowardOvertime: segment.countsTowardOvertime === true,
+      };
     }
     if (segment.cancelled) return { paid: false, rateMultiplier: 0, countsTowardOvertime: false };
     if (segment.paid === true) {
@@ -57,9 +66,13 @@ export const TransitPolicyService = {
   },
 
   /** Validación previa a TRANSFER_START. */
-  validateStart(fromSiteId: number | null, toSiteId: number | null): { ok: true } | { ok: false; code: "SITE_REQUIRED" } {
-    if (toSiteId === null || toSiteId === undefined) return { ok: false, code: "SITE_REQUIRED" };
-    if (fromSiteId !== null && fromSiteId === toSiteId) return { ok: false, code: "SITE_REQUIRED" };
+  validateStart(
+    fromSiteId: number | null,
+    toSiteId: number | null,
+    purpose?: "ERRAND",
+  ): { ok: true } | { ok: false; code: "SITE_REQUIRED" } {
+    if (toSiteId === null || toSiteId === undefined || toSiteId === 0) return { ok: false, code: "SITE_REQUIRED" };
+    if (fromSiteId !== null && fromSiteId === toSiteId && purpose !== "ERRAND") return { ok: false, code: "SITE_REQUIRED" };
     return { ok: true };
   },
 

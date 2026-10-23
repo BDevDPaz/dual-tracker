@@ -23,9 +23,10 @@ import {
   selectGpsExceptionKind,
   type GpsExceptionKind,
 } from "../../src/components/ui";
-import { AddNoteModal, DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
+import { AddNoteModal, ConfirmActionModal, DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
 import { OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
+import { EXTEND_PROMPT_MS } from "../../src/constants/tasks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import { useToast } from "../../src/context/ToastContext";
@@ -55,7 +56,7 @@ import {
 import { t } from "../../src/i18n";
 import { formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
-type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "CANCEL_TRANSFER" | "NOTE";
+type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "CANCEL_TRANSFER" | "NOTE" | "CANCEL_DAY" | "EXTEND";
 
 export default function TodayScreen() {
   const router = useRouter();
@@ -88,9 +89,13 @@ export default function TodayScreen() {
   useEffect(() => {
     if (uiRequests.openExitModal) setModal("EXIT");
     else if (uiRequests.openDailySetup) setModal(uiRequests.openDailySetup === "transit" ? "SETUP_TRANSIT" : "SETUP_START");
-    else return;
+    else if (uiRequests.openExtendConfirm) setModal("EXTEND");
+    else if (uiRequests.correctSessionId) router.push(`/session/${uiRequests.correctSessionId}`);
+    else if (uiRequests.openOrphanReview) {
+      // La tarjeta de revisión ya está en Hoy. El aviso solo abre la app.
+    } else return;
     void emit({ type: "CONSUME_UI_REQUEST" });
-  }, [uiRequests.openExitModal, uiRequests.openDailySetup, emit]);
+  }, [uiRequests.openExitModal, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, emit, router]);
 
   // Si el estado deja de ser SALIDA (p. ej. decidido desde la notificación), cerrar el hub.
   useEffect(() => {
@@ -110,7 +115,7 @@ export default function TodayScreen() {
       case "NEW_DAY":
         return setModal("SETUP_START");
       case "CANCEL_DAY":
-        return void run({ type: "CANCEL_DAY" });
+        return setModal("CANCEL_DAY");
       case "VIEW_DESTINATION":
         return target ? router.push(`/sites/${target.id}`) : router.push("/sites");
       case "OPEN_LUNCH_CLOSE":
@@ -163,6 +168,17 @@ export default function TodayScreen() {
     }),
     monitoring: healthRaw.monitoringState,
   });
+
+  const shiftStart = active ? (active.actualStartAtMs ?? active.declaredStartAtMs) : null;
+  const canExtend =
+    !!active &&
+    shiftStart !== null &&
+    sessionState !== "ESPERANDO" &&
+    sessionState !== "CERRADA" &&
+    sessionState !== "NO_INICIADA" &&
+    nowMs - shiftStart >= EXTEND_PROMPT_MS &&
+    active.bookkeeping.compliance?.shiftExtended !== true;
+  const canErrand = (sessionState === "ACTIVA" || sessionState === "SALIDA") && !!active;
 
   const onGpsPrimary = (kind: GpsExceptionKind) => {
     if (kind === "no_show") return onHeroAction("CONFIRM_ARRIVAL");
@@ -272,6 +288,36 @@ export default function TodayScreen() {
           />
         ) : null}
 
+        {canErrand && active ? (
+          <Pressable
+            onPress={() => {
+              if (active.siteId == null) return;
+              void run({ type: "START_TRANSFER", toSiteId: active.siteId, purpose: "ERRAND" });
+            }}
+            accessibilityRole="button"
+            style={styles.footerLink}
+          >
+            <Text style={[styles.link, { color: colors.text.primary }]}>{t("today.errand")}</Text>
+          </Pressable>
+        ) : null}
+
+        {canExtend ? (
+          <Pressable onPress={() => setModal("EXTEND")} accessibilityRole="button" style={styles.footerLink}>
+            <Text style={[styles.link, { color: colors.text.primary }]}>{t("today.keepWorking")}</Text>
+          </Pressable>
+        ) : null}
+
+        {sessionState === "CERRADA" && lastToday ? (
+          <View style={styles.chips}>
+            <Pressable onPress={() => void run({ type: "ACK_DAY_SUMMARY", sessionId: lastToday.id })} accessibilityRole="button" style={styles.footerLink}>
+              <Text style={[styles.link, { color: colors.text.primary }]}>{t("today.ackDay")}</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push(`/session/${lastToday.id}`)} accessibilityRole="button" style={styles.footerLink}>
+              <Text style={[styles.link, { color: colors.text.primary }]}>{t("today.correctDay")}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {active && sessionState !== "NO_INICIADA" && sessionState !== "CERRADA" ? (
           <Pressable onPress={() => setModal("NOTE")} accessibilityRole="button" style={styles.footerLink}>
             <Text style={[styles.link, { color: colors.text.primary }]}>{t("today.quickNote")}</Text>
@@ -372,6 +418,29 @@ export default function TodayScreen() {
         }}
       />
 
+      <ConfirmActionModal
+        visible={modal === "CANCEL_DAY"}
+        title={t("today.cancelDayTitle")}
+        description={t("today.cancelDayBody")}
+        confirmLabel={t("today.cancelDayConfirm")}
+        cancelLabel={t("common.back")}
+        busy={busy}
+        onCancel={() => setModal(null)}
+        onConfirm={() => void run({ type: "CANCEL_DAY" }, () => setModal(null))}
+      />
+
+      <ConfirmActionModal
+        visible={modal === "EXTEND"}
+        title={t("today.extendTitle")}
+        description={t("today.extendBody")}
+        confirmLabel={t("today.keepWorking")}
+        cancelLabel={t("common.back")}
+        tone="warning"
+        busy={busy}
+        onCancel={() => setModal(null)}
+        onConfirm={() => void run({ type: "EXTEND_SHIFT" }, () => setModal(null))}
+      />
+
       <ExitDetectionModal
         visible={modal === "EXIT"}
         firstExitTime={formatTime(active?.bookkeeping.firstExitAtMs ?? null)}
@@ -379,6 +448,10 @@ export default function TodayScreen() {
         onStay={() => void run({ type: "STAY_WORKING" }, () => setModal(null))}
         onLunch={() => void run({ type: "START_LUNCH" }, () => setModal(null))}
         onTransfer={() => setModal("SETUP_TRANSIT")}
+        onErrand={() => {
+          if (!active || active.siteId == null) return;
+          void run({ type: "START_TRANSFER", toSiteId: active.siteId, purpose: "ERRAND" }, () => setModal(null));
+        }}
         onCloseDay={() => setModal("LUNCH_CLOSE_EXIT")}
         onDismiss={() => setModal(null)}
       />

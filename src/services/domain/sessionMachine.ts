@@ -27,6 +27,7 @@ import type {
   PauseInterval,
   PayrollCompliance,
 } from "../../core/contracts";
+import { EXTEND_PROMPT_MS, MAX_OPEN_SESSION_MS } from "../../constants/tasks";
 import { companyCalendar, companyTimezone } from "../../utils/companyPolicy";
 import { applyRestAcknowledgement } from "./caPremiums";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
@@ -170,7 +171,7 @@ function closeOpenSegment(s: SessionRecord, atMs: number, company: CompanyPolicy
         cancelled: true,
         paid: true,
         rateMultiplier: 1,
-        countsTowardOvertime: false,
+        countsTowardOvertime: true,
         cancelNote,
       };
     }
@@ -251,7 +252,9 @@ function ok(
     reason !== "ORPHAN_SESSION" &&
     reason !== "ORPHAN_CONTINUED" &&
     reason !== "ORPHAN_END_CONFIRMED" &&
-    reason !== "RESOLVE_MANUAL"
+    reason !== "RESOLVE_MANUAL" &&
+    reason !== "SHIFT_EXTENDED" &&
+    reason !== "ACK_DAY_SUMMARY"
   ) {
     next = withIntegrity(next, "CONFLICT", ctx.degradedReason);
   }
@@ -709,7 +712,9 @@ export function transition(
       if (!open) return reject("NO_OPEN_SESSION");
       if (open.domainStatus !== "ACTIVA" && open.domainStatus !== "SALIDA") return reject("ILLEGAL_TRANSITION");
       // TransitPolicy §5.6: exige destino configurado antes de iniciar trayecto.
-      if (!intent.toSiteId || intent.toSiteId === open.siteId) return reject("SITE_REQUIRED");
+      const errand = intent.purpose === "ERRAND";
+      // Mandado (ERRAND) puede volver al mismo sitio. Sin ERRAND, el destino tiene que ser otro.
+      if (!intent.toSiteId || (intent.toSiteId === open.siteId && !errand)) return reject("SITE_REQUIRED");
       if (ctx.siteExists && !ctx.siteExists(intent.toSiteId)) return reject("SITE_NOT_FOUND");
       // El trayecto empieza en la primera salida si venimos de SALIDA.
       const startAt = open.domainStatus === "SALIDA" && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
@@ -722,6 +727,7 @@ export function transition(
         endAtMs: null,
         cancelled: false,
         paid: null,
+        ...(errand ? { purpose: "ERRAND" as const } : {}),
       };
       const next: SessionRecord = {
         ...open,
@@ -736,7 +742,7 @@ export function transition(
     case "TRANSFER_CANCEL": {
       if (!open) return reject("NO_OPEN_SESSION");
       if (open.domainStatus !== "TRASLADO") return reject("ILLEGAL_TRANSITION");
-      // El tramo se paga como tránsito hasta la cancelación (1×, sin extra).
+      // El tramo se paga hasta la cancelación y cuenta para extras (D11).
       // Después de este instante el tiempo vuelve a ser jornada en el sitio.
       const note = intent.note?.trim() || null;
       const next: SessionRecord = { ...open, domainStatus: "ACTIVA", transitSegments: closeOpenSegment(open, now, ctx.company, true, note) };
@@ -876,8 +882,9 @@ export function transition(
           reason = "AUTO_CLOSE_ABANDONMENT";
           break;
         case "MAX_OPEN_12H": {
+          if (b.compliance?.shiftExtended) return reject("ILLEGAL_TRANSITION", "SHIFT_EXTENDED");
           const start = open.actualStartAtMs ?? open.declaredStartAtMs;
-          endMs = b.firstExitAtMs ?? Math.min(now, start + 12 * 60 * 60 * 1000);
+          endMs = b.firstExitAtMs ?? Math.min(now, start + MAX_OPEN_SESSION_MS);
           cls = intent.confirmedOutside ? "AUTO" : "CONFLICT";
           reason = "AUTO_CLOSE_12H";
           break;
@@ -973,6 +980,31 @@ export function transition(
         };
       }
       return out;
+    }
+
+    // ------------------------------------------------------------ EXTEND_SHIFT
+    case "EXTEND_SHIFT": {
+      if (!open) return reject("NO_OPEN_SESSION");
+      if (open.domainStatus === "ESPERANDO") return reject("ILLEGAL_TRANSITION");
+      const start = open.actualStartAtMs ?? open.declaredStartAtMs;
+      if (now - start < EXTEND_PROMPT_MS) return reject("ILLEGAL_TRANSITION", "EXTEND_TOO_EARLY");
+      const next: SessionRecord = {
+        ...open,
+        bookkeeping: {
+          ...open.bookkeeping,
+          compliance: { ...(open.bookkeeping.compliance ?? {}), shiftExtended: true },
+        },
+      };
+      return ok(open, next, ctx, "SHIFT_EXTENDED", [], null);
+    }
+
+    // ------------------------------------------------------------ ACK_DAY_SUMMARY
+    case "ACK_DAY_SUMMARY": {
+      const s = target;
+      if (!s) return reject("SESSION_NOT_FOUND");
+      if (s.bookkeeping.isDeleted) return reject("SESSION_DELETED");
+      if (s.domainStatus !== "CERRADA") return reject("ILLEGAL_TRANSITION");
+      return ok(s, { ...s }, ctx, "ACK_DAY_SUMMARY", [], null);
     }
 
     // ------------------------------------------------------------ ADD_NOTE

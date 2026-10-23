@@ -34,6 +34,7 @@ import { OfflineQueueService } from "../persistence/OfflineQueueService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
 import { powerOffsFromLedger } from "./deviceOffGap";
+import { siteMovesFromLedger } from "./siteMoves";
 import { chainHash, sha256Hex } from "./HashChain";
 import { sessionSealFailure, sessionSealsFromExport } from "./sessionSeal";
 import { powerOffSentence } from "./reportPremium";
@@ -351,6 +352,7 @@ async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYE
   const ids = new Set(pack.evidence.ledgerHashes.map((h) => h.id));
   const ledgerRows = (await PersistenceService.listLedger()).filter((e) => ids.has(e.id)).sort((a, b) => a.id - b.id);
   const powerOffs = powerOffsFromLedger(ledgerRows);
+  const siteMoves = siteMovesFromLedger(ledgerRows);
   const lang = pack.manifest.documentLocale === "en" ? "en" : "es";
   const ledger = annex?.ledger || annex?.enterExit
     ? ledgerRows.map((row) => {
@@ -384,6 +386,7 @@ async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYE
       annex,
       ledger,
       ...(powerOffs.length ? { powerOffs } : {}),
+      ...(siteMoves.length ? { siteMoves } : {}),
     },
     { destination: "cache" },
   );
@@ -530,7 +533,9 @@ export const EvidencePackService = {
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
-      const powerOffs = powerOffsFromLedger(await PersistenceService.listLedger()).filter((n) => statement.sessionIds.includes(n.sessionId));
+      const ledgerRows = await PersistenceService.listLedger();
+      const powerOffs = powerOffsFromLedger(ledgerRows).filter((n) => statement.sessionIds.includes(n.sessionId));
+      const siteMoves = siteMovesFromLedger(ledgerRows);
       const reportInput = {
         statement: sealedStatement,
         evidence,
@@ -540,6 +545,7 @@ export const EvidencePackService = {
         profile: settings.profile,
         company: settings.company,
         ...(powerOffs.length ? { powerOffs } : {}),
+        ...(siteMoves.length ? { siteMoves } : {}),
       };
 
       attemptId = Crypto.randomUUID();

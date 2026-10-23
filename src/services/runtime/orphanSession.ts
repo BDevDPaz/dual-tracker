@@ -5,7 +5,6 @@
  * No se cierra y no se inventa una hora. El operario confirma el fin (con
  * nota) o sigue trabajando.
  */
-import { t } from "../../i18n";
 import type { SessionRecord } from "../../core/contracts";
 import { HEARTBEAT_GAP_MS } from "../../constants/tasks";
 import { SessionEngineService } from "../domain/SessionEngineService";
@@ -35,6 +34,6 @@ export async function reviewAbandonedSession(session?: SessionRecord | null): Pr
   if (outside === false) return "clear";
   const result = await SessionEngineService.dispatch({ type: "MARK_ORPHAN" }, "WATCHDOG");
   if (!result.ok) return result.detail === "ALREADY_ORPHAN" ? "held" : "clear";
-  await NotificationService.notifyImmediate(t("notifications.orphanTitle"), t("notifications.orphanBody"));
+  await NotificationService.notifyOrphan(open.id);
   return "marked";
 }

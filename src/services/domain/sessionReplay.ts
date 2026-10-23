@@ -48,6 +48,8 @@ const REPLAYABLE = new Set<string>([
   "CONTINUE_ORPHAN",
   "CONFIRM_ORPHAN_END",
   "INTEGRITY_DEGRADE",
+  "EXTEND_SHIFT",
+  "ACK_DAY_SUMMARY",
 ]);
 
 function dataOf(entry: LedgerEntry): Record<string, unknown> {
@@ -96,7 +98,11 @@ function intentOf(entry: LedgerEntry, data: Record<string, unknown>): SessionInt
     case "RESUME":
       return { type: "RESUME" };
     case "TRANSFER_START":
-      return { type: "TRANSFER_START", toSiteId: typeof data.toSiteId === "number" ? data.toSiteId : 0 };
+      return {
+        type: "TRANSFER_START",
+        toSiteId: typeof data.toSiteId === "number" ? data.toSiteId : 0,
+        ...(data.purpose === "ERRAND" ? { purpose: "ERRAND" as const } : {}),
+      };
     case "TRANSFER_CANCEL":
       return { type: "TRANSFER_CANCEL" };
     case "EXIT_DETECTED":
@@ -149,6 +155,10 @@ function intentOf(entry: LedgerEntry, data: Record<string, unknown>): SessionInt
       return { type: "CONTINUE_ORPHAN" };
     case "CONFIRM_ORPHAN_END":
       return { type: "CONFIRM_ORPHAN_END", endAtMs: typeof data.endAtMs === "number" ? data.endAtMs : Number.NaN, note: noteOf(data) };
+    case "EXTEND_SHIFT":
+      return { type: "EXTEND_SHIFT" };
+    case "ACK_DAY_SUMMARY":
+      return { type: "ACK_DAY_SUMMARY", sessionId };
     case "INTEGRITY_DEGRADE": {
       const cause = data.cause;
       if (

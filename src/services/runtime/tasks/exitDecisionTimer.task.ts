@@ -11,7 +11,6 @@ import { SessionEngineService } from "../../domain/SessionEngineService";
 import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { KV_KEYS } from "../../persistence/schema";
-import { t } from "../../../i18n";
 import { GeofenceRuntimeService } from "../GeofenceRuntimeService";
 import { MIN_DWELL_BEFORE_EXIT_MS } from "../geofencePolicy";
 import { NotificationService } from "../NotificationService";
@@ -49,12 +48,9 @@ export async function runExitDecisionTimer(): Promise<boolean> {
     { type: "AUTO_CLOSE", cause: "EXIT_DECISION_EXPIRED", confirmedOutside: outside === true },
     "WATCHDOG",
   );
-  if (r.ok) {
+  if (r.ok && r.data?.session) {
     await NotificationService.dismissExit(d.sessionId);
-    await NotificationService.notifyImmediate(t("notifications.exitDecisionExpiredTitle"), t("notifications.exitDecisionExpiredBody"), {
-      kind: "SESSION_REVIEW",
-      sessionId: d.sessionId,
-    });
+    await NotificationService.notifyAutoClose(r.data.session);
   }
   return r.ok;
 }

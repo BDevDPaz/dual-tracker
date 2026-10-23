@@ -8,7 +8,7 @@
  * mientras haya conflictos, el back queda bloqueado.
  * RESOLVE_SPLIT divide la jornada en dos (spec v1.3 §5.4).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { ConfirmActionModal } from "../../src/components/modals";
@@ -32,15 +32,21 @@ export default function ConflictScreen() {
   const views = selectConflictViews(state, nowMs);
   const hasConflicts = views.length > 0;
   const [blockedNotice, setBlockedNotice] = useState(false);
+  const allowLeave = useRef(false);
 
   useEffect(() => {
     const unsub = navigation.addListener("beforeRemove", (e) => {
-      if (!hasConflicts) return;
+      if (!hasConflicts || allowLeave.current) return;
       e.preventDefault();
       setBlockedNotice(true);
     });
     return unsub;
   }, [navigation, hasConflicts]);
+
+  const later = () => {
+    allowLeave.current = true;
+    router.replace("/(tabs)");
+  };
 
   if (!hasConflicts) {
     return (
@@ -57,6 +63,7 @@ export default function ConflictScreen() {
         {views.map((v) => (
           <ConflictCard key={v.session.id} view={v} onOpenSession={() => router.push(`/session/${v.session.id}`)} />
         ))}
+        <Button label={t("conflict.later")} variant="ghost" onPress={later} />
       </ScreenScroll>
       <ModalShell
         visible={blockedNotice}

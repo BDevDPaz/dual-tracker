@@ -38,6 +38,7 @@ import { serializeError } from "../../utils/serializeError";
 import { GEOFENCE_ENTER_AFTER_EXIT_MS, GEOFENCE_ENTER_COALESCE_MS } from "../../constants/geolocation";
 import { blockingIntegrityReason } from "../../core/healthPolicy";
 import { noteSpatialAnomaly } from "../runtime/anomalyEngine";
+import { NotificationService } from "../runtime/NotificationService";
 import { IN_APP_CRITICAL, recordCriticalNotice } from "../runtime/criticalNotices";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
@@ -143,6 +144,7 @@ function targetIdOf(intent: SessionIntent): number | null {
     case "RESOLVE_KEEP_GPS":
     case "RESOLVE_MANUAL":
     case "RESOLVE_SPLIT":
+    case "ACK_DAY_SUMMARY":
       return intent.sessionId;
     default:
       return null;
@@ -408,6 +410,18 @@ export const SessionEngineService = {
           nowMs,
           periodPolicy,
         );
+        if (intent.type === "LUNCH_START" && out.reason === "LUNCH_STARTED" && saved.lunch.startAtMs) {
+          await NotificationService.scheduleLunchResume(saved.id, saved.lunch.startAtMs).catch((error) => {
+            LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo programar N12", serializeError(error));
+          });
+        }
+        if (saved.domainStatus === "CERRADA" && out.from !== "CERRADA" && !saved.bookkeeping.cancelled) {
+          if (intent.type === "CLOSE_DAY" || intent.type === "CONFIRM_ORPHAN_END") {
+            await NotificationService.notifyDaySummary(saved, preview).catch((error) => {
+              LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo publicar el resumen del día", serializeError(error));
+            });
+          }
+        }
         return { ok: true as const, data: { session: saved, preview } };
       });
     } catch (error) {

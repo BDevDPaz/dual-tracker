@@ -11,6 +11,7 @@ interface ConfirmActionModalProps {
   title: string;
   description: string;
   confirmLabel: string;
+  cancelLabel?: string;
   tone?: ModalTone;
   busy?: boolean;
   onCancel: () => void;
@@ -22,6 +23,7 @@ export function ConfirmActionModal({
   title,
   description,
   confirmLabel,
+  cancelLabel,
   tone = "danger",
   busy = false,
   onCancel,
@@ -43,7 +45,7 @@ export function ConfirmActionModal({
         loading: busy,
         disabled: busy,
       }}
-      secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
+      secondaryAction={{ label: cancelLabel ?? t("common.cancel"), onPress: onCancel }}
     />
   );
 }

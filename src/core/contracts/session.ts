@@ -129,6 +129,8 @@ export interface PayrollCompliance {
   restBreaksTaken?: boolean;
   mealInterrupted?: boolean;
   secondMeal?: MealInterval;
+  /** La persona confirmó seguir después de 11 h 30 min. No hay cierre a las 12 h. */
+  shiftExtended?: boolean;
 }
 
 /** Tramo de traslado entre sitios (TransitPolicy, Propuesta §5.6). */
@@ -141,9 +143,12 @@ export interface TransitSegment {
   /**
    * true si el operario canceló el traslado.
    * Un cancelado legado (`paid !== true`) no genera línea de tránsito.
-   * Uno nuevo (`paid === true`) se paga como tránsito hasta `endAtMs`, a 1× y sin contar para extra.
+   * Uno nuevo (`paid === true`) se paga hasta `endAtMs` y, si
+   * `countsTowardOvertime` quedó en true, entra en la cubeta de extras (D11).
    */
   cancelled: boolean;
+  /** ERRAND: mandado, también de vuelta al mismo sitio. Ausente = traslado a otro sitio. */
+  purpose?: "ERRAND";
   /** Nota opcional del cancelado (p. ej. «llamó el encargado»). No va en claro al ledger. */
   cancelNote?: string | null;
   /**

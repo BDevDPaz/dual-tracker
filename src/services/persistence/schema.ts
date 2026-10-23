@@ -23,6 +23,13 @@ export const DB_NAME = "dual_tracker_v1.db";
 // v9: sessions.compliance_json (renuncias de comida y respuesta de descanso). NULL si no hay.
 export const SCHEMA_VERSION = 9;
 
+/**
+ * Época de instalación (PR2, D18). Si la base de prueba ya tiene jornadas o
+ * asientos de una época anterior, se borra y el ledger empieza de cero.
+ * No es una migración: la app no está publicada.
+ */
+export const INSTALL_EPOCH = "pr2-12.3";
+
 /** Columnas aditivas de sessions (spec v1.3 §5.3). También en CREATE_TABLES_SQL. */
 export const SESSION_ADDED_COLUMNS: [string, string][] = [
   ["pauses_json", "TEXT NOT NULL DEFAULT '[]'"],
@@ -254,6 +261,7 @@ export const CREATE_TABLES_SQL = `
 /** Claves de app_kv. */
 export const KV_KEYS = {
   SCHEMA_VERSION: "schema_version",
+  INSTALL_EPOCH: "install_epoch",
   PROFILE: "settings.profile",
   COMPANY: "settings.company",
   DEVICE: "settings.device",
