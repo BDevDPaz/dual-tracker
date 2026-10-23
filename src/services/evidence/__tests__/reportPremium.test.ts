@@ -9,7 +9,7 @@ import { SEAL_WARNING_TEXT } from "../reportTemplates";
 import { PDF_LIGHT_TEXT_GOLD } from "../reportPremium";
 import { ReportService } from "../ReportService";
 import { PayrollEngineService } from "../../domain/PayrollEngineService";
-import { fromWallClock, getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
+import { formatTime, fromWallClock, getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
 import { DEFAULT_PROFILE } from "../../persistence/SettingsService";
 
 const HASH = "ab".repeat(32);
@@ -320,6 +320,54 @@ describe("comprobante premium", () => {
     expect(html).not.toContain("Cierre automático");
     expect(html).toContain("Teléfono apagado");
     expect(html).toContain("20 min");
+    expect(html).not.toContain(String(SITE_LAT));
+  });
+
+  test("el código, el QR y la firma caben con la compilación real, y el almuerzo impreso no usa el redondeo de segundos", () => {
+    const lunchStart = MONDAY_8AM + 7 * HOUR + 32 * 60_000 + 40_000;
+    const lunchEnd = lunchStart + 80_000;
+    const session = makeClosedSession(MONDAY_8AM, 9, {
+      lunch: { taken: true, startAtMs: lunchStart, endAtMs: lunchEnd, deductedMinutes: null },
+    });
+    const html = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
+      ...base({ sessions: [session], statement: { ...base().statement, lunchMinutes: 1 } }),
+      annex: { enterExit: true },
+      ledger: [
+        {
+          id: 9,
+          sessionId: session.id,
+          timestampMs: MONDAY_8AM + 9 * HOUR,
+          actor: "USER",
+          intent: "CLOSE_DAY",
+          fromState: "ACTIVA",
+          toState: "CERRADA",
+          reason: "MANUAL_ACTION_EXPLICIT",
+          integrityClass: "VALID",
+          hash: "e".repeat(64),
+          prevHash: "f".repeat(64),
+        },
+      ],
+    });
+    expect(html).toContain("sheet-tail");
+    expect(html).toContain('class="sig-box"');
+    expect(html).toContain('data-signature="Ed25519"');
+    expect(html).toContain('width="96"');
+    expect(html).not.toContain("build —");
+    expect(html).toMatch(/App 1\.0\.0 · build \S+/);
+    expect(html).toContain(
+      t(
+        "comprobante.lunchRange",
+        {
+          from: formatTime(lunchStart, { lang: "es" }),
+          to: formatTime(lunchEnd, { lang: "es" }),
+          minutes: 2,
+        },
+        "es",
+      ),
+    );
+    expect(html).toContain("Almuerzo: 1 min");
+    expect(html).toContain("Salida manual");
+    expect(html).toContain(`data-manual-exit="${session.id}"`);
     expect(html).not.toContain(String(SITE_LAT));
   });
 });

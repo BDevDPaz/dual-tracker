@@ -7,7 +7,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { setLanguage, t } from "../../../i18n";
 import { TimeAuthorityService } from "../../../services/evidence/TimeAuthorityService";
 import { atTimeOfDayAfter } from "../../../utils/dateUtils";
-import { makeClosedSession } from "../../../../test/fixtures/session.fixture";
+import { COMPANY, HOUR, makeClosedSession, MONDAY_8AM, RATES } from "../../../../test/fixtures/session.fixture";
 import { EditSessionModal } from "../EditSessionModal";
 
 // lun 21 sep 2026 01:56:10 PDT → 01:56:40 (se ve 01:56 – 01:56).
@@ -126,6 +126,28 @@ describe("EditSessionModal", () => {
     fireEvent.changeText(screen.getByTestId("edit-end"), "0900");
     expect(screen.getByText(t("modals.futureTime"))).toBeTruthy();
     expect(screen.getByText("That time is later than now. Time that has not happened yet cannot be recorded.")).toBeTruthy();
+  });
+
+  test("la vista previa del total es de solo lectura y no guarda", () => {
+    const session = makeClosedSession(MONDAY_8AM, 8);
+    const onSave = jest.fn();
+    render(
+      <EditSessionModal
+        visible
+        session={session}
+        rates={RATES}
+        company={COMPANY}
+        nowMs={MONDAY_8AM + 9 * HOUR}
+        onCancel={jest.fn()}
+        onSave={onSave}
+        checkOverlap={jest.fn().mockResolvedValue(false)}
+      />,
+    );
+    const preview = screen.getByTestId("edit-preview");
+    expect(String(preview.props.children)).toContain("$");
+    expect(String(preview.props.children)).not.toContain("NaN");
+    fireEvent.press(saveButton());
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   test("fin ≤ inicio, sin la regla de medianoche, se explica y no se guarda", () => {

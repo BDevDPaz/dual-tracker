@@ -64,10 +64,18 @@ export function ledgerSubtitle(e: Pick<LedgerEntry, "fromState" | "toState" | "r
   return undefined;
 }
 
+/** Cierre explícito del operario, distinto de una salida detectada por la geocerca. */
+export function timelineEventTitle(entry: Pick<LedgerEntry, "intent" | "reason" | "integrityClass">, fallback: string): string {
+  if (entry.intent === "CLOSE_DAY" && (entry.reason === "MANUAL_ACTION_EXPLICIT" || entry.integrityClass === "MANUAL")) {
+    return t("session.manualExit");
+  }
+  return fallback;
+}
+
 export function ledgerToTimeline(entries: LedgerEntry[], labelFor: (e: LedgerEntry) => string): TimelineEvent[] {
   return entries.map((e) => ({
     id: String(e.id),
-    title: labelFor(e),
+    title: timelineEventTitle(e, labelFor(e)),
     time: formatTime(e.timestampMs),
     subtitle: ledgerSubtitle(e),
     type: INTENT_TYPE[e.intent] ?? (e.integrityClass === "CONFLICT" ? "warning" : "note"),

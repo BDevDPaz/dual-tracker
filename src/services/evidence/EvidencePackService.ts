@@ -352,7 +352,7 @@ async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYE
   const ledgerRows = (await PersistenceService.listLedger()).filter((e) => ids.has(e.id)).sort((a, b) => a.id - b.id);
   const powerOffs = powerOffsFromLedger(ledgerRows);
   const lang = pack.manifest.documentLocale === "en" ? "en" : "es";
-  const ledger = annex?.ledger
+  const ledger = annex?.ledger || annex?.enterExit
     ? ledgerRows.map((row) => {
         const note = row.intent === "OS_KILL" ? powerOffsFromLedger([row])[0] : undefined;
         return {

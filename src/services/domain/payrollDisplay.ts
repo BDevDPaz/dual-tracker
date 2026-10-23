@@ -60,6 +60,17 @@ export function allocateDisplayHundredths(minuteRows: readonly number[]): number
   return out;
 }
 
+/**
+ * Minutos que separan dos relojes ya truncados a HH:mm.
+ * `Math.round((fin-inicio)/60000)` puede decir 1 min entre 3:32:40 y 3:34:00,
+ * porque el reloj impreso no muestra los segundos. Esto no es la nómina:
+ * `statement.lunchMinutes` sigue el redondeo del motor.
+ */
+export function displayClockSpanMinutes(startMs: number, endMs: number): number {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return 0;
+  return Math.floor(endMs / 60_000) - Math.floor(startMs / 60_000);
+}
+
 /** "4.17" desde centésimas enteras (sin pasar por un float de horas). */
 export function formatHundredths(hundredths: number): string {
   const neg = hundredths < 0;

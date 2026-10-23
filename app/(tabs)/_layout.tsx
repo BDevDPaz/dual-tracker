@@ -47,8 +47,9 @@ export default function TabsLayout() {
         tabBarStyle: exitPending
           ? { display: "none" }
           : {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
+              backgroundColor: colors.background,
+              borderTopColor: colors.divider,
+              borderTopWidth: TOKENS.layout.hairline,
               minHeight: TOKENS.layout.minTouchTarget + insets.bottom,
             },
         tabBarAccessibilityLabel: route.name === "index" && shiftActive ? t("a11y.tabTodayActive") : undefined,

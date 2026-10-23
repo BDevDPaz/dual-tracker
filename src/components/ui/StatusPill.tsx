@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { TOKENS, FONT, ICON, font, type ThemeColors } from "../../constants/theme";
+import { TOKENS, FONT, ICON, font, withAlpha, type ThemeColors } from "../../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
@@ -48,7 +48,7 @@ export function StatusPill({ tone, label, symbol }: StatusPillProps) {
   const { colors } = useTheme();
   const { color, bg } = toneColors(colors, tone);
   return (
-    <View style={[styles.pill, { backgroundColor: bg }]} accessibilityRole="text" accessibilityLabel={label}>
+    <View style={[styles.pill, { backgroundColor: bg, borderColor: withAlpha(color, 0.4) }]} accessibilityRole="text" accessibilityLabel={label}>
       {symbol === "arrival" ? (
         <ArrivalMark size={ICON.lg} decorative />
       ) : (
@@ -63,15 +63,16 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: TOKENS.spacing.sm,
     paddingVertical: TOKENS.spacing.xs,
-    borderRadius: TOKENS.radius.pill,
+    borderRadius: TOKENS.radius.badge,
+    borderWidth: TOKENS.layout.hairline,
+    minHeight: 22,
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: TOKENS.spacing.sm,
   },
   text: {
-    ...FONT.label,
+    ...FONT.badge,
     ...font("600"),
-    letterSpacing: 0.5,
   },
 });

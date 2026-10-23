@@ -233,7 +233,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             style={[
               styles.toastCard,
               {
-                backgroundColor: colors.surfaceElevated,
+                backgroundColor: colors.surface,
                 borderColor: config.color,
                 ...TOKENS.shadows.md,
               },

@@ -135,7 +135,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
           onFocus={handleFocus}
           onBlur={handleBlur}
           {...props}
-          placeholder={props.placeholder ?? (mask === "HH:mm" ? "HH:mm" : undefined)}
+          placeholder={props.placeholder ?? (mask === "HH:mm" ? "HH:mm" : secureToggle ? "••••" : undefined)}
           {...(mask === "HH:mm" ? { keyboardType: "number-pad" as const, maxLength: 5 } : null)}
           {...(maximumDate ? { accessibilityValue: { max: maximumDate.getTime(), text: shownError } } : null)}
           secureTextEntry={secureToggle ? !revealed : props.secureTextEntry}

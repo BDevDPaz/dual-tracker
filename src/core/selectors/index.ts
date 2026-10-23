@@ -138,7 +138,7 @@ const UI_TABLE: Record<SessionState, Omit<SessionStateUI, "state" | "labelKey" |
   PAUSADA: { showTimer: true, tone: "warning", primary: { labelKey: "cta.resume", action: "RESUME" }, secondary: { labelKey: "cta.finishDay", action: "OPEN_LUNCH_FINISH" }, modal: "LUNCH_SUPERVISOR" },
   // Primario = llegué: con geocercas solapadas el SO no dispara ENTER si ya estás dentro.
   TRASLADO: { showTimer: true, tone: "info", primary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, secondary: { labelKey: "cta.cancelTransfer", action: "CANCEL_TRANSFER" }, modal: "DAILY_SETUP_TRANSIT" },
-  SALIDA: { showTimer: false, tone: "warning", primary: { labelKey: "cta.confirmExit", action: "OPEN_EXIT_MODAL" }, secondary: { labelKey: "cta.stayWorking", action: "STAY_WORKING" }, modal: "EXIT" },
+  SALIDA: { showTimer: false, tone: "warning", primary: { labelKey: "cta.confirmExit", action: "OPEN_EXIT_MODAL" }, secondary: { labelKey: "cta.stayOperating", action: "STAY_WORKING" }, modal: "EXIT" },
   CERRADA: { showTimer: false, tone: "neutral", primary: { labelKey: "cta.reviewSession", action: "REVIEW_SESSION" }, secondary: { labelKey: "cta.newDay", action: "NEW_DAY" }, modal: null },
   CUARENTENA: { showTimer: false, tone: "warning", primary: { labelKey: "cta.reviewSession", action: "REVIEW_SESSION" }, secondary: null, modal: null },
 };

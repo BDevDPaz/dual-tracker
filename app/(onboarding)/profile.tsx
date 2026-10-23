@@ -16,12 +16,14 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectSettings } from "../../src/core/selectors";
 import { getLanguage, t } from "../../src/i18n";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { state, emit } = useWorkTracker();
   const profile = selectSettings(state).profile;
   const [name, setName] = useState(profile.employeeName);
@@ -47,7 +49,7 @@ export default function ProfileScreen() {
   return (
     <ScreenScroll edges={SAFE_EDGES.none}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, styles.titleFlex, { color: TOKENS.colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
+        <Text style={[styles.title, styles.titleFlex, { color: colors.text.primary }]}>{t("onboarding.profileTitle")}</Text>
         <HelpButton screen="profile" />
       </View>
       <Input {...chain.props("name")} label={t("onboarding.employeeName")} value={name} onChangeText={setName} />

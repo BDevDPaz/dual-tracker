@@ -4,7 +4,7 @@ import { allGuideKeys, tipsFor } from "../catalog";
 import { SUPPORT_CONTENT_VERSION } from "../contentVersion";
 import { readReleaseChannel } from "../buildLabel";
 import { buildSupportDiagnostic, diagnosticIsSafe } from "../diagnostic";
-import { formatVersionLine } from "../versionLine";
+import { formatVersionLine, settingsFooterLine } from "../versionLine";
 import { PRACTICE_STORAGE_KEY, TIPS_STORAGE_KEY } from "../memory";
 import { dispatchPractice, enterPractice, exitPractice, getPracticeSnapshot, reducePractice } from "../practice";
 import { dismissTip, isTipDismissed, loadTips, resetTips } from "../tips";
@@ -179,6 +179,8 @@ describe("diagnóstico", () => {
     expect(diagnosticIsSafe(esDoc)).toBe(true);
     expect(diagnosticIsSafe(enDoc)).toBe(true);
     expect(readReleaseChannel()).toBe("");
+    expect(settingsFooterLine("es")).toMatch(/^Dual Tracker · v1\.0\.0 · build \S+(?: · [0-9a-f]{7})?$/i);
+    expect(settingsFooterLine("en")).not.toContain("—");
   });
 
   test("el namespace de práctica no es la base SQLite", () => {

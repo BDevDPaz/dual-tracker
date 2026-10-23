@@ -7,12 +7,13 @@
 import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Button, Card, Chip, DocumentPreviewWidget, ExportStatusCard, Input, LoadingOverlay, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, VmacSheet } from "../../src/components/ui";
+import { Ionicons } from "@expo/vector-icons";
+import { Button, Card, Chip, DocumentPreviewWidget, ExportStatusCard, Input, LoadingOverlay, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, StatusPill, VmacSheet } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
-import { TOKENS, FONT } from "../../src/constants/theme";
+import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import type { EvidencePack, PayrollStatement } from "../../src/core/contracts";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
@@ -29,7 +30,7 @@ import {
 } from "../../src/core/selectors";
 import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
-import { formatDate, formatRange, formatUiDecimal, toDateString } from "../../src/utils/dateUtils";
+import { formatDate, formatRange, formatUiDecimal, getWeekEnd, shiftWeek, toDateString } from "../../src/utils/dateUtils";
 import {
   combineWeekStatements,
   corporateDayBounds,
@@ -59,6 +60,7 @@ export default function ReportsScreen() {
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
   const [preset, setPreset] = useState<RangePreset>("CURRENT_WEEK");
+  const [weekShift, setWeekShift] = useState(0);
   const [startText, setStartText] = useState("");
   const [endText, setEndText] = useState("");
   const { busy: sealing, run: runSeal } = useBusyAction();
@@ -68,12 +70,18 @@ export default function ReportsScreen() {
   const settings = selectSettings(state);
 
   const customError = preset === "CUSTOM" ? customRangeError(startText, endText) : null;
+  const currentWeek = presetRange("CURRENT_WEEK", nowMs, calendar);
+  const shiftedWeek: ClosedRange | null = currentWeek
+    ? { start: shiftWeek(currentWeek.start, weekShift, calendar), end: getWeekEnd(shiftWeek(currentWeek.start, weekShift, calendar), calendar) }
+    : null;
   const requested: ClosedRange | null =
-    preset === "CUSTOM"
-      ? customError
-        ? null
-        : customBounds(startText, endText)
-      : presetRange(preset, nowMs, calendar);
+    preset === "CURRENT_WEEK" && shiftedWeek
+      ? shiftedWeek
+      : preset === "CUSTOM"
+        ? customError
+          ? null
+          : customBounds(startText, endText)
+        : presetRange(preset, nowMs, calendar);
 
   const preview = useQuery(
     () => (requested ? queries.previewRange(requested.start, requested.end) : Promise.resolve({ ok: false as const, code: "RANGE_INVALID" as const })),
@@ -138,6 +146,7 @@ export default function ReportsScreen() {
 
   const choose = (p: RangePreset) => {
     setPreset(p);
+    if (p !== "CURRENT_WEEK") setWeekShift(0);
     if (p === "CUSTOM" && !startText) {
       const week = presetRange("CURRENT_WEEK", nowMs, calendar);
       if (week) {
@@ -179,6 +188,33 @@ export default function ReportsScreen() {
           hasSplitRow={rows.some((r) => r.continuesFromMs != null || r.continuesUntilMs != null)}
           hasZeroOmitted={rows.some((r) => r.zeroDuration)}
         />
+        <View style={styles.weekRow}>
+          <Pressable
+            onPress={() => {
+              setPreset("CURRENT_WEEK");
+              setWeekShift((n) => n - 1);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("a11y.prevWeek")}
+            style={styles.weekHit}
+          >
+            <Ionicons name="chevron-back" size={ICON.xl} color={colors.text.primary} />
+          </Pressable>
+          <Text style={[styles.weekText, { color: colors.text.primary }]}>{shiftedWeek ? formatRange(shiftedWeek.start, shiftedWeek.end) : subtitle}</Text>
+          <Pressable
+            disabled={weekShift >= 0}
+            onPress={() => {
+              setPreset("CURRENT_WEEK");
+              setWeekShift((n) => Math.min(0, n + 1));
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("a11y.nextWeek")}
+            accessibilityState={{ disabled: weekShift >= 0 }}
+            style={styles.weekHit}
+          >
+            <Ionicons name="chevron-forward" size={ICON.xl} color={weekShift >= 0 ? colors.text.muted : colors.text.primary} />
+          </Pressable>
+        </View>
         <View style={styles.periods}>
           {PRESETS.map((p) => (
             <Chip key={p} label={t(PRESET_KEY[p])} selected={preset === p} onPress={() => choose(p)} />
@@ -216,10 +252,13 @@ export default function ReportsScreen() {
             <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
             {single ? (
               <>
-                <KeyValueRow
-                  label={t("reports.integrity")}
-                  value={`V ${combined.integrityRollup.byClass.VALID} · M ${combined.integrityRollup.byClass.MANUAL} · A ${combined.integrityRollup.byClass.AUTO} · C ${combined.integrityRollup.byClass.CONFLICT}`}
-                />
+                <Text style={[styles.label, { color: colors.text.secondary }]}>{t("reports.integrity")}</Text>
+                <View style={styles.pills}>
+                  <StatusPill tone="success" label={`${t("integrity.VALID")} ${combined.integrityRollup.byClass.VALID}`} />
+                  <StatusPill tone="warning" label={`${t("integrity.MANUAL")} ${combined.integrityRollup.byClass.MANUAL}`} />
+                  <StatusPill tone="info" label={`${t("integrity.AUTO")} ${combined.integrityRollup.byClass.AUTO}`} />
+                  <StatusPill tone="danger" label={`${t("integrity.CONFLICT")} ${combined.integrityRollup.byClass.CONFLICT}`} />
+                </View>
                 <Pressable onPress={() => setVmac(true)} accessibilityRole="button" accessibilityLabel={t("vmac.open")}>
                   <Text style={[styles.label, { color: colors.text.secondary }]}>{t("vmac.mark")}</Text>
                 </Pressable>
@@ -293,6 +332,7 @@ export default function ReportsScreen() {
               { label: t("reports.regular"), value: `${shown.regular} ${t("common.hours")}` },
               { label: t("reports.overtime"), value: `${shown.overtime} ${t("common.hours")}` },
               { label: t("reports.transit"), value: `${shown.transit} ${t("common.hours")}` },
+              { label: t("reports.lunch"), value: `${combined.lunchMinutes} ${t("common.minutes")}` },
             ]}
             packHash={latestPack?.manifest.packHash ?? null}
             onHashCopied={(tail) =>
@@ -345,7 +385,11 @@ function customRangeError(startText: string, endText: string): "RANGE_INVALID" |
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  weekHit: { minWidth: TOKENS.layout.minTouchTarget, minHeight: TOKENS.layout.minTouchTarget, alignItems: "center", justifyContent: "center" },
+  weekRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: TOKENS.spacing.md },
+  weekText: { ...FONT.bodyStrong, flex: 1, textAlign: "center" },
   periods: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
+  pills: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
   dates: { gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
   card: { padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.sm },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },

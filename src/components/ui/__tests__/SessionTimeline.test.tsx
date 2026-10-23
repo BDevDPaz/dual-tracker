@@ -1,6 +1,7 @@
 /** Componentes — SessionTimeline renderiza asientos del ledger en orden. */
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
+import { t } from "../../../i18n";
 import { SessionTimeline, ledgerToTimeline, ledgerSubtitle, timelineEntering, TIMELINE_STAGGER_MAX } from "../SessionTimeline";
 import { makeLedgerChain } from "../../../../test/fixtures/ledger.fixture";
 
@@ -9,12 +10,14 @@ describe("SessionTimeline", () => {
     const entries = await makeLedgerChain();
     const events = ledgerToTimeline(entries, (e) => `T:${e.intent}`);
     expect(events.map((e) => e.type)).toEqual(["start", "arrival", "close"]);
+    expect(events.map((e) => e.title)).toEqual(["T:START_DAY", "T:ARRIVAL_CONFIRMED", t("session.manualExit")]);
     // Estados traducidos con t("states.*.label"), nunca el enum crudo.
     expect(events[1].subtitle).toBe("Esperando llegada → En sitio");
     expect(events.map((e) => e.subtitle ?? "").join(" ")).not.toMatch(/ESPERANDO|ACTIVA|CERRADA/);
     render(<SessionTimeline events={events} />);
-    const titles = screen.getAllByText(/^T:/).map((n) => n.props.children);
-    expect(titles).toEqual(["T:START_DAY", "T:ARRIVAL_CONFIRMED", "T:CLOSE_DAY"]);
+    expect(screen.getByText("T:START_DAY")).toBeTruthy();
+    expect(screen.getByText("T:ARRIVAL_CONFIRMED")).toBeTruthy();
+    expect(screen.getByText(t("session.manualExit"))).toBeTruthy();
     expect(screen.getByTestId(`arrival-mark-${events[1].id}`, { includeHiddenElements: true })).toBeTruthy();
   });
 

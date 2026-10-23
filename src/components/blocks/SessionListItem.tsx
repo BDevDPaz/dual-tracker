@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { TOKENS, FONT } from "../../constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import type { ComputedSession, PeriodSessionRow } from "../../core/selectors";
 import { t, useLanguage } from "../../i18n";
@@ -44,10 +45,15 @@ export function SessionListItem({
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={[styles.row, { borderColor: colors.border }]}>
       <View style={styles.main}>
-        <Text style={[styles.date, { color: colors.text.secondary }]}>{formatDate(start)}</Text>
+        <View style={styles.dateRow}>
+          <Ionicons name="calendar-outline" size={ICON.sm} color={colors.text.secondary} accessibilityElementsHidden importantForAccessibility="no" />
+          <Text style={[styles.date, { color: colors.text.secondary }]}>{formatDate(start)}</Text>
+          <IntegrityBadge integrity={s.integrityClass} blocked={(s.bookkeeping.certificationBlockers ?? []).length > 0} />
+        </View>
         <Text style={[styles.site, { color: conflict ? colors.status.warning : colors.text.primary }]} numberOfLines={1}>
           {item.siteLabel || item.site?.alias || t("today.noDestination")}
         </Text>
+        <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.sessionId", { id: s.id })}</Text>
         <Text style={[styles.range, { color: colors.text.secondary }]}>
           {formatTime(start)} – {end != null ? formatTime(end) : "…"}
         </Text>
@@ -66,7 +72,6 @@ export function SessionListItem({
         <Text style={[styles.amount, { color: colors.primary }]}>
           {slice?.grossCents != null ? formatCents(slice.grossCents) : gross == null ? "—" : formatCurrency(gross)}
         </Text>
-        <IntegrityBadge integrity={s.integrityClass} blocked={(s.bookkeeping.certificationBlockers ?? []).length > 0} />
       </View>
     </Pressable>
   );
@@ -76,6 +81,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", paddingVertical: TOKENS.spacing.md, borderBottomWidth: TOKENS.layout.hairline, gap: TOKENS.spacing.md },
   main: { flex: 1 },
   side: { alignItems: "flex-end", gap: TOKENS.spacing.xs },
+  dateRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.xs, flexWrap: "wrap" },
   date: { ...FONT.caption },
   site: { ...FONT.bodyStrong, marginTop: TOKENS.spacing.xxs },
   range: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
