@@ -26,7 +26,9 @@ import { monitoredSiteId } from "../domain/siteVisits";
 import { EvidencePackService, latestPackFor } from "../evidence/EvidencePackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
+import { PersistenceService } from "../persistence/PersistenceService";
 import { SettingsService } from "../persistence/SettingsService";
+import { getDistanceFromLatLonInMeters } from "../../utils/geoUtils";
 import { ForegroundWorkService } from "../runtime/ForegroundWorkService";
 import { buildForegroundNotice } from "../runtime/monitoringSnapshot";
 import { GeofenceRuntimeService } from "../runtime/GeofenceRuntimeService";
@@ -67,7 +69,9 @@ function toSessionIntent(i: ViewIntent): SessionIntent | null {
     case "CONFIRM_ARRIVAL":
       return { type: "ARRIVAL_CONFIRMED" };
     case "START_LUNCH":
-      return { type: "LUNCH_START" };
+      return { type: "LUNCH_START", kind: "LUNCH" };
+    case "START_REST":
+      return { type: "LUNCH_START", kind: "REST" };
     case "RESUME":
       return { type: "RESUME" };
     case "START_TRANSFER":
@@ -182,6 +186,18 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
     if (intent.type === "START_DAY") {
       const { result } = await startDay({ siteId: intent.siteId, clientId: intent.clientId, note: intent.note });
       return report(result);
+    }
+    if (intent.type === "CONFIRM_ARRIVAL") {
+      const open = selectActiveSession(Store.getState());
+      const siteId = open ? monitoredSiteId(open) : null;
+      const site = siteId != null ? await SiteRegistryService.get(siteId) : null;
+      const fix = await PersistenceService.getLastFix().catch(() => null);
+      const radius = site?.radiusM ?? 0;
+      let manualArrival = false;
+      if (fix && site && site.targetLat != null && site.targetLon != null && radius > 0) {
+        manualArrival = getDistanceFromLatLonInMeters(fix.lat, fix.lon, site.targetLat, site.targetLon) > radius;
+      }
+      return report(await SessionEngineService.dispatch({ type: "ARRIVAL_CONFIRMED", manualArrival }, "UI"));
     }
     if (intent.type === "CONFIRM_EXIT") {
       const before = selectActiveSession(Store.getState())?.domainStatus;
@@ -341,6 +357,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         await SettingsService.saveDevice(device);
         StoreActions.settingsReplaced({ ...state.settings, profile, device });
         await publishLanguage(profile.language, { ...state.settings, profile, device });
+        await NotificationService.scheduleDailyReminder(profile.dailyReminderTime);
         return { ok: true };
       }
       case "ACCEPT_DISCLOSURE": {

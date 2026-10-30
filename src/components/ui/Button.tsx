@@ -129,9 +129,9 @@ export const Button = React.memo(function Button({
     switch (variant) {
       case "primary":
         return {
-          backgroundColor: colors.primary,
-          textColor: colors.text.inverse,
-          borderColor: colors.primary,
+          backgroundColor: "#F6C452",
+          textColor: "#1C1B19",
+          borderColor: "#F6C452",
         };
       case "secondary":
         return {

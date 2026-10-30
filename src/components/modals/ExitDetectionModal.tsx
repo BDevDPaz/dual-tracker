@@ -1,36 +1,43 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet } from "react-native";
 import { ModalShell } from "../ui/ModalShell";
 import { SelectableCard } from "../ui/SelectableCard";
 import { ICONS } from "../../constants/icons";
-import { TOKENS } from "../../constants/theme";
+import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 
-/**
- * ExitDetectionModal — "decision hub" de salida (Producto §5.7).
- * Portado de GEOTrack (binario: continuar / finalizar) y ampliado a cuatro
- * acciones de igual peso semántico y distinto peso visual:
- * Sigo trabajando aquí · Iniciar almuerzo · Iniciar traslado · Cerrar jornada.
- * El tiempo mostrado es la PRIMERA salida, no la última.
- * Presentacional: cada acción es un callback que la pantalla traduce a intención.
- * NO descartable (dismissible={false}): sin X, sin toque en el fondo y el botón
- * atrás no lo cierra; la salida se decide con una de las cuatro acciones.
- * Los botones van apilados a ancho completo (no en el pie de dos botones).
- */
+/** Hoja "Salida detectada": terminar, otro trabajo, sigo trabajando. Sin almuerzo (D-19). */
 interface ExitDetectionModalProps {
   visible: boolean;
   firstExitTime: string;
+  siteName?: string;
+  recheckTime?: string;
+  reopened?: boolean;
   busy?: boolean;
   onStay: () => void;
-  onLunch: () => void;
+  onLunch?: () => void;
   onTransfer: () => void;
   onErrand?: () => void;
   onCloseDay: () => void;
   onDismiss: () => void;
 }
 
-export function ExitDetectionModal({ visible, firstExitTime, busy = false, onStay, onLunch, onTransfer, onErrand, onCloseDay, onDismiss }: ExitDetectionModalProps) {
+export function ExitDetectionModal({
+  visible,
+  firstExitTime,
+  siteName = "",
+  recheckTime = "",
+  reopened = false,
+  busy = false,
+  onStay,
+  onTransfer,
+  onCloseDay,
+  onDismiss,
+}: ExitDetectionModalProps) {
   useLanguage();
+  const { colors } = useTheme();
+  const siteLine = reopened ? t("modals.exitReopenSite", { site: siteName }) : t("modals.exitSite", { site: siteName });
   return (
     <ModalShell
       visible={visible}
@@ -42,17 +49,21 @@ export function ExitDetectionModal({ visible, firstExitTime, busy = false, onSta
       dismissible={false}
       testID="exit-detection-modal"
     >
+      <Text style={[styles.site, { color: colors.text.secondary }]}>{siteLine}</Text>
       <View style={styles.grid}>
-        <SelectableCard role="button" label={t("modals.exitStay")} onPress={onStay} disabled={busy} />
-        <SelectableCard role="button" label={t("modals.exitLunch")} onPress={onLunch} disabled={busy} />
-        <SelectableCard role="button" label={t("modals.exitTransfer")} onPress={onTransfer} disabled={busy} />
-        {onErrand ? <SelectableCard role="button" label={t("modals.exitErrand")} onPress={onErrand} disabled={busy} /> : null}
-        <SelectableCard role="button" label={t("modals.exitClose")} onPress={onCloseDay} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitClose")} description={t("modals.exitCloseSub", { time: firstExitTime })} onPress={onCloseDay} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitTransfer")} description={t("modals.exitTransferSub")} onPress={onTransfer} disabled={busy} />
+        <SelectableCard role="button" label={t("modals.exitStay")} description={t("modals.exitStaySub")} onPress={onStay} disabled={busy} />
       </View>
+      <Text style={[styles.note, { color: colors.text.secondary }]}>
+        {reopened ? t("modals.exitReopenNote") : t("modals.exitTimeoutNote", { time: recheckTime, exit: firstExitTime })}
+      </Text>
     </ModalShell>
   );
 }
 
 const styles = StyleSheet.create({
   grid: { gap: TOKENS.spacing.sm },
+  site: { ...FONT.bodySmall, marginBottom: TOKENS.spacing.sm },
+  note: { ...FONT.caption, marginTop: TOKENS.spacing.md },
 });

@@ -143,8 +143,8 @@ describe("intentRouter", () => {
     await routeIntent({ type: "CANCEL_TRANSFER" });
     await routeIntent({ type: "CLOSE_DAY", lunchDeductedMinutes: 15 });
     expect(intents()).toEqual([
-      { type: "ARRIVAL_CONFIRMED" },
-      { type: "LUNCH_START" },
+      { type: "ARRIVAL_CONFIRMED", manualArrival: false },
+      { type: "LUNCH_START", kind: "LUNCH" },
       { type: "RESUME" },
       { type: "TRANSFER_START", toSiteId: siteB },
       { type: "TRANSFER_CANCEL" },

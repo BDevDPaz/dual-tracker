@@ -50,7 +50,7 @@ describe("ForegroundWorkService", () => {
     expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running", reason: "UNCHANGED" });
     expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
     expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { relabel: true })).toMatchObject({ status: "running" });
-    expect(fgsBody()).toBe("Shift in progress · zone monitoring active");
+    expect(fgsBody()).toBe("Shift in progress · we record your location until you end it");
     await ForegroundWorkService.stop();
     setLanguage("es");
   });

@@ -8,7 +8,6 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { setLanguage, tLineKind } from "../../../i18n";
-import { DEFAULT_EXIT_DEBOUNCE_MS } from "../../../config/provisional";
 import { KV_KEYS } from "../../persistence/schema";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { KeyStore } from "../../persistence/keyStore";
@@ -218,9 +217,10 @@ describe("auditoría 2026-10-20", () => {
       radius: 100,
     });
     expect((await PersistenceService.getSession(session.id))!.domainStatus).toBe("ACTIVA");
-    expect((await GeofenceRuntimeService.getPendingExit())!.strikes).toBeGreaterThan(3);
+    expect((await GeofenceRuntimeService.getPendingExit())!.strikes).toBe(3);
 
-    time.travel(DEFAULT_EXIT_DEBOUNCE_MS);
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    time.travel(15_000);
     expect(await GeofenceRuntimeService.checkPendingExit()).toBe(true);
     expect((await PersistenceService.getSession(session.id))!.domainStatus).toBe("SALIDA");
     GeofenceRuntimeService.__resetForTests();

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import {
+  Banner,
   Chip,
   GpsExceptionCard,
   Input,
@@ -23,7 +24,7 @@ import {
   selectGpsExceptionKind,
   type GpsExceptionKind,
 } from "../../src/components/ui";
-import { AddNoteModal, ConfirmActionModal, DailySetupModal, ExitDetectionModal, LunchModal } from "../../src/components/modals";
+import { AddNoteModal, ConfirmActionModal, DailySetupModal, ExitDetectionModal, LunchModal, PauseKindModal } from "../../src/components/modals";
 import { OrphanReviewCard, ScreenStatusBanner } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { EXTEND_PROMPT_MS } from "../../src/constants/tasks";
@@ -56,7 +57,7 @@ import {
 import { t } from "../../src/i18n";
 import { formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
-type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "CANCEL_TRANSFER" | "NOTE" | "CANCEL_DAY" | "EXTEND";
+type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "PAUSE" | "CANCEL_TRANSFER" | "NOTE" | "CANCEL_DAY" | "EXTEND" | "TRUST";
 
 export default function TodayScreen() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function TodayScreen() {
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
   const [modal, setModal] = useState<OpenModal>(null);
+  const [exitReopened, setExitReopened] = useState(false);
   const [cancelNote, setCancelNote] = useState("");
   const { busy, run: guard } = useBusyAction();
 
@@ -87,7 +89,10 @@ export default function TodayScreen() {
 
   // Peticiones de UI originadas fuera de la vista (notificación de salida, boot en SALIDA).
   useEffect(() => {
-    if (uiRequests.openExitModal) setModal("EXIT");
+    if (uiRequests.openExitModal) {
+      setExitReopened(uiRequests.exitReopened === true);
+      setModal("EXIT");
+    }
     else if (uiRequests.openDailySetup) setModal(uiRequests.openDailySetup === "transit" ? "SETUP_TRANSIT" : "SETUP_START");
     else if (uiRequests.openExtendConfirm) setModal("EXTEND");
     else if (uiRequests.correctSessionId) router.push(`/session/${uiRequests.correctSessionId}`);
@@ -95,7 +100,7 @@ export default function TodayScreen() {
       // La tarjeta de revisión ya está en Hoy. El aviso solo abre la app.
     } else return;
     void emit({ type: "CONSUME_UI_REQUEST" });
-  }, [uiRequests.openExitModal, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, emit, router]);
+  }, [uiRequests.openExitModal, uiRequests.exitReopened, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, emit, router]);
 
   // Si el estado deja de ser SALIDA (p. ej. decidido desde la notificación), cerrar el hub.
   useEffect(() => {
@@ -121,7 +126,8 @@ export default function TodayScreen() {
       case "OPEN_LUNCH_CLOSE":
         return setModal("LUNCH_CLOSE_DAY");
       case "START_LUNCH":
-        return void run({ type: "START_LUNCH" });
+      case "OPEN_PAUSE":
+        return setModal("PAUSE");
       case "RESUME":
         return void run({ type: "RESUME" });
       case "OPEN_LUNCH_FINISH":
@@ -201,7 +207,7 @@ export default function TodayScreen() {
       footer={
         <PrimaryButton
           label={t(ui.primary.labelKey)}
-          variant={sessionState === "ACTIVA" || sessionState === "SALIDA" ? "danger" : "primary"}
+          variant="primary"
           onPress={() => onHeroAction(ui.primary.action)}
           isLoading={busy}
         />
@@ -269,6 +275,15 @@ export default function TodayScreen() {
           onPrimaryAction={() => onHeroAction(ui.primary.action)}
           onSecondaryAction={ui.secondary ? () => onHeroAction(ui.secondary!.action) : undefined}
         />
+
+        {uiRequests.autoCloseBanner ? <Banner tone="warning" message={uiRequests.autoCloseBanner} /> : null}
+        {!active ? (
+          <Pressable onPress={() => setModal("TRUST")} accessibilityRole="button" style={styles.footerLink}>
+            <Text style={[styles.link, { color: colors.text.secondary }]}>{t("today.trustShort")}</Text>
+            <Text style={[styles.link, { color: colors.primary }]}>{t("today.howItWorks")}</Text>
+          </Pressable>
+        ) : null}
+        {active?.bookkeeping.compliance?.manualArrival ? <Banner tone="info" message={t("today.manualArrival")} /> : null}
 
         {noSitesNoSession ? (
           <EmptyState
@@ -441,17 +456,31 @@ export default function TodayScreen() {
         onConfirm={() => void run({ type: "EXTEND_SHIFT" }, () => setModal(null))}
       />
 
+      <PauseKindModal
+        visible={modal === "PAUSE"}
+        busy={busy}
+        lunchUsed={active?.lunch.taken === true}
+        onCancel={() => setModal(null)}
+        onLunch={() => void run({ type: "START_LUNCH" }, () => setModal(null))}
+        onRest={() => void run({ type: "START_REST" }, () => setModal(null))}
+      />
+      <ModalShell
+        visible={modal === "TRUST"}
+        title={t("today.howItWorks")}
+        onClose={() => setModal(null)}
+        primaryAction={{ label: t("common.ok"), onPress: () => setModal(null) }}
+      >
+        <Text style={{ color: colors.text.primary }}>{t("today.trustFull")}</Text>
+      </ModalShell>
       <ExitDetectionModal
         visible={modal === "EXIT"}
         firstExitTime={formatTime(active?.bookkeeping.firstExitAtMs ?? null)}
+        siteName={target?.alias ?? ""}
+        recheckTime={formatTime((active?.bookkeeping.firstExitAtMs ?? nowMs) + 15 * 60_000)}
+        reopened={exitReopened}
         busy={busy}
         onStay={() => void run({ type: "STAY_WORKING" }, () => setModal(null))}
-        onLunch={() => void run({ type: "START_LUNCH" }, () => setModal(null))}
         onTransfer={() => setModal("SETUP_TRANSIT")}
-        onErrand={() => {
-          if (!active || active.siteId == null) return;
-          void run({ type: "START_TRANSFER", toSiteId: active.siteId, purpose: "ERRAND" }, () => setModal(null));
-        }}
         onCloseDay={() => setModal("LUNCH_CLOSE_EXIT")}
         onDismiss={() => setModal(null)}
       />

@@ -6,6 +6,7 @@
 import escapeHtml from "escape-html";
 import type { IntegrityClass, PayrollLine, SessionRecord, Site } from "../../core/contracts";
 import { t, tWarning, type Language } from "../../i18n";
+import { pdfIntegrityBadgesHtml } from "./pdfIntegrity";
 import { formatCurrency, formatDate, formatDateTime, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayClockSpanMinutes, displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
@@ -110,11 +111,14 @@ function css(theme: "light" | "dark"): string {
     th { text-align: left; border-bottom: 2px solid ${p.ink}; padding: 7px 6px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.6px; color: ${p.muted}; }
     td { border-bottom: 1px solid ${p.line}; padding: 8px 6px; vertical-align: top; }
     th.fig, td.fig { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
-    .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-block; }
-    .b-VALID { background: #e8f8ef; color: #1e8449; }
-    .b-MANUAL { background: #fff4e0; color: #b9770e; }
-    .b-AUTO { background: #eaf2fb; color: #2471a3; }
-    .b-CONFLICT { background: #fdecea; color: #c0392b; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; display: inline-block; margin: 0 4px 4px 0; }
+    .b-INTACTA { background: #D0D0D0; color: #000000; }
+    .b-EDITADA { background: #FF9C00; color: #000000; }
+    .b-ELIMINADA { background: #FF3D63; color: #000000; }
+    .b-AUTO { background: #8A00FF; color: #FFFFFF; }
+    .b-TRANSITO { background: #00E5FF; color: #000000; }
+    .b-CANCELADA { background: #2B2BFF; color: #FFFFFF; }
+    .b-CONFLICT { background: #F2994A; color: #000000; }
     .notes { font-style: italic; color: ${p.muted}; font-size: 11px; display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: break-word; }
     .grapheme { white-space: nowrap; display: inline; }
     .addr { display: block; font-size: 11px; color: ${p.muted}; font-weight: normal; margin-top: 2px; }
@@ -156,16 +160,6 @@ function integrityKey(cls: string): string {
   if (cls === "AUTO") return "comprobante.integrityAuto";
   if (cls === "CONFLICT") return "comprobante.integrityConflict";
   return "";
-}
-
-/** El rollup sigue contando MANUAL. La fila no dice «Cierre automático» si el operario recuperó el corte. */
-function sessionIntegrityLabel(session: SessionRecord, lang: Language): string {
-  const reason = session.bookkeeping.integrityReason;
-  if (reason === "RECOVERED_CLOSED" || reason === "ORPHAN_CONTINUED" || reason === "ORPHAN_END_CONFIRMED") {
-    return t("comprobante.integrityRecovered", {}, lang);
-  }
-  const key = integrityKey(session.integrityClass);
-  return key ? t(key, {}, lang) : session.integrityClass;
 }
 
 const MANUAL_EXIT_REASONS = new Set(["MANUAL_ACTION_EXPLICIT", "EXIT_CONFIRMED_BY_USER"]);
@@ -350,7 +344,6 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
       const zero = slice?.zeroDuration ?? (s.endAtMs !== null && Math.round((s.endAtMs - start) / 60000) <= 0);
       const note = s.bookkeeping.manualNote ? noteToHtml(s.bookkeeping.manualNote, escapeHtml) : "";
       const lunchNote = lunchRangeNote(s, lang);
-      const badge = sessionIntegrityLabel(s, lang);
       return `
         <tr>
           <td><strong>${escapeHtml(formatDate(from, fmt))}</strong></td>
@@ -358,7 +351,7 @@ function sessionTable(input: ReportInput, role: PremiumRole, lang: Language): { 
           <td>${escapeHtml(formatTime(from, fmt))} - ${to != null ? escapeHtml(formatTime(to, fmt)) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${lunchNote}${zero ? `<span class="notes">${escapeHtml(t("comprobante.zeroDuration", {}, lang))}</span>` : ""}</td>
           <td class="fig"><strong>${escapeHtml(hours)}</strong><span class="notes">${minutes} min</span></td>
           <td class="fig">${escapeHtml(row?.amount ?? formatCurrency(0))}</td>
-          <td><span class="badge b-${s.integrityClass}">${escapeHtml(badge)}</span></td>
+          <td>${pdfIntegrityBadgesHtml(s, lang)}</td>
         </tr>`;
     })
     .join("");

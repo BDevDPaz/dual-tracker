@@ -39,7 +39,9 @@ import {
   MAX_MONITORED_REGIONS,
   MIN_DWELL_BEFORE_EXIT_MS,
   SAMPLE_MAX_AGE_MS,
+  EXIT_READING_INTERVAL_MS,
   clampSampleTimestamp,
+  classifyExitReading,
   confirmExitDecision,
   effectiveJumpMeters,
   isFarOutside,
@@ -59,6 +61,8 @@ export interface PendingExit {
   reliable: boolean;
   reason: string | null;
   strikes: number;
+  /** Hora de la última lectura que sumó, o la del EXIT que abrió la cuenta. */
+  lastReadingAtMs?: number;
 }
 
 interface Fix {
@@ -754,7 +758,6 @@ export const GeofenceRuntimeService = {
       // sigue arriba (GEOFENCE_ANTI_REBOUNCE_MS).
       const refreshed: PendingExit = {
         ...existing,
-        strikes: existing.strikes + 1,
         reliable: existing.reliable || fact.reliable,
         reason: existing.reason ?? fact.reason ?? null,
       };
@@ -789,10 +792,11 @@ export const GeofenceRuntimeService = {
       firstExitAtMs: nowMs,
       reliable: fact.reliable,
       reason: fact.reason ?? null,
-      strikes: 0,
+      strikes: 1,
+      lastReadingAtMs: nowMs,
     };
     await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, pending);
-    GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
+    GeofenceRuntimeService.armDebounceTimer(EXIT_READING_INTERVAL_MS);
     await appendGeofenceDiag({
       kind: "EXIT",
       region: region.identifier ?? null,
@@ -820,12 +824,12 @@ export const GeofenceRuntimeService = {
     }, ms);
   },
 
-  /** Rearma el debounce con el tiempo que falta si el proceso murió a medias. */
+  /** Rearma la siguiente lectura (15 s) si el proceso murió a medias. */
   async resumePendingTimer(): Promise<void> {
     const pending = await GeofenceRuntimeService.getPendingExit();
     if (!pending) return;
-    const settings = await SettingsService.load();
-    const remain = Math.max(0, pending.firstExitAtMs + settings.company.exitDebounceMs - TimeAuthorityService.now());
+    const last = pending.lastReadingAtMs ?? pending.firstExitAtMs;
+    const remain = Math.max(0, last + EXIT_READING_INTERVAL_MS - TimeAuthorityService.now());
     GeofenceRuntimeService.armDebounceTimer(remain);
   },
 
@@ -869,14 +873,35 @@ export const GeofenceRuntimeService = {
       });
       return false;
     }
-    const { zone, far } = zoneOf(fix, ctx.target);
+    const { zone, far, dist } = zoneOf(fix, ctx.target);
+    const reading = fix ? classifyExitReading(dist, ctx.target.radiusM, fix.accuracyM) : "ignore";
+    const dwell = dwellMs(ctx.session, pending.firstExitAtMs);
+    if (reading === "inside" || (dwell < MIN_DWELL_BEFORE_EXIT_MS && !far)) {
+      await GeofenceRuntimeService.clearPendingExit();
+      await appendGeofenceDiag({
+        kind: "EXIT",
+        region: geofenceIdentifier(ctx.session.id, ctx.target.siteId),
+        siteId: ctx.target.siteId,
+        accuracyM: fix?.accuracyM ?? null,
+        accepted: false,
+        reason: reading === "inside" ? "INSIDE_RADIUS" : "FLICKER_DWELL",
+        atMs: nowMs,
+      });
+      return false;
+    }
+    let strikes = pending.strikes;
+    const lastReading = pending.lastReadingAtMs ?? pending.firstExitAtMs;
+    if (reading === "outside" && nowMs - lastReading >= EXIT_READING_INTERVAL_MS) {
+      strikes += 1;
+      await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, { ...pending, strikes, lastReadingAtMs: nowMs });
+    }
     const gate = confirmExitDecision({
-      zone,
-      far,
-      dwellMs: dwellMs(ctx.session, pending.firstExitAtMs),
+      zone: reading === "outside" ? "outside" : "unknown",
+      far: reading === "outside" && far,
+      dwellMs: dwell,
       elapsedMs: nowMs - pending.firstExitAtMs,
-      debounceMs: ctx.exitDebounceMs,
-      strikes: pending.strikes,
+      debounceMs: 0,
+      strikes,
       pendingReliable: pending.reliable,
     });
     if (gate === "clear") {
@@ -893,11 +918,11 @@ export const GeofenceRuntimeService = {
       return false;
     }
     if (gate === "wait") {
-      GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
+      GeofenceRuntimeService.armDebounceTimer(EXIT_READING_INTERVAL_MS);
       return false;
     }
     await GeofenceRuntimeService.clearPendingExit();
-    const reliable = pending.reliable && zone === "outside";
+    const reliable = pending.reliable && reading === "outside";
     const fact: SpatialFact = {
       sessionId: pending.sessionId,
       type: "EXIT",
@@ -1047,14 +1072,15 @@ export const GeofenceRuntimeService = {
       }
     }
 
-    if (pending && pending.sessionId === session.id && zone === "outside") {
-      await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, { ...pending, strikes: pending.strikes + 1 });
+    if (pending && pending.sessionId === session.id && (zone === "outside" || zone === "unknown")) {
       await GeofenceRuntimeService.checkPendingExit();
       return;
     }
 
     if (session.domainStatus === "ACTIVA" && zone === "outside") {
       const { far } = zoneOf(fix, target);
+      const sampleReading = classifyExitReading(getDistanceFromLatLonInMeters(fix.lat, fix.lon, target.lat, target.lon), target.radiusM, fix.accuracyM);
+      if (sampleReading !== "outside") return;
       if (!shouldArmExit({ zone, far, dwellMs: dwellMs(session, at) })) return;
       const armed: PendingExit = {
         sessionId: session.id,
@@ -1063,9 +1089,10 @@ export const GeofenceRuntimeService = {
         reliable: true,
         reason: null,
         strikes: 1,
+        lastReadingAtMs: at,
       };
       await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, armed);
-      GeofenceRuntimeService.armDebounceTimer(ctx.exitDebounceMs);
+      GeofenceRuntimeService.armDebounceTimer(EXIT_READING_INTERVAL_MS);
       await appendGeofenceDiag({
         kind: "SAMPLE",
         region: geofenceIdentifier(session.id, target.siteId),
@@ -1098,6 +1125,31 @@ export const GeofenceRuntimeService = {
    * ¿Está claramente fuera del radio (histéresis incluida)? null si el fix
    * no alcanza para decirlo. true solo confirma un cierre AUTO.
    */
+  /** Al reanudar, si ya estás fuera, esta lectura es la 1.ª de la cuenta (D-20). */
+  async sampleExitAfterResume(): Promise<void> {
+    const ctx = await loadContext();
+    if (!ctx || ctx.session.domainStatus !== "ACTIVA") return;
+    const fix = await readFix();
+    if (!fix || fix.mocked) return;
+    const nowMs = TimeAuthorityService.now();
+    const dist = getDistanceFromLatLonInMeters(fix.lat, fix.lon, ctx.target.lat, ctx.target.lon);
+    const reading = classifyExitReading(dist, ctx.target.radiusM, fix.accuracyM);
+    if (reading !== "outside") return;
+    const { zone, far } = zoneOf(fix, ctx.target);
+    if (!shouldArmExit({ zone, far, dwellMs: dwellMs(ctx.session, nowMs) })) return;
+    const armed: PendingExit = {
+      sessionId: ctx.session.id,
+      siteId: ctx.target.siteId,
+      firstExitAtMs: nowMs,
+      reliable: true,
+      reason: null,
+      strikes: 1,
+      lastReadingAtMs: nowMs,
+    };
+    await PersistenceService.setKv(KV_KEYS.PENDING_EXIT, armed);
+    GeofenceRuntimeService.armDebounceTimer(EXIT_READING_INTERVAL_MS);
+  },
+
   async isCurrentlyOutside(): Promise<boolean | null> {
     const ctx = await loadContext();
     if (!ctx) return null;

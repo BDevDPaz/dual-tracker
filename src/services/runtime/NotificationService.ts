@@ -13,7 +13,7 @@
  */
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { PermissionState, SessionIntent } from "../../core/contracts";
+import type { PermissionState, SessionIntent, SessionPayrollPreview, SessionRecord } from "../../core/contracts";
 import { NOTIFICATION_ACTIONS, NOTIFICATION_CATEGORIES, NOTIFICATION_CHANNELS } from "../../constants/notifications";
 import { reminderTitleForHour, t } from "../../i18n";
 import { formatTime } from "../../utils/dateUtils";
@@ -21,9 +21,11 @@ import { planMealRestNotices } from "../domain/caPremiums";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
+import { PersistenceService } from "../persistence/PersistenceService";
+import { KV_KEYS } from "../persistence/schema";
+import { StoreActions } from "../../core/store";
 import { criticalKindsOf, recordCriticalNotice, type CriticalNoticeKind } from "./criticalNotices";
 import { autoCloseContent, daySummaryContent, extendShiftContent, lunchResumeContent, LUNCH_RESUME_AFTER_MS, orphanNoticeContent } from "./dayNotices";
-import type { SessionPayrollPreview, SessionRecord } from "../../core/contracts";
 
 const DAILY_REMINDER_ID = "dualtracker-daily-reminder";
 const exitNotificationId = (sessionId: number) => `dualtracker-exit-${sessionId}`;
@@ -37,6 +39,8 @@ export type NotificationUiSink = (req: {
   openExtendConfirm?: boolean;
   correctSessionId?: number | null;
   openOrphanReview?: boolean;
+  exitReopened?: boolean;
+  autoCloseBanner?: string | null;
 }) => void;
 
 let intentSink: NotificationIntentSink | null = null;
@@ -375,9 +379,11 @@ export const NotificationService = {
     // Una tarea headless arranca un JS nuevo: los botones se registran aquí,
     // ya con el idioma hidratado, no con el que tenía el proceso anterior.
     await ensureCategories().catch(() => {});
+    const session = await PersistenceService.getSession(sessionId).catch(() => null);
+    const site = session?.siteId != null ? await PersistenceService.getSite(session.siteId).catch(() => null) : null;
     return NotificationService.notifyImmediate(
       t("notifications.exitTitle"),
-      t("notifications.exitBody"),
+      t("notifications.exitBody", { site: site?.alias ?? t("notifications.fgsNoSite"), time: formatTime(firstExitAtMs) }),
       { kind: "EXIT_DECISION", criticalKind: "EXIT", sessionId, firstExitAtMs },
       { identifier: exitNotificationId(sessionId), categoryIdentifier: NOTIFICATION_CATEGORIES.EXIT_DETECTION },
     );
@@ -400,14 +406,25 @@ export const NotificationService = {
     });
   },
 
-  /** N17. El texto depende de la clase. Nunca anuncia Validada. */
+  /** Aviso obligatorio de los dos cierres automáticos. Si no se puede mostrar, queda un banner. */
   async notifyAutoClose(session: SessionRecord): Promise<boolean> {
     const notice = autoCloseContent(session.integrityClass, session.endAtMs);
-    return NotificationService.notifyImmediate(notice.title, notice.body, {
+    const sent = await NotificationService.notifyImmediate(notice.title, notice.body, {
       kind: session.integrityClass === "AUTO" ? "AUTO_CLOSE" : "CONFLICT_CLOSE",
       sessionId: session.id,
       integrityClass: session.integrityClass,
     }, { identifier: `dualtracker-autoclose-${session.id}` });
+    if (!sent) {
+      const banner = t("notifications.autoCloseBody");
+      await PersistenceService.setKv(KV_KEYS.AUTO_CLOSE_BANNER, banner).catch(() => {});
+      uiSink?.({ autoCloseBanner: banner });
+      try {
+        StoreActions.uiRequest({ autoCloseBanner: banner });
+      } catch {
+        // Una tarea headless puede no tener el store listo.
+      }
+    }
+    return sent;
   },
 
   /** N16. */

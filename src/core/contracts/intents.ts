@@ -26,8 +26,8 @@ import type { LedgerActor } from "./ledger";
 export type SessionIntent =
   | { type: "START_DAY"; siteId: number; clientId?: string | null; note?: string | null }
   | { type: "CANCEL_DAY" }
-  | { type: "ARRIVAL_CONFIRMED"; fact?: SpatialFact }
-  | { type: "LUNCH_START" }
+  | { type: "ARRIVAL_CONFIRMED"; fact?: SpatialFact; manualArrival?: boolean }
+  | { type: "LUNCH_START"; kind?: "LUNCH" | "REST" }
   | { type: "RESUME" }
   | { type: "TRANSFER_START"; toSiteId: number; purpose?: "ERRAND" }
   | { type: "TRANSFER_CANCEL"; note?: string | null }
@@ -123,6 +123,7 @@ export type IntentRejection =
   | "ALREADY_CLOSED"
   | "ILLEGAL_TRANSITION"
   | "DISCLOSURE_NOT_ACCEPTED"
+  | "LOCATION_APPROXIMATE"
   | "SITE_REQUIRED"
   | "SITE_NOT_FOUND"
   | "NOTE_REQUIRED"
@@ -156,6 +157,7 @@ export type ViewIntent =
   | { type: "CANCEL_DAY" }
   | { type: "CONFIRM_ARRIVAL" }
   | { type: "START_LUNCH" }
+  | { type: "START_REST" }
   | { type: "RESUME" }
   | { type: "START_TRANSFER"; toSiteId: number; purpose?: "ERRAND" }
   | { type: "CANCEL_TRANSFER"; note?: string | null }
@@ -254,6 +256,7 @@ export const VIEW_TO_SESSION_INTENT: Partial<Record<ViewIntentType, SessionInten
   CANCEL_DAY: "CANCEL_DAY",
   CONFIRM_ARRIVAL: "ARRIVAL_CONFIRMED",
   START_LUNCH: "LUNCH_START",
+  START_REST: "LUNCH_START",
   RESUME: "RESUME",
   START_TRANSFER: "TRANSFER_START",
   CANCEL_TRANSFER: "TRANSFER_CANCEL",

@@ -22,6 +22,7 @@ import type {
 } from "../../core/contracts";
 import { t, tWarning } from "../../i18n";
 import { renderPremiumDocument } from "./reportPremium";
+import { pdfIntegrityBadgesHtml } from "./pdfIntegrity";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
@@ -107,19 +108,6 @@ export function isPremiumDocument(input: ReportInput): boolean {
   return (input.manifest.documentVersion ?? 1) >= 2;
 }
 
-const INTEGRITY_LABEL: Record<SessionRecord["integrityClass"], string> = {
-  VALID: "Validada",
-  MANUAL: "Ajuste manual",
-  AUTO: "Cierre automático",
-  CONFLICT: "Por revisar",
-};
-
-function integrityLabelEs(s: SessionRecord): string {
-  const reason = s.bookkeeping.integrityReason;
-  if (reason === "RECOVERED_CLOSED" || reason === "ORPHAN_CONTINUED" || reason === "ORPHAN_END_CONFIRMED") return "Recuperada";
-  return INTEGRITY_LABEL[s.integrityClass];
-}
-
 const LINE_LABEL: Record<PayrollLine["kind"], string> = {
   REGULAR: "Regular",
   OVERTIME_DAILY: "OT diario",
@@ -149,8 +137,14 @@ const BASE_CSS = `
   table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 11px; }
   th { text-align: left; border-bottom: 2px solid #000; padding: 8px; text-transform: uppercase; font-size: 9px; color: #666; }
   td { border-bottom: 1px solid #eee; padding: 10px 8px; vertical-align: top; }
-  .badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; display: inline-block; }
-  .b-VALID { background: #e8f8ef; color: #1e8449; }
+  .badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; display: inline-block; margin: 0 4px 4px 0; }
+  .b-INTACTA { background: #D0D0D0; color: #000000; }
+  .b-EDITADA { background: #FF9C00; color: #000000; }
+  .b-ELIMINADA { background: #FF3D63; color: #000000; }
+  .b-AUTO { background: #8A00FF; color: #FFFFFF; }
+  .b-TRANSITO { background: #00E5FF; color: #000000; }
+  .b-CANCELADA { background: #2B2BFF; color: #FFFFFF; }
+  .b-VALID { background: #D0D0D0; color: #000000; }
   .b-MANUAL { background: #fff4e0; color: #b9770e; }
   .b-AUTO { background: #eaf2fb; color: #2471a3; }
   .b-CONFLICT { background: #fdecea; color: #c0392b; }
@@ -257,7 +251,7 @@ function sessionRows(input: ReportInput, omitZeroPay: boolean): { html: string; 
           <td>${formatTime(from, ES)} - ${to != null ? formatTime(to, ES) : "—"}${cont.length ? `<span class="notes">(${escapeHtml(cont.join("; "))})</span>` : ""}${zero ? `<span class="notes">Duración cero: no suma al pago. Conservada para auditoría.</span>` : ""}</td>
           <td><strong>${hours}</strong><span class="mins">${minutes} min</span></td>
           <td>${row?.amount ?? formatCurrency(0)}</td>
-          <td><span class="badge b-${s.integrityClass}">${integrityLabelEs(s)}</span></td>
+          <td>${pdfIntegrityBadgesHtml(s, "es")}</td>
         </tr>`;
     })
     .join("");

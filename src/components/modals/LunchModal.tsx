@@ -105,7 +105,7 @@ export function LunchModal(props: LunchModalProps) {
       icon={ICONS.domain.lunch}
       onClose={props.onCancel}
       primaryAction={{
-        label: t("common.confirm"),
+        label: t("cta.finishDay"),
         onPress: () => props.onConfirm(selected, needsStart ? startHHmm.trim() : null),
         disabled: selected === null || (needsStart && !HHMM.test(startHHmm.trim())) || !!lunchError || props.busy === true,
         loading: props.busy === true,
@@ -124,6 +124,7 @@ export function LunchModal(props: LunchModalProps) {
           />
         ))}
       </View>
+      {selected === null ? <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("modals.pickLunch")}</Text> : null}
       {selected !== null ? (
         <Text style={[styles.hint, { color: colors.text.secondary }]} testID="lunch-preview" accessibilityLiveRegion="polite">
           {t("modals.lunchPreview", { minutes: selected })}

@@ -268,6 +268,8 @@ export const KV_KEYS = {
   HEARTBEAT: "runtime.heartbeat",
   PENDING_EXIT: "runtime.pending_exit",
   EXIT_DECISION: "runtime.exit_decision",
+  EXIT_REOPEN: "runtime.exit_reopen",
+  AUTO_CLOSE_BANNER: "runtime.auto_close_banner",
   LAST_SWEEP_DAY: "runtime.last_integrity_sweep_day",
   LAST_FIX: "runtime.last_fix",
   /** Heartbeat ya anotado como MONITORING_GAP, para no repetir el mismo hueco. */

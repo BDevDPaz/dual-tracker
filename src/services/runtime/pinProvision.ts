@@ -18,7 +18,7 @@
  */
 import { getPublicKey, hashes, sign, verify } from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
-import { PIN_HASH_ITERATIONS, PIN_MIN_LENGTH, PIN_SCRYPT_DK_LEN, PIN_SCRYPT_N, PIN_SCRYPT_P, PIN_SCRYPT_R } from "../../config/provisional";
+import { PIN_HASH_ITERATIONS, PIN_MAX_LENGTH, PIN_MIN_LENGTH, PIN_SCRYPT_DK_LEN, PIN_SCRYPT_N, PIN_SCRYPT_P, PIN_SCRYPT_R } from "../../config/provisional";
 import { canonicalJson } from "../../utils/canonicalJson";
 import { b64urlDecode, b64urlEncode, utf8 } from "../persistence/cryptoCodec";
 import { derivePinHash, parseScryptPinHash, scryptCostAllowed, scryptPinHash, sha256HexBytes, type ScryptPinParams } from "./pinHash";
@@ -131,7 +131,7 @@ export function createProvisionCode(input: {
   seed: Uint8Array;
 }): { ok: true; code: string; nonce: string; expiresAtMs: number } | { ok: false; code: PinCodeError } {
   const pin = (input.pin ?? "").trim();
-  if (pin.length < PIN_MIN_LENGTH) return { ok: false, code: "PIN_INVALID" };
+  if (!new RegExp(`^\\d{${PIN_MIN_LENGTH},${PIN_MAX_LENGTH}}$`).test(pin)) return { ok: false, code: "PIN_INVALID" };
   if (!Number.isFinite(input.expiresAtMs)) return { ok: false, code: "CODE_INVALID" };
   if (input.salt.length < 16 || input.nonce.length < 16 || input.seed.length !== 32) return { ok: false, code: "CODE_INVALID" };
   const saltBytes = input.salt.subarray(0, 16);
@@ -159,7 +159,7 @@ export function createLegacyProvisionCode(input: {
   seed: Uint8Array;
 }): { ok: true; code: string; nonce: string; expiresAtMs: number } | { ok: false; code: PinCodeError } {
   const pin = (input.pin ?? "").trim();
-  if (pin.length < PIN_MIN_LENGTH) return { ok: false, code: "PIN_INVALID" };
+  if (!new RegExp(`^\\d{${PIN_MIN_LENGTH},${PIN_MAX_LENGTH}}$`).test(pin)) return { ok: false, code: "PIN_INVALID" };
   if (!Number.isFinite(input.expiresAtMs) || input.salt.length < 16 || input.nonce.length < 16 || input.seed.length !== 32) {
     return { ok: false, code: "CODE_INVALID" };
   }

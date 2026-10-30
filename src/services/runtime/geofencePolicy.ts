@@ -20,14 +20,12 @@ export const FAR_DEPARTURE_M = 150;
  * geocerca estando ya dentro.
  */
 export const MIN_DWELL_BEFORE_EXIT_MS = 90_000;
-/** Muestras fuera de radio para confirmar antes de que venza el debounce. */
+/** Tres lecturas fuera confirman la salida. No hay atajo por tiempo (D-01). */
 export const EXIT_CONFIRM_STRIKES = 3;
-/**
- * La banda unknown, con una salida que sí fue fiable, no confirma en el
- * primer debounce (se espera un fix claro). Pasado este múltiplo del
- * debounce se confirma igual: si no, la jornada sigue abierta para siempre.
- */
-export const EXIT_UNKNOWN_GIVE_UP_FACTOR = 2;
+/** Separación entre las lecturas de salida (D-01: cada 15 s). */
+export const EXIT_READING_INTERVAL_MS = 15_000;
+/** Una lectura con precisión peor que esto no suma ni reinicia la cuenta (D-01). */
+export const EXIT_ACCURACY_MAX_M = 50;
 export const DIAG_LIMIT = 30;
 /** Una muestra más vieja que esto no ficha (fix cacheado del sistema). */
 export const SAMPLE_MAX_AGE_MS = 5 * 60_000;
@@ -76,6 +74,22 @@ export function presenceZone(distM: number, radiusM: number, accuracyM: number |
   return "unknown";
 }
 
+/**
+ * Lectura de salida (D-01).
+ * outside: precisión ≤ 50 m y distancia ≥ radio + 50 m. Suma un strike.
+ * inside: precisión ≤ 50 m y dentro del radio. Reinicia la cuenta.
+ * ignore: precisión > 50 m, o la banda entre el radio y el radio + 50 m.
+ */
+export type ExitReading = "outside" | "inside" | "ignore";
+
+export function classifyExitReading(distM: number, radiusM: number, accuracyM: number | null): ExitReading {
+  if (!Number.isFinite(distM) || radiusM <= 0) return "ignore";
+  if (accuracyM === null || !Number.isFinite(accuracyM) || accuracyM < 0 || accuracyM > EXIT_ACCURACY_MAX_M) return "ignore";
+  if (distM <= radiusM) return "inside";
+  if (distM >= radiusM + EXIT_HYSTERESIS_M) return "outside";
+  return "ignore";
+}
+
 export function isFarOutside(distM: number, radiusM: number, accuracyM: number | null): boolean {
   if (!Number.isFinite(distM) || radiusM <= 0) return false;
   if (accuracyM === null || !Number.isFinite(accuracyM) || accuracyM < 0) return false;
@@ -86,14 +100,10 @@ export function isFarOutside(distM: number, radiusM: number, accuracyM: number |
 export type ExitGate = "clear" | "wait" | "confirm";
 
 /**
- * Qué hacer con una salida pendiente.
- *  - Dentro, o rebote recién llegado: se tira.
- *  - Aún no vence el debounce ni hay strikes: se espera.
- *  - Claramente fuera (histéresis superada): se confirma.
- *  - Sigue en la banda de histéresis: no se confirma en el primer debounce.
- *    Si el EXIT original no era fiable, se tira. Si lo era, se espera un
- *    fix fuera de verdad, como mucho otro debounce: después se confirma
- *    para que la jornada no siga abierta sin fin.
+ * Qué hacer con una salida pendiente (D-01, D-26).
+ * Dentro del radio, o rebote en los primeros 90 s: se tira.
+ * Tres lecturas fuera confirman. El tiempo transcurrido no confirma.
+ * `debounceMs` se conserva en la firma y ya no abre la salida.
  */
 export function confirmExitDecision(opts: {
   zone: PresenceZone;
@@ -104,13 +114,12 @@ export function confirmExitDecision(opts: {
   strikes: number;
   pendingReliable: boolean;
 }): ExitGate {
+  void opts.debounceMs;
+  void opts.pendingReliable;
+  void opts.elapsedMs;
   if (opts.zone === "inside") return "clear";
   if (opts.dwellMs < MIN_DWELL_BEFORE_EXIT_MS && !opts.far) return "clear";
-  const due = opts.elapsedMs >= opts.debounceMs || opts.strikes >= EXIT_CONFIRM_STRIKES;
-  if (!due) return "wait";
-  if (opts.zone === "outside" || opts.far) return "confirm";
-  if (!opts.pendingReliable) return "clear";
-  if (opts.elapsedMs >= opts.debounceMs * EXIT_UNKNOWN_GIVE_UP_FACTOR) return "confirm";
+  if (opts.strikes >= EXIT_CONFIRM_STRIKES && opts.zone === "outside") return "confirm";
   return "wait";
 }
 

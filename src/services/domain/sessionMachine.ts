@@ -638,13 +638,19 @@ export function transition(
       }
       const at = intent.fact?.timestampMs ?? now;
       const seg = openSegment(open);
+      const manualArrival = intent.manualArrival === true;
       const next: SessionRecord = {
         ...open,
         domainStatus: "ACTIVA",
         actualStartAtMs: open.actualStartAtMs ?? at,
         siteId: seg ? seg.toSiteId : open.siteId,
         transitSegments: closeOpenSegment(open, at, ctx.company),
-        bookkeeping: { ...open.bookkeeping, firstExitAtMs: null, firstExitReliable: null },
+        bookkeeping: {
+          ...open.bookkeeping,
+          firstExitAtMs: null,
+          firstExitReliable: null,
+          ...(manualArrival ? { compliance: { ...open.bookkeeping.compliance, manualArrival: true } } : {}),
+        },
       };
       const reason = ctx.actor === "GEOFENCE" ? "AUTO_CHECKIN_GEOFENCE_ENTRY" : "MANUAL_ARRIVAL_CONFIRMED";
       return ok(open, next, ctx, reason, [sync(next, next.siteId)], ctx.actor === "GEOFENCE" ? "AUTO_CHECKIN" : "ARRIVAL_CONFIRMED");
@@ -661,6 +667,20 @@ export function transition(
       const at = fromExit && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
       if (future(at, ctx)) return reject("FUTURE_TIME");
       const cleared = fromExit ? { firstExitAtMs: null, firstExitReliable: null } : {};
+      if (intent.kind === "REST") {
+        const next: SessionRecord = {
+          ...open,
+          domainStatus: "PAUSADA",
+          bookkeeping: {
+            ...open.bookkeeping,
+            ...cleared,
+            pauses: [...(open.bookkeeping.pauses ?? []), { startAtMs: at, endAtMs: null, kind: "REST" }],
+          },
+        };
+        const effects: EngineEffect[] = [sync(next, next.siteId)];
+        if (fromExit) effects.push({ type: "CANCEL_EXIT_DECISION", sessionId: open.id });
+        return ok(open, next, ctx, "REST_STARTED", effects, "LUNCH_STARTED");
+      }
       // Primera pausa = almuerzo (línea explícita). Pausas siguientes = pausa genérica.
       const next: SessionRecord = open.lunch.taken
         ? {
@@ -689,6 +709,19 @@ export function transition(
       if (!open) return reject("NO_OPEN_SESSION");
       if (open.domainStatus !== "PAUSADA") return reject("ILLEGAL_TRANSITION");
       let next: SessionRecord;
+      const openRest = (open.bookkeeping.pauses ?? []).find((p) => p.kind === "REST" && p.endAtMs === null);
+      if (openRest && !(open.lunch.startAtMs && !open.lunch.endAtMs)) {
+        if (future(now, ctx)) return reject("FUTURE_TIME");
+        next = {
+          ...open,
+          domainStatus: "ACTIVA",
+          bookkeeping: {
+            ...open.bookkeeping,
+            pauses: (open.bookkeeping.pauses ?? []).map((p) => (p === openRest ? { ...p, endAtMs: now } : p)),
+          },
+        };
+        return ok(open, next, ctx, "USER_RESUMED_WORK", [sync(next, next.siteId)], "RESUMED");
+      }
       if (open.lunch.startAtMs && !open.lunch.endAtMs) {
         const sessionStart = open.actualStartAtMs ?? open.declaredStartAtMs;
         if (future(now, ctx)) return reject("FUTURE_TIME");

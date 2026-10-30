@@ -192,7 +192,9 @@ export function computeSegmentMinutes(
     pause = [pauseTotal];
   } else {
     const recorded: Interval[] =
-      b.pausesSource === "PRORATED" ? [] : (b.pauses ?? []).map((p) => [p.startAtMs, p.endAtMs ?? nowMs] as const);
+      b.pausesSource === "PRORATED"
+        ? []
+        : (b.pauses ?? []).filter((p) => p.kind !== "REST").map((p) => [p.startAtMs, p.endAtMs ?? nowMs] as const);
     pause = cumulativeMinutes(recorded, segs);
     const residual = pauseTotal - pause.reduce((a, x) => a + x, 0);
     // Resto sin horas (> 1 min de tolerancia, §5.3 ±60 s) → prorrateo con advertencia.
