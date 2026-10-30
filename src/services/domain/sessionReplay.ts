@@ -92,9 +92,13 @@ function intentOf(entry: LedgerEntry, data: Record<string, unknown>): SessionInt
     case "CANCEL_DAY":
       return { type: "CANCEL_DAY" };
     case "ARRIVAL_CONFIRMED":
-      return data.fact ? { type: "ARRIVAL_CONFIRMED", fact: factOf(data, sessionId, "ENTER") } : { type: "ARRIVAL_CONFIRMED" };
+      return {
+        type: "ARRIVAL_CONFIRMED",
+        ...(data.fact ? { fact: factOf(data, sessionId, "ENTER") } : {}),
+        ...(data.manualArrival === true ? { manualArrival: true as const } : {}),
+      };
     case "LUNCH_START":
-      return { type: "LUNCH_START" };
+      return { type: "LUNCH_START", ...(data.kind === "REST" ? { kind: "REST" as const } : {}) };
     case "RESUME":
       return { type: "RESUME" };
     case "TRANSFER_START":

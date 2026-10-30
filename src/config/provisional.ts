@@ -70,23 +70,26 @@ const pinScryptDkLen = spec(
 
 const pinMinLength = spec(
   "pin.minLength",
-  6,
-  "caracteres",
-  "Mínimo del PIN o clave de administración. Sustituye el demo de 4 dígitos.",
-  "Técnica §4.8 y Producto §4.",
+  4,
+  "dígitos",
+  "Mínimo del PIN de administración. Solo dígitos, de 4 a 8.",
+  "Inicio de jornada v1.3: PIN de administración de 4 a 8 dígitos.",
+);
+
+const pinMaxLength = spec(
+  "pin.maxLength",
+  8,
+  "dígitos",
+  "Máximo del PIN de administración. Más de 8 dígitos se rechaza.",
+  "Inicio de jornada v1.3: PIN de administración de 4 a 8 dígitos.",
 );
 
 const pinLockoutSteps = spec(
   "pin.lockoutSteps",
-  [
-    [3, 30 * 1000],
-    [5, 5 * 60 * 1000],
-    [8, 30 * 60 * 1000],
-    [10, 24 * 60 * 60 * 1000],
-  ] as readonly (readonly [number, number])[],
+  [[5, 5 * 60 * 1000]] as readonly (readonly [number, number])[],
   "intentos fallidos → ms de bloqueo",
-  "Escalera progresiva. Cada par es el umbral de fallos acumulados y la duración del bloqueo.",
-  "Técnica §4.8 (bloqueo progresivo, sin cifras). Se conservan los escalones ya usados por SecurityService.",
+  "Al quinto fallo el teléfono espera 5 minutos.",
+  "Inicio de jornada v1.3: bloqueo de 5 minutos.",
 );
 
 const adminUnlockTtlMs = spec(
@@ -146,10 +149,10 @@ const heartbeatGapMs = spec(
 
 const exitDebounceMs = spec(
   "exit.debounceMs",
-  2 * 60 * 1000,
+  0,
   "ms",
-  "Debounce por defecto antes de tratar una salida como real. La empresa puede cambiarlo en la política.",
-  "Técnica §4.3 («hoy ~2 min», configurable). Valor por defecto de CompanyPolicy.",
+  "Sin espera de 2 min. La salida se confirma con 3 lecturas cada 15 s. 0 significa que el reloj no abre la salida.",
+  "Inicio de jornada v1.3 D-01. Sustituye el debounce de ~2 min.",
 );
 
 const exitDecisionWindowMs = spec(
@@ -282,6 +285,7 @@ export const PROVISIONAL = {
     scryptP: pinScryptP,
     scryptDkLen: pinScryptDkLen,
     minLength: pinMinLength,
+    maxLength: pinMaxLength,
     lockoutSteps: pinLockoutSteps,
     adminUnlockTtlMs: adminUnlockTtlMs,
     provisionDefaultTtlMs: pinProvisionDefaultTtlMs,
@@ -321,6 +325,7 @@ export const PROVISIONAL_SPECS: readonly ProvisionalSpec<unknown>[] = [
   pinScryptP,
   pinScryptDkLen,
   pinMinLength,
+  pinMaxLength,
   pinLockoutSteps,
   adminUnlockTtlMs,
   pinProvisionDefaultTtlMs,
@@ -354,6 +359,7 @@ export const PIN_SCRYPT_R = pinScryptR.value;
 export const PIN_SCRYPT_P = pinScryptP.value;
 export const PIN_SCRYPT_DK_LEN = pinScryptDkLen.value;
 export const PIN_MIN_LENGTH = pinMinLength.value;
+export const PIN_MAX_LENGTH = pinMaxLength.value;
 export const PIN_LOCKOUT_STEPS = pinLockoutSteps.value;
 export const ADMIN_UNLOCK_TTL_MS = adminUnlockTtlMs.value;
 export const PIN_PROVISION_DEFAULT_TTL_MS = pinProvisionDefaultTtlMs.value;

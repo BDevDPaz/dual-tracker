@@ -70,7 +70,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   // Teléfonos estrechos (< 360 dp): CTAs apilados a ancho completo; el texto nunca baja de 16.
   const { width, isCompact } = useResponsive();
   const narrow = isCompact || width < BREAKPOINTS.compact;
-  const primaryVariant = ui.state === "ACTIVA" || ui.state === "SALIDA" ? "danger" : "primary";
+  const primaryVariant = "primary" as const;
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}

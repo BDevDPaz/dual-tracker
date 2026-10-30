@@ -33,7 +33,7 @@ describe("LunchModal", () => {
     expect(screen.getByText(t("common.invalidTime"))).toBeTruthy();
     fireEvent.changeText(screen.getByTestId("lunch-start"), "1230");
     expect(screen.queryByText(t("common.invalidTime"))).toBeNull();
-    fireEvent.press(screen.getByText(t("common.confirm")));
+    fireEvent.press(screen.getByText(t("cta.finishDay")));
     expect(onConfirm).toHaveBeenCalledWith(30, "12:30");
   });
 
@@ -48,15 +48,15 @@ describe("LunchModal", () => {
     fireEvent.changeText(screen.getByTestId("lunch-start"), "0730");
     expect(screen.getByText(t("modals.futureTime"))).toBeTruthy();
     expect(screen.getByTestId("lunch-start").props.accessibilityValue.max).toBe(TimeAuthorityService.futureCeiling());
-    expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(screen.getByText(t("common.confirm")));
+    expect(screen.getByRole("button", { name: t("cta.finishDay") }).props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByText(t("cta.finishDay")));
     expect(onConfirm).not.toHaveBeenCalled();
 
     rerender(<LunchModal visible mode="close" askStartTime sessionStartMs={sessionStartMs} sessionEndMs={sessionEndMs} onCancel={jest.fn()} onConfirm={onConfirm} />);
     fireEvent.press(screen.getByLabelText(`30 ${t("common.minutes")}`));
     fireEvent.changeText(screen.getByTestId("lunch-start"), "0640");
     expect(screen.getByText(t("modals.lunchOutside"))).toBeTruthy();
-    expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByRole("button", { name: t("cta.finishDay") }).props.accessibilityState.disabled).toBe(true);
   });
 
   test("un almuerzo fijo de 60 min no cabe en una jornada de 36", () => {
@@ -67,8 +67,8 @@ describe("LunchModal", () => {
     const { rerender } = render(<LunchModal {...props} />);
     fireEvent.press(screen.getByLabelText(`60 ${t("common.minutes")}`));
     expect(screen.getByText(t("modals.lunchMustFit"))).toBeTruthy();
-    expect(screen.getByRole("button", { name: t("common.confirm") }).props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(screen.getByText(t("common.confirm")));
+    expect(screen.getByRole("button", { name: t("cta.finishDay") }).props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByText(t("cta.finishDay")));
     expect(onConfirm).not.toHaveBeenCalled();
     setLanguage("en");
     rerender(<LunchModal {...props} />);

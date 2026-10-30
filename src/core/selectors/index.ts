@@ -109,6 +109,7 @@ export type HeroAction =
   | "VIEW_DESTINATION"
   | "OPEN_LUNCH_CLOSE"
   | "START_LUNCH"
+  | "OPEN_PAUSE"
   | "RESUME"
   | "OPEN_LUNCH_FINISH"
   | "VIEW_STATUS"
@@ -133,8 +134,8 @@ export interface SessionStateUI {
 const UI_TABLE: Record<SessionState, Omit<SessionStateUI, "state" | "labelKey" | "subKey">> = {
   NO_INICIADA: { showTimer: false, tone: "neutral", primary: { labelKey: "cta.startDay", action: "OPEN_DAILY_SETUP_START" }, secondary: null, modal: "DAILY_SETUP_START" },
   // Secundario = confirmar llegada: el ENTER no fiable y "ya estoy dentro" no fichan solos.
-  ESPERANDO: { showTimer: false, tone: "info", primary: { labelKey: "cta.cancelDay", action: "CANCEL_DAY" }, secondary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, modal: null },
-  ACTIVA: { showTimer: true, tone: "success", primary: { labelKey: "cta.closeDay", action: "OPEN_LUNCH_CLOSE" }, secondary: { labelKey: "cta.startLunch", action: "START_LUNCH" }, modal: "LUNCH_CLOSE" },
+  ESPERANDO: { showTimer: false, tone: "info", primary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, secondary: { labelKey: "cta.cancelDay", action: "CANCEL_DAY" }, modal: null },
+  ACTIVA: { showTimer: true, tone: "success", primary: { labelKey: "cta.closeDay", action: "OPEN_LUNCH_CLOSE" }, secondary: { labelKey: "cta.startLunch", action: "OPEN_PAUSE" }, modal: "LUNCH_CLOSE" },
   PAUSADA: { showTimer: true, tone: "warning", primary: { labelKey: "cta.resume", action: "RESUME" }, secondary: { labelKey: "cta.finishDay", action: "OPEN_LUNCH_FINISH" }, modal: "LUNCH_SUPERVISOR" },
   // Primario = llegué: con geocercas solapadas el SO no dispara ENTER si ya estás dentro.
   TRASLADO: { showTimer: true, tone: "info", primary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, secondary: { labelKey: "cta.cancelTransfer", action: "CANCEL_TRANSFER" }, modal: "DAILY_SETUP_TRANSIT" },

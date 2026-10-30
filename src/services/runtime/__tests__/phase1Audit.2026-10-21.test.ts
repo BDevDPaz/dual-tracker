@@ -234,7 +234,7 @@ describe("fase 1 · 21 oct 2026", () => {
     const starts = rows.filter((e) => e.intent === "FOREGROUND_SERVICE_START_FAILED");
     expect(starts).toHaveLength(1);
     expect(dataOf(starts[0].payloadJson).severity).toBe("HIGH");
-    expect(notices().some((n) => n.body === "El monitoreo se detuvo; abre Dual Tracker.")).toBe(true);
+    expect(notices().some((n) => n.body === "Abre Dual Tracker para seguir con tu jornada.")).toBe(true);
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
     expect((await PersistenceService.getSession(s.id))?.integrityClass).toBe("VALID");
     await TaskOrchestratorService.runWorker();

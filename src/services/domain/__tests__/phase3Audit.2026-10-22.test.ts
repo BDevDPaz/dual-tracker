@@ -184,16 +184,16 @@ describe("fase 3 · 22 oct 2026", () => {
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB")).toMatchObject({ status: "running" });
       expect(fgsBody()).toBe(t("notifications.fgsBody", {}, "es"));
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB", { notice })).toMatchObject({ status: "running", reason: "STARTED" });
-      expect(fgsBody()).toBe("Sitio A · GPS correcto · Monitoreando");
+      expect(fgsBody()).toBe("Sitio A · Ubicación: correcto");
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB", { notice })).toMatchObject({ reason: "UNCHANGED" });
-      expect(fgsBody()).toBe("Sitio A · GPS correcto · Monitoreando");
+      expect(fgsBody()).toBe("Sitio A · Ubicación: correcto");
 
       setLanguage("en");
       const english = { ...notice!, monitoring: "DEGRADED" as const, gps: "lost" as const };
       expect(await ForegroundWorkService.sync("ACTIVA", "BREADCRUMB", { notice: english })).toMatchObject({ reason: "STARTED" });
-      expect(fgsBody()).toBe("Sitio A · GPS no signal · Degraded");
-      expect(t("notifications.fgsLive", { site: "Sitio A", gps: t("notifications.gps.ok", {}, "en"), monitoring: t("health.monitoring.MONITORING", {}, "en") }, "en")).toBe(
-        "Sitio A · GPS ok · Monitoring",
+      expect(fgsBody()).toBe("Sitio A · Location: no signal");
+      expect(t("notifications.fgsLive", { site: "Sitio A", gps: t("notifications.gps.ok", {}, "en") }, "en")).toBe(
+        "Sitio A · Location: ok",
       );
     } finally {
       setLanguage("es");

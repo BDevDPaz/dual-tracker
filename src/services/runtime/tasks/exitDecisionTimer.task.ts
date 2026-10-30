@@ -21,7 +21,19 @@ export interface ExitDecisionDeadline {
   deadlineMs: number;
 }
 
+/** El cierre de 15 min solo vive en el proceso que mostró la hoja. Reabrir no lo hereda (D-17). */
+let failsafeArmedInProcess = false;
+
+export function armExitFailsafeInProcess(): void {
+  failsafeArmedInProcess = true;
+}
+
+export function disarmExitFailsafeInProcess(): void {
+  failsafeArmedInProcess = false;
+}
+
 export async function runExitDecisionTimer(): Promise<boolean> {
+  if (!failsafeArmedInProcess) return false;
   const d = await PersistenceService.getKv<ExitDecisionDeadline>(KV_KEYS.EXIT_DECISION);
   if (!d) return false;
   if (TimeAuthorityService.now() < d.deadlineMs) return false;
@@ -44,8 +56,16 @@ export async function runExitDecisionTimer(): Promise<boolean> {
     }
   }
   await PersistenceService.deleteKv(KV_KEYS.EXIT_DECISION);
+  disarmExitFailsafeInProcess();
+  if (outside !== true) {
+    if (outside === false) {
+      const stayed = await SessionEngineService.dispatch({ type: "STAY_WORKING" }, "WATCHDOG");
+      if (stayed.ok) await NotificationService.dismissExit(d.sessionId);
+    }
+    return false;
+  }
   const r = await SessionEngineService.dispatch(
-    { type: "AUTO_CLOSE", cause: "EXIT_DECISION_EXPIRED", confirmedOutside: outside === true },
+    { type: "AUTO_CLOSE", cause: "EXIT_DECISION_EXPIRED", confirmedOutside: true },
     "WATCHDOG",
   );
   if (r.ok && r.data?.session) {

@@ -21,7 +21,8 @@ describe("geofencePolicy", () => {
     expect(confirmExitDecision({ zone: "unknown", far: false, dwellMs: 5_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 0, pendingReliable: true })).toBe("clear");
     expect(confirmExitDecision({ zone: "inside", far: false, dwellMs: 8 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: true })).toBe("clear");
     expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 10_000, debounceMs: 120_000, strikes: 0, pendingReliable: true })).toBe("wait");
-    expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 130_000, debounceMs: 120_000, strikes: 0, pendingReliable: true })).toBe("confirm");
+    expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 130_000, debounceMs: 0, strikes: 2, pendingReliable: true })).toBe("wait");
+    expect(confirmExitDecision({ zone: "outside", far: true, dwellMs: 5_000, elapsedMs: 30_000, debounceMs: 120_000, strikes: 3, pendingReliable: true })).toBe("confirm");
   });
 
   test("la banda de histéresis no confirma ni arma, aunque lleve rato fuera del centro", () => {
@@ -32,10 +33,10 @@ describe("geofencePolicy", () => {
     ).toBe("wait");
     expect(
       confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 240_000, debounceMs: 120_000, strikes: 3, pendingReliable: true }),
-    ).toBe("confirm");
+    ).toBe("wait");
     expect(
       confirmExitDecision({ zone: "unknown", far: false, dwellMs: 2 * 3_600_000, elapsedMs: 180_000, debounceMs: 120_000, strikes: 3, pendingReliable: false }),
-    ).toBe("clear");
+    ).toBe("wait");
   });
 
   test("40 km/h no es imposible; un teleport de 10 km en 5 s sí", () => {

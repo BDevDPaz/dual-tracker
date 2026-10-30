@@ -22,7 +22,7 @@
  */
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
-import { ADMIN_UNLOCK_TTL_MS, PIN_ATTEMPT_DELAY_MS, PIN_HASH_ITERATIONS, PIN_LOCKOUT_STEPS, PIN_MIN_LENGTH, PIN_SCRYPT_DK_LEN, PIN_SCRYPT_N, PIN_SCRYPT_P, PIN_SCRYPT_R } from "../../config/provisional";
+import { ADMIN_UNLOCK_TTL_MS, PIN_ATTEMPT_DELAY_MS, PIN_HASH_ITERATIONS, PIN_LOCKOUT_STEPS, PIN_MAX_LENGTH, PIN_MIN_LENGTH, PIN_SCRYPT_DK_LEN, PIN_SCRYPT_N, PIN_SCRYPT_P, PIN_SCRYPT_R } from "../../config/provisional";
 import { Store, StoreActions } from "../../core/store";
 import { serializeError } from "../../utils/serializeError";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
@@ -165,8 +165,14 @@ function storedFromPayload(payload: PinProvisionPayload, nowMs: number): StoredP
   };
 }
 
+/** PIN de administración: 4 a 8 dígitos. */
+export function isAdminPin(pin: string): boolean {
+  return new RegExp(`^\\d{${PIN_MIN_LENGTH},${PIN_MAX_LENGTH}}$`).test(pin);
+}
+
 export const SecurityService = {
   minLength: PIN_MIN_LENGTH,
+  maxLength: PIN_MAX_LENGTH,
 
   async hasPin(): Promise<boolean> {
     try {
@@ -203,7 +209,7 @@ export const SecurityService = {
    */
   async setPin(pin: string): Promise<{ ok: true } | { ok: false; code: "PIN_INVALID" | "ADMIN_LOCKED" | "ERROR" }> {
     const clean = (pin ?? "").trim();
-    if (clean.length < PIN_MIN_LENGTH) return { ok: false, code: "PIN_INVALID" };
+    if (!isAdminPin(clean)) return { ok: false, code: "PIN_INVALID" };
     if ((await SecurityService.hasPin()) && !SecurityService.isUnlocked()) return { ok: false, code: "ADMIN_LOCKED" };
     try {
       const stored = freshScryptRecord(clean, Crypto.getRandomBytes(16), { provision: "LOCAL" });

@@ -80,8 +80,10 @@ describe("geofence.task", () => {
     const exitAt = time.now();
     LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
     await runGeofenceTask({ data: { eventType: EXIT, region: region(s.id, siteA) }, error: null } as Parameters<typeof runGeofenceTask>[0]);
-    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(false); // aún en debounce
-    time.travel(3 * 60_000);
+    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(false);
+    time.travel(15_000);
+    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(false);
+    time.travel(15_000);
     expect(await GeofenceRuntimeService.checkPendingExit()).toBe(true);
     const after = (await PersistenceService.getSession(s.id))!;
     expect(after.domainStatus).toBe("SALIDA");
@@ -312,8 +314,11 @@ describe("geofence.task", () => {
     time.travel(HOUR);
     LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
     await runGeofenceTask({ data: { eventType: EXIT, region: region(s.id, siteA) }, error: null } as Parameters<typeof runGeofenceTask>[0]);
-    time.travel(3 * 60_000);
+    time.travel(15_000);
+    expect(await GeofenceRuntimeService.checkPendingExit()).toBe(false);
+    time.travel(15_000);
     expect(await GeofenceRuntimeService.checkPendingExit()).toBe(true);
+    time.travel(150_000);
     const exitAt = (await PersistenceService.getSession(s.id))!.bookkeeping.firstExitAtMs!;
     await mustDispatch({ type: "TRANSFER_START", toSiteId: siteB });
     const enteredAt = exitAt + 5 * 60_000;

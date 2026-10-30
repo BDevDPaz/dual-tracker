@@ -42,11 +42,12 @@ describe("exitDecisionTimer.task", () => {
     expect(n.__state.scheduled.length).toBeGreaterThan(0);
   });
 
-  test("vencido sin confirmar que está fuera → CONFLICT, nunca VALID", async () => {
+  test("vencido y de vuelta dentro: sigue ACTIVA, sin aviso de cierre", async () => {
     const { s } = await inSalida();
     time.travel(45 * MIN);
-    await runExitDecisionTimer();
-    expect((await PersistenceService.getSession(s.id))?.integrityClass).toBe("CONFLICT");
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 10);
+    expect(await runExitDecisionTimer()).toBe(false);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
   });
 
   test("salida a los 10 s sin estar claramente fuera no cierra: vuelve a ACTIVA", async () => {

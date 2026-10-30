@@ -37,6 +37,8 @@ import type { ExitDecisionDeadline } from "./tasks";
 import {
   runBreadcrumbTask,
   runDailyReminder,
+  armExitFailsafeInProcess,
+  disarmExitFailsafeInProcess,
   runExitDecisionTimer,
   runGeofenceTask,
   runIntegritySweep,
@@ -185,6 +187,8 @@ export const TaskOrchestratorService = {
   async scheduleExitDecision(sessionId: number, firstExitAtMs: number, windowMs: number): Promise<void> {
     const deadline: ExitDecisionDeadline = { sessionId, firstExitAtMs, deadlineMs: TimeAuthorityService.now() + windowMs };
     await PersistenceService.setKv(KV_KEYS.EXIT_DECISION, deadline);
+    await PersistenceService.deleteKv(KV_KEYS.EXIT_REOPEN).catch(() => {});
+    armExitFailsafeInProcess();
     await NotificationService.notifyExitDetected(sessionId, firstExitAtMs);
     if (exitTimer) clearTimeout(exitTimer);
     exitTimer = setTimeout(() => {
@@ -198,7 +202,9 @@ export const TaskOrchestratorService = {
   async cancelExitDecision(sessionId: number): Promise<void> {
     if (exitTimer) clearTimeout(exitTimer);
     exitTimer = null;
+    disarmExitFailsafeInProcess();
     await PersistenceService.deleteKv(KV_KEYS.EXIT_DECISION).catch(() => {});
+    await PersistenceService.deleteKv(KV_KEYS.EXIT_REOPEN).catch(() => {});
     await NotificationService.dismissExit(sessionId);
   },
 

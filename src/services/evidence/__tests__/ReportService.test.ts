@@ -174,7 +174,7 @@ describe("ReportService", () => {
     expect(employee).not.toContain(t("reports.zeroRowsOmitted", { count: 1 }, "en"));
     expect(employer).toContain("04:45 PM - 04:45 PM");
     expect(employer).toContain("Duración cero: no suma al pago. Conservada para auditoría.");
-    expect(employer).toContain("Cierre automático");
+    expect(employer).toContain("Cerrada automáticamente");
     expect(employer).toContain("07:45 PM");
     expect(employer).not.toContain("omitidas de este comprobante");
   });

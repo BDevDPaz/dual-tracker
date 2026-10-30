@@ -32,7 +32,7 @@ export function invalidCompanyFields(company: CompanyPolicy): string[] {
   if (!isInt(company.destinationLimit, 1, 500)) bad.push("destinationLimit");
   if (!isInt(company.traceRetentionDays, 1, 3650)) bad.push("traceRetentionDays");
   if (company.traceMode !== "PERIMETER" && company.traceMode !== "BREADCRUMB") bad.push("traceMode");
-  if (!(typeof company.exitDebounceMs === "number" && Number.isFinite(company.exitDebounceMs) && company.exitDebounceMs > 0 && company.exitDebounceMs <= HOUR_MS)) {
+  if (!(typeof company.exitDebounceMs === "number" && Number.isFinite(company.exitDebounceMs) && company.exitDebounceMs >= 0 && company.exitDebounceMs <= HOUR_MS)) {
     bad.push("exitDebounceMs");
   }
   if (!(typeof company.exitDecisionWindowMs === "number" && Number.isFinite(company.exitDecisionWindowMs) && company.exitDecisionWindowMs > 0 && company.exitDecisionWindowMs <= DAY_MS)) {

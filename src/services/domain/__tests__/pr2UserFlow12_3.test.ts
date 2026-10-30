@@ -345,12 +345,11 @@ describe("PR2 §12.3", () => {
     await TaskOrchestratorService.scheduleExitDecision(bad.s.id, bad.firstExit, 15 * MIN);
     time.travel(15 * MIN);
     LocationMock.__state.servicesEnabled = false;
-    (LocationMock.__state as { position: unknown }).position = null;
-    expect(await runExitDecisionTimer()).toBe(true);
-    const conflict = (await PersistenceService.getSession(bad.s.id))!;
-    expect(conflict.integrityClass).toBe("CONFLICT");
-    expect(conflict.endAtMs).toBe(bad.firstExit);
-    expect(conflict.endAtMs).not.toBe(time.now());
+    (LocationMock.__state as unknown as { position: null }).position = null;
+    expect(await runExitDecisionTimer()).toBe(false);
+    const stillOpen = (await PersistenceService.getSession(bad.s.id))!;
+    expect(stillOpen.domainStatus).toBe("SALIDA");
+    expect(stillOpen.bookkeeping.firstExitAtMs).toBe(bad.firstExit);
     TaskOrchestratorService.cancelExitDecision(0);
   });
 
@@ -474,9 +473,7 @@ describe("PR2 §12.3", () => {
     expect(t("conflict.acceptManual")).toBe("Corregir hora");
 
     const bad = await salida();
-    await TaskOrchestratorService.scheduleExitDecision(bad.s.id, bad.firstExit, 15 * MIN);
-    time.travel(15 * MIN);
-    await runExitDecisionTimer();
+    await mustDispatch({ type: "AUTO_CLOSE", cause: "EXIT_DECISION_EXPIRED", confirmedOutside: false }, "WATCHDOG");
     expect(selectHasConflict(Store.getState())).toBe(true);
     expect(initialHref({ hydrated: true, needsOnboarding: false, needsDisclaimer: false, hasConflict: selectHasConflict(Store.getState()) })).toBe("/system/conflict");
     const kept = await mustDispatch({ type: "RESOLVE_KEEP_GPS", sessionId: bad.s.id, note: "la hora de salida es la buena" });
@@ -551,11 +548,10 @@ describe("PR2 §12.3", () => {
 
   test("N15 N17 las acciones de huérfana y el texto del cierre automático", async () => {
     const auto = autoCloseContent("AUTO", time.now());
-    expect(auto.title).toContain("Cerré tu jornada a las");
-    expect(auto.title.toLowerCase()).not.toContain("validada");
+    expect(auto.body).toBe("Tu jornada se cerró automáticamente, revisa tus horas.");
+    expect(auto.body.toLowerCase()).not.toContain("validada");
     const conflict = autoCloseContent("CONFLICT", time.now());
-    expect(conflict.title).toBe("Tu salida necesita revisión");
-    expect(conflict.body.toLowerCase()).not.toContain("validada");
+    expect(conflict.body).toBe(auto.body);
 
     __resetNotificationSinksForTests();
     const intents: string[] = [];

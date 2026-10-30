@@ -68,6 +68,7 @@ export interface SessionRuntimePorts {
   /** Programa EXIT_DECISION_TIMER (ventana = policy.exitDecisionWindowMs). */
   scheduleExitDecision(sessionId: number, firstExitAtMs: number, windowMs: number): Promise<void>;
   cancelExitDecision(sessionId: number): Promise<void>;
+  onResumed?(sessionId: number): Promise<void>;
 }
 
 const NOOP_PORTS: SessionRuntimePorts = {
@@ -362,8 +363,8 @@ export const SessionEngineService = {
         // 5) Reflejo.
         StoreActions.sessionUpserted(saved);
         if (extraSaved) StoreActions.sessionUpserted(extraSaved);
-        if (out.to === "SALIDA") StoreActions.uiRequest({ openExitModal: true });
-        if (out.from === "SALIDA" && out.to !== "SALIDA") StoreActions.uiRequest({ openExitModal: false });
+        if (out.to === "SALIDA") StoreActions.uiRequest({ openExitModal: true, exitReopened: false });
+        if (out.from === "SALIDA" && out.to !== "SALIDA") StoreActions.uiRequest({ openExitModal: false, exitReopened: false });
 
         // 6) Efectos (fallos no revierten el dominio; quedan en log).
         for (const eff of out.effects) {
@@ -376,6 +377,11 @@ export const SessionEngineService = {
           } catch (error) {
             LoggingService.log("ROJO", "ERROR_EFECTO", "ERROR", `Efecto ${effect.type} falló`, serializeError(error));
           }
+        }
+        if (intent.type === "RESUME" && saved.domainStatus === "ACTIVA") {
+          await ports.onResumed?.(saved.id).catch((error) => {
+            LoggingService.log("ROJO", "ERROR_EFECTO", "ERROR", "Lectura al reanudar falló", serializeError(error));
+          });
         }
 
         if (out.feedback && out.feedback !== "EXIT_DETECTED") {

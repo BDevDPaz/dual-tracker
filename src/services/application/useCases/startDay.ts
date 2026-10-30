@@ -12,11 +12,14 @@
  * rechazo DISCLOSURE_NOT_ACCEPTED como defensa en profundidad.
  */
 import type { IntentOrigin } from "../../../core/contracts";
+import { Store } from "../../../core/store";
+import { approximateLocation } from "../../../core/healthPolicy";
 import { DualDisclosureService } from "../../domain/DualDisclosureService";
 import type { DispatchResult } from "../../domain/SessionEngineService";
 import { SessionEngineService } from "../../domain/SessionEngineService";
 import { SiteRegistryService } from "../../domain/SiteRegistryService";
 import { SettingsService } from "../../persistence/SettingsService";
+import { PermissionsHealthService } from "../../runtime/PermissionsHealthService";
 
 export async function startDay(
   input: { siteId: number; clientId?: string | null; note?: string | null },
@@ -25,6 +28,10 @@ export async function startDay(
   const { device } = await SettingsService.load();
   if (!DualDisclosureService.isAccepted(device)) {
     return { result: { ok: false, code: "DISCLOSURE_NOT_ACCEPTED" }, geofenceReady: false };
+  }
+  const health = await PermissionsHealthService.refresh().catch(() => Store.getState().health);
+  if (approximateLocation(health)) {
+    return { result: { ok: false, code: "LOCATION_APPROXIMATE" }, geofenceReady: false };
   }
   const site = await SiteRegistryService.get(input.siteId);
   const result = await SessionEngineService.dispatch({ type: "START_DAY", siteId: input.siteId, clientId: input.clientId ?? null, note: input.note ?? null }, origin);

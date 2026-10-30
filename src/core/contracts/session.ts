@@ -127,6 +127,8 @@ export interface PayrollCompliance {
   waiveSecondMeal?: boolean;
   /** false = el operario dijo que no tomó el descanso. true = «Lo tomé». */
   restBreaksTaken?: boolean;
+  /** «Ya llegué» lejos del sitio (D-23). */
+  manualArrival?: boolean;
   mealInterrupted?: boolean;
   secondMeal?: MealInterval;
   /** La persona confirmó seguir después de 11 h 30 min. No hay cierre a las 12 h. */
@@ -271,6 +273,8 @@ export interface SessionRecord {
 export interface PauseInterval {
   startAtMs: number;
   endAtMs: number | null;
+  /** REST se paga y no se descuenta. Ausente = pausa que sí se descuenta. */
+  kind?: "REST" | "PAUSE";
 }
 export type PausesSource = "RECORDED" | "LEDGER" | "PRORATED";
 

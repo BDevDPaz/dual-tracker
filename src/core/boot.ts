@@ -70,6 +70,7 @@ function wirePorts(): void {
     syncRuntime: (effect, session) => syncRuntimeFor(session, effect.geofenceSiteId),
     scheduleExitDecision: (id, firstExit, windowMs) => TaskOrchestratorService.scheduleExitDecision(id, firstExit, windowMs),
     cancelExitDecision: (id) => TaskOrchestratorService.cancelExitDecision(id),
+    onResumed: () => GeofenceRuntimeService.sampleExitAfterResume(),
   });
   TraceRecorderService.setSink((fact) => SessionEngineService.recordSpatialFact(fact));
   // spec v1.3 §13: el ledger recibe el digester de notas (HMAC con clave HKDF de la MK).
@@ -194,7 +195,13 @@ export function boot(): Promise<void> {
         nowMs: now,
       });
       if (osKill) FeedbackService.emit("OS_KILL_RECOVERED");
-      if (open?.domainStatus === "SALIDA") StoreActions.uiRequest({ openExitModal: true });
+      if (open?.domainStatus === "SALIDA") {
+        await PersistenceService.deleteKv(KV_KEYS.EXIT_DECISION).catch(() => {});
+        await PersistenceService.setKv(KV_KEYS.EXIT_REOPEN, open.id);
+        StoreActions.uiRequest({ openExitModal: true, exitReopened: true });
+      }
+      const autoCloseBanner = await PersistenceService.getKv<string>(KV_KEYS.AUTO_CLOSE_BANNER).catch(() => null);
+      if (typeof autoCloseBanner === "string" && autoCloseBanner) StoreActions.uiRequest({ autoCloseBanner });
 
       // El hueco se mide antes de renovar el heartbeat. Si no hay fix dentro, Revisar.
       if (open) await reviewAbandonedSession(open).catch(() => {});

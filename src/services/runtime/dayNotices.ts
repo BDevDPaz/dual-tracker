@@ -39,18 +39,11 @@ export function daySummaryContent(session: SessionRecord, preview: SessionPayrol
   };
 }
 
-/** N17. AUTO nombra la hora. CONFLICT pide revisión. Nunca dice Validada. */
-export function autoCloseContent(integrityClass: string, endAtMs: number | null): NoticeContent {
-  if (integrityClass === "AUTO") {
-    return {
-      title: t("notifications.autoCloseTitle", { time: endAtMs ? formatTime(endAtMs) : "—" }),
-      body: t("notifications.autoCloseBody"),
-      actions: [],
-    };
-  }
+/** Los dos cierres automáticos avisan con el mismo texto (D-15). */
+export function autoCloseContent(_integrityClass: string, _endAtMs: number | null): NoticeContent {
   return {
-    title: t("notifications.conflictCloseTitle"),
-    body: t("notifications.conflictCloseBody"),
+    title: t("notifications.autoCloseTitle"),
+    body: t("notifications.autoCloseBody"),
     actions: [],
   };
 }

@@ -59,5 +59,7 @@ export interface DualTrackerState {
     openExtendConfirm: boolean;
     correctSessionId: number | null;
     openOrphanReview: boolean;
+    exitReopened: boolean;
+    autoCloseBanner: string | null;
   };
 }

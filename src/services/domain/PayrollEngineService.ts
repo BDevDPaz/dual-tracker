@@ -76,8 +76,9 @@ export function computeSessionMinutes(
   const startMs = session.actualStartAtMs ?? session.declaredStartAtMs;
   // SALIDA: se mide hasta la primera salida (port de selectComputedSessions de GEOTrack).
   const endMs =
-    session.endAtMs ??
-    (session.domainStatus === "SALIDA" && b.firstExitAtMs ? b.firstExitAtMs : nowMs);
+    session.domainStatus === "ESPERANDO"
+      ? startMs
+      : (session.endAtMs ?? (session.domainStatus === "SALIDA" && b.firstExitAtMs ? b.firstExitAtMs : nowMs));
   const warnings: string[] = [];
   const spanMinutes = Math.max(0, Math.round((endMs - startMs) / MS_PER_MIN));
 
