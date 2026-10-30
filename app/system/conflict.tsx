@@ -1,0 +1,379 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { useLocalSearchParams, useRouter, Link } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+import dayjs from "../../src/utils/dayjsSetup";
+import {
+  ScreenContainer,
+  PageHeader,
+  Card,
+  Section,
+  Button,
+  Input,
+  LoadingOverlay,
+  EmptyState,
+} from "../../src/components/ui";
+import { AddNoteModal } from "../../src/components/modals/AddNoteModal";
+import { FONT, type AppTokens } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
+import { useConflictResolution, listConflictedSessions } from "../../src/core/hooks/dualTracker";
+
+type PendingDecision = "KEEP_GPS" | "ACCEPT_MANUAL" | "SPLIT" | null;
+
+function formatMs(ms: number | null): string {
+  if (ms === null) return "—";
+  return dayjs(ms).format("DD MMM, HH:mm");
+}
+
+function diffMinutes(a: number | null, b: number | null): number | null {
+  if (a === null || b === null) return null;
+  return Math.round((b - a) / (1000 * 60));
+}
+
+/** Parsea "HH:MM" contra la fecha de la sesión; retorna null si el formato es inválido. */
+function parseTimeOnDate(hhmm: string, referenceDayMs: number): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return dayjs(referenceDayMs).hour(hour).minute(minute).second(0).millisecond(0).valueOf();
+}
+
+export default function SystemConflictScreen() {
+  const { tokens } = useTheme();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const params = useLocalSearchParams<{ sessionId?: string }>();
+  const router = useRouter();
+
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(
+    params.sessionId ? Number(params.sessionId) : null,
+  );
+  const [resolvingList, setResolvingList] = useState(params.sessionId === undefined);
+  const [noConflicts, setNoConflicts] = useState(false);
+
+  useEffect(() => {
+    if (params.sessionId !== undefined) {
+      setActiveSessionId(Number(params.sessionId));
+      setResolvingList(false);
+      return;
+    }
+    let cancelled = false;
+    setResolvingList(true);
+    listConflictedSessions()
+      .then((sessions) => {
+        if (cancelled) return;
+        if (sessions.length > 0) {
+          setActiveSessionId(sessions[0].id);
+        } else {
+          setNoConflicts(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingList(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.sessionId]);
+
+  const { loading, error, session, resolve } = useConflictResolution(activeSessionId);
+
+  const [pendingDecision, setPendingDecision] = useState<PendingDecision>(null);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const [correctedStart, setCorrectedStart] = useState("");
+  const [correctedEnd, setCorrectedEnd] = useState("");
+  const [splitAt, setSplitAt] = useState("");
+
+  useEffect(() => {
+    if (session) {
+      setCorrectedStart(
+        session.actualStartAtMs ? dayjs(session.actualStartAtMs).format("HH:mm") : "",
+      );
+      setCorrectedEnd(session.endAtMs ? dayjs(session.endAtMs).format("HH:mm") : "");
+      setSplitAt("");
+    }
+  }, [session]);
+
+  const minutesDiff = useMemo(
+    () =>
+      diffMinutes(session?.originalActualStartAtMs ?? null, session?.actualStartAtMs ?? null) ??
+      diffMinutes(session?.originalEndAtMs ?? null, session?.endAtMs ?? null),
+    [session],
+  );
+
+  const referenceDayMs = session?.declaredStartAtMs ?? Date.now();
+
+  const openDecision = (decision: PendingDecision) => {
+    setActionError(null);
+    setPendingDecision(decision);
+    setNoteModalVisible(true);
+  };
+
+  const handleSaveNote = async (note: string) => {
+    if (!pendingDecision) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      if (pendingDecision === "SPLIT") {
+        const splitAtMs = parseTimeOnDate(splitAt, referenceDayMs);
+        if (splitAtMs === null) {
+          setActionError("Ingresa una hora de corte válida (HH:MM) antes de dividir la jornada.");
+          setBusy(false);
+          return;
+        }
+        await resolve("SPLIT", note, { splitAtMs });
+      } else if (pendingDecision === "ACCEPT_MANUAL") {
+        const extra: { correctedStartAtMs?: number; correctedEndAtMs?: number } = {};
+        if (session) {
+          const parsedStart = parseTimeOnDate(correctedStart, referenceDayMs);
+          const parsedEnd = parseTimeOnDate(correctedEnd, referenceDayMs);
+          if (parsedStart !== null && parsedStart !== session.actualStartAtMs) {
+            extra.correctedStartAtMs = parsedStart;
+          }
+          if (parsedEnd !== null && parsedEnd !== session.endAtMs) {
+            extra.correctedEndAtMs = parsedEnd;
+          }
+        }
+        await resolve("ACCEPT_MANUAL", note, extra);
+      } else {
+        await resolve("KEEP_GPS", note);
+      }
+      setNoteModalVisible(false);
+      setPendingDecision(null);
+    } catch (err) {
+      // SplitPointRequiredError / ManualPatchNoteRequiredError u otro error
+      // tipado de SessionEngineService -- se muestra el mensaje real sin
+      // tumbar la pantalla.
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const isLoadingScreen = resolvingList || (activeSessionId !== null && loading && !session);
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader title="Resolver conflicto" subtitle="Decisión formal sobre el ledger" />
+
+      <LoadingOverlay visible={isLoadingScreen} message="Buscando sesiones por revisar…" />
+
+      {noConflicts ? (
+        <View style={styles.emptyWrap}>
+          <EmptyState
+            title="No hay conflictos pendientes."
+            description="Todas las sesiones están en clase VALID, MANUAL o AUTO."
+            icon="checkmark-done-outline"
+          />
+          <Button
+            label="Volver"
+            variant="secondary"
+            onPress={() => router.back()}
+            style={styles.backFromEmpty}
+          />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content}>
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle-outline" size={16} color={tokens.colors.status.danger} />
+              <Text style={styles.errorBannerText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {session ? (
+            <>
+              <Section title="Hecho A — GPS (original)">
+                <Card style={styles.card}>
+                  <Text style={styles.rowLabel}>Inicio real (GPS)</Text>
+                  <Text style={styles.rowValue}>{formatMs(session.originalActualStartAtMs)}</Text>
+                  <Text style={styles.rowLabel}>Fin real (GPS)</Text>
+                  <Text style={styles.rowValue}>{formatMs(session.originalEndAtMs)}</Text>
+                </Card>
+              </Section>
+
+              <Section title="Hecho B — manual / automático (actual)">
+                <Card style={styles.card}>
+                  <Text style={styles.rowLabel}>Inicio actual</Text>
+                  <Text style={styles.rowValue}>{formatMs(session.actualStartAtMs)}</Text>
+                  <Text style={styles.rowLabel}>Fin actual</Text>
+                  <Text style={styles.rowValue}>{formatMs(session.endAtMs)}</Text>
+                </Card>
+              </Section>
+
+              <Section title="Diferencia">
+                <Card style={styles.card}>
+                  <Text style={styles.diffValue}>
+                    {minutesDiff === null ? "Sin datos suficientes" : `${minutesDiff} min`}
+                  </Text>
+                  <Text style={styles.rowLabel}>
+                    Impacto estimado en nómina: la diferencia se traduce en minutos que pueden
+                    cambiar horas regulares u OT. El monto exacto requiere recalcular el estado de
+                    nómina del periodo — ve a{" "}
+                    <Link href="/(tabs)/reports" style={styles.link}>
+                      Reportes
+                    </Link>{" "}
+                    para el recálculo autoritativo tras resolver este conflicto.
+                  </Text>
+                </Card>
+              </Section>
+
+              {actionError ? (
+                <View style={styles.errorBanner}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={16}
+                    color={tokens.colors.status.danger}
+                  />
+                  <Text style={styles.errorBannerText}>{actionError}</Text>
+                </View>
+              ) : null}
+
+              <Section title="Ajuste manual (opcional)">
+                <Card style={styles.card}>
+                  <Input
+                    label="Inicio corregido (HH:MM)"
+                    placeholder="08:00"
+                    value={correctedStart}
+                    onChangeText={setCorrectedStart}
+                  />
+                  <Input
+                    label="Fin corregido (HH:MM)"
+                    placeholder="17:00"
+                    value={correctedEnd}
+                    onChangeText={setCorrectedEnd}
+                  />
+                </Card>
+              </Section>
+
+              <Section title="Dividir en dos sesiones">
+                <Card style={styles.card}>
+                  <Input
+                    label="Hora de corte (HH:MM)"
+                    placeholder="13:00"
+                    value={splitAt}
+                    onChangeText={setSplitAt}
+                  />
+                </Card>
+              </Section>
+
+              <Section title="Decisiones">
+                <View style={styles.actionsColumn}>
+                  <Button
+                    label="Conservar GPS"
+                    iconName="navigate-outline"
+                    disabled={busy}
+                    onPress={() => openDecision("KEEP_GPS")}
+                  />
+                  <Button
+                    label="Aceptar ajuste manual"
+                    variant="secondary"
+                    iconName="create-outline"
+                    disabled={busy}
+                    onPress={() => openDecision("ACCEPT_MANUAL")}
+                  />
+                  <Button
+                    label="Dividir en dos sesiones"
+                    variant="secondary"
+                    iconName="git-branch-outline"
+                    disabled={busy || splitAt.trim().length === 0}
+                    onPress={() => openDecision("SPLIT")}
+                  />
+                  <Button
+                    label="Posponer decisión"
+                    variant="ghost"
+                    iconName="chevron-back"
+                    onPress={() => router.back()}
+                    style={styles.postponeButton}
+                  />
+                  {/*
+                    NOTA de alcance: el gesto de retroceso nativo (swipe/back
+                    hardware de Android) no es interceptable desde esta ruta
+                    sin un back-handler dedicado (useFocusEffect +
+                    BackHandler.addEventListener), que queda fuera de alcance
+                    de esta ola. Aproximamos el requisito "no se puede
+                    descartar sin decidir" NO navegando fuera automáticamente
+                    y dejando "Posponer decisión" como la única vía marcada
+                    en la UI para salir sin resolver -- una salida intencional
+                    y explícita, nunca accidental por gesto de sistema.
+                  */}
+                </View>
+              </Section>
+            </>
+          ) : null}
+        </ScrollView>
+      )}
+
+      <AddNoteModal
+        visible={noteModalVisible}
+        onCancel={() => {
+          setNoteModalVisible(false);
+          setPendingDecision(null);
+        }}
+        onSave={(note) => void handleSaveNote(note)}
+      />
+    </ScreenContainer>
+  );
+}
+
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+  content: {
+    paddingHorizontal: tokens.layout.screenPadding,
+    paddingBottom: tokens.spacing["4xl"],
+  },
+  emptyWrap: {
+    flex: 1,
+    paddingHorizontal: tokens.layout.screenPadding,
+  },
+  backFromEmpty: {
+    marginTop: tokens.spacing.lg,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    backgroundColor: `${tokens.colors.status.danger}15`,
+  },
+  errorBannerText: {
+    ...FONT.caption,
+    color: tokens.colors.status.danger,
+    flex: 1,
+  },
+  card: {
+    marginBottom: tokens.spacing.sm,
+  },
+  rowLabel: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+    marginTop: tokens.spacing.xs,
+  },
+  rowValue: {
+    ...FONT.bodyStrong,
+    color: tokens.colors.text.primary,
+  },
+  diffValue: {
+    ...FONT.h3,
+    color: tokens.colors.text.primary,
+    marginBottom: tokens.spacing.xs,
+  },
+  link: {
+    color: tokens.colors.primary,
+    fontWeight: "700",
+  },
+  actionsColumn: {
+    gap: tokens.spacing.md,
+  },
+  postponeButton: {
+    marginTop: tokens.spacing.sm,
+  },
+  });
+}

@@ -1,0 +1,76 @@
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+import { ScreenContainer, Button } from "../src/components/ui";
+import { TOKENS, FONT } from "../src/constants/theme";
+
+/**
+ * app/+not-found.tsx — Pantalla de degradación cuando un deep link apunta a
+ * un sessionId o packId que ya no existe (borrado o inválido). Un único CTA
+ * primario devuelve al usuario a Hoy (Propuesta capa app §3.1).
+ */
+export default function NotFoundScreen() {
+  const router = useRouter();
+
+  return (
+    <ScreenContainer>
+      <View style={styles.content}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="link-outline" size={56} color={TOKENS.colors.text.muted} />
+        </View>
+
+        <Text style={styles.title}>Este enlace ya no es válido</Text>
+        <Text style={styles.description}>
+          La sesión o el expediente al que apunta este enlace fue eliminado o ya no existe en tu
+          dispositivo. Puede tratarse de una jornada borrada o de un paquete de evidencia que ya se
+          reemplazó.
+        </Text>
+
+        <Button
+          label="Volver a Hoy"
+          variant="primary"
+          size="lg"
+          style={styles.cta}
+          onPress={() => router.replace("/(tabs)")}
+        />
+      </View>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: TOKENS.spacing.xl,
+  },
+  iconWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: TOKENS.radius.round,
+    backgroundColor: TOKENS.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: TOKENS.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: TOKENS.spacing.xl,
+  },
+  title: {
+    ...FONT.h2,
+    color: TOKENS.colors.text.primary,
+    textAlign: "center",
+    marginBottom: TOKENS.spacing.sm,
+  },
+  description: {
+    ...FONT.body,
+    color: TOKENS.colors.text.secondary,
+    textAlign: "center",
+    marginBottom: TOKENS.spacing["2xl"],
+  },
+  cta: {
+    width: "100%",
+  },
+});

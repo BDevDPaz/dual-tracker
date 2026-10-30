@@ -1,0 +1,21 @@
+import React from "react";
+import { Stack } from "expo-router";
+
+import { TOKENS } from "../../src/constants/theme";
+
+/** Stack legal de solo lectura: descargo y retención. */
+export default function LegalLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerTitle: "Legal",
+        headerStyle: { backgroundColor: TOKENS.colors.background },
+        headerTintColor: TOKENS.colors.text.primary,
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Screen name="disclosure" options={{ headerTitle: "Aviso de rastreo" }} />
+      <Stack.Screen name="retention" options={{ headerTitle: "Retención de datos" }} />
+    </Stack>
+  );
+}

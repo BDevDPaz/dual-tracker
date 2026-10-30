@@ -1,0 +1,21 @@
+import React from "react";
+import { Stack } from "expo-router";
+
+import { TOKENS } from "../../src/constants/theme";
+
+/** Stack de destinos (Propuesta capa app §5.11). Grupo accesible desde Hoy y Ajustes. */
+export default function SitesLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: TOKENS.colors.background },
+        headerTintColor: TOKENS.colors.text.primary,
+        headerTitleStyle: { fontFamily: undefined },
+      }}
+    >
+      <Stack.Screen name="index" options={{ title: "Destinos", headerShown: false }} />
+      <Stack.Screen name="new" options={{ title: "Nuevo destino", headerShown: false }} />
+      <Stack.Screen name="[id]" options={{ title: "Ficha de sitio", headerShown: false }} />
+    </Stack>
+  );
+}

@@ -1,0 +1,457 @@
+import React, { useCallback, useMemo, useState } from "react";
+import { View, Text, FlatList, Pressable, StyleSheet, Alert } from "react-native";
+import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { Ionicons } from "@expo/vector-icons";
+
+import dayjs from "../../src/utils/dayjsSetup";
+import {
+  ScreenContainer,
+  PageHeader,
+  Card,
+  Button,
+  IntegrityBadge,
+  EmptyState,
+  LoadingOverlay,
+  Section,
+  DocumentPreviewWidget,
+} from "../../src/components/ui";
+import { FONT, type AppTokens } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
+import { useLanguage } from "../../src/context/LanguageContext";
+import {
+  useReportsCenter,
+  toIntegrityBadgeType,
+  type ReportPeriodKey,
+} from "../../src/core/hooks/dualTracker";
+import { useWorkTracker } from "../../src/core/hooks/useWorkTracker";
+import type { SessionRecord, IntegrityClass } from "../../src/core/contracts/domain";
+
+const ROLLUP_LABELS: Record<IntegrityClass, string> = {
+  VALID: "Válidas",
+  MANUAL: "Ajustadas",
+  AUTO: "Automáticas",
+  CONFLICT: "Por revisar",
+};
+
+function formatCurrency(amount: number): string {
+  return `$${amount.toFixed(2)}`;
+}
+
+function formatHours(hours: number, unit: string = "h"): string {
+  return `${hours.toFixed(1)} ${unit}`;
+}
+
+export default function ReportsScreen() {
+  const { tokens } = useTheme();
+  const { t } = useLanguage();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const router = useRouter();
+  const { state } = useWorkTracker();
+  const [period, setPeriod] = useState<ReportPeriodKey>("CURRENT_WEEK");
+  const [isSealing, setIsSealing] = useState(false);
+  const [lastPackId, setLastPackId] = useState<string | null>(null);
+
+  const {
+    loading,
+    error,
+    sessions,
+    statement,
+
+    hasConflict,
+    periodStart,
+    periodEnd,
+    refresh,
+    sealPack,
+    shareEmployeeReceipt,
+    shareEmployerDossier,
+  } = useReportsCenter(period);
+
+  const dateRange = useMemo(
+    () => `${dayjs(periodStart).format("DD MMM")} — ${dayjs(periodEnd).format("DD MMM")}`,
+    [periodStart, periodEnd],
+  );
+
+  const handleSealPack = useCallback(async () => {
+    setIsSealing(true);
+    try {
+      const pack = await sealPack();
+      if (pack) {
+        setLastPackId(pack.id);
+        router.push(`/report/pack/${pack.id}`);
+      } else {
+        Alert.alert(
+          "Sin estado de nómina",
+          "Aún no hay un estado de nómina calculado para este periodo.",
+        );
+      }
+    } catch (err) {
+      Alert.alert(
+        "No se pudo generar el expediente",
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setIsSealing(false);
+    }
+  }, [sealPack, router]);
+
+  const shareUri = useCallback(async (uri: string | null) => {
+    if (!uri) {
+      Alert.alert("Sin documento", "No se pudo generar el archivo a compartir.");
+      return;
+    }
+    const available = await Sharing.isAvailableAsync();
+    if (!available) {
+      Alert.alert("Compartir no disponible", "Este dispositivo no permite compartir archivos.");
+      return;
+    }
+    await Sharing.shareAsync(uri);
+  }, []);
+
+  const handleShareEmployeeReceipt = useCallback(async () => {
+    const uri = await shareEmployeeReceipt();
+    await shareUri(uri);
+  }, [shareEmployeeReceipt, shareUri]);
+
+  const proceedShareEmployerDossier = useCallback(async () => {
+    const uri = await shareEmployerDossier();
+    await shareUri(uri);
+  }, [shareEmployerDossier, shareUri]);
+
+  const handleShareEmployerDossier = useCallback(() => {
+    if (hasConflict) {
+      // Blueprint 5.12: exige paso por /system/conflict o exporta con sello
+      // no certificado visible. Aquí implementamos la rama simple: avisar y
+      // dejar que el usuario decida exportar de todos modos -- el statement
+      // ya contiene el rollup de CONFLICT, así que el documento resultante
+      // trae el sello no certificado visible sin que la vista lo invente.
+      Alert.alert(
+        "Periodo con sesiones por revisar",
+        "Este periodo tiene sesiones por revisar. El expediente saldrá marcado como no certificado. ¿Continuar?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Continuar", onPress: () => void proceedShareEmployerDossier() },
+        ],
+      );
+      return;
+    }
+    void proceedShareEmployerDossier();
+  }, [hasConflict, proceedShareEmployerDossier]);
+
+  const handleViewManifest = useCallback(() => {
+    if (lastPackId) {
+      router.push(`/report/pack/${lastPackId}`);
+    }
+  }, [lastPackId, router]);
+
+  const renderSession = useCallback(
+    ({ item }: { item: SessionRecord }) => (
+      <Pressable style={styles.sessionRow} onPress={() => router.push(`/session/${item.id}`)}>
+        <View style={styles.sessionRowLeft}>
+          <Text style={styles.sessionDate}>
+            {item.dateString ?? dayjs(item.declaredStartAtMs).format("DD MMM")}
+          </Text>
+          <Text style={styles.sessionSite}>{item.siteId ?? "Sin sitio"}</Text>
+        </View>
+        <IntegrityBadge type={toIntegrityBadgeType(item.integrityClass)} />
+      </Pressable>
+    ),
+    [router],
+  );
+
+  const employeeName = state.domain.settings.employeeName || "Operario";
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader title={t("reports_title")} subtitle="Centro de exportación de nómina" />
+
+      <View style={styles.toggleRow}>
+        <Pressable
+          style={[styles.toggleButton, period === "CURRENT_WEEK" && styles.toggleButtonActive]}
+          onPress={() => setPeriod("CURRENT_WEEK")}
+        >
+          <Text style={[styles.toggleLabel, period === "CURRENT_WEEK" && styles.toggleLabelActive]}>
+            {t("report_period_current")}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleButton, period === "PREVIOUS_WEEK" && styles.toggleButtonActive]}
+          onPress={() => setPeriod("PREVIOUS_WEEK")}
+        >
+          <Text
+            style={[styles.toggleLabel, period === "PREVIOUS_WEEK" && styles.toggleLabelActive]}
+          >
+            {t("report_period_prev")}
+          </Text>
+        </Pressable>
+      </View>
+
+      <LoadingOverlay visible={loading && !statement} message={t("report_loading")} />
+
+      <FlatList
+        data={sessions}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderSession}
+        onRefresh={refresh}
+        refreshing={loading}
+        ListHeaderComponent={
+          <View>
+            {error ? (
+              <View style={styles.errorBanner}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={16}
+                  color={tokens.colors.status.danger}
+                />
+                <Text style={styles.errorBannerText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {hasConflict ? (
+              <Pressable
+                style={styles.conflictBanner}
+                onPress={() => router.push("/system/conflict")}
+              >
+                <Ionicons name="warning-outline" size={18} color={tokens.colors.status.warning} />
+                <Text style={styles.conflictBannerText}>
+                  {t("report_conflict_hint")} → /system/conflict
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {statement ? (
+              <Card style={styles.rollupCard}>
+                <Text style={styles.rollupDateRange}>{dateRange}</Text>
+                <View style={styles.rollupGrid}>
+                  <View style={styles.rollupCell}>
+                    <Text style={styles.rollupValue}>{formatHours(statement.regularHours, t("unit_hour"))}</Text>
+                    <Text style={styles.rollupLabel}>{t("report_reg_hours")}</Text>
+                  </View>
+                  <View style={styles.rollupCell}>
+                    <Text style={styles.rollupValue}>{formatHours(statement.overtimeHours, t("unit_hour"))}</Text>
+                    <Text style={styles.rollupLabel}>{t("report_ot_hours")}</Text>
+                  </View>
+                  <View style={styles.rollupCell}>
+                    <Text style={styles.rollupValue}>{formatHours(statement.transitHours, t("unit_hour"))}</Text>
+                    <Text style={styles.rollupLabel}>{t("report_transit")}</Text>
+                  </View>
+                  <View style={styles.rollupCell}>
+                    <Text style={styles.rollupValue}>{statement.lunchMinutes} min</Text>
+                    <Text style={styles.rollupLabel}>{t("report_lunch")}</Text>
+                  </View>
+                </View>
+                <View style={styles.divider} />
+                <Text style={styles.grossEstimate}>{formatCurrency(statement.grossEstimate)}</Text>
+                <Text style={styles.grossEstimateLabel}>{t("report_gross_est")}</Text>
+
+                <View style={styles.integrityRow}>
+                  {(Object.keys(statement.integrityRollup) as IntegrityClass[]).map((cls) => (
+                    <View key={cls} style={styles.integrityBadgeWrap}>
+                      <IntegrityBadge type={toIntegrityBadgeType(cls)} />
+                      <Text style={styles.integrityCount}>
+                        {statement.integrityRollup[cls]} {ROLLUP_LABELS[cls]}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            ) : null}
+
+            <Section title={t("report_sessions_title")}>
+              <View />
+            </Section>
+          </View>
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <EmptyState title={t("report_empty_title")} description={t("report_empty_desc")} />
+          ) : null
+        }
+        contentContainerStyle={styles.listContent}
+        ListFooterComponent={
+          <View>
+            {statement ? (
+              <DocumentPreviewWidget
+                employeeName={employeeName}
+                dateRange={dateRange}
+                totalHours={formatHours(statement.regularHours + statement.overtimeHours, t("unit_hour"))}
+                totalEarnings={formatCurrency(statement.grossEstimate)}
+              />
+            ) : null}
+
+            <Section title={t("report_actions")}>
+              <View style={styles.actionsColumn}>
+                <Button
+                  label={isSealing ? "Generando expediente…" : "Generar expediente"}
+                  iconName="lock-closed-outline"
+                  isLoading={isSealing}
+                  disabled={!statement || isSealing}
+                  onPress={handleSealPack}
+                />
+                <Button
+                  label={t("btn_share_employee")}
+                  variant="secondary"
+                  iconName="share-outline"
+                  disabled={!statement}
+                  onPress={handleShareEmployeeReceipt}
+                />
+                <Button
+                  label={t("btn_share_employer")}
+                  variant="secondary"
+                  iconName="share-outline"
+                  disabled={!statement}
+                  onPress={handleShareEmployerDossier}
+                />
+                <Button
+                  label={t("btn_view_manifest")}
+                  variant="ghost"
+                  iconName="document-text-outline"
+                  disabled={!lastPackId}
+                  onPress={handleViewManifest}
+                />
+              </View>
+            </Section>
+          </View>
+        }
+      />
+    </ScreenContainer>
+  );
+}
+
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+  toggleRow: {
+    flexDirection: "row",
+    marginHorizontal: tokens.layout.screenPadding,
+    marginBottom: tokens.spacing.md,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.md,
+    padding: 4,
+    gap: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radius.sm,
+    alignItems: "center",
+  },
+  toggleButtonActive: {
+    backgroundColor: tokens.colors.primary,
+  },
+  toggleLabel: {
+    ...FONT.bodyStrong,
+    color: tokens.colors.text.secondary,
+  },
+  toggleLabelActive: {
+    color: tokens.colors.text.inverse,
+  },
+  listContent: {
+    paddingBottom: tokens.spacing["4xl"],
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    marginHorizontal: tokens.layout.screenPadding,
+    marginBottom: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    backgroundColor: `${tokens.colors.status.danger}15`,
+  },
+  errorBannerText: {
+    ...FONT.caption,
+    color: tokens.colors.status.danger,
+    flex: 1,
+  },
+  conflictBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    marginHorizontal: tokens.layout.screenPadding,
+    marginBottom: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    backgroundColor: `${tokens.colors.status.warning}15`,
+  },
+  conflictBannerText: {
+    ...FONT.caption,
+    color: tokens.colors.status.warning,
+    flex: 1,
+  },
+  rollupCard: {
+    marginHorizontal: tokens.layout.screenPadding,
+    marginBottom: tokens.spacing.md,
+  },
+  rollupDateRange: {
+    ...FONT.label,
+    color: tokens.colors.text.muted,
+    marginBottom: tokens.spacing.sm,
+  },
+  rollupGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.md,
+  },
+  rollupCell: {
+    minWidth: "40%",
+  },
+  rollupValue: {
+    ...FONT.h3,
+    color: tokens.colors.text.primary,
+  },
+  rollupLabel: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: tokens.colors.border,
+    marginVertical: tokens.spacing.md,
+  },
+  grossEstimate: {
+    ...FONT.h2,
+    color: tokens.colors.text.primary,
+  },
+  grossEstimateLabel: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+    marginBottom: tokens.spacing.md,
+  },
+  integrityRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: tokens.spacing.md,
+  },
+  integrityBadgeWrap: {
+    alignItems: "flex-start",
+    gap: 4,
+  },
+  integrityCount: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: tokens.layout.screenPadding,
+    paddingVertical: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
+  },
+  sessionRowLeft: {
+    gap: 2,
+  },
+  sessionDate: {
+    ...FONT.bodyStrong,
+    color: tokens.colors.text.primary,
+  },
+  sessionSite: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  actionsColumn: {
+    gap: tokens.spacing.md,
+  },
+  });
+}

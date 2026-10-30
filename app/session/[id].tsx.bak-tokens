@@ -1,0 +1,481 @@
+import React, { useMemo, useState } from "react";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+
+import dayjs from "../../src/utils/dayjsSetup";
+import { TOKENS, FONT } from "../../src/constants/theme";
+import { ICONS } from "../../src/constants/icons";
+import {
+  ScreenContainer,
+  PageHeader,
+  Card,
+  Button,
+  IntegrityBadge,
+  SessionTimeline,
+  EmptyState,
+  LoadingOverlay,
+  Section,
+  Input,
+} from "../../src/components/ui";
+import type { TimelineEvent } from "../../src/components/ui/SessionTimeline";
+import { DeleteSessionModal } from "../../src/components/modals/DeleteSessionModal";
+import { useSessionDetail, toIntegrityBadgeType } from "../../src/core/hooks/dualTracker";
+import type { LedgerEntry } from "../../src/core/contracts/domain";
+
+/** Etiquetas humanas para cada `LedgerEntry.intent` (blueprint §5.9). */
+function intentLabel(intent: string): string {
+  switch (intent) {
+    case "START_DAY":
+      return "Inicio de jornada";
+    case "ARRIVAL_CONFIRMED":
+      return "Llegada confirmada";
+    case "TRANSFER_START":
+      return "Traslado iniciado";
+    case "EXIT_DETECTED":
+      return "Salida detectada";
+    case "EXIT_RESOLVED_CONTINUE":
+      return "Continuó trabajando";
+    case "LUNCH_START":
+      return "Almuerzo iniciado";
+    case "LUNCH_END":
+      return "Almuerzo finalizado";
+    case "CLOSE_DAY":
+      return "Jornada cerrada";
+    case "MANUAL_PATCH":
+      return "Edición manual";
+    case "OS_KILL_RECOVERED":
+      return "Recuperado tras cierre del sistema";
+    case "RESOLVE_CONFLICT_KEEP_GPS":
+    case "RESOLVE_CONFLICT_ACCEPT_MANUAL":
+    case "RESOLVE_CONFLICT_SPLIT_CLOSE_ORIGINAL":
+    case "RESOLVE_CONFLICT_SPLIT_CREATE_CONTINUATION":
+      return "Conflicto resuelto";
+    case "AUTO_CLOSE_SESSION_CAP":
+      return "Auto-cierre por tope de 12h";
+    default:
+      return intent;
+  }
+}
+
+const WARNING_REASON_CODES = new Set(["MANUAL_EDIT", "SESSION_CAP_12H", "OS_KILL_RECOVERED"]);
+
+function timelineTypeFor(entry: LedgerEntry): TimelineEvent["type"] {
+  if (entry.intent === "START_DAY") return "start";
+  if (entry.intent === "ARRIVAL_CONFIRMED" || entry.intent === "EXIT_RESOLVED_CONTINUE") {
+    return "arrival";
+  }
+  if (entry.intent === "CLOSE_DAY" || entry.intent === "AUTO_CLOSE_SESSION_CAP") {
+    return "close";
+  }
+  const reasonCode = entry.reasonCode ?? "";
+  if (reasonCode.includes("CONFLICT") || WARNING_REASON_CODES.has(reasonCode)) {
+    return "warning";
+  }
+  return "note";
+}
+
+function ledgerEntryToTimelineEvent(entry: LedgerEntry): TimelineEvent {
+  return {
+    id: entry.id,
+    title: intentLabel(entry.intent),
+    time: dayjs(entry.timestampMs).format("DD MMM, HH:mm"),
+    subtitle: entry.reason ?? undefined,
+    type: timelineTypeFor(entry),
+  };
+}
+
+/** Formatea milisegundos como "Xh Ym"; "—" si falta un extremo. */
+function formatNetHours(
+  actualStartAtMs: number | null,
+  endAtMs: number | null,
+  totalPausedMs: number,
+): string {
+  if (actualStartAtMs === null || endAtMs === null) return "—";
+  const netMs = Math.max(0, endAtMs - actualStartAtMs - totalPausedMs);
+  const totalMinutes = Math.round(netMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+}
+
+/**
+ * Formulario inline de edición manual (NOTA capa app §EditSessionModal): el
+ * modal existente no expone los valores editados hacia afuera (`onSave` sin
+ * argumentos), así que esta pantalla construye su propio formulario con
+ * `Input` en lugar de depender de su estado interno.
+ */
+function InlineEditForm({
+  initialStartAtMs,
+  initialEndAtMs,
+  onCancel,
+  onSubmit,
+}: {
+  initialStartAtMs: number | null;
+  initialEndAtMs: number | null;
+  onCancel: () => void;
+  onSubmit: (input: { startAtMs?: number; endAtMs?: number; note: string }) => Promise<void>;
+}) {
+  const [startText, setStartText] = useState(
+    initialStartAtMs !== null ? dayjs(initialStartAtMs).format("YYYY-MM-DD HH:mm") : "",
+  );
+  const [endText, setEndText] = useState(
+    initialEndAtMs !== null ? dayjs(initialEndAtMs).format("YYYY-MM-DD HH:mm") : "",
+  );
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const noteMissing = note.trim().length === 0;
+
+  const handleSubmit = async () => {
+    if (noteMissing) {
+      setFormError("La nota es obligatoria para justificar un ajuste manual.");
+      return;
+    }
+    const parsedStart = startText.trim().length > 0 ? dayjs(startText, "YYYY-MM-DD HH:mm") : null;
+    const parsedEnd = endText.trim().length > 0 ? dayjs(endText, "YYYY-MM-DD HH:mm") : null;
+    if (parsedStart && !parsedStart.isValid()) {
+      setFormError("El inicio no tiene un formato válido (AAAA-MM-DD HH:mm).");
+      return;
+    }
+    if (parsedEnd && !parsedEnd.isValid()) {
+      setFormError("El fin no tiene un formato válido (AAAA-MM-DD HH:mm).");
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        startAtMs: parsedStart ? parsedStart.valueOf() : undefined,
+        endAtMs: parsedEnd ? parsedEnd.valueOf() : undefined,
+        note: note.trim(),
+      });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card style={styles.editCard}>
+      <Text style={styles.editTitle}>Editar jornada</Text>
+      <Input
+        label="Inicio real (AAAA-MM-DD HH:mm)"
+        value={startText}
+        onChangeText={setStartText}
+        placeholder="2026-01-15 08:00"
+        autoCapitalize="none"
+      />
+      <Input
+        label="Fin (AAAA-MM-DD HH:mm)"
+        value={endText}
+        onChangeText={setEndText}
+        placeholder="2026-01-15 17:00"
+        autoCapitalize="none"
+      />
+      <Input
+        label="Nota de ajuste (obligatoria)"
+        value={note}
+        onChangeText={setNote}
+        placeholder="Explica por qué se ajusta el horario…"
+        multiline
+        numberOfLines={3}
+        error={formError ?? undefined}
+      />
+      <View style={styles.editActions}>
+        <Button label="Cancelar" variant="secondary" onPress={onCancel} style={styles.editButton} />
+        <Button
+          label="Guardar ajuste"
+          variant="primary"
+          onPress={handleSubmit}
+          isLoading={submitting}
+          disabled={noteMissing || submitting}
+          style={styles.editButton}
+        />
+      </View>
+    </Card>
+  );
+}
+
+export default function SessionDetailScreen() {
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const router = useRouter();
+  const sessionId = id ? Number(id) : NaN;
+  const validId = Number.isFinite(sessionId) ? sessionId : null;
+
+  const { loading, error, session, site, ledgerEntries, traceCount, patch, remove } =
+    useSessionDetail(validId);
+
+  const [editing, setEditing] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleBack = () => {
+    if (from === "hoy") {
+      router.replace("/(tabs)");
+    } else if (from === "history" || from === "historial") {
+      router.replace("/(tabs)/history");
+    } else {
+      router.back();
+    }
+  };
+
+  const timelineEvents = useMemo(
+    () => ledgerEntries.map(ledgerEntryToTimelineEvent),
+    [ledgerEntries],
+  );
+
+  const netHours = session
+    ? formatNetHours(session.actualStartAtMs, session.endAtMs, session.totalPausedMs)
+    : "—";
+
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <Stack.Screen options={{ headerShown: false }} />
+        <PageHeader title="Expediente" showBack onBack={handleBack} />
+        <LoadingOverlay visible message="Cargando expediente…" />
+      </ScreenContainer>
+    );
+  }
+
+  if (!loading && !error && !session) {
+    return (
+      <ScreenContainer>
+        <Stack.Screen options={{ headerShown: false }} />
+        <PageHeader title="Expediente" showBack onBack={handleBack} />
+        <EmptyState
+          title="Sesión no encontrada"
+          description="Esta jornada no existe o fue eliminada del expediente."
+          icon="document-text-outline"
+        />
+        <View style={styles.notFoundAction}>
+          <Button label="Volver" variant="primary" onPress={() => router.back()} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (error && !session) {
+    return (
+      <ScreenContainer>
+        <Stack.Screen options={{ headerShown: false }} />
+        <PageHeader title="Expediente" showBack onBack={handleBack} />
+        <EmptyState
+          title="No se pudo cargar la sesión"
+          description={error}
+          icon="alert-circle-outline"
+        />
+      </ScreenContainer>
+    );
+  }
+
+  if (!session) return null;
+
+  return (
+    <ScreenContainer noPadding>
+      <Stack.Screen options={{ headerShown: false }} />
+      <PageHeader title="Expediente" showBack onBack={handleBack} />
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {session.isDeleted && (
+          <View style={styles.deletedBanner}>
+            <Text style={styles.deletedBannerText}>Eliminada</Text>
+          </View>
+        )}
+
+        <Card style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <Text style={styles.siteAlias}>{site?.alias ?? "Sin sitio"}</Text>
+            <IntegrityBadge type={toIntegrityBadgeType(session.integrityClass)} />
+          </View>
+          <Text style={styles.dateCaption}>
+            {session.dateString ?? dayjs(session.declaredStartAtMs).format("DD MMM YYYY")}
+          </Text>
+        </Card>
+
+        <Section title="Totales">
+          <Card>
+            <View style={styles.totalsRow}>
+              <View style={styles.totalsItem}>
+                <Text style={styles.totalsLabel}>Horas netas</Text>
+                <Text style={styles.totalsValue}>{netHours}</Text>
+              </View>
+              <View style={styles.totalsItem}>
+                <Text style={styles.totalsLabel}>Almuerzo</Text>
+                <Text style={styles.totalsValue}>
+                  {session.lunch.deductedMinutes !== null
+                    ? `${session.lunch.deductedMinutes} min`
+                    : "—"}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </Section>
+
+        <Section title="Líneas laborales">
+          <Card>
+            <Text style={styles.policyCaption}>Política: {session.policyId}</Text>
+            <Text style={styles.payrollNote}>
+              Horas trabajadas de esta sesión: {netHours}. El desglose regular/OT/tránsito proviene
+              de PayrollEngineService y solo se calcula en Reportes — esta vista no importa el motor
+              de nómina directamente.
+            </Text>
+            <Button
+              label="Ver desglose completo en Reportes"
+              variant="secondary"
+              onPress={() => router.push("/(tabs)/reports")}
+              style={styles.reportsButton}
+            />
+          </Card>
+        </Section>
+
+        <SessionTimeline events={timelineEvents} />
+
+        <Section title="Bloque espacial">
+          <Card>
+            <Text style={styles.spatialText}>
+              {traceCount === 0 ? "Zona validada" : "Rastro disponible"}
+            </Text>
+            <Button
+              label="Ver rastro"
+              variant="secondary"
+              onPress={() => router.push(`/session/${validId}/trace`)}
+              style={styles.reportsButton}
+            />
+          </Card>
+        </Section>
+
+        {session.manualEditNote ? (
+          <Section title="Notas">
+            <Card>
+              <Text style={styles.noteText}>{session.manualEditNote}</Text>
+            </Card>
+          </Section>
+        ) : null}
+
+        {!session.isDeleted && editing && (
+          <View style={styles.editWrapper}>
+            <InlineEditForm
+              initialStartAtMs={session.actualStartAtMs}
+              initialEndAtMs={session.endAtMs}
+              onCancel={() => setEditing(false)}
+              onSubmit={async (input) => {
+                await patch(input);
+                setEditing(false);
+              }}
+            />
+          </View>
+        )}
+      </ScrollView>
+
+      {!session.isDeleted && !editing && (
+        <View style={styles.footer}>
+          <Button
+            label="Editar"
+            variant="secondary"
+            iconName={ICONS.actions.edit as any}
+            onPress={() => setEditing(true)}
+            style={styles.footerButton}
+          />
+          <Button
+            label="Eliminar"
+            variant="danger"
+            iconName={ICONS.actions.delete as any}
+            onPress={() => setDeleteVisible(true)}
+            style={styles.footerButton}
+          />
+        </View>
+      )}
+
+      <DeleteSessionModal
+        visible={deleteVisible}
+        onCancel={() => setDeleteVisible(false)}
+        onConfirm={async () => {
+          setDeleting(true);
+          try {
+            await remove();
+            setDeleteVisible(false);
+            router.back();
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
+      {deleting ? <LoadingOverlay visible message="Eliminando jornada…" /> : null}
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: TOKENS.spacing["4xl"],
+  },
+  notFoundAction: {
+    paddingHorizontal: TOKENS.layout.screenPadding,
+    marginTop: TOKENS.spacing.lg,
+  },
+  deletedBanner: {
+    marginHorizontal: TOKENS.layout.screenPadding,
+    marginBottom: TOKENS.spacing.md,
+    paddingVertical: TOKENS.spacing.sm,
+    paddingHorizontal: TOKENS.spacing.md,
+    borderRadius: TOKENS.radius.sm,
+    backgroundColor: `${TOKENS.colors.status.danger}22`,
+    borderWidth: 1,
+    borderColor: TOKENS.colors.status.danger,
+  },
+  deletedBannerText: {
+    ...FONT.bodyStrong,
+    color: TOKENS.colors.status.danger,
+    textAlign: "center",
+  },
+  headerCard: {
+    marginHorizontal: TOKENS.layout.screenPadding,
+    marginBottom: TOKENS.spacing.lg,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  siteAlias: { ...FONT.h2, color: TOKENS.colors.text.primary },
+  dateCaption: {
+    ...FONT.caption,
+    color: TOKENS.colors.text.secondary,
+    marginTop: TOKENS.spacing.xs,
+  },
+  totalsRow: { flexDirection: "row", justifyContent: "space-between" },
+  totalsItem: { flex: 1 },
+  totalsLabel: { ...FONT.caption, color: TOKENS.colors.text.muted },
+  totalsValue: { ...FONT.h3, color: TOKENS.colors.text.primary, marginTop: 2 },
+  policyCaption: {
+    ...FONT.caption,
+    color: TOKENS.colors.text.muted,
+    marginBottom: TOKENS.spacing.sm,
+  },
+  payrollNote: { ...FONT.body, color: TOKENS.colors.text.secondary },
+  reportsButton: { marginTop: TOKENS.spacing.md },
+  spatialText: {
+    ...FONT.bodyStrong,
+    color: TOKENS.colors.text.primary,
+    marginBottom: TOKENS.spacing.sm,
+  },
+  noteText: { ...FONT.body, color: TOKENS.colors.text.secondary },
+  editWrapper: { paddingHorizontal: TOKENS.layout.screenPadding, marginTop: TOKENS.spacing.md },
+  editCard: {},
+  editTitle: { ...FONT.h3, color: TOKENS.colors.text.primary, marginBottom: TOKENS.spacing.md },
+  editActions: { flexDirection: "row", gap: TOKENS.spacing.md, marginTop: TOKENS.spacing.sm },
+  editButton: { flex: 1 },
+  footer: {
+    flexDirection: "row",
+    gap: TOKENS.spacing.md,
+    paddingHorizontal: TOKENS.layout.screenPadding,
+    paddingVertical: TOKENS.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: TOKENS.colors.border,
+    backgroundColor: TOKENS.colors.background,
+  },
+  footerButton: { flex: 1 },
+});

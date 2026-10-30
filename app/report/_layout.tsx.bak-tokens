@@ -1,0 +1,25 @@
+import React from "react";
+import { Stack } from "expo-router";
+
+import { TOKENS } from "../../src/constants/theme";
+
+/**
+ * Stack de expedientes: estado de nómina de un periodo ([periodId]) y pack
+ * ya sellado (pack/[packId]). Header nativo con título fijo "Expediente";
+ * cada pantalla hija ajusta su propio subtítulo/contenido.
+ */
+export default function ReportLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerTitle: "Expediente",
+        headerStyle: { backgroundColor: TOKENS.colors.background },
+        headerTintColor: TOKENS.colors.text.primary,
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Screen name="[periodId]" />
+      <Stack.Screen name="pack/[packId]" />
+    </Stack>
+  );
+}

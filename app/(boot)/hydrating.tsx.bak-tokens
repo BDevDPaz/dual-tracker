@@ -1,0 +1,61 @@
+import React, { useEffect } from "react";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+
+import { AppBrandTitle, ScreenContainer } from "../../src/components/ui";
+import { useWorkTracker } from "../../src/core/hooks/useWorkTracker";
+import { selectIsHydrated } from "../../src/core/selectors";
+import { TOKENS, FONT } from "../../src/constants/theme";
+
+/**
+ * app/(boot)/hydrating.tsx — Pantalla de rehidratación (Propuesta capa app
+ * §5.2). Su único trabajo es esperar a que SQLite y el ledger terminen de
+ * cargar y devolver el control al gate ("/"). Nunca ofrece "Iniciar
+ * jornada": si la rehidratación revela una sesión ACTIVA, es Hoy (no esta
+ * pantalla) quien la muestra ya en ese estado.
+ */
+export default function HydratingScreen() {
+  const router = useRouter();
+  const { state } = useWorkTracker();
+  const isHydrated = selectIsHydrated(state);
+
+  useEffect(() => {
+    if (isHydrated) {
+      router.replace("/");
+    }
+  }, [isHydrated, router]);
+
+  return (
+    <ScreenContainer style={styles.container}>
+      <View style={styles.content}>
+        <AppBrandTitle subtitle="CONTROL DE JORNADA" />
+
+        <View style={styles.statusRow}>
+          <ActivityIndicator size="small" color={TOKENS.colors.primary} />
+          <Text style={styles.statusText}>Restaurando expediente…</Text>
+        </View>
+      </View>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: TOKENS.colors.background,
+  },
+  content: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: TOKENS.spacing["2xl"],
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: TOKENS.spacing.sm,
+  },
+  statusText: {
+    ...FONT.body,
+    color: TOKENS.colors.text.secondary,
+  },
+});

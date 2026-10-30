@@ -1,0 +1,54 @@
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { translations } from "../utils/i18n";
+import { useWorkTracker } from "../core/hooks/useWorkTracker";
+import { sessionStore } from "../core/runtime";
+
+export type Lang = "es" | "en";
+
+type LanguageContextType = {
+  lang: Lang;
+  t: (key: keyof typeof translations.es) => string;
+  changeLanguage: (l: Lang) => Promise<void>;
+};
+
+const LanguageContext = createContext<LanguageContextType | null>(null);
+
+function normalizeLang(v: unknown): Lang {
+  return v === "en" ? "en" : "es";
+}
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const { state } = useWorkTracker();
+  const [lang, setLang] = useState<Lang>(() => normalizeLang(state.domain.settings.language));
+
+  // Si el idioma cambia en el store (otra pantalla / boot), reflejarlo aqui.
+  useEffect(() => {
+    const next = normalizeLang(state.domain.settings.language);
+    setLang((prev) => (prev === next ? prev : next));
+  }, [state.domain.settings.language]);
+
+  const changeLanguage = useCallback(
+    async (l: Lang) => {
+      setLang(l);
+      const current = state.domain.settings;
+      await sessionStore.saveSettings({ ...current, language: l });
+    },
+    [state.domain.settings]
+  );
+
+  const t = useCallback(
+    (key: keyof typeof translations.es) => {
+      return translations[lang][key] ?? translations.es[key] ?? String(key);
+    },
+    [lang]
+  );
+
+  const value = useMemo(() => ({ lang, t, changeLanguage }), [lang, t, changeLanguage]);
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) throw new Error("useLanguage debe usarse dentro de LanguageProvider");
+  return ctx;
+}

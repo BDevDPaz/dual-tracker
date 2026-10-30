@@ -1,0 +1,268 @@
+import React, { useCallback, useMemo } from "react";
+import { View, Text, ScrollView, StyleSheet, Alert } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { Ionicons } from "@expo/vector-icons";
+
+import dayjs from "../../../src/utils/dayjsSetup";
+import {
+  ScreenContainer,
+  PageHeader,
+  Card,
+  Section,
+  Button,
+  LoadingOverlay,
+  EmptyState,
+} from "../../../src/components/ui";
+import { FONT, type AppTokens } from "../../../src/constants/theme";
+import { useTheme } from "../../../src/context/ThemeContext";
+import { usePackDetail } from "../../../src/core/hooks/dualTracker";
+
+async function shareUri(uri: string | null): Promise<void> {
+  if (!uri) {
+    Alert.alert("Sin documento", "No se pudo generar el archivo a compartir.");
+    return;
+  }
+  const available = await Sharing.isAvailableAsync();
+  if (!available) {
+    Alert.alert("Compartir no disponible", "Este dispositivo no permite compartir archivos.");
+    return;
+  }
+  await Sharing.shareAsync(uri);
+}
+
+export default function ReportPackScreen() {
+  const { tokens } = useTheme();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const params = useLocalSearchParams<{ packId: string }>();
+  const packId = params.packId ?? null;
+
+  const { loading, error, pack, exportJson, exportEmployerPdf } = usePackDetail(packId);
+
+  const handleExportJson = useCallback(async () => {
+    const uri = await exportJson();
+    await shareUri(uri);
+  }, [exportJson]);
+
+  const handleExportPdf = useCallback(async () => {
+    // GAP DOCUMENTADO: usePackDetail solo expone pack.ledgerEntryIds (ids),
+    // no los LedgerEntry completos -- ningún hook de dualTracker resuelve
+    // hoy "ids de ledger sellados en este pack" -> "entradas completas". Para
+    // no fabricar entradas falsas, exportamos con un arreglo vacío; el PDF
+    // resultante tendrá la sección de ledger vacía hasta que una fase
+    // posterior agregue una función de resolución de ids a entries (por
+    // ejemplo, un `resolveLedgerEntries(ids: string[])` en useReportsCenter
+    // o en un hook nuevo dedicado a packs).
+    const uri = await exportEmployerPdf([]);
+    await shareUri(uri);
+  }, [exportEmployerPdf]);
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader title="Manifiesto del pack" subtitle={packId ?? undefined} showBack />
+
+      <LoadingOverlay visible={loading} message="Cargando pack…" />
+
+      <ScrollView contentContainerStyle={styles.content}>
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={tokens.colors.status.danger} />
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
+        ) : null}
+
+        {!pack && !loading ? (
+          <EmptyState
+            title="Pack no encontrado"
+            description="Este expediente no existe o aún no ha sido sellado."
+            icon="document-outline"
+          />
+        ) : null}
+
+        {pack ? (
+          <>
+            <Card style={styles.card}>
+              <Text style={styles.sectionLabel}>Hash del manifiesto</Text>
+              <Text style={styles.hash} selectable>
+                {pack.manifestSha256}
+              </Text>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.sectionLabel}>Sellado</Text>
+              <Text style={styles.value}>
+                {dayjs(pack.generatedAtMs).format("DD MMM YYYY, HH:mm")}
+              </Text>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.sectionLabel}>Periodo</Text>
+              <Text style={styles.value}>
+                {dayjs(pack.periodStart).format("DD MMM")} —{" "}
+                {dayjs(pack.periodEnd).format("DD MMM YYYY")}
+              </Text>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.sectionLabel}>Política</Text>
+              <Text style={styles.value}>{pack.policyId}</Text>
+            </Card>
+
+            <Section title="Estado de nómina">
+              <Card style={styles.card}>
+                <View style={styles.statementGrid}>
+                  <View style={styles.statementCell}>
+                    <Text style={styles.statementValue}>
+                      {(pack.statement.regularHours + pack.statement.overtimeHours).toFixed(1)} h
+                    </Text>
+                    <Text style={styles.statementLabel}>Horas totales</Text>
+                  </View>
+                  <View style={styles.statementCell}>
+                    <Text style={styles.statementValue}>
+                      ${pack.statement.grossEstimate.toFixed(2)}
+                    </Text>
+                    <Text style={styles.statementLabel}>Estimado bruto</Text>
+                  </View>
+                </View>
+              </Card>
+            </Section>
+
+            <Section title={`Asientos incluidos (${pack.ledgerEntryIds.length})`}>
+              <Card style={styles.card}>
+                {pack.ledgerEntryIds.length === 0 ? (
+                  <Text style={styles.emptyText}>Sin asientos de ledger en este pack.</Text>
+                ) : (
+                  pack.ledgerEntryIds.map((id) => (
+                    <Text key={id} style={styles.ledgerId} selectable>
+                      {id}
+                    </Text>
+                  ))
+                )}
+              </Card>
+            </Section>
+
+            <Section title="Resumen de traza">
+              <Card style={styles.card}>
+                {pack.traceSummary.length === 0 ? (
+                  <Text style={styles.emptyText}>Sin resumen de traza para este periodo.</Text>
+                ) : (
+                  pack.traceSummary.map((row, index) => (
+                    <View
+                      key={`${row.siteId}-${index}`}
+                      style={[
+                        styles.traceRow,
+                        index < pack.traceSummary.length - 1 && styles.traceRowBorder,
+                      ]}
+                    >
+                      <Text style={styles.value}>{row.siteId}</Text>
+                      <Text style={styles.statementLabel}>{Math.round(row.dwellMinutes)} min</Text>
+                    </View>
+                  ))
+                )}
+              </Card>
+            </Section>
+
+            <Section title="Exportar">
+              <View style={styles.actionsColumn}>
+                <Button
+                  label="Exportar JSON"
+                  variant="secondary"
+                  iconName="download-outline"
+                  onPress={() => void handleExportJson()}
+                />
+                <Button
+                  label="Exportar PDF empleador"
+                  variant="secondary"
+                  iconName="document-attach-outline"
+                  onPress={() => void handleExportPdf()}
+                />
+              </View>
+            </Section>
+          </>
+        ) : null}
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+  content: {
+    paddingHorizontal: tokens.layout.screenPadding,
+    paddingBottom: tokens.spacing["4xl"],
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    backgroundColor: `${tokens.colors.status.danger}15`,
+  },
+  errorBannerText: {
+    ...FONT.caption,
+    color: tokens.colors.status.danger,
+    flex: 1,
+  },
+  card: {
+    marginBottom: tokens.spacing.md,
+  },
+  sectionLabel: {
+    ...FONT.label,
+    color: tokens.colors.text.muted,
+    marginBottom: tokens.spacing.xs,
+  },
+  hash: {
+    fontFamily: "monospace",
+    fontSize: 12,
+    color: tokens.colors.text.primary,
+  },
+  value: {
+    ...FONT.bodyStrong,
+    color: tokens.colors.text.primary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: tokens.colors.border,
+    marginVertical: tokens.spacing.md,
+  },
+  statementGrid: {
+    flexDirection: "row",
+    gap: tokens.spacing.lg,
+  },
+  statementCell: {
+    flex: 1,
+  },
+  statementValue: {
+    ...FONT.h3,
+    color: tokens.colors.text.primary,
+  },
+  statementLabel: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  emptyText: {
+    ...FONT.body,
+    color: tokens.colors.text.secondary,
+  },
+  ledgerId: {
+    fontFamily: "monospace",
+    fontSize: 11,
+    color: tokens.colors.text.secondary,
+    marginBottom: tokens.spacing.xs,
+  },
+  traceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: tokens.spacing.sm,
+  },
+  traceRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
+  },
+  actionsColumn: {
+    gap: tokens.spacing.md,
+  },
+  });
+}

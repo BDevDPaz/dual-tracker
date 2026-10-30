@@ -1,0 +1,80 @@
+import React, { useEffect, useRef, useState } from "react";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import {
+  useFonts,
+  Montserrat_400Regular,
+  Montserrat_600SemiBold,
+  Montserrat_700Bold,
+  Montserrat_800ExtraBold,
+} from "@expo-google-fonts/montserrat";
+
+import "../src/services/LocationManager";
+
+import { ThemeProvider } from "../src/context/ThemeContext";
+import { ToastProvider } from "../src/context/ToastContext";
+import { LanguageProvider } from "../src/context/LanguageContext";
+import { bootApplication } from "../src/core/boot";
+import { useLogFeedback } from "../src/feedback";
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function FeedbackBridge() {
+  useLogFeedback();
+  return null;
+}
+
+export default function RootLayout() {
+  const [fontsLoaded, fontsError] = useFonts({
+    Montserrat_400Regular,
+    Montserrat_600SemiBold,
+    Montserrat_700Bold,
+    Montserrat_800ExtraBold,
+  });
+
+  const [bootFinished, setBootFinished] = useState(false);
+  const hasBootedRef = useRef(false);
+
+  useEffect(() => {
+    if (hasBootedRef.current) return;
+    hasBootedRef.current = true;
+    bootApplication()
+      .catch((error) => {
+        console.error("Fallo al arrancar Dual Tracker desde el layout raíz:", error);
+      })
+      .finally(() => {
+        setBootFinished(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontsError) && bootFinished) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontsError, bootFinished]);
+
+  if (!fontsLoaded && !fontsError) {
+    return null;
+  }
+
+  return (
+    <ThemeProvider>
+      <LanguageProvider>
+        <ToastProvider>
+          <FeedbackBridge />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(boot)" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="session" />
+            <Stack.Screen name="sites" />
+            <Stack.Screen name="report" />
+            <Stack.Screen name="system" />
+            <Stack.Screen name="legal" />
+          </Stack>
+        </ToastProvider>
+      </LanguageProvider>
+    </ThemeProvider>
+  );
+}
+

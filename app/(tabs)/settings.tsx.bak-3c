@@ -1,0 +1,390 @@
+import React, { useCallback, useMemo, useState } from "react";
+import { View, Text, StyleSheet, Switch } from "react-native";
+import { useRouter } from "expo-router";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+
+import { FONT, type AppTokens } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
+import { useWorkTracker } from "../../src/core/hooks/useWorkTracker";
+import { useSystemHealth, useAdminSecurity, useDisclosure } from "../../src/core/hooks/dualTracker";
+import { sessionStore } from "../../src/core/runtime";
+import type { AppSettingsRecord } from "../../src/core/contracts";
+import { ScreenContainer, PageHeader, Section, Input, Button, Card } from "../../src/components/ui";
+import { useToast } from "../../src/context/ToastContext";
+
+type ProfileDraft = Pick<
+  AppSettingsRecord,
+  "employeeName" | "language" | "dailyReminderTime" | "toleranceRadiusMeters"
+>;
+
+type AdminDraft = Pick<
+  AppSettingsRecord,
+  "hourlyRate" | "overtimeMultiplier" | "companyEmail" | "employerName"
+>;
+
+function toProfileDraft(settings: AppSettingsRecord): ProfileDraft {
+  return {
+    employeeName: settings.employeeName,
+    language: settings.language,
+    dailyReminderTime: settings.dailyReminderTime,
+    toleranceRadiusMeters: settings.toleranceRadiusMeters,
+  };
+}
+
+function toAdminDraft(settings: AppSettingsRecord): AdminDraft {
+  return {
+    hourlyRate: settings.hourlyRate,
+    overtimeMultiplier: settings.overtimeMultiplier,
+    companyEmail: settings.companyEmail,
+    employerName: settings.employerName,
+  };
+}
+
+function statusLabel(status: "unknown" | "granted" | "denied"): string {
+  switch (status) {
+    case "granted":
+      return "Concedido";
+    case "denied":
+      return "Denegado";
+    default:
+      return "Desconocido";
+  }
+}
+
+function traceModeLabel(mode: string): string {
+  switch (mode) {
+    case "RASTRO_ACTIVO":
+      return "Miga de pan activa (perímetro + trayectoria)";
+    case "SOLO_GEOCERCA":
+      return "Solo perímetro (sin miga de pan)";
+    case "SIN_UBICACION":
+      return "Sin ubicación (jornada no certificable)";
+    default:
+      return "Desconocido";
+  }
+}
+
+export default function AjustesScreen() {
+  const { tokens } = useTheme();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const router = useRouter();
+  const { showToast } = useToast();
+  const { state } = useWorkTracker();
+  const { health } = useSystemHealth();
+  const { unlocked, error: adminError, busy, unlock, lock } = useAdminSecurity();
+  const { traceMode } = useDisclosure();
+
+  const settings = state.domain.settings;
+
+  const [profileDraft, setProfileDraft] = useState<ProfileDraft>(() => toProfileDraft(settings));
+  const [adminDraft, setAdminDraft] = useState<AdminDraft>(() => toAdminDraft(settings));
+  const [pinInput, setPinInput] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const isProfileDirty = useMemo(() => {
+    const original = toProfileDraft(settings);
+    return (
+      original.employeeName !== profileDraft.employeeName ||
+      original.language !== profileDraft.language ||
+      original.dailyReminderTime !== profileDraft.dailyReminderTime ||
+      original.toleranceRadiusMeters !== profileDraft.toleranceRadiusMeters
+    );
+  }, [settings, profileDraft]);
+
+  const isAdminDirty = useMemo(() => {
+    if (!unlocked) return false;
+    const original = toAdminDraft(settings);
+    return (
+      original.hourlyRate !== adminDraft.hourlyRate ||
+      original.overtimeMultiplier !== adminDraft.overtimeMultiplier ||
+      original.companyEmail !== adminDraft.companyEmail ||
+      original.employerName !== adminDraft.employerName
+    );
+  }, [settings, adminDraft, unlocked]);
+
+  const isDirty = isProfileDirty || isAdminDirty;
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const merged: AppSettingsRecord = {
+        ...settings,
+        ...profileDraft,
+        ...(unlocked ? adminDraft : {}),
+      };
+      await sessionStore.saveSettings(merged);
+      showToast("Ajustes guardados", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "No se pudo guardar", "error");
+    } finally {
+      setSaving(false);
+    }
+  }, [settings, profileDraft, adminDraft, unlocked, showToast]);
+
+  const handleUnlock = useCallback(async () => {
+    const ok = await unlock(pinInput);
+    if (ok) {
+      setPinInput("");
+      setAdminDraft(toAdminDraft(settings));
+    }
+  }, [unlock, pinInput, settings]);
+
+  const currentTraceMode = traceMode({
+    disclaimerAccepted: settings.disclaimerAccepted,
+    hasBackgroundLocation: health?.locationBackground === "granted",
+    hasForegroundLocation: health?.locationForeground === "granted",
+  });
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader title="Ajustes" />
+
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        enableOnAndroid={true}
+        extraScrollHeight={24}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Section title="Perfil laboral">
+          <Input
+            label="Nombre"
+            value={profileDraft.employeeName}
+            onChangeText={(text) => setProfileDraft((prev) => ({ ...prev, employeeName: text }))}
+            icon="person-outline"
+          />
+          <View style={styles.languageRow}>
+            <Text style={styles.languageLabel}>Idioma: Español</Text>
+            <Switch
+              value={profileDraft.language === "en"}
+              onValueChange={(value) =>
+                setProfileDraft((prev) => ({ ...prev, language: value ? "en" : "es" }))
+              }
+              trackColor={{ false: tokens.colors.border, true: tokens.colors.primary }}
+            />
+            <Text style={styles.languageLabel}>Inglés</Text>
+          </View>
+          <Input
+            label="Recordatorio diario (HH:mm)"
+            value={profileDraft.dailyReminderTime}
+            onChangeText={(text) =>
+              setProfileDraft((prev) => ({ ...prev, dailyReminderTime: text }))
+            }
+            icon="alarm-outline"
+            placeholder="08:00"
+          />
+        </Section>
+
+        <Section title="Monitoreo">
+          <Card variant="surface" style={styles.monitorCard}>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>GPS primer plano</Text>
+              <Text style={styles.monitorValue}>
+                {statusLabel(health?.locationForeground ?? "unknown")}
+              </Text>
+            </View>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>GPS segundo plano</Text>
+              <Text style={styles.monitorValue}>
+                {statusLabel(health?.locationBackground ?? "unknown")}
+              </Text>
+            </View>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>Servicio en primer plano</Text>
+              <Text style={styles.monitorValue}>
+                {health?.androidForegroundServiceType ?? "unknown"}
+              </Text>
+            </View>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>Rastro</Text>
+              <Text style={styles.monitorValue}>{traceModeLabel(currentTraceMode)}</Text>
+            </View>
+          </Card>
+          <Button
+            label="Ver salud del sistema"
+            variant="secondary"
+            size="sm"
+            iconName="pulse-outline"
+            onPress={() => router.push("/system/health")}
+            style={styles.linkButton}
+          />
+        </Section>
+
+        <Section title="Destinos">
+          <Button
+            label="Gestionar destinos"
+            variant="secondary"
+            size="sm"
+            iconName="location-outline"
+            onPress={() => router.push("/sites")}
+            style={styles.linkButton}
+          />
+          <Input
+            label="Radio por defecto (metros)"
+            value={String(profileDraft.toleranceRadiusMeters)}
+            onChangeText={(text) => {
+              const parsed = Number(text.replace(/[^0-9]/g, ""));
+              setProfileDraft((prev) => ({
+                ...prev,
+                toleranceRadiusMeters: Number.isFinite(parsed)
+                  ? parsed
+                  : prev.toleranceRadiusMeters,
+              }));
+            }}
+            keyboardType="numeric"
+            icon="radio-button-on-outline"
+          />
+        </Section>
+
+        <Section title="Zona administrativa">
+          {!unlocked ? (
+            <View>
+              <Input
+                label="PIN o clave de administrador"
+                value={pinInput}
+                onChangeText={setPinInput}
+                secureTextEntry
+                icon="lock-closed-outline"
+                error={adminError ?? undefined}
+              />
+              <Button
+                label="Desbloquear"
+                variant="primary"
+                onPress={handleUnlock}
+                isLoading={busy}
+              />
+            </View>
+          ) : (
+            <View>
+              <Input
+                label="Tarifa por hora (USD)"
+                value={String(adminDraft.hourlyRate)}
+                onChangeText={(text) => {
+                  const parsed = Number(text.replace(/[^0-9.]/g, ""));
+                  setAdminDraft((prev) => ({
+                    ...prev,
+                    hourlyRate: Number.isFinite(parsed) ? parsed : prev.hourlyRate,
+                  }));
+                }}
+                keyboardType="decimal-pad"
+                icon="cash-outline"
+              />
+              <Input
+                label="Multiplicador de horas extra"
+                value={String(adminDraft.overtimeMultiplier)}
+                onChangeText={(text) => {
+                  const parsed = Number(text.replace(/[^0-9.]/g, ""));
+                  setAdminDraft((prev) => ({
+                    ...prev,
+                    overtimeMultiplier: Number.isFinite(parsed) ? parsed : prev.overtimeMultiplier,
+                  }));
+                }}
+                keyboardType="decimal-pad"
+                icon="trending-up-outline"
+              />
+              <Input
+                label="Email de reportes"
+                value={adminDraft.companyEmail}
+                onChangeText={(text) => setAdminDraft((prev) => ({ ...prev, companyEmail: text }))}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                icon="mail-outline"
+              />
+              <Input
+                label="Nombre de empresa"
+                value={adminDraft.employerName}
+                onChangeText={(text) => setAdminDraft((prev) => ({ ...prev, employerName: text }))}
+                icon="business-outline"
+              />
+              <Button label="Bloquear" variant="secondary" onPress={lock} />
+            </View>
+          )}
+        </Section>
+
+        <Section title="Legal">
+          <Button
+            label="Ver descargo"
+            variant="secondary"
+            size="sm"
+            iconName="document-text-outline"
+            onPress={() => router.push("/legal/disclosure")}
+            style={styles.linkButton}
+          />
+          <Button
+            label="Ver retención"
+            variant="secondary"
+            size="sm"
+            iconName="archive-outline"
+            onPress={() => router.push("/legal/retention")}
+            style={styles.linkButton}
+          />
+        </Section>
+
+        <View style={styles.footerSpacer} />
+      </KeyboardAwareScrollView>
+
+      {isDirty && (
+        <View style={styles.stickyFooter}>
+          <Button label="Guardar" onPress={handleSave} isLoading={saving} />
+        </View>
+      )}
+    </ScreenContainer>
+  );
+}
+
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: tokens.spacing["3xl"],
+  },
+  languageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.md,
+  },
+  languageLabel: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  monitorCard: {
+    marginBottom: tokens.spacing.md,
+  },
+  monitorRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: tokens.spacing.xs,
+  },
+  monitorLabel: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  monitorValue: {
+    ...FONT.caption,
+    color: tokens.colors.text.primary,
+    fontWeight: "700",
+  },
+  linkButton: {
+    marginBottom: tokens.spacing.md,
+    alignSelf: "flex-start",
+  },
+  footerSpacer: {
+    height: tokens.spacing["4xl"],
+  },
+  stickyFooter: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: tokens.layout.screenPadding,
+    backgroundColor: tokens.colors.background,
+    borderTopWidth: 1,
+    borderTopColor: tokens.colors.border,
+  },
+  });
+}

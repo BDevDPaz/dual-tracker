@@ -1,0 +1,54 @@
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { securityService } from "../src/services/SecurityService";
+import { TOKENS, FONT } from "../src/constants/theme";
+
+/**
+ * Pantalla temporal de una sola vez para crear tu clave de administrador.
+ * 1. Edita TU_CLAVE_AQUI abajo con una clave fuerte (no 1234, no 0000, no "admin").
+ * 2. Copia este archivo a app/set-admin.tsx
+ * 3. Abre en Expo Go la ruta /set-admin
+ * 4. Cuando diga "Clave creada", BORRA este archivo.
+ */
+const TU_CLAVE_AQUI = "Dual2026!";
+
+export default function SetAdminScreen() {
+  const [msg, setMsg] = useState("Configurando clave...");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const has = await securityService.hasAdminCredential();
+        if (has) {
+          setMsg("Ya existe una clave administrativa. Borra este archivo app/set-admin.tsx.");
+          return;
+        }
+        await securityService.setAdminCredential(TU_CLAVE_AQUI);
+        setMsg("Clave creada con éxito. Borra ahora app/set-admin.tsx y reinicia la app.");
+      } catch (e) {
+        setMsg("Error: " + (e instanceof Error ? e.message : String(e)));
+      }
+    })();
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>{msg}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+    backgroundColor: TOKENS.colors.background,
+  },
+  text: {
+    ...FONT.body,
+    color: TOKENS.colors.text.primary,
+    textAlign: "center",
+  },
+});

@@ -1,0 +1,60 @@
+import React, { useMemo } from "react";
+import { Text, ScrollView, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+
+import { ScreenContainer, PageHeader, Card, Button } from "../../src/components/ui";
+import { TOKENS, FONT } from "../../src/constants/theme";
+import { useDisclosure } from "../../src/core/hooks/dualTracker";
+
+export default function LegalDisclosureScreen() {
+  const router = useRouter();
+  const { text } = useDisclosure();
+
+  const paragraphs = useMemo(() => text.body.split("\n\n"), [text.body]);
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader title={text.title} subtitle="Solo lectura — ya aceptado" showBack />
+
+      <ScrollView contentContainerStyle={styles.content}>
+        <Card style={styles.card}>
+          {paragraphs.map((paragraph, index) => (
+            <Text
+              key={index}
+              style={[styles.paragraph, index < paragraphs.length - 1 && styles.paragraphSpacing]}
+            >
+              {paragraph}
+            </Text>
+          ))}
+        </Card>
+
+        <Button
+          label="Volver"
+          variant="secondary"
+          onPress={() => router.back()}
+          style={styles.backButton}
+        />
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: TOKENS.layout.screenPadding,
+    paddingBottom: TOKENS.spacing["4xl"],
+  },
+  card: {
+    marginBottom: TOKENS.spacing.lg,
+  },
+  paragraph: {
+    ...FONT.body,
+    color: TOKENS.colors.text.secondary,
+  },
+  paragraphSpacing: {
+    marginBottom: TOKENS.spacing.md,
+  },
+  backButton: {
+    marginTop: TOKENS.spacing.sm,
+  },
+});

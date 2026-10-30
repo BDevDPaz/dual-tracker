@@ -1,0 +1,347 @@
+export const translations = {
+  es: {
+    // --- BOTONES GLOBALES ---
+    btn_cancel: "CANCELAR",
+    btn_save: "GUARDAR",
+    btn_edit: "EDITAR",
+    btn_delete: "ELIMINAR",
+    btn_close: "CERRAR",
+    btn_finished: "TERMINAR",
+    btn_moving: "OTRO SITIO",
+
+    // --- HEADER & HOME (Estados del Flujo Maestro) ---
+    header_title: "WORK Tracker",
+    status_active: "ACTIVO",
+    status_inactive: "FUERA DE SERVICIO",
+    status_pending: "ESPERANDO LLEGADA", // ✅ Vital para Fase 1
+    status_transit: "EN TRÁNSITO", // ✅ Vital para Fase 4
+    status_travel: "EN TRÁNSITO", // (Compatibilidad)
+
+    // --- TARJETA PRINCIPAL (HOME) ---
+    label_location: "UBICACIÓN ACTUAL",
+    label_destination: "DESTINO CONFIGURADO",
+    hint_geofence_active: "Geocerca Activa • Check-in automático al llegar",
+    no_activity: "No hay actividad registrada.",
+
+    // --- ACCIONES PRINCIPALES ---
+    btn_clock_out: "TERMINAR JORNADA",
+    btn_new_job: "INICIAR JORNADA",
+
+    // --- ESTADÍSTICAS ---
+    stats_hours: "HORAS",
+    stats_earnings: "GANANCIA EST.",
+
+    // --- MODAL CONFIGURACIÓN (DAILY SETUP & TRÁNSITO) ---
+    modal_title_start: "INICIAR JORNADA",
+    modal_subtitle_start: "Configura tu primer ubicación del día",
+    modal_title_transit: "NUEVO DESTINO",
+    modal_subtitle_transit: "Rumbo al siguiente trabajo",
+
+    // ✅ Inputs Nuevos (Requeridos por el nuevo Modal)
+    input_address: "Dirección del trabajo",
+    input_client: "Cliente (Opcional)",
+    input_notes: "Notas (Opcional)",
+
+    daily_placeholder: "Ej: 1234 Ejemplo Ave...", // (Compatibilidad)
+
+    btn_activate_geofence: "ACTIVAR GEOCERCA",
+    btn_start_transit: "INICIAR TRAYECTO",
+
+    // --- MODAL ALMUERZO ---
+    lunch_title: "¿TOMASTE ALMUERZO?",
+    lunch_subtitle: "Deducción automática de tiempo",
+    lunch_yes_30: "SÍ (30 MIN)",
+    lunch_yes_60: "SÍ (60 MIN)",
+    lunch_no: "NO TOMÉ",
+    status_lunch_taken: "🍴 Almuerzo 🍴",
+
+    // --- ALERTAS Y NOTIFICACIONES ---
+    alert_exit_title: "📍 Saliste del Área",
+    alert_exit_msg: "¿Terminaste tu jornada o vas a otro sitio?",
+    alert_location_needed: "Se requiere ubicación precisa",
+    alert_address_not_found: "Dirección no encontrada",
+
+    toast_geofence_active: "Geocerca Activada. Ve al sitio.",
+    toast_transit_started: "Tránsito iniciado.",
+    toast_shift_ended: "Jornada finalizada.",
+    toast_error_generic: "Ocurrió un error.",
+
+    // --- REPORTES Y PDF (NUEVO) ---
+    report_title: "REPORTE SEMANAL",
+    report_subtitle: "NÓMINA Y AUDITORÍA",
+    card_ready_title: "Listo para Generar",
+    card_ready_desc:
+      "Genera un PDF oficial con desglose de horas, clientes, notas y auditoría GPS.",
+    btn_download_pdf: "DESCARGAR PDF",
+    btn_send_email: "ENVIAR POR EMAIL",
+    report_footer_note: "* Al enviar, se abrirá tu aplicación de correo predeterminada.",
+
+    // --- HISTORIAL (COMPATIBILIDAD) ---
+    history_title: "Historial",
+    col_date: "Fecha",
+    col_loc: "Ubicación",
+    col_in: "Entrada",
+    col_out: "Salida",
+
+    // --- CONFIGURACIÓN & ADMIN (COMPATIBILIDAD) ---
+    settings_title: "CONFIGURACIÓN",
+    settings_general: "GENERAL",
+    settings_save: "GUARDAR CAMBIOS",
+
+    label_lang: "Idioma / Language",
+    label_name: "Nombre Empleado",
+    label_rate: "Tarifa por Hora ($)",
+    label_start_time: "Hora Recordatorio Diario (HH:MM)",
+    label_multiplier: "Multiplicador Tiempo Extra (x)",
+    label_company_name: "Nombre Empresa",
+    label_report_email: "Email Reportes",
+    label_radius: "Radio Tolerancia (mts)",
+
+    admin_zone: "ZONA ADMIN",
+    admin_unlock: "Desbloquear",
+    admin_pass_placeholder: "Código de Acceso Admin",
+    admin_locked_msg: "Configuración de empresa bloqueada.",
+    err_pass_wrong: "Código de acceso incorrecto",
+
+    // --- AUDITORÍA PDF ---
+    pdf_audit_title: "AUDITORÍA DE INTEGRIDAD DE DATOS",
+    log_auto_exit: "Salida Automática por distancia",
+    log_auto_entry: "Entrada Automática",
+    settings_profile: "PERFIL LABORAL",
+    settings_appearance: "APARIENCIA",
+    settings_monitoring: "MONITOREO",
+    settings_sites: "DESTINOS",
+    settings_legal: "LEGAL",
+    label_dark_mode: "Modo oscuro",
+    monitor_fg_gps: "GPS primer plano",
+    monitor_bg_gps: "GPS segundo plano",
+    monitor_fg_service: "Servicio en primer plano",
+    monitor_trace: "Rastro",
+    status_granted: "Concedido",
+    status_denied: "Denegado",
+    status_unknown: "Desconocido",
+    tracemode_breadcrumb: "Miga de pan activa (perímetro + trayectoria)",
+    tracemode_geofence: "Solo perímetro (sin miga de pan)",
+    tracemode_none: "Sin ubicación (jornada no certificable)",
+    btn_system_health: "Ver salud del sistema",
+    btn_manage_sites: "Gestionar destinos",
+    btn_lock: "Bloquear",
+    btn_view_disclosure: "Ver descargo",
+    btn_view_retention: "Ver retención",
+    toast_settings_saved: "Ajustes guardados",
+    hist_net_hours: "HORAS NETAS",
+    hist_estimated: "ESTIMADO",
+    hist_adjusted: "AJUSTADAS",
+    hist_to_review: "POR REVISAR",
+    hist_empty_title: "Aún no hay jornadas en este periodo.",
+    hist_loading: "Cargando historial…",
+    unit_hour: "h",
+    reports_title: "Reportes",
+    report_period_current: "Semana actual",
+    report_period_prev: "Semana anterior",
+    report_loading: "Cargando periodo…",
+    report_conflict_hint: "Hay sesiones por revisar en este periodo",
+    report_reg_hours: "Regulares",
+    report_ot_hours: "Tiempo extra",
+    report_transit: "Tránsito",
+    report_lunch: "Almuerzo",
+    report_gross_est: "Estimado bruto del periodo",
+    report_sessions_title: "Sesiones del periodo",
+    report_empty_title: "Sin sesiones",
+    report_empty_desc: "No hay jornadas en este periodo.",
+    report_actions: "Acciones",
+    btn_share_employee: "Compartir comprobante empleado",
+    btn_share_employer: "Compartir expediente empleador",
+    btn_view_manifest: "Ver manifiesto",
+    report_period_next: "Semana siguiente",
+    integrity_valid: "Válidas",
+    integrity_manual: "Ajustadas",
+    integrity_auto: "Automáticas",
+    integrity_conflict: "Por revisar",
+    report_no_statement_title: "Sin estado de nómina",
+    report_no_statement_desc: "Aún no hay un estado de nómina calculado para este periodo.",
+    report_conflict_alert_title: "Periodo con sesiones por revisar",
+    report_conflict_alert_msg:
+      "Este periodo tiene sesiones por revisar. El expediente saldrá marcado como no certificado. ¿Continuar?",
+    alert_cancel: "Cancelar",
+    alert_continue: "Continuar",
+    reports_subtitle: "Centro de exportación de nómina",
+    report_seal_error_title: "No se pudo generar el expediente",
+    share_no_document_title: "Sin documento",
+    share_no_document_msg: "No se pudo generar el archivo a compartir.",
+    share_unavailable_title: "Compartir no disponible",
+    share_unavailable_msg: "Este dispositivo no permite compartir archivos.",
+  },
+
+  en: {
+    // --- GLOBAL BUTTONS ---
+    btn_cancel: "CANCEL",
+    btn_save: "SAVE",
+    btn_edit: "EDIT",
+    btn_delete: "DELETE",
+    btn_close: "CLOSE",
+    btn_finished: "FINISHED",
+    btn_moving: "MOVING",
+
+    // --- HEADER & HOME ---
+    header_title: "WORK Tracker",
+    status_active: "ACTIVE",
+    status_inactive: "OFF DUTY",
+    status_pending: "AWAITING ARRIVAL",
+    status_transit: "IN TRANSIT",
+    status_travel: "IN TRANSIT",
+
+    // --- MAIN CARD ---
+    label_location: "CURRENT LOCATION",
+    label_destination: "TARGET DESTINATION",
+    hint_geofence_active: "Geofence Active • Auto check-in on arrival",
+    no_activity: "No active session.",
+
+    // --- MAIN ACTIONS ---
+    btn_clock_out: "CLOCK OUT",
+    btn_new_job: "START SHIFT",
+
+    // --- STATS ---
+    stats_hours: "HOURS",
+    stats_earnings: "EST. EARNINGS",
+
+    // --- SETUP MODAL ---
+    modal_title_start: "START SHIFT",
+    modal_subtitle_start: "Set up your first location",
+    modal_title_transit: "NEW DESTINATION",
+    modal_subtitle_transit: "Heading to next job",
+
+    input_address: "Job Address",
+    input_client: "Client (Optional)",
+    input_notes: "Notes (Optional)",
+
+    daily_placeholder: "Ex: 1234 Example Ave...",
+
+    btn_activate_geofence: "ACTIVATE GEOFENCE",
+    btn_start_transit: "START TRANSIT",
+
+    // --- LUNCH MODAL ---
+    lunch_title: "DID YOU TAKE LUNCH?",
+    lunch_subtitle: "Automatic time deduction",
+    lunch_yes_30: "YES (30 MIN)",
+    lunch_yes_60: "YES (60 MIN)",
+    lunch_no: "NO LUNCH",
+    status_lunch_taken: "🍴 Lunch Taken 🍴",
+
+    // --- ALERTS ---
+    alert_exit_title: "📍 Left Work Area",
+    alert_exit_msg: "Did you finish your shift or are you moving?",
+    alert_location_needed: "Precise location required",
+    alert_address_not_found: "Address not found",
+
+    toast_geofence_active: "Geofence Active. Go to site.",
+    toast_transit_started: "Transit started.",
+    toast_shift_ended: "Shift ended successfully.",
+    toast_error_generic: "An error occurred.",
+
+    // --- REPORTS ---
+    report_title: "WEEKLY REPORT",
+    report_subtitle: "PAYROLL & AUDIT",
+    card_ready_title: "Ready to Generate",
+    card_ready_desc: "Generate official PDF with hours breakdown, clients, notes, and GPS audit.",
+    btn_download_pdf: "DOWNLOAD PDF",
+    btn_send_email: "SEND BY EMAIL",
+    report_footer_note: "* Sending will open your default email app.",
+
+    // --- HISTORY ---
+    history_title: "History",
+    col_date: "Date",
+    col_loc: "Location",
+    col_in: "In",
+    col_out: "Out",
+
+    // --- SETTINGS & ADMIN ---
+    settings_title: "SETTINGS",
+    settings_general: "GENERAL",
+    settings_save: "SAVE CHANGES",
+
+    label_lang: "Language / Idioma",
+    label_name: "Employee Name",
+    label_rate: "Hourly Rate ($)",
+    label_start_time: "Daily Reminder Time (HH:MM)",
+    label_multiplier: "Overtime Multiplier (x)",
+    label_company_name: "Company Name",
+    label_report_email: "Report Email",
+    label_radius: "Tolerance Radius (m)",
+
+    admin_zone: "ADMIN ZONE",
+    admin_unlock: "Unlock",
+    admin_pass_placeholder: "Admin Access Code",
+    admin_locked_msg: "Company settings locked.",
+    err_pass_wrong: "Incorrect access code",
+
+    // --- AUDIT PDF ---
+    pdf_audit_title: "DATA INTEGRITY AUDIT LOG",
+    log_auto_exit: "Auto-Checkout by distance",
+    log_auto_entry: "Auto Check-in",
+    settings_profile: "WORK PROFILE",
+    settings_appearance: "APPEARANCE",
+    settings_monitoring: "MONITORING",
+    settings_sites: "SITES",
+    settings_legal: "LEGAL",
+    label_dark_mode: "Dark mode",
+    monitor_fg_gps: "Foreground GPS",
+    monitor_bg_gps: "Background GPS",
+    monitor_fg_service: "Foreground service",
+    monitor_trace: "Trace",
+    status_granted: "Granted",
+    status_denied: "Denied",
+    status_unknown: "Unknown",
+    tracemode_breadcrumb: "Active breadcrumb (geofence + path)",
+    tracemode_geofence: "Geofence only (no breadcrumb)",
+    tracemode_none: "No location (shift not certifiable)",
+    btn_system_health: "View system health",
+    btn_manage_sites: "Manage sites",
+    btn_lock: "Lock",
+    btn_view_disclosure: "View disclaimer",
+    btn_view_retention: "View retention",
+    toast_settings_saved: "Settings saved",
+    hist_net_hours: "NET HOURS",
+    hist_estimated: "ESTIMATED",
+    hist_adjusted: "ADJUSTED",
+    hist_to_review: "TO REVIEW",
+    hist_empty_title: "No shifts in this period yet.",
+    hist_loading: "Loading history…",
+    unit_hour: "h",
+    reports_title: "Reports",
+    report_period_current: "Current week",
+    report_period_prev: "Previous week",
+    report_loading: "Loading period…",
+    report_conflict_hint: "There are sessions to review in this period",
+    report_reg_hours: "Regular",
+    report_ot_hours: "Overtime",
+    report_transit: "Transit",
+    report_lunch: "Lunch",
+    report_gross_est: "Period gross estimate",
+    report_sessions_title: "Period sessions",
+    report_empty_title: "No sessions",
+    report_empty_desc: "No shifts in this period.",
+    report_actions: "Actions",
+    btn_share_employee: "Share employee receipt",
+    btn_share_employer: "Share employer dossier",
+    btn_view_manifest: "View manifest",
+    report_period_next: "Next week",
+    integrity_valid: "Valid",
+    integrity_manual: "Adjusted",
+    integrity_auto: "Automatic",
+    integrity_conflict: "To review",
+    report_no_statement_title: "No payroll statement",
+    report_no_statement_desc: "No payroll statement calculated for this period yet.",
+    report_conflict_alert_title: "Period with sessions to review",
+    report_conflict_alert_msg:
+      "This period has sessions to review. The dossier will be marked as uncertified. Continue?",
+    alert_cancel: "Cancel",
+    alert_continue: "Continue",
+    reports_subtitle: "Payroll export center",
+    report_seal_error_title: "Could not generate the dossier",
+    share_no_document_title: "No document",
+    share_no_document_msg: "Could not generate the file to share.",
+    share_unavailable_title: "Sharing unavailable",
+    share_unavailable_msg: "This device does not support file sharing.",
+  },
+};

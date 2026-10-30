@@ -1,0 +1,28 @@
+import React from "react";
+import { Stack } from "expo-router";
+
+import { TOKENS } from "../../src/constants/theme";
+
+/**
+ * Stack de expediente (Propuesta capa app §3.1 / §5.9-5.10).
+ * El comportamiento "back al origen" (Historial u Hoy) NO se resuelve aquí:
+ * un `_layout` de Stack no puede leer el search param `from` del hijo antes
+ * de que este se monte, así que `app/session/[id].tsx` implementa su propio
+ * `PageHeader` con `onBack` explícito y oculta el header nativo de esta
+ * pantalla. Este layout solo aporta el header nativo por defecto (usado tal
+ * cual en `trace.tsx`, que no necesita lógica de origen).
+ */
+export default function SessionLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: TOKENS.colors.background },
+        headerTintColor: TOKENS.colors.text.primary,
+        headerTitleStyle: { fontFamily: undefined },
+      }}
+    >
+      <Stack.Screen name="[id]" options={{ title: "Expediente", headerShown: false }} />
+      <Stack.Screen name="[id]/trace" options={{ title: "Rastro" }} />
+    </Stack>
+  );
+}

@@ -1,0 +1,132 @@
+{
+  "expo": {
+    "name": "Dual Tracker",
+    "slug": "dual-tracker",
+    "scheme": "dualtracker",
+    "version": "1.0.0",
+    "owner": "b_dpaz",
+    "newArchEnabled": true,
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D0D0D"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bdpaz.dualtracker",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Dual Tracker necesita tu ubicación para registrar el inicio y fin de tus jornadas laborales de forma precisa.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Dual Tracker requiere acceso a tu ubicación en segundo plano para detectar automáticamente cuando entras o sales de los sitios de trabajo mediante geocercas.",
+        "NSLocationAlwaysUsageDescription": "Dual Tracker requiere acceso a tu ubicación en segundo plano para las automatizaciones de Auto Check-in y Auto Check-out.",
+        "NSFaceIDUsageDescription": "Dual Tracker usa Face ID para proteger tu historial de jornadas.",
+        "UIUserInterfaceStyle": "Dark"
+      }
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0D0D0D"
+      },
+      "package": "com.bdpaz.dualtracker",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permite a Dual Tracker usar tu ubicación en segundo plano para las automatizaciones de Auto Check-in y Auto Check-out.",
+          "locationAlwaysPermission": "Permite a Dual Tracker usar tu ubicación en segundo plano para las automatizaciones de Auto Check-in y Auto Check-out.",
+          "locationWhenInUsePermission": "Dual Tracker necesita tu ubicación para registrar el inicio y fin de tus jornadas.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#D4AF37",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-font",
+      "expo-sqlite",
+      "expo-localization",
+      "expo-mail-composer",
+      "expo-web-browser",
+      "expo-asset",
+      "expo-background-task",
+      "expo-task-manager",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Dual Tracker usa Face ID para proteger tu historial de jornadas."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
+      [
+        "expo-updates",
+        {
+          "enabled": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "21931c11-111e-46f6-af00-805cf7f9e954"
+      }
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD"
+    }
+  }
+}

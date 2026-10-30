@@ -1,0 +1,23 @@
+import React from "react";
+import { Stack } from "expo-router";
+
+import { TOKENS } from "../../src/constants/theme";
+
+/**
+ * app/(boot)/_layout.tsx — Stack de arranque (Propuesta capa app §3.1).
+ * Sin header propio, fondo obsidian y sin gesto de back: el usuario no
+ * puede "salirse" de la rehidratación arrastrando hacia atrás.
+ */
+export default function BootLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: false,
+        contentStyle: { backgroundColor: TOKENS.colors.background },
+      }}
+    >
+      <Stack.Screen name="hydrating" />
+    </Stack>
+  );
+}

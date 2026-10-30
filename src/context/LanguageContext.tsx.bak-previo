@@ -1,0 +1,37 @@
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { translations } from "../utils/i18n";
+import { useWorkTracker } from "../core/hooks/useWorkTracker";
+import { sessionStore } from "../core/runtime";
+
+type Lang = "es" | "en";
+type Ctx = {
+  lang: Lang;
+  t: (key: keyof typeof translations.es) => string;
+  changeLanguage: (l: Lang) => Promise<void>;
+};
+
+const LanguageContext = createContext<Ctx | null>(null);
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const { state } = useWorkTracker();
+  const [lang, setLang] = useState<Lang>(state.domain.settings.language ?? "es");
+
+  const changeLanguage = useCallback(async (l: Lang) => {
+    setLang(l);
+    const current = state.domain.settings;
+    await sessionStore.saveSettings({ ...current, language: l });
+  }, [state.domain.settings]);
+
+  const t = useCallback((key: keyof typeof translations.es) => {
+    return translations[lang][key] ?? translations.es[key] ?? String(key);
+  }, [lang]);
+
+  const value = useMemo(() => ({ lang, t, changeLanguage }), [lang, t, changeLanguage]);
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) throw new Error("useLanguage debe usarse dentro de LanguageProvider");
+  return ctx;
+}

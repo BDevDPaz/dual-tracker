@@ -1,0 +1,108 @@
+import React, { useCallback, useMemo, useState } from "react";
+import { View, Text, StyleSheet, Pressable, FlatList } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import dayjs from "../../src/utils/dayjsSetup";
+import { FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
+import { useSessionHistory, useSiteRegistry, toIntegrityBadgeType, type HistoryFilter, type HistoryRow } from "../../src/core/hooks/dualTracker";
+import { ScreenContainer, PageHeader, Card, IntegrityBadge, EmptyState, LoadingOverlay } from "../../src/components/ui";
+
+const FILTER_OPTIONS: { value: HistoryFilter; label: string }[] = [
+  { value: "TODOS", label: "Todo" },
+  { value: "ESTA_SEMANA", label: "Esta semana" },
+  { value: "AJUSTADAS", label: "Ajustadas" },
+  { value: "AUTO_CIERRE", label: "Auto cierre" },
+  { value: "POR_REVISAR", label: "Por revisar" },
+];
+
+function formatHours(hours: number): string { if (!Number.isFinite(hours)) return "—"; return `${hours.toFixed(1)} h`; }
+function formatPay(pay: number): string { if (!Number.isFinite(pay)) return "—"; return `$${pay.toFixed(2)}`; }
+
+export default function HistorialScreen() {
+  const { tokens } = useTheme();
+  const router = useRouter();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [filter, setFilter] = useState<HistoryFilter>("TODOS");
+  const { loading, rows, weeklyRollup, weekStartMs, weekEndMs } = useSessionHistory(weekOffset, filter);
+  const { sites } = useSiteRegistry(false);
+
+  const siteAliasById = useMemo(() => { const map = new Map<string, string>(); sites.forEach((s) => map.set(s.id, s.alias)); return map; }, [sites]);
+  const weekRangeLabel = useMemo(() => { const start = dayjs(weekStartMs); const end = dayjs(weekEndMs - 1); return `${start.format("D MMM")} – ${end.format("D MMM")}`; }, [weekStartMs, weekEndMs]);
+
+  const styles = useMemo(() => StyleSheet.create({
+    weekNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: tokens.layout.screenPadding, marginBottom: tokens.spacing.md },
+    weekNavButton: { padding: tokens.spacing.sm },
+    weekNavLabel: { ...FONT.bodyStrong, color: tokens.colors.text.primary },
+    rollupCard: { marginHorizontal: tokens.layout.screenPadding, marginBottom: tokens.spacing.lg },
+    rollupRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: tokens.spacing.sm },
+    rollupMetric: { flex: 1 },
+    rollupLabel: { ...FONT.label, color: tokens.colors.text.muted, marginBottom: tokens.spacing.xs },
+    rollupValue: { ...FONT.h3, color: tokens.colors.text.primary },
+    rollupCount: { ...FONT.h3, color: tokens.colors.text.secondary },
+    rollupCountWarning: { color: tokens.colors.status.danger },
+    filtersRow: { paddingHorizontal: tokens.layout.screenPadding, gap: tokens.spacing.sm, paddingBottom: tokens.spacing.md, alignItems: "center" },
+    filterChip: { paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderRadius: tokens.radius.round, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, justifyContent: "center", alignItems: "center" },
+    filterChipActive: { backgroundColor: tokens.colors.primarySoft, borderColor: tokens.colors.primary },
+    filterChipText: { ...FONT.caption, color: tokens.colors.text.secondary },
+    filterChipTextActive: { color: tokens.colors.primary, fontWeight: "700" },
+    listContent: { paddingHorizontal: tokens.layout.screenPadding, paddingBottom: tokens.spacing["3xl"], gap: tokens.spacing.md },
+    rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: tokens.spacing.xs },
+    rowDate: { ...FONT.caption, color: tokens.colors.text.muted },
+    rowSite: { ...FONT.bodyStrong, color: tokens.colors.text.primary, marginBottom: tokens.spacing.xs },
+    rowBottom: { flexDirection: "row", justifyContent: "space-between" },
+    rowRange: { ...FONT.caption, color: tokens.colors.text.secondary },
+    rowMetric: { ...FONT.caption, color: tokens.colors.primary, fontWeight: "700" },
+  }), [tokens]);
+
+  const renderRow = useCallback(({ item }: { item: HistoryRow }) => {
+    const { session, computedHours, computedPay } = item;
+    const alias = session.siteId ? (siteAliasById.get(session.siteId) ?? session.siteId) : "Sin sitio";
+    const dateLabel = dayjs(session.declaredStartAtMs).format("ddd D MMM");
+    const startLabel = session.actualStartAtMs ? dayjs(session.actualStartAtMs).format("HH:mm") : "—";
+    const endLabel = session.endAtMs ? dayjs(session.endAtMs).format("HH:mm") : "—";
+    return (
+      <Pressable onPress={() => router.push(`/session/${session.id}`)} accessibilityRole="button">
+        <Card variant="elevated">
+          <View style={styles.rowTop}><Text style={styles.rowDate}>{dateLabel}</Text><IntegrityBadge type={toIntegrityBadgeType(session.integrityClass)} /></View>
+          <Text style={styles.rowSite} numberOfLines={1}>{alias}</Text>
+          <View style={styles.rowBottom}><Text style={styles.rowRange}>{startLabel} – {endLabel}</Text><Text style={styles.rowMetric}>{formatHours(computedHours)} · {formatPay(computedPay)}</Text></View>
+        </Card>
+      </Pressable>
+    );
+  }, [router, siteAliasById, styles]);
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader title="Historial" subtitle={weekRangeLabel} />
+      <View style={styles.weekNav}>
+        <Pressable onPress={() => setWeekOffset((w) => w - 1)} accessibilityRole="button" accessibilityLabel="Semana anterior" style={styles.weekNavButton}>
+          <Ionicons name="chevron-back" size={22} color={tokens.colors.text.primary} />
+        </Pressable>
+        <Text style={styles.weekNavLabel}>{weekRangeLabel}</Text>
+        <Pressable onPress={() => setWeekOffset((w) => w + 1)} accessibilityRole="button" accessibilityLabel="Semana siguiente" style={styles.weekNavButton}>
+          <Ionicons name="chevron-forward" size={22} color={tokens.colors.text.primary} />
+        </Pressable>
+      </View>
+      <Card variant="surface" style={styles.rollupCard}>
+        <View style={styles.rollupRow}>
+          <View style={styles.rollupMetric}><Text style={styles.rollupLabel}>HORAS NETAS</Text><Text style={styles.rollupValue}>{formatHours(weeklyRollup.netHours)}</Text></View>
+          <View style={styles.rollupMetric}><Text style={styles.rollupLabel}>ESTIMADO</Text><Text style={styles.rollupValue}>{formatPay(weeklyRollup.estimated)}</Text></View>
+        </View>
+        <View style={styles.rollupRow}>
+          <View style={styles.rollupMetric}><Text style={styles.rollupLabel}>AJUSTADAS</Text><Text style={styles.rollupCount}>{weeklyRollup.countByClass.MANUAL}</Text></View>
+          <View style={styles.rollupMetric}><Text style={styles.rollupLabel}>POR REVISAR</Text><Text style={[styles.rollupCount, weeklyRollup.countByClass.CONFLICT > 0 && styles.rollupCountWarning]}>{weeklyRollup.countByClass.CONFLICT}</Text></View>
+        </View>
+      </Card>
+      <FlatList horizontal data={FILTER_OPTIONS} keyExtractor={(item) => item.value} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => setFilter(item.value)} style={[styles.filterChip, filter === item.value && styles.filterChipActive]} accessibilityRole="button" accessibilityState={{ selected: filter === item.value }}>
+            <Text style={[styles.filterChipText, filter === item.value && styles.filterChipTextActive]}>{item.label}</Text>
+          </Pressable>
+        )} />
+      <FlatList data={rows} keyExtractor={(item) => String(item.session.id)} renderItem={renderRow} contentContainerStyle={styles.listContent}
+        ListEmptyComponent={!loading ? (<EmptyState title="Aún no hay jornadas en este periodo." icon="calendar-outline" />) : null} />
+      <LoadingOverlay visible={loading && rows.length === 0} message="Cargando historial…" />
+    </ScreenContainer>
+  );
+}

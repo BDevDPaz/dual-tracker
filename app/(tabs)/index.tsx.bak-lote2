@@ -1,0 +1,560 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+import dayjs from "../../src/utils/dayjsSetup";
+import { FONT, type AppTokens } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
+import { ICONS } from "../../src/constants/icons";
+import { useActiveSession, listConflictedSessions } from "../../src/core/hooks/dualTracker";
+import type { Site, SessionRecord } from "../../src/core/contracts/domain";
+import {
+  ScreenContainer,
+  PageHeader,
+  Card,
+  Button,
+  OperationalHeroCard,
+  SystemHealthBlock,
+  DailySummaryBlock,
+} from "../../src/components/ui";
+import { DailySetupModal } from "../../src/components/modals/DailySetupModal";
+import { ExitDetectionModal } from "../../src/components/modals/ExitDetectionModal";
+import { LunchModal } from "../../src/components/modals/LunchModal";
+
+/** Capitaliza la primera letra del formato "viernes, 26 de septiembre". */
+function formatTodayLabel(): string {
+  const raw = dayjs().format("dddd, D [de] MMMM");
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+/** Horas trabajadas (netas de pausa) desde el inicio real/declarado hasta ahora. */
+function formatElapsed(session: SessionRecord | null, tickMs: number): string {
+  if (!session) return "--:--";
+  const startMs = session.actualStartAtMs ?? session.declaredStartAtMs;
+  if (!startMs) return "--:--";
+  const endMs = session.domainStatus === "CERRADA" && session.endAtMs ? session.endAtMs : tickMs;
+  const workedMs = Math.max(0, endMs - startMs - (session.totalPausedMs ?? 0));
+  const totalMinutes = Math.floor(workedMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function resolveSiteAlias(siteId: string | null, sites: Site[]): string | null {
+  if (!siteId) return null;
+  return sites.find((s) => s.id === siteId)?.alias ?? null;
+}
+
+/**
+ * Selector inline de destino para "Iniciar traslado" desde el decision hub de
+ * SALIDA. No es un componente compartido nuevo -- el blueprint pide que la
+ * pantalla resuelva esto localmente porque DailySetupModal no tiene una
+ * firma apta para tránsito (solo `(destination, address)`).
+ */
+function TransitSitePicker({
+  sites,
+  excludeSiteId,
+  onPick,
+}: {
+  sites: Site[];
+  excludeSiteId: string | null;
+  onPick: (siteId: string) => void;
+}) {
+  const { tokens } = useTheme();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const options = sites.filter((s) => s.id !== excludeSiteId);
+  if (options.length === 0) {
+    return (
+      <Text style={styles.transitEmptyText}>
+        {'No hay otros destinos registrados. Crea uno en "Gestionar destinos".'}
+      </Text>
+    );
+  }
+  return (
+    <View style={styles.transitList}>
+      {options.map((site) => (
+        <Pressable
+          key={site.id}
+          onPress={() => onPick(site.id)}
+          style={styles.transitRow}
+          accessibilityRole="button"
+          accessibilityLabel={`Iniciar traslado a ${site.alias}`}
+        >
+          <Ionicons
+            name={ICONS.domain.transit as any}
+            size={18}
+            color={tokens.colors.text.secondary}
+          />
+          <Text style={styles.transitRowText} numberOfLines={1}>
+            {site.alias}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={tokens.colors.text.muted} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+export default function HoyScreen() {
+  const { tokens } = useTheme();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const router = useRouter();
+  const {
+    loading,
+    session,
+    engineState,
+    health,
+    destinationSites,
+    startDay,
+    confirmArrival,
+    startLunch,
+    endLunch,
+    startTransit,
+    resolveExitContinue,
+    closeDay,
+  } = useActiveSession();
+
+  const [tickMs, setTickMs] = useState(() => Date.now());
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showLunchModal, setShowLunchModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showTransitPicker, setShowTransitPicker] = useState(false);
+  const [hasConflict, setHasConflict] = useState(false);
+
+  // Reloj local: recalcula el temporizador de la hero card cada 30s mientras
+  // hay una jornada abierta, sin volver a golpear los servicios de dominio.
+  useEffect(() => {
+    if (!session || session.domainStatus === "CERRADA") return;
+    const interval = setInterval(() => setTickMs(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, [session]);
+
+  // Abre automáticamente el decision hub de salida cuando el engine entra a
+  // PENDING_EXIT_CONFIRMATION, tal como exige el blueprint §5.7.
+  useEffect(() => {
+    if (engineState === "PENDING_EXIT_CONFIRMATION") {
+      setShowExitModal(true);
+    } else {
+      setShowExitModal(false);
+      setShowTransitPicker(false);
+    }
+  }, [engineState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listConflictedSessions()
+      .then((rows) => {
+        if (!cancelled) setHasConflict(rows.length > 0);
+      })
+      .catch(() => {
+        if (!cancelled) setHasConflict(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.id]);
+
+  const destinationAlias = useMemo(
+    () => resolveSiteAlias(session?.siteId ?? null, destinationSites),
+    [session, destinationSites],
+  );
+
+  const timeString = useMemo(() => formatElapsed(session, tickMs), [session, tickMs]);
+  const earningsText = session ? "En curso" : "--";
+
+  const visitedChips = useMemo(() => {
+    if (!session) return [] as { key: string; label: string }[];
+    const ids = new Set<string>();
+    if (session.siteId) ids.add(session.siteId);
+    session.transitSegments.forEach((segment) => {
+      if (segment.fromSiteId) ids.add(segment.fromSiteId);
+      if (segment.toSiteId) ids.add(segment.toSiteId);
+    });
+    return Array.from(ids)
+      .map((id) => {
+        const alias = resolveSiteAlias(id, destinationSites);
+        return alias ? { key: id, label: alias } : null;
+      })
+      .filter((v): v is { key: string; label: string } => v !== null);
+  }, [session, destinationSites]);
+
+  const handleSetupConfirm = useCallback(
+    (destination: string, address?: string) => {
+      const normalized = destination.trim().toLowerCase();
+      const match = destinationSites.find((s) => s.alias.trim().toLowerCase() === normalized);
+      setShowSetupModal(false);
+      void startDay({ siteId: match?.id ?? null, clientId: match?.clientId ?? null });
+      void address; // la dirección de alta rápida no tiene destino en este MVP de arranque
+    },
+    [destinationSites, startDay],
+  );
+
+  const handleLunchConfirm = useCallback(
+    (minutes: number) => {
+      setShowLunchModal(false);
+      void endLunch(minutes);
+    },
+    [endLunch],
+  );
+
+  const handlePrimaryAction = useCallback(() => {
+    switch (engineState) {
+      case "IDLE":
+        setShowSetupModal(true);
+        return;
+      case "GEOFENCE_CREATED":
+        // La propia OperationalHeroCard rotula este botón "Confirmar llegada"
+        // -- ver notas de app en appwave-b.md sobre por qué el primario aquí
+        // confirma llegada y "Cancelar jornada" se ofrece como botón extra.
+        void confirmArrival();
+        return;
+      case "ACTIVE_WORK":
+        void closeDay();
+        return;
+      case "PAUSED":
+        setShowLunchModal(true);
+        return;
+      case "TRAVEL":
+        // Etiqueta real del componente: "Llegué al sitio".
+        void confirmArrival();
+        return;
+      case "PENDING_EXIT_CONFIRMATION":
+        void closeDay();
+        return;
+      case "CLOSED":
+      default:
+        setShowSetupModal(true);
+        return;
+    }
+  }, [engineState, confirmArrival, closeDay]);
+
+  const handleSecondaryAction = useCallback(() => {
+    switch (engineState) {
+      case "ACTIVE_WORK":
+        void startLunch();
+        return;
+      case "PAUSED":
+        void closeDay();
+        return;
+      case "PENDING_EXIT_CONFIRMATION":
+        void resolveExitContinue();
+        return;
+      default:
+        return;
+    }
+  }, [engineState, startLunch, closeDay, resolveExitContinue]);
+
+  const hoursText = session ? `${timeString.split(":")[0]}h ${timeString.split(":")[1]}m` : "--";
+
+  return (
+    <ScreenContainer noPadding>
+      <PageHeader
+        title={formatTodayLabel()}
+        rightAction={{
+          icon: "pulse-outline",
+          onPress: () => router.push("/system/health"),
+          accessibilityLabel: "Ver salud del sistema",
+        }}
+      />
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {hasConflict && (
+          <Pressable
+            style={styles.conflictBanner}
+            onPress={() => router.push("/system/conflict")}
+            accessibilityRole="button"
+          >
+            <Ionicons
+              name={ICONS.status.error as any}
+              size={18}
+              color={tokens.colors.status.danger}
+            />
+            <Text style={styles.conflictText}>Hay una sesión por revisar</Text>
+            <Ionicons name="chevron-forward" size={18} color={tokens.colors.status.danger} />
+          </Pressable>
+        )}
+
+        {health?.degraded && (
+          <View style={styles.degradedBanner}>
+            <Ionicons
+              name={ICONS.status.warning as any}
+              size={18}
+              color={tokens.colors.status.warning}
+            />
+            <Text style={styles.degradedText}>
+              Modo degradado: sin ubicación en segundo plano esta jornada no se certificará como
+              VALID.
+            </Text>
+          </View>
+        )}
+
+        <SystemHealthBlock engineState={engineState} />
+
+        <View style={styles.heroSpacer}>
+          <OperationalHeroCard
+            state={engineState}
+            destination={destinationAlias ?? "Sin destino"}
+            timeString={timeString}
+            earnings={earningsText}
+            onPrimaryAction={handlePrimaryAction}
+            onSecondaryAction={handleSecondaryAction}
+          />
+        </View>
+
+        {engineState === "GEOFENCE_CREATED" && (
+          <View style={styles.extraActionsRow}>
+            <Button
+              label="Cancelar jornada"
+              variant="danger"
+              size="sm"
+              onPress={() => void closeDay()}
+              style={styles.extraActionButton}
+            />
+            {session?.siteId && (
+              <Button
+                label="Ver destino"
+                variant="secondary"
+                size="sm"
+                onPress={() => router.push(`/sites/${session.siteId}`)}
+                style={styles.extraActionButton}
+              />
+            )}
+          </View>
+        )}
+
+        {engineState === "TRAVEL" && (
+          <View style={styles.extraActionsRow}>
+            <Button
+              label="Ver estado"
+              variant="ghost"
+              size="sm"
+              onPress={() => undefined}
+              style={styles.extraActionButton}
+            />
+            <Button
+              label="Cancelar traslado"
+              variant="secondary"
+              size="sm"
+              onPress={() => void confirmArrival()}
+              style={styles.extraActionButton}
+            />
+          </View>
+        )}
+
+        {engineState === "PENDING_EXIT_CONFIRMATION" && (
+          <View style={styles.exitHub}>
+            <View style={styles.extraActionsRow}>
+              <Button
+                label="Iniciar almuerzo"
+                variant="secondary"
+                size="sm"
+                onPress={() => {
+                  void resolveExitContinue().then(() => startLunch());
+                }}
+                style={styles.extraActionButton}
+              />
+              <Button
+                label="Iniciar traslado"
+                variant="secondary"
+                size="sm"
+                onPress={() => setShowTransitPicker((v) => !v)}
+                style={styles.extraActionButton}
+              />
+            </View>
+            {showTransitPicker && (
+              <Card variant="outline" style={styles.transitCard}>
+                <TransitSitePicker
+                  sites={destinationSites}
+                  excludeSiteId={session?.siteId ?? null}
+                  onPick={(siteId) => {
+                    setShowTransitPicker(false);
+                    void startTransit(siteId);
+                  }}
+                />
+              </Card>
+            )}
+          </View>
+        )}
+
+        <DailySummaryBlock hours={hoursText} earnings={earningsText} />
+
+        {visitedChips.length > 0 && (
+          <View style={styles.chipsSection}>
+            <Text style={styles.chipsTitle}>DESTINOS VISITADOS HOY</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsRow}
+            >
+              {visitedChips.map((chip) => (
+                <View key={chip.key} style={styles.chip}>
+                  <Text style={styles.chipText}>{chip.label}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {!loading && !session && destinationSites.length === 0 && (
+          <View style={styles.emptyExtra}>
+            <Button
+              label="Crear primer destino"
+              variant="secondary"
+              onPress={() => router.push("/sites/new")}
+            />
+          </View>
+        )}
+
+        <Pressable
+          style={styles.manageLink}
+          onPress={() => router.push("/sites")}
+          accessibilityRole="button"
+        >
+          <Text style={styles.manageLinkText}>Gestionar destinos</Text>
+        </Pressable>
+      </ScrollView>
+
+      <DailySetupModal
+        visible={showSetupModal}
+        onCancel={() => setShowSetupModal(false)}
+        onConfirm={handleSetupConfirm}
+      />
+      <LunchModal
+        visible={showLunchModal}
+        onCancel={() => setShowLunchModal(false)}
+        onConfirm={handleLunchConfirm}
+      />
+      <ExitDetectionModal
+        visible={showExitModal}
+        exitTime={dayjs(tickMs).format("HH:mm")}
+        onContinueOperating={() => {
+          setShowExitModal(false);
+          void resolveExitContinue();
+        }}
+        onCloseShift={() => {
+          setShowExitModal(false);
+          void closeDay();
+        }}
+      />
+    </ScreenContainer>
+  );
+}
+
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+  scrollContent: {
+    paddingBottom: tokens.spacing["3xl"],
+  },
+  heroSpacer: {
+    marginTop: tokens.spacing.xl,
+  },
+  conflictBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    marginHorizontal: tokens.layout.screenPadding,
+    marginTop: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    backgroundColor: `${tokens.colors.status.danger}15`,
+    borderWidth: 1,
+    borderColor: tokens.colors.status.danger,
+  },
+  conflictText: {
+    ...FONT.bodyStrong,
+    flex: 1,
+    color: tokens.colors.status.danger,
+  },
+  degradedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: tokens.spacing.sm,
+    marginHorizontal: tokens.layout.screenPadding,
+    marginTop: tokens.spacing.md,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    backgroundColor: `${tokens.colors.status.warning}15`,
+    borderWidth: 1,
+    borderColor: tokens.colors.status.warning,
+  },
+  degradedText: {
+    ...FONT.caption,
+    flex: 1,
+    color: tokens.colors.status.warning,
+  },
+  extraActionsRow: {
+    flexDirection: "row",
+    gap: tokens.spacing.md,
+    marginHorizontal: tokens.layout.screenPadding,
+    marginTop: tokens.spacing.md,
+  },
+  extraActionButton: {
+    flex: 1,
+  },
+  exitHub: {
+    marginBottom: tokens.spacing.sm,
+  },
+  transitCard: {
+    marginHorizontal: tokens.layout.screenPadding,
+    marginTop: tokens.spacing.md,
+  },
+  transitEmptyText: {
+    ...FONT.caption,
+    color: tokens.colors.text.secondary,
+  },
+  transitList: {
+    gap: tokens.spacing.sm,
+  },
+  transitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.sm,
+  },
+  transitRowText: {
+    ...FONT.body,
+    flex: 1,
+    color: tokens.colors.text.primary,
+  },
+  chipsSection: {
+    marginTop: tokens.spacing.lg,
+    marginBottom: tokens.spacing.md,
+  },
+  chipsTitle: {
+    ...FONT.label,
+    color: tokens.colors.text.muted,
+    marginHorizontal: tokens.layout.screenPadding,
+    marginBottom: tokens.spacing.sm,
+  },
+  chipsRow: {
+    paddingHorizontal: tokens.layout.screenPadding,
+    gap: tokens.spacing.sm,
+  },
+  chip: {
+    backgroundColor: tokens.colors.surface,
+    borderColor: tokens.colors.border,
+    borderWidth: 1,
+    borderRadius: tokens.radius.round,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+  },
+  chipText: {
+    ...FONT.caption,
+    color: tokens.colors.text.primary,
+  },
+  emptyExtra: {
+    marginHorizontal: tokens.layout.screenPadding,
+    marginTop: tokens.spacing.md,
+  },
+  manageLink: {
+    alignItems: "center",
+    marginTop: tokens.spacing.xl,
+    padding: tokens.spacing.md,
+  },
+  manageLinkText: {
+    ...FONT.bodyStrong,
+    color: tokens.colors.primary,
+  },
+  });
+}
