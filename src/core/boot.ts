@@ -39,6 +39,7 @@ import { noteBootResume } from "../services/runtime/bootResume";
 import { ForegroundWorkService } from "../services/runtime/ForegroundWorkService";
 import { buildForegroundNotice } from "../services/runtime/monitoringSnapshot";
 import { GeofenceRuntimeService } from "../services/runtime/GeofenceRuntimeService";
+import { reverseGeocodePoint } from "../services/runtime/reverseGeocode";
 import { NotificationService } from "../services/runtime/NotificationService";
 import { PermissionsHealthService } from "../services/runtime/PermissionsHealthService";
 import { SecurityService } from "../services/runtime/SecurityService";
@@ -86,6 +87,7 @@ function wirePorts(): void {
     return FieldCryptoService.status() !== "UNAVAILABLE";
   });
   SiteRegistryService.setGeocoder((address) => GeofenceRuntimeService.geocodeAddress(address));
+  SiteRegistryService.setReverseGeocoder((lat, lon) => reverseGeocodePoint(lat, lon));
   PermissionsHealthService.setOnBackgroundRevoked(async () => {
     const r = await SessionEngineService.dispatch({ type: "INTEGRITY_DEGRADE", cause: "BACKGROUND_PERMISSION_MISSING" }, "SYSTEM");
     if (r.ok) {

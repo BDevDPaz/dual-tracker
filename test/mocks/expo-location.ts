@@ -36,7 +36,11 @@ export const __state = {
   geofences: new Map<string, unknown[]>(),
   locationUpdates: new Map<string, unknown>(),
   geocode: [] as { latitude: number; longitude: number }[],
-  reverseGeocode: [{ street: "Main St", city: "Oakland", name: "Main St" }] as { street?: string; city?: string; name?: string }[],
+  reverseGeocode: [{ street: "Main St", city: "Oakland", name: "Main St" }] as Record<string, string | null | undefined>[],
+  reverseGeocodeError: null as unknown,
+  reverseGeocodeImpl: null as null | (() => Promise<unknown>),
+  reverseGeocodeCalls: 0,
+  lastReverseQuery: null as null | { latitude: number; longitude: number },
   startUpdatesError: null as Error | null,
 };
 
@@ -50,6 +54,10 @@ export function __reset(): void {
   __state.locationUpdates.clear();
   __state.geocode = [];
   __state.reverseGeocode = [{ street: "Main St", city: "Oakland", name: "Main St" }];
+  __state.reverseGeocodeError = null;
+  __state.reverseGeocodeImpl = null;
+  __state.reverseGeocodeCalls = 0;
+  __state.lastReverseQuery = null;
   __state.startUpdatesError = null;
 }
 export function __setAndroidAccuracy(accuracy: "fine" | "coarse" | "none" | null): void {
@@ -118,6 +126,10 @@ export async function hasStartedLocationUpdatesAsync(task: string) {
 export async function geocodeAsync() {
   return __state.geocode;
 }
-export async function reverseGeocodeAsync() {
+export async function reverseGeocodeAsync(location?: { latitude: number; longitude: number }) {
+  __state.reverseGeocodeCalls += 1;
+  __state.lastReverseQuery = location ?? null;
+  if (__state.reverseGeocodeImpl) return __state.reverseGeocodeImpl();
+  if (__state.reverseGeocodeError) throw __state.reverseGeocodeError;
   return __state.reverseGeocode;
 }

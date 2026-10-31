@@ -10,6 +10,10 @@ type LocationMock = typeof Location & { __state: { geofences: Map<string, unknow
 
 describe("SiteRegistryService", () => {
   beforeEach(() => PersistenceService.init());
+  afterEach(() => {
+    SiteRegistryService.setGeocoder(null);
+    SiteRegistryService.setReverseGeocoder(null);
+  });
 
   test("alta geocodifica pero NO inicia geocerca", async () => {
     SiteRegistryService.setGeocoder(async () => ({ lat: 34.05, lon: -118.24 }));
@@ -63,5 +67,76 @@ describe("SiteRegistryService", () => {
     expect(await SiteRegistryService.list()).toHaveLength(0);
     expect(await SiteRegistryService.list({ includeArchived: true })).toHaveLength(1);
     expect(await SiteRegistryService.archive(999)).toEqual({ ok: false, code: "SITE_NOT_FOUND" });
+  });
+
+  test("fijar el punto con GPS guarda el nombre del lugar", async () => {
+    const created = await SiteRegistryService.upsert({ alias: "Obra", address: "", unlocated: true, radiusM: 100 }, COMPANY);
+    if (!created.ok) throw new Error("alta");
+    SiteRegistryService.setReverseGeocoder(async () => "123 Main St, Oakland, CA");
+
+    const located = await SiteRegistryService.locate(created.site.id, [
+      { lat: 34.05, lon: -118.24 },
+      { lat: 34.0501, lon: -118.24 },
+    ]);
+
+    expect(located.ok).toBe(true);
+    if (!located.ok) return;
+    expect(located.placeName).toBe("123 Main St, Oakland, CA");
+    expect(located.site.address).toBe("123 Main St, Oakland, CA");
+    expect(located.site.alias).toBe("Obra");
+    expect(located.site.targetLat).toBeCloseTo(34.05005, 4);
+  });
+
+  test("si el reverse geocode no responde, el punto se guarda y la dirección no se inventa", async () => {
+    const created = await SiteRegistryService.upsert({ alias: "Obra", address: "", unlocated: true, radiusM: 100 }, COMPANY);
+    if (!created.ok) throw new Error("alta");
+    SiteRegistryService.setReverseGeocoder(async () => null);
+
+    const located = await SiteRegistryService.locate(created.site.id, [
+      { lat: 34.05, lon: -118.24 },
+      { lat: 34.0501, lon: -118.24 },
+    ]);
+
+    expect(located.ok).toBe(true);
+    if (!located.ok) return;
+    expect(located.placeName).toBeNull();
+    expect(located.site.address).toBe("Sin ubicar");
+    expect(located.site.targetLat).not.toBeNull();
+  });
+
+  test("un reverse geocode que falla deja la dirección escrita", async () => {
+    SiteRegistryService.setGeocoder(async () => ({ lat: 34.05, lon: -118.24 }));
+    const created = await SiteRegistryService.upsert({ alias: "Obra", address: "1 Main St", radiusM: 100 }, COMPANY);
+    if (!created.ok) throw new Error("alta");
+    SiteRegistryService.setReverseGeocoder(async () => {
+      throw new Error("Network request failed");
+    });
+
+    const located = await SiteRegistryService.locate(created.site.id, [
+      { lat: 34.0502, lon: -118.24 },
+      { lat: 34.0503, lon: -118.24 },
+    ]);
+
+    expect(located.ok).toBe(true);
+    if (!located.ok) return;
+    expect(located.placeName).toBeNull();
+    expect(located.site.address).toBe("1 Main St");
+    expect(located.site.targetLat).toBeCloseTo(34.05025, 4);
+  });
+
+  test("un nombre en blanco no borra la dirección", async () => {
+    const created = await SiteRegistryService.upsert({ alias: "Obra", address: "", unlocated: true, radiusM: 100 }, COMPANY);
+    if (!created.ok) throw new Error("alta");
+    SiteRegistryService.setReverseGeocoder(async () => "   ");
+
+    const located = await SiteRegistryService.locate(created.site.id, [
+      { lat: 34.05, lon: -118.24 },
+      { lat: 34.0501, lon: -118.24 },
+    ]);
+
+    expect(located.ok).toBe(true);
+    if (!located.ok) return;
+    expect(located.placeName).toBeNull();
+    expect(located.site.address).toBe("Sin ubicar");
   });
 });

@@ -6,6 +6,8 @@
  *  - Sitio con alias, cliente, coordenadas objetivo, radio propio y estado activo.
  *  - Geocodificación al crear el sitio (el geocoder real lo inyecta el runtime:
  *    GeofenceRuntimeService.geocodeAddress, portado de DailySetupModal del proyecto fuente anterior LEDTracker).
+ *  - Al fijar el punto con GPS, reverse geocode (coordenadas → nombre). Si falla, null:
+ *    se conserva la dirección que ya había. No se inventa una.
  *  - La jornada referencia siteId, no un texto libre.
  *  - Límite de destinos por política (destinationLimit).
  *  - Archivar no borra historial.
@@ -22,8 +24,11 @@ import { PersistenceService } from "../persistence/PersistenceService";
 export const LOCATE_MAX_SPREAD_M = 50;
 
 export type Geocoder = (address: string) => Promise<{ lat: number; lon: number } | null>;
+/** Coordenadas del punto fijado → nombre de lugar, o null si no se puede leer. */
+export type ReverseGeocoder = (lat: number, lon: number) => Promise<string | null>;
 
 let geocoder: Geocoder | null = null;
+let reverseGeocoder: ReverseGeocoder | null = null;
 
 export type SiteResult =
   | { ok: true; site: Site; geocoded: boolean }
@@ -32,13 +37,26 @@ export type SiteResult =
 export type LocateReading = { lat: number; lon: number };
 
 export type LocateResult =
-  | { ok: true; site: Site; previous: { lat: number; lon: number } | null; next: { lat: number; lon: number }; spreadM: number }
+  | {
+      ok: true;
+      site: Site;
+      previous: { lat: number; lon: number } | null;
+      next: { lat: number; lon: number };
+      spreadM: number;
+      /** Nombre resuelto del punto. Null si el reverse geocode falló o no está cableado. */
+      placeName: string | null;
+    }
   | { ok: false; code: "SITE_NOT_FOUND" | "NEED_TWO_READINGS" | "INVALID_POINT" | "READINGS_TOO_FAR" };
 
 export const SiteRegistryService = {
   /** Inyección del geocoder (runtime). */
   setGeocoder(g: Geocoder | null): void {
     geocoder = g;
+  },
+
+  /** Inyección del reverse geocode (runtime). Texto → null si no hay nombre. */
+  setReverseGeocoder(g: ReverseGeocoder | null): void {
+    reverseGeocoder = g;
   },
 
   async list(opts: { includeArchived?: boolean } = {}): Promise<Site[]> {
@@ -144,7 +162,8 @@ export const SiteRegistryService = {
     const next = { lat: (a.lat + b.lat) / 2, lon: (a.lon + b.lon) / 2 };
     if (!isLocatePoint(next.lat, next.lon)) return { ok: false, code: "INVALID_POINT" };
     const previous = isLocatePoint(site.targetLat, site.targetLon) ? { lat: site.targetLat as number, lon: site.targetLon as number } : null;
-    const updated: Site = { ...site, targetLat: next.lat, targetLon: next.lon };
+    const placeName = await lookupPlaceName(next.lat, next.lon);
+    const updated: Site = { ...site, targetLat: next.lat, targetLon: next.lon, address: placeName ?? site.address };
     await PersistenceService.updateSite(updated);
     await IntegrityLedgerService.append({
       sessionId: null,
@@ -157,9 +176,21 @@ export const SiteRegistryService = {
       integrityClass: null,
       data: { siteId, previous, next, spreadM: Math.round(spreadM) },
     });
-    return { ok: true, site: updated, previous, next, spreadM };
+    return { ok: true, site: updated, previous, next, spreadM, placeName };
   },
 };
+
+async function lookupPlaceName(lat: number, lon: number): Promise<string | null> {
+  if (!reverseGeocoder) return null;
+  try {
+    const raw = await reverseGeocoder(lat, lon);
+    if (typeof raw !== "string") return null;
+    const name = raw.trim();
+    return name.length > 0 ? name : null;
+  } catch {
+    return null;
+  }
+}
 
 function isLocatePoint(lat: unknown, lon: unknown): boolean {
   if (!isValidCoordinate(lat, lon)) return false;

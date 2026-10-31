@@ -8,6 +8,7 @@ import { Platform } from "react-native";
 import type { SessionIntent } from "../../../core/contracts";
 import { Store } from "../../../core/store";
 import { SessionEngineService } from "../../domain/SessionEngineService";
+import { SiteRegistryService } from "../../domain/SiteRegistryService";
 import { EvidencePackService } from "../../evidence/EvidencePackService";
 import { PersistenceService } from "../../persistence/PersistenceService";
 import { GEOFENCE_TASK_NAME } from "../../../constants/geolocation";
@@ -21,7 +22,7 @@ import { routeIntent } from "../intentRouter";
 import { SecurityService } from "../../runtime/SecurityService";
 import { LocationMock } from "../../../../test/runtimeHarness";
 import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
-import { makeExit } from "../../../../test/fixtures/spatial.fixture";
+import { SITE_LAT, SITE_LON, makeExit } from "../../../../test/fixtures/spatial.fixture";
 import { acceptDisclosure, mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 import { getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
@@ -208,6 +209,50 @@ describe("intentRouter", () => {
     const stale = (notificationState.scheduled as { content: { title?: string } }[]).some((n) => n.content.title === "Esta acción ya no aplica");
     expect(stale).toBe(true);
     expect((notificationState.dismissed as string[]).includes(`dualtracker-exit-${open.id}`)).toBe(true);
+  });
+
+  test("LOCATE_SITE entrega el nombre del lugar y, si falla, null sin cambiar la dirección", async () => {
+    await seedWorld();
+    const id = await PersistenceService.insertSite({
+      alias: "Obra",
+      address: "Sin ubicar",
+      clientName: null,
+      notes: null,
+      targetLat: null,
+      targetLon: null,
+      radiusM: 100,
+      active: true,
+      createdAtMs: time.now(),
+      archivedAtMs: null,
+    });
+    SiteRegistryService.setReverseGeocoder(async () => "123 Main St, Oakland");
+    const named = await routeIntent({
+      type: "LOCATE_SITE",
+      siteId: id,
+      readings: [
+        { lat: SITE_LAT, lon: SITE_LON },
+        { lat: SITE_LAT + 0.0001, lon: SITE_LON },
+      ],
+    });
+    expect(named.ok).toBe(true);
+    if (!named.ok) return;
+    expect(named.data).toMatchObject({ placeName: "123 Main St, Oakland" });
+    expect((await PersistenceService.getSite(id))?.address).toBe("123 Main St, Oakland");
+
+    SiteRegistryService.setReverseGeocoder(async () => null);
+    const missed = await routeIntent({
+      type: "LOCATE_SITE",
+      siteId: id,
+      readings: [
+        { lat: SITE_LAT + 0.0002, lon: SITE_LON },
+        { lat: SITE_LAT + 0.00021, lon: SITE_LON },
+      ],
+    });
+    expect(missed.ok).toBe(true);
+    if (!missed.ok) return;
+    expect(missed.data).toMatchObject({ placeName: null });
+    expect((await PersistenceService.getSite(id))?.address).toBe("123 Main St, Oakland");
+    SiteRegistryService.setReverseGeocoder(null);
   });
 
   test("OPEN_TRACE es navegación pura: no despacha", async () => {
