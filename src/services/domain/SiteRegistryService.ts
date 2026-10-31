@@ -5,7 +5,7 @@
  * de dirección tecleado el mismo día (como en DailySetupModal de GEOTrack).
  *  - Sitio con alias, cliente, coordenadas objetivo, radio propio y estado activo.
  *  - Geocodificación al crear el sitio (el geocoder real lo inyecta el runtime:
- *    GeofenceRuntimeService.geocodeAddress, portado de DailySetupModal de LEDTracker).
+ *    GeofenceRuntimeService.geocodeAddress, portado de DailySetupModal del proyecto fuente anterior LEDTracker).
  *  - La jornada referencia siteId, no un texto libre.
  *  - Límite de destinos por política (destinationLimit).
  *  - Archivar no borra historial.

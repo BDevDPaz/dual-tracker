@@ -1,6 +1,6 @@
 /**
  * Plantillas HTML de ReportService (Propuesta Técnica §4.5).
- * Portadas del HTML de ReportGenerator.ts (GEOTrack/LEDTracker), con dos
+ * Portadas del HTML de ReportGenerator.ts (proyectos fuente anteriores GEOTrack y LEDTracker), con dos
  * cambios de fondo:
  *  - NO calculan horas ni overtime: pintan un PayrollStatement ya cerrado.
  *  - La sección de auditoría sale del IntegrityLedger (EvidenceSummary), no

@@ -64,7 +64,7 @@ Estas cuatro cosas están aceptadas para 1.0.0. Confírmalas en el acta; no las 
 - **Doble tiempo y séptimo día.** Siguen apagados en la zona admin. No los enciendas para esta candidata: asesoría legal no ha confirmado el criterio.
 - **iOS.** No hay iPhone en esta acta. El respaldo por cambio significativo de ubicación queda fuera de 1.0.0.
 
-La migración de las bases de W Tracker, LEDTracker y GEOTrack no se prueba. No aplica: las versiones anteriores nunca se publicaron.
+La migración de las bases de los proyectos fuente anteriores W Tracker, LEDTracker y GEOTrack no se prueba. No aplica: esas versiones anteriores nunca se publicaron. Esta app es Dual Tracker V1.0.0.
 
 ## Criterio para promover RC1 a 1.0.0 final
 

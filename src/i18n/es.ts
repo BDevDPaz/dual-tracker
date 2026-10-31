@@ -1,6 +1,6 @@
 /**
  * Diccionario ES (idioma base). Portado y reorganizado desde
- * utils/i18n.ts de GEOTrack/LEDTracker. Las rutas NO contienen copy en duro:
+ * utils/i18n.ts de los proyectos fuente anteriores GEOTrack y LEDTracker. Las rutas NO contienen copy en duro:
  * todo sale de aquí vía t("clave").
  */
 import { supportEs } from "./supportEs";

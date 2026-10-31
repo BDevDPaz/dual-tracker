@@ -13,7 +13,7 @@
  *    Con batería baja el intervalo se alarga; el servicio no se reinicia
  *    si la banda no cambió.
  *
- * Base: startActiveTracking de LEDTracker (startLocationUpdatesAsync con
+ * Base: startActiveTracking del proyecto fuente anterior LEDTracker (startLocationUpdatesAsync con
  * foregroundService), con perfiles adaptativos y copy de la propuesta.
  * En iOS no hay FGS: deferred updates (significant-change de Expo) más la
  * geocerca. Sin validar en un iPhone.

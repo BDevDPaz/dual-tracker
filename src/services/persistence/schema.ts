@@ -1,5 +1,5 @@
 /**
- * Esquema SQLite canónico de Dual Tracker (Fase 0: "Dejar de añadir campos
+ * Esquema SQLite canónico de Dual Tracker V1.0.0 (Fase 0: "Dejar de añadir campos
  * ad hoc en SQLite"). Base: src/database/db.ts de GEOTrack (WAL, PRAGMAs,
  * migraciones aditivas), con tablas nuevas para sitios, ledger, hechos
  * espaciales, packs y cola offline.
@@ -10,7 +10,8 @@
  *    aparecía como borrada.
  *  - Estados en español (máquina de siete estados de la propuesta).
  *  - Base nueva (`dual_tracker_v1.db`). La migración de datos desde
- *    `ledtracker_v2.db` queda como TODO (ver mappers.mapLegacyStatus).
+ *    `ledtracker_v2.db` (archivo del proyecto fuente anterior LEDTracker, no el nombre
+ *    de esta app) queda como TODO (ver mappers.mapLegacyStatus).
  */
 export const DB_NAME = "dual_tracker_v1.db";
 // v2: reparación de date_string; v3: FieldCrypto v1.3 (DDL sin clave + paso de datos con clave, §7).

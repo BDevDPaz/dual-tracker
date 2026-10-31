@@ -2,7 +2,7 @@
  * PayrollEngineService — Dominio (Propuesta Técnica §5.2, nuevo, crítico)
  * ============================================================================
  * Motor de nómina versionado. Sustituye calculateSessionDuration /
- * calculatePay (payrollUtils.ts de GEOTrack), calculateEarnings (LEDTracker)
+ * calculatePay (payrollUtils.ts de GEOTrack), calculateEarnings (proyecto fuente anterior LEDTracker)
  * y el cálculo embebido en el HTML del PDF (ReportGenerator).
  *
  * Entrada: sesiones cerradas, pausas, almuerzo, traslados, tarifa y multiplicador.

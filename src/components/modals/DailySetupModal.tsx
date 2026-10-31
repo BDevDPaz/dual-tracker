@@ -12,7 +12,7 @@ import type { Site, SiteDraft } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
 
 /**
- * DailySetupModal — portado de GEOTrack/LEDTracker (Producto §5.11 y §7).
+ * DailySetupModal — portado de los proyectos fuente anteriores GEOTrack y LEDTracker (Producto §5.11 y §7).
  * La dirección deja de ser un string efímero: el modal ofrece un PICKER de
  * sitios existentes (SiteRegistry) además del ALTA RÁPIDA. Devuelve siempre
  * un siteId. Modos: "start" (NO_INICIADA) y "transit" (iniciar traslado).
