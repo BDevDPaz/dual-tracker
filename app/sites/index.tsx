@@ -4,6 +4,7 @@ import { useRouter, Stack } from "expo-router";
 
 import { FONT, type AppTokens } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
+import { useLanguage } from "../../src/context/LanguageContext";
 import {
   ScreenContainer,
   PageHeader,
@@ -19,6 +20,7 @@ import type { Site } from "../../src/core/contracts/domain";
 
 function SiteRow({ site, onPress }: { site: Site; onPress: () => void }) {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   return (
     <Pressable onPress={onPress}>
@@ -27,12 +29,12 @@ function SiteRow({ site, onPress }: { site: Site; onPress: () => void }) {
           <Text style={styles.siteAlias}>{site.alias}</Text>
           <StatusPill
             status={site.isActive ? "info" : "pending"}
-            label={site.isActive ? "Activo" : "Archivado"}
+            label={site.isActive ? t("sites_active") : t("sites_archived")}
           />
         </View>
         {site.clientName ? <Text style={styles.siteClient}>{site.clientName}</Text> : null}
         <Text style={styles.siteMeta}>
-          {site.address || "Sin dirección"} · {site.radiusMeters}m
+          {site.address || t("sites_no_address")} · {site.radiusMeters}m
         </Text>
       </Card>
     </Pressable>
@@ -41,6 +43,7 @@ function SiteRow({ site, onPress }: { site: Site; onPress: () => void }) {
 
 export default function SitesIndexScreen() {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const router = useRouter();
   const [showArchived, setShowArchived] = useState(false);
@@ -65,24 +68,24 @@ export default function SitesIndexScreen() {
     <ScreenContainer noPadding>
       <Stack.Screen options={{ headerShown: false }} />
       <PageHeader
-        title="Destinos"
+        title={t("sites_title")}
         showBack
         rightAction={{
           icon: "add-circle-outline",
           onPress: () => router.push("/sites/new"),
-          accessibilityLabel: "Nuevo destino",
+          accessibilityLabel: t("sites_new_accessibility"),
         }}
       />
 
       <View style={styles.searchWrapper}>
         <Input
-          placeholder="Buscar por alias o cliente…"
+          placeholder={t("sites_search_placeholder")}
           value={query}
           onChangeText={setQuery}
           icon="search-outline"
         />
         <Button
-          label={showArchived ? "Mostrar activos" : "Mostrar archivados"}
+          label={showArchived ? t("sites_show_active") : t("sites_show_archived")}
           variant="ghost"
           size="sm"
           onPress={() => setShowArchived((prev) => !prev)}
@@ -90,11 +93,11 @@ export default function SitesIndexScreen() {
         />
       </View>
 
-      {loading ? <LoadingOverlay visible message="Cargando destinos…" /> : null}
+      {loading ? <LoadingOverlay visible message={t("sites_loading")} /> : null}
 
       {!loading && error ? (
         <EmptyState
-          title="No se pudieron cargar los destinos"
+          title={t("sites_load_error")}
           description={error}
           icon="alert-circle-outline"
         />
@@ -102,8 +105,8 @@ export default function SitesIndexScreen() {
 
       {!loading && !error && filteredSites.length === 0 ? (
         <EmptyState
-          title="Aún no hay destinos"
-          description="Crea el primer destino para reutilizarlo en tus jornadas."
+          title={t("sites_empty")}
+          description={t("sites_empty_desc")}
           icon="location-outline"
         />
       ) : null}

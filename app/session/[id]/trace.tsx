@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import dayjs from "../../../src/utils/dayjsSetup";
 import { FONT, type AppTokens } from "../../../src/constants/theme";
 import { useTheme } from "../../../src/context/ThemeContext";
+import { useLanguage } from "../../../src/context/LanguageContext";
+import type { translations } from "../../../src/utils/i18n";
 import {
   ScreenContainer,
   PageHeader,
@@ -39,20 +41,22 @@ function iconForFactType(type: SpatialFactType): React.ComponentProps<typeof Ion
   }
 }
 
-function factTypeLabel(type: SpatialFactType): string {
+type TF = (key: keyof typeof translations.es, vars?: Record<string, string | number>) => string;
+
+function factTypeLabel(t: TF, type: SpatialFactType): string {
   switch (type) {
     case "ENTER":
-      return "Entrada a geocerca";
+      return t("trace_fact_enter");
     case "EXIT":
-      return "Salida de geocerca";
+      return t("trace_fact_exit");
     case "DWELL":
-      return "Permanencia";
+      return t("trace_fact_dwell");
     case "BREADCRUMB":
-      return "Miga de pan";
+      return t("trace_fact_breadcrumb");
     case "ACCURACY_DROP":
-      return "Caída de precisión";
+      return t("trace_fact_accuracy");
     case "PROVIDER_LOSS":
-      return "Pérdida de proveedor GPS";
+      return t("trace_fact_provider");
     default:
       return type;
   }
@@ -60,6 +64,7 @@ function factTypeLabel(type: SpatialFactType): string {
 
 function FactRow({ fact }: { fact: SpatialFact }) {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const unreliable = !fact.reliable;
   return (
@@ -76,8 +81,8 @@ function FactRow({ fact }: { fact: SpatialFact }) {
         />
         <View style={styles.factContent}>
           <View style={styles.factTitleRow}>
-            <Text style={styles.factTitle}>{factTypeLabel(fact.type)}</Text>
-            {unreliable ? <Text style={styles.unreliableTag}>NO FIABLE</Text> : null}
+            <Text style={styles.factTitle}>{factTypeLabel(t, fact.type)}</Text>
+            {unreliable ? <Text style={styles.unreliableTag}>{t("trace_unreliable")}</Text> : null}
           </View>
           <Text style={styles.factCoords}>
             {fact.lat.toFixed(5)}, {fact.lon.toFixed(5)} · ±{Math.round(fact.accuracyM)}m
@@ -91,6 +96,7 @@ function FactRow({ fact }: { fact: SpatialFact }) {
 
 export default function SessionTraceScreen() {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -110,34 +116,34 @@ export default function SessionTraceScreen() {
   return (
     <ScreenContainer noPadding>
       <Stack.Screen options={{ headerShown: false }} />
-      <PageHeader title="Rastro" showBack onBack={() => router.back()} />
+      <PageHeader title={t("trace_title")} showBack onBack={() => router.back()} />
 
-      {loading ? <LoadingOverlay visible message="Cargando rastro…" /> : null}
+      {loading ? <LoadingOverlay visible message={t("trace_loading")} /> : null}
 
       {!loading && error ? (
         <EmptyState
-          title="No se pudo cargar el rastro"
+          title={t("trace_load_error")}
           description={error}
           icon="alert-circle-outline"
         />
       ) : null}
 
       {!loading && !error && totalFacts === 0 ? (
-        <EmptyState title="Esta jornada se registró solo por geocerca." icon="location-outline" />
+        <EmptyState title={t("trace_geofence_only")} icon="location-outline" />
       ) : null}
 
       {!loading && !error && totalFacts > 0 ? (
         <>
           <View style={styles.toggleRow}>
             <Button
-              label="Perímetro"
+              label={t("trace_layer_perimeter")}
               variant={layer === "PERIMETRO" ? "primary" : "secondary"}
               size="sm"
               onPress={() => setLayer("PERIMETRO")}
               style={styles.toggleButton}
             />
             <Button
-              label="Miga de pan"
+              label={t("trace_layer_breadcrumb")}
               variant={layer === "BREADCRUMB" ? "primary" : "secondary"}
               size="sm"
               onPress={() => setLayer("BREADCRUMB")}
@@ -149,8 +155,8 @@ export default function SessionTraceScreen() {
             <EmptyState
               title={
                 layer === "PERIMETRO"
-                  ? "Sin hechos de perímetro registrados."
-                  : "Sin puntos de miga de pan registrados."
+                  ? t("trace_empty_perimeter")
+                  : t("trace_empty_breadcrumb")
               }
               icon="location-outline"
             />

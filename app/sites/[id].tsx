@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import dayjs from "../../src/utils/dayjsSetup";
 import { FONT, type AppTokens } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
+import { useLanguage } from "../../src/context/LanguageContext";
 import {
   ScreenContainer,
   PageHeader,
@@ -51,6 +52,7 @@ function VisitRow({ session, onPress }: { session: SessionRecord; onPress: () =>
 
 export default function SiteDetailScreen() {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -72,7 +74,7 @@ export default function SiteDetailScreen() {
   const handleSaveRadius = async () => {
     const parsed = Number(radiusText);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      setRadiusError("El radio debe ser un número mayor que 0.");
+      setRadiusError(t("site_radius_error"));
       return;
     }
     setRadiusError(null);
@@ -88,12 +90,12 @@ export default function SiteDetailScreen() {
 
   const handleArchive = () => {
     Alert.alert(
-      "Archivar destino",
-      "El destino dejará de estar disponible para nuevas jornadas. El historial de visitas se conserva.",
+      t("site_archive_title"),
+      t("site_archive_desc"),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("session_cancel"), style: "cancel" },
         {
-          text: "Archivar",
+          text: t("site_archive_confirm"),
           style: "destructive",
           onPress: async () => {
             setBusy(true);
@@ -121,8 +123,8 @@ export default function SiteDetailScreen() {
     return (
       <ScreenContainer>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageHeader title="Ficha de sitio" showBack />
-        <LoadingOverlay visible message="Cargando destino…" />
+        <PageHeader title={t("site_detail_title")} showBack />
+        <LoadingOverlay visible message={t("site_loading")} />
       </ScreenContainer>
     );
   }
@@ -131,10 +133,10 @@ export default function SiteDetailScreen() {
     return (
       <ScreenContainer>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageHeader title="Ficha de sitio" showBack />
+        <PageHeader title={t("site_detail_title")} showBack />
         <EmptyState
-          title="Destino no encontrado"
-          description="Este sitio no existe en el catálogo."
+          title={t("site_not_found")}
+          description={t("site_not_found_desc")}
           icon="location-outline"
         />
       </ScreenContainer>
@@ -145,9 +147,9 @@ export default function SiteDetailScreen() {
     return (
       <ScreenContainer>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageHeader title="Ficha de sitio" showBack />
+        <PageHeader title={t("site_detail_title")} showBack />
         <EmptyState
-          title="No se pudo cargar el destino"
+          title={t("site_load_error")}
           description={error}
           icon="alert-circle-outline"
         />
@@ -160,7 +162,7 @@ export default function SiteDetailScreen() {
   return (
     <ScreenContainer noPadding>
       <Stack.Screen options={{ headerShown: false }} />
-      <PageHeader title="Ficha de sitio" showBack />
+      <PageHeader title={t("site_detail_title")} showBack />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card style={styles.headerCard}>
@@ -168,27 +170,27 @@ export default function SiteDetailScreen() {
             <Text style={styles.alias}>{site.alias}</Text>
             <StatusPill
               status={site.isActive ? "info" : "pending"}
-              label={site.isActive ? "Activo" : "Archivado"}
+              label={site.isActive ? t("sites_active") : t("sites_archived")}
             />
           </View>
           {site.clientName ? <Text style={styles.client}>{site.clientName}</Text> : null}
-          <Text style={styles.address}>{site.address || "Sin dirección"}</Text>
+          <Text style={styles.address}>{site.address || t("sites_no_address")}</Text>
           <Text style={styles.coords}>
             {site.targetLatitude.toFixed(5)}, {site.targetLongitude.toFixed(5)}
           </Text>
         </Card>
 
-        <Section title="Radio de geocerca">
+        <Section title={t("site_radius_section")}>
           <Card>
             <Input
-              label="Radio en metros"
+              label={t("site_radius_label")}
               value={radiusText}
               onChangeText={setRadiusText}
               keyboardType="numeric"
               error={radiusError ?? undefined}
             />
             <Button
-              label="Guardar radio"
+              label={t("site_radius_save")}
               variant="primary"
               onPress={handleSaveRadius}
               isLoading={savingRadius}
@@ -197,9 +199,9 @@ export default function SiteDetailScreen() {
           </Card>
         </Section>
 
-        <Section title="Historial de visitas">
+        <Section title={t("site_visits")}>
           {visits.length === 0 ? (
-            <EmptyState title="Aún no hay jornadas en este destino" icon="time-outline" />
+            <EmptyState title={t("site_no_visits")} icon="time-outline" />
           ) : (
             <FlatList
               data={visits}
@@ -215,7 +217,7 @@ export default function SiteDetailScreen() {
         <View style={styles.actions}>
           {site.isActive ? (
             <Button
-              label="Archivar sitio"
+              label={t("site_archive")}
               variant="danger"
               onPress={handleArchive}
               isLoading={busy}
@@ -223,7 +225,7 @@ export default function SiteDetailScreen() {
             />
           ) : (
             <Button
-              label="Reactivar sitio"
+              label={t("site_reactivate")}
               variant="success"
               onPress={handleReactivate}
               isLoading={busy}

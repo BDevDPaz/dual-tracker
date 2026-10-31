@@ -5,6 +5,8 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import dayjs from "../../src/utils/dayjsSetup";
 import { FONT, type AppTokens } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
+import { useLanguage } from "../../src/context/LanguageContext";
+import type { translations } from "../../src/utils/i18n";
 import { ICONS } from "../../src/constants/icons";
 import {
   ScreenContainer,
@@ -24,35 +26,37 @@ import { useSessionDetail, toIntegrityBadgeType } from "../../src/core/hooks/dua
 import type { LedgerEntry } from "../../src/core/contracts/domain";
 
 /** Etiquetas humanas para cada `LedgerEntry.intent` (blueprint §5.9). */
-function intentLabel(intent: string): string {
+type TF = (key: keyof typeof translations.es, vars?: Record<string, string | number>) => string;
+
+function intentLabel(t: TF, intent: string): string {
   switch (intent) {
     case "START_DAY":
-      return "Inicio de jornada";
+      return t("session_intent_start");
     case "ARRIVAL_CONFIRMED":
-      return "Llegada confirmada";
+      return t("session_intent_arrival");
     case "TRANSFER_START":
-      return "Traslado iniciado";
+      return t("session_intent_transfer");
     case "EXIT_DETECTED":
-      return "Salida detectada";
+      return t("session_intent_exit");
     case "EXIT_RESOLVED_CONTINUE":
-      return "Continuó trabajando";
+      return t("session_intent_continue");
     case "LUNCH_START":
-      return "Almuerzo iniciado";
+      return t("session_intent_lunch_start");
     case "LUNCH_END":
-      return "Almuerzo finalizado";
+      return t("session_intent_lunch_end");
     case "CLOSE_DAY":
-      return "Jornada cerrada";
+      return t("session_intent_close");
     case "MANUAL_PATCH":
-      return "Edición manual";
+      return t("session_intent_manual");
     case "OS_KILL_RECOVERED":
-      return "Recuperado tras cierre del sistema";
+      return t("session_intent_os_kill");
     case "RESOLVE_CONFLICT_KEEP_GPS":
     case "RESOLVE_CONFLICT_ACCEPT_MANUAL":
     case "RESOLVE_CONFLICT_SPLIT_CLOSE_ORIGINAL":
     case "RESOLVE_CONFLICT_SPLIT_CREATE_CONTINUATION":
-      return "Conflicto resuelto";
+      return t("session_intent_conflict");
     case "AUTO_CLOSE_SESSION_CAP":
-      return "Auto-cierre por tope de 12h";
+      return t("session_intent_autoclose");
     default:
       return intent;
   }
@@ -75,10 +79,10 @@ function timelineTypeFor(entry: LedgerEntry): TimelineEvent["type"] {
   return "note";
 }
 
-function ledgerEntryToTimelineEvent(entry: LedgerEntry): TimelineEvent {
+function ledgerEntryToTimelineEvent(t: TF, entry: LedgerEntry): TimelineEvent {
   return {
     id: entry.id,
-    title: intentLabel(entry.intent),
+    title: intentLabel(t, entry.intent),
     time: dayjs(entry.timestampMs).format("DD MMM, HH:mm"),
     subtitle: entry.reason ?? undefined,
     type: timelineTypeFor(entry),
@@ -117,6 +121,7 @@ function InlineEditForm({
   onSubmit: (input: { startAtMs?: number; endAtMs?: number; note: string }) => Promise<void>;
 }) {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const [startText, setStartText] = useState(
     initialStartAtMs !== null ? dayjs(initialStartAtMs).format("YYYY-MM-DD HH:mm") : "",
@@ -164,32 +169,32 @@ function InlineEditForm({
     <Card style={styles.editCard}>
       <Text style={styles.editTitle}>Editar jornada</Text>
       <Input
-        label="Inicio real (AAAA-MM-DD HH:mm)"
+        label={t("session_start_label")}
         value={startText}
         onChangeText={setStartText}
         placeholder="2026-01-15 08:00"
         autoCapitalize="none"
       />
       <Input
-        label="Fin (AAAA-MM-DD HH:mm)"
+        label={t("session_end_label")}
         value={endText}
         onChangeText={setEndText}
         placeholder="2026-01-15 17:00"
         autoCapitalize="none"
       />
       <Input
-        label="Nota de ajuste (obligatoria)"
+        label={t("session_edit_note_label")}
         value={note}
         onChangeText={setNote}
-        placeholder="Explica por qué se ajusta el horario…"
+        placeholder={t("session_edit_note_placeholder")}
         multiline
         numberOfLines={3}
         error={formError ?? undefined}
       />
       <View style={styles.editActions}>
-        <Button label="Cancelar" variant="secondary" onPress={onCancel} style={styles.editButton} />
+        <Button label={t("session_cancel")} variant="secondary" onPress={onCancel} style={styles.editButton} />
         <Button
-          label="Guardar ajuste"
+          label={t("session_save_adjustment")}
           variant="primary"
           onPress={handleSubmit}
           isLoading={submitting}
@@ -203,6 +208,7 @@ function InlineEditForm({
 
 export default function SessionDetailScreen() {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
@@ -227,8 +233,8 @@ export default function SessionDetailScreen() {
   };
 
   const timelineEvents = useMemo(
-    () => ledgerEntries.map(ledgerEntryToTimelineEvent),
-    [ledgerEntries],
+    () => ledgerEntries.map((e) => ledgerEntryToTimelineEvent(t, e)),
+    [ledgerEntries, t],
   );
 
   const netHours = session
@@ -239,8 +245,8 @@ export default function SessionDetailScreen() {
     return (
       <ScreenContainer>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageHeader title="Expediente" showBack onBack={handleBack} />
-        <LoadingOverlay visible message="Cargando expediente…" />
+        <PageHeader title={t("session_title")} showBack onBack={handleBack} />
+        <LoadingOverlay visible message={t("session_loading")} />
       </ScreenContainer>
     );
   }
@@ -249,14 +255,14 @@ export default function SessionDetailScreen() {
     return (
       <ScreenContainer>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageHeader title="Expediente" showBack onBack={handleBack} />
+        <PageHeader title={t("session_title")} showBack onBack={handleBack} />
         <EmptyState
-          title="Sesión no encontrada"
-          description="Esta jornada no existe o fue eliminada del expediente."
+          title={t("session_not_found")}
+          description={t("session_not_found_desc")}
           icon="document-text-outline"
         />
         <View style={styles.notFoundAction}>
-          <Button label="Volver" variant="primary" onPress={() => router.back()} />
+          <Button label={t("session_back")} variant="primary" onPress={() => router.back()} />
         </View>
       </ScreenContainer>
     );
@@ -266,9 +272,9 @@ export default function SessionDetailScreen() {
     return (
       <ScreenContainer>
         <Stack.Screen options={{ headerShown: false }} />
-        <PageHeader title="Expediente" showBack onBack={handleBack} />
+        <PageHeader title={t("session_title")} showBack onBack={handleBack} />
         <EmptyState
-          title="No se pudo cargar la sesión"
+          title={t("session_load_error")}
           description={error}
           icon="alert-circle-outline"
         />
@@ -281,7 +287,7 @@ export default function SessionDetailScreen() {
   return (
     <ScreenContainer noPadding>
       <Stack.Screen options={{ headerShown: false }} />
-      <PageHeader title="Expediente" showBack onBack={handleBack} />
+      <PageHeader title={t("session_title")} showBack onBack={handleBack} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {session.isDeleted && (
@@ -292,7 +298,7 @@ export default function SessionDetailScreen() {
 
         <Card style={styles.headerCard}>
           <View style={styles.headerRow}>
-            <Text style={styles.siteAlias}>{site?.alias ?? "Sin sitio"}</Text>
+            <Text style={styles.siteAlias}>{site?.alias ?? t("session_no_site")}</Text>
             <IntegrityBadge type={toIntegrityBadgeType(session.integrityClass)} />
           </View>
           <Text style={styles.dateCaption}>
@@ -300,7 +306,7 @@ export default function SessionDetailScreen() {
           </Text>
         </Card>
 
-        <Section title="Totales">
+        <Section title={t("session_totals")}>
           <Card>
             <View style={styles.totalsRow}>
               <View style={styles.totalsItem}>
@@ -319,7 +325,7 @@ export default function SessionDetailScreen() {
           </Card>
         </Section>
 
-        <Section title="Líneas laborales">
+        <Section title={t("session_work_lines")}>
           <Card>
             <Text style={styles.policyCaption}>Política: {session.policyId}</Text>
             <Text style={styles.payrollNote}>
@@ -328,7 +334,7 @@ export default function SessionDetailScreen() {
               de nómina directamente.
             </Text>
             <Button
-              label="Ver desglose completo en Reportes"
+              label={t("session_view_breakdown")}
               variant="secondary"
               onPress={() => router.push("/(tabs)/reports")}
               style={styles.reportsButton}
@@ -338,13 +344,13 @@ export default function SessionDetailScreen() {
 
         <SessionTimeline events={timelineEvents} />
 
-        <Section title="Bloque espacial">
+        <Section title={t("session_spatial")}>
           <Card>
             <Text style={styles.spatialText}>
-              {traceCount === 0 ? "Zona validada" : "Rastro disponible"}
+              {traceCount === 0 ? t("session_zone_validated") : t("session_trace_available")}
             </Text>
             <Button
-              label="Ver rastro"
+              label={t("session_view_trace")}
               variant="secondary"
               onPress={() => router.push(`/session/${validId}/trace`)}
               style={styles.reportsButton}
@@ -353,7 +359,7 @@ export default function SessionDetailScreen() {
         </Section>
 
         {session.manualEditNote ? (
-          <Section title="Notas">
+          <Section title={t("session_notes")}>
             <Card>
               <Text style={styles.noteText}>{session.manualEditNote}</Text>
             </Card>
@@ -378,14 +384,14 @@ export default function SessionDetailScreen() {
       {!session.isDeleted && !editing && (
         <View style={styles.footer}>
           <Button
-            label="Editar"
+            label={t("session_edit")}
             variant="secondary"
             iconName={ICONS.actions.edit as any}
             onPress={() => setEditing(true)}
             style={styles.footerButton}
           />
           <Button
-            label="Eliminar"
+            label={t("session_delete")}
             variant="danger"
             iconName={ICONS.actions.delete as any}
             onPress={() => setDeleteVisible(true)}
@@ -408,7 +414,7 @@ export default function SessionDetailScreen() {
           }
         }}
       />
-      {deleting ? <LoadingOverlay visible message="Eliminando jornada…" /> : null}
+      {deleting ? <LoadingOverlay visible message={t("session_deleting")} /> : null}
     </ScreenContainer>
   );
 }

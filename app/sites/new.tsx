@@ -13,12 +13,14 @@ import * as Location from "expo-location";
 
 import { FONT, type AppTokens } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
+import { useLanguage } from "../../src/context/LanguageContext";
 import { ScreenContainer, PageHeader, Card, Input, Button } from "../../src/components/ui";
 import { useSiteRegistry } from "../../src/core/hooks/dualTracker";
 import { useWorkTracker } from "../../src/core/hooks/useWorkTracker";
 
 export default function NewSiteScreen() {
   const { tokens } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => getStyles(tokens), [tokens]);
   const router = useRouter();
   const { createSite } = useSiteRegistry();
@@ -54,20 +56,20 @@ export default function NewSiteScreen() {
       const results = await Location.geocodeAsync(address.trim());
       if (results.length === 0) {
         setCoords(null);
-        setGeocodeMessage("No se encontró la dirección, verifica e intenta de nuevo.");
+        setGeocodeMessage(t("site_geocode_not_found"));
       } else {
         const [first] = results;
         setCoords({ latitude: first.latitude, longitude: first.longitude });
         setGeocodeMessage(
-          `Coordenadas encontradas: ${first.latitude.toFixed(5)}, ${first.longitude.toFixed(5)}`,
+          t("site_coords_found", { lat: first.latitude.toFixed(5), lon: first.longitude.toFixed(5) }),
         );
       }
     } catch (err) {
       setCoords(null);
       setGeocodeMessage(
         err instanceof Error
-          ? `No se pudo geocodificar: ${err.message}`
-          : "No se pudo geocodificar la dirección.",
+          ? t("site_geocode_failed", { error: err.message })
+          : t("site_geocode_failed_generic"),
       );
     } finally {
       setGeocoding(false);
@@ -99,19 +101,19 @@ export default function NewSiteScreen() {
   return (
     <ScreenContainer noPadding>
       <Stack.Screen options={{ headerShown: false }} />
-      <PageHeader title="Nuevo destino" showBack />
+      <PageHeader title={t("site_new_title")} showBack />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card>
           <Input
-            label="Alias del destino"
-            placeholder="Ej. Bodega Norte"
+            label={t("site_alias_label")}
+            placeholder={t("site_alias_placeholder")}
             value={alias}
             onChangeText={setAlias}
           />
           <Input
-            label="Dirección"
-            placeholder="Calle, número, ciudad…"
+            label={t("site_address_label")}
+            placeholder={t("site_address_placeholder")}
             value={address}
             onChangeText={(text) => {
               setAddress(text);
@@ -121,8 +123,8 @@ export default function NewSiteScreen() {
             multiline
           />
           <Input
-            label="Cliente (opcional)"
-            placeholder="Nombre del cliente"
+            label={t("site_client_label")}
+            placeholder={t("site_client_placeholder")}
             value={clientName}
             onChangeText={setClientName}
           />
@@ -137,7 +139,7 @@ export default function NewSiteScreen() {
             de servicio que no exista).
           */}
           <Input
-            label="Radio en metros"
+            label={t("site_radius_label")}
             placeholder="100"
             value={radiusText}
             onChangeText={setRadiusText}
@@ -145,7 +147,7 @@ export default function NewSiteScreen() {
           />
 
           <Button
-            label={geocoding ? "Buscando…" : "Buscar coordenadas"}
+            label={geocoding ? t("site_geocode_searching") : t("site_geocode_search")}
             variant="secondary"
             onPress={handleGeocode}
             isLoading={geocoding}
@@ -158,7 +160,7 @@ export default function NewSiteScreen() {
           {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
 
           <Button
-            label="Guardar sitio"
+            label={t("site_save")}
             variant="primary"
             onPress={handleSave}
             isLoading={saving}
