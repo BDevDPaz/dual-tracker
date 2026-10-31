@@ -1,7 +1,7 @@
 /**
  * Tarea BREADCRUMB (Propuesta Técnica §7.2) — muestreo adaptativo durante
  * ACTIVA/TRASLADO bajo el servicio en primer plano. Alimenta TraceRecorder y
- * la confirmación de salida (strikes de LEDTracker). Registra heartbeat.
+ * la confirmación de salida (strikes del proyecto fuente anterior LEDTracker). Registra heartbeat.
  */
 import type * as Location from "expo-location";
 import type { TaskManagerTaskBody } from "expo-task-manager";

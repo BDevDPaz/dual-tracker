@@ -146,8 +146,9 @@ export function isKnownPersistedStatus(raw: string | null | undefined): boolean 
 }
 
 /**
- * Traduce estados del linaje GEOTrack/LEDTracker al vocabulario canónico.
- * Base para la futura migración de `ledtracker_v2.db` (TODO).
+ * Traduce estados del linaje de los proyectos fuente anteriores GEOTrack y LEDTracker
+ * al vocabulario canónico de Dual Tracker V1.0.0.
+ * Base para la futura migración de `ledtracker_v2.db` (archivo de ese proyecto fuente; TODO).
  */
 export function mapLegacyStatus(raw: string | null | undefined): SessionRecordStatus {
   switch (raw) {

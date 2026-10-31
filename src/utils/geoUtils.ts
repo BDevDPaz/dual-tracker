@@ -1,4 +1,4 @@
-// src/utils/geoUtils.ts (portado de GEOTrack / LEDTracker)
+// src/utils/geoUtils.ts (portado de los proyectos fuente anteriores GEOTrack y LEDTracker)
 
 const deg2rad = (deg: number): number => deg * (Math.PI / 180);
 

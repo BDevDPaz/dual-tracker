@@ -1,6 +1,6 @@
 # Changelog
 
-Todos los cambios notables de Dual Tracker se documentan en este archivo.
+Todos los cambios notables de Dual Tracker V1.0.0 se documentan en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto adhiere a [Versionado semántico](https://semver.org/lang/es/).
@@ -91,4 +91,4 @@ La versión visible es **1.0.0** (`app.json`, `package.json`, `APP_VERSION`). El
 - **El viaje de casa al primer sitio no se paga.** El traslado pagado es el tramo entre dos destinos de la misma jornada. Soporte lo dice en la pregunta correspondiente.
 - **Doble tiempo (por encima de 12 h) y séptimo día** están en la política v2 y siguen apagados (`caDoubleTime`, `caSeventhDay`) hasta que asesoría legal lo confirme. No se encienden en esta candidata.
 - **iOS no está probado.** No hay acta de iPhone para esta candidata. El respaldo por cambio significativo de ubicación queda para después de la 1.0.0.
-- **Migración de bases heredadas (W Tracker, LEDTracker, GEOTrack).** No aplica: las versiones anteriores nunca se publicaron.
+- **Migración de bases heredadas de los proyectos fuente anteriores (W Tracker, LEDTracker, GEOTrack).** No aplica: esas versiones anteriores nunca se publicaron. El producto es Dual Tracker V1.0.0.

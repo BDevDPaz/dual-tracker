@@ -18,7 +18,7 @@
  *     7. Devuelve la vista previa de nómina.
  *
  * Origen: reducer + effects de GEOTrack (src/core/reducer, src/core/effects)
- * y sessionStoreAdapter; SessionEngineService de LEDTracker.
+ * y sessionStoreAdapter; SessionEngineService del proyecto fuente anterior LEDTracker.
  * Solo este servicio muta el ciclo de vida: geocerca, notificaciones y
  * watchdog entran como intenciones con su origen.
  */

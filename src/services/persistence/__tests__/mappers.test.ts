@@ -17,7 +17,7 @@ describe("schema", () => {
 });
 
 describe("mappers", () => {
-  test("mapLegacyStatus traduce el vocabulario GEOTrack/LEDTracker", () => {
+  test("mapLegacyStatus traduce el vocabulario de los proyectos fuente anteriores GEOTrack y LEDTracker", () => {
     expect(mapLegacyStatus("GEOFENCE_CREATED")).toBe("ESPERANDO");
     expect(mapLegacyStatus("ACTIVE_WORK")).toBe("ACTIVA");
     expect(mapLegacyStatus("PAUSED")).toBe("PAUSADA");

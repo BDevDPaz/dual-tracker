@@ -1,8 +1,8 @@
-# Dual Tracker
+# Dual Tracker V1.0.0
 
 Aplicación de evidencia laboral y nómina para trabajadores de California. El expediente es de grado forense: la jornada deja un rastro que se puede recomputar, y el comprobante sale de un periodo sellado. Stack: TypeScript, **Expo SDK 54** (`expo` ~54.0.35), **React Native 0.81.5**, **expo-router 6**. El producto se prueba y se documenta primero en **Android** (servicio en primer plano, geocerca y la guía de permisos, incluida Samsung). iOS está en el proyecto (`npm run ios` y los perfiles EAS). La candidata 1.0.0-rc.1 no tiene acta de iPhone, y el hallazgo de actualizaciones diferidas en iOS sigue sin medirse en un iPhone (`CHANGELOG.md`).
 
-Consolida los linajes **W Tracker**, **LEDTracker** y **GEOTrack (WTracker Trial_and_TraceT)** con dos garantías:
+Consolida código de los proyectos fuente anteriores **W Tracker**, **LEDTracker** y **GEOTrack (WTracker Trial_and_TraceT)**. Esos nombres no son el de esta app: el producto es **Dual Tracker V1.0.0**. Dos garantías:
 
 - **Tu tiempo**: horas, almuerzo, traslados y horas extra calculados con una política visible y versionada (`CA_DAILY8_WEEKLY40_V1` por defecto).
 - **Tu rastro de jornada**: hechos espaciales (geocerca y, opcionalmente, miga de pan) registrados solo con la jornada abierta. Sirven de evidencia compartida entre empleado y empleador, con el mismo hash.
@@ -232,9 +232,11 @@ Reglas que se cumplen en el código:
 
 ## Qué se portó y desde qué app
 
+W Tracker, LEDTracker y GEOTrack son proyectos fuente anteriores, no el nombre de esta app. El producto es Dual Tracker V1.0.0.
+
 | Origen | Portado a | Notas |
 |---|---|---|
-| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | El design system salió de GEOTrack. Los tokens vigentes son W Tracker «Control diario» (`src/constants/theme.ts`, PR #33): fondo `#0A0A0C`, tarjetas `#121214`, oro `#D4AF37`, Montserrat 400/500/600. El nombre del producto sigue siendo Dual Tracker. Se quitaron los nombres en duro ("GEOTrack Solutions Inc."). |
+| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | El design system salió de GEOTrack. Los tokens vigentes son W Tracker «Control diario» (`src/constants/theme.ts`, PR #33): fondo `#0A0A0C`, tarjetas `#121214`, oro `#D4AF37`, Montserrat 400/500/600. El nombre del producto es Dual Tracker V1.0.0. Se quitaron los nombres en duro ("GEOTrack Solutions Inc."). |
 | **GEOTrack** | `core/store`, `core/selectors`, `core/hooks/useWorkTracker` | Suscripción reactiva real. `dispatch(DomainEvent)` pasa a ser `emit(ViewIntent)`. |
 | **GEOTrack** | `domain/sessionMachine`, `SessionEngineService` | Transiciones de jornada, almuerzo, traslado, salida, auto-cierre de 12 h, anti-rebote. Estados en español (NO_INICIADA…CERRADA). |
 | **GEOTrack** | `persistence/PersistenceService`, `schema`, `mappers` | SQLite WAL, migraciones, `checkOverlap`, borrado lógico. |
@@ -244,10 +246,10 @@ Reglas que se cumplen en el código:
 | **GEOTrack** | `evidence/ReportService`, `reportTemplates` | HTML → PDF con expo-print, compartir y email. Ahora a partir de un `PayrollStatement` sellado, con escape-html. |
 | **GEOTrack** | `i18n`, `context/Toast*`, `ThemeContext`, `utils/dateUtils`, `geoUtils` | dayjs con zona corporativa. |
 | **GEOTrack** | `app.json` | Permisos de ubicación, segundo plano y FGS con textos en español, adaptados a "Dual Tracker" y al alcance "solo con jornada abierta". |
-| **LEDTracker** | `runtime/ForegroundWorkService` | `startLocationUpdatesAsync` con `foregroundService` (notificación persistente Android). |
-| **LEDTracker** | `SiteRegistryService` (geocoder vía `GeofenceRuntimeService.geocodeAddress`) | `Location.geocodeAsync` para convertir una dirección en coordenadas objetivo. |
-| **LEDTracker** | `GeofenceRuntimeService.observeSample` | Detección de salida por "strikes" (3 muestras fuera) como respaldo de la región. |
-| **GEOTrack / LEDTracker** | `components/modals/*` | Los seis modales parten de GEOTrack. DailySetupModal combina además el alta rápida de LEDTracker. ExitDetectionModal pasa de dos acciones a cuatro (§5.7). LunchModal suma el modo supervisor. |
+| **LEDTracker** (fuente anterior) | `runtime/ForegroundWorkService` | `startLocationUpdatesAsync` con `foregroundService` (notificación persistente Android). |
+| **LEDTracker** (fuente anterior) | `SiteRegistryService` (geocoder vía `GeofenceRuntimeService.geocodeAddress`) | `Location.geocodeAsync` para convertir una dirección en coordenadas objetivo. |
+| **LEDTracker** (fuente anterior) | `GeofenceRuntimeService.observeSample` | Detección de salida por "strikes" (3 muestras fuera) como respaldo de la región. |
+| **GEOTrack / LEDTracker** (fuentes anteriores) | `components/modals/*` | Los seis modales parten de GEOTrack. DailySetupModal combina además el alta rápida del proyecto fuente anterior LEDTracker. ExitDetectionModal pasa de dos acciones a cuatro (§5.7). LunchModal suma el modo supervisor. |
 | **W Tracker** | `modals/EditSessionModal`, `domain/sessionMachine` | Reglas `hasTimeChanged` / `requiresAuditNote`: la nota es obligatoria si cambian las horas. |
 | **W Tracker** | tabs Hoy/Historial/Reportes/Ajustes, `session/[id]` | La estructura de pantallas se tomó como base del rediseño (REDISEÑO en Producto §2). Los simuladores y los datos mock no se portaron. |
 
@@ -463,7 +465,7 @@ Detalle: `docs/AUDITORIA_2_2026-10-20.md`. PR #21. La regresión queda en `src/s
 - Un estado desconocido se lee como `CUARENTENA` y queda fuera de la nómina. El barrido de cifrado no se da por terminado mientras quede `plain:v1:`. El correo solo cuenta como enviado con estado `sent`.
 - `app/` entra en las raíces de Jest. Hay ocho flujos: fichar, cerrar, almuerzo, editar, sellar, ajustes, PIN y aviso de cuarentena.
 - El hallazgo 17 (actualizaciones diferidas en iOS, sin el servicio en primer plano de Android) está en el código y no se ha validado en un iPhone.
-- La base heredada de W Tracker, LEDTracker y GEOTrack no se migra: esas versiones no se publicaron.
+- La base heredada de los proyectos fuente anteriores W Tracker, LEDTracker y GEOTrack no se migra: esas versiones no se publicaron. El producto vigente es Dual Tracker V1.0.0.
 
 ## Hecho en la auditoría 3
 
@@ -571,7 +573,7 @@ Se marcan en el código como `TODO(propuesta)`:
 
 ## No aplica
 
-- Migración de las bases de datos heredadas (W Tracker, LEDTracker y GEOTrack) al esquema canónico. No aplica: las versiones anteriores nunca se publicaron.
+- Migración de las bases de datos heredadas de los proyectos fuente anteriores (W Tracker, LEDTracker y GEOTrack) al esquema canónico de Dual Tracker V1.0.0. No aplica: esas versiones anteriores nunca se publicaron.
 
 ## Licencia
 
