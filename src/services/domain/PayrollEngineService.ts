@@ -35,6 +35,7 @@ import { companyCalendar, legalFlags } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt, type CalendarHistory } from "../../utils/dateUtils";
 import { moneyCents } from "./payrollDisplay";
 import { evaluateDayPremiums } from "./caPremiums";
+import { withOneLunchPerDay } from "./dayLunch";
 import { computeSegmentMinutes, deductibleLunchMinutes, sessionEndMs } from "./segmentation";
 import { getPayrollPolicy } from "./payrollPolicies";
 import { TransitPolicyService } from "./TransitPolicyService";
@@ -444,13 +445,16 @@ export const PayrollEngineService = {
     const ledgerSegmented = (input.segmentedLedgerTimestamps ?? []).some((ts) => ts >= input.periodStart && ts <= input.periodEnd);
 
     const history = companyCalendar(input.company);
+    // Primas de comida leen el almuerzo original (las dos jornadas siguen
+    // teniendo comida). Los minutos solo descuentan el primero de cada dayKey.
     const byId = new Map(input.sessions.map((s) => [s.id, s]));
+    const forMinutes = withOneLunchPerDay(input.sessions, input.company, input.nowMs, input.policyId);
     let closed: SessionRecord[];
     let items: AllocItem[];
     if (policy.segmentation === "WORKDAY") {
       // v2 (spec v1.3 §5.2 N5): pertenencia por solape; cada statement suma
       // solo los minutos de sus segmentos.
-      const overlapping = input.sessions.filter((s) => {
+      const overlapping = forMinutes.filter((s) => {
         if (s.bookkeeping.isDeleted) return false;
         const start = s.actualStartAtMs ?? s.declaredStartAtMs;
         const end = sessionEndMs(s, input.nowMs);
@@ -468,7 +472,7 @@ export const PayrollEngineService = {
       const ids = new Set(items.map((it) => it.sessionId));
       closed = closedAll.filter((s) => ids.has(s.id)).sort((a, b) => (a.actualStartAtMs ?? a.declaredStartAtMs) - (b.actualStartAtMs ?? b.declaredStartAtMs));
     } else {
-      const inPeriod = input.sessions.filter((s) => {
+      const inPeriod = forMinutes.filter((s) => {
         const start = s.actualStartAtMs ?? s.declaredStartAtMs;
         return start >= input.periodStart && start <= input.periodEnd && !s.bookkeeping.isDeleted;
       });

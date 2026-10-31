@@ -3,7 +3,9 @@ import { Store, StoreActions } from "../store";
 import { createInitialState } from "../store/initialState";
 import {
   selectActiveSession,
+  selectDayLunch,
   selectHasConflict,
+  selectLunchPrompt,
   selectIsHydrated,
   selectNeedsDisclaimer,
   selectSessionState,
@@ -106,6 +108,26 @@ describe("selectors", () => {
     ]);
     expect(selectSiteLastVisitAtMs(st, 4)).toBe(MONDAY_8AM);
     expect(selectSiteLastVisitAtMs(st, 2)).toBe(MONDAY_8AM + 3 * HOUR);
+  });
+
+  test("lunchUsedToday sigue el dayKey: 30 min cuenta, menos de 30 no", () => {
+    const eaten = makeClosedSession(MONDAY_8AM, 4, {
+      id: 1,
+      lunch: { taken: true, startAtMs: MONDAY_8AM + 2 * HOUR, endAtMs: MONDAY_8AM + 2 * HOUR + 30 * 60_000, deductedMinutes: null },
+    });
+    const open = makeSession({ id: 2, declaredStartAtMs: MONDAY_8AM + 5 * HOUR, actualStartAtMs: MONDAY_8AM + 5 * HOUR });
+    const used = hydrate([eaten, open]);
+    expect(selectDayLunch(used, MONDAY_8AM + 6 * HOUR)?.sessionId).toBe(1);
+    expect(selectDayLunch(used, MONDAY_8AM + 6 * HOUR)?.minutes).toBe(30);
+    expect(selectLunchPrompt(used, MONDAY_8AM + 6 * HOUR)).toBe("I2");
+
+    const short = makeSession({
+      id: 3,
+      domainStatus: "ACTIVA",
+      lunch: { taken: true, startAtMs: MONDAY_8AM + HOUR, endAtMs: MONDAY_8AM + HOUR + 20 * 60_000, deductedMinutes: null },
+    });
+    expect(selectDayLunch(hydrate([short]), MONDAY_8AM + 3 * HOUR)).toBeNull();
+    expect(selectLunchPrompt(hydrate([short]), MONDAY_8AM + 3 * HOUR)).toBe("I1");
   });
 
   test("conflictos y aviso pendiente", () => {

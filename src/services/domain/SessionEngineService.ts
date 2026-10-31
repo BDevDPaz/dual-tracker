@@ -18,12 +18,13 @@
  *     7. Devuelve la vista previa de nómina.
  *
  * Origen: reducer + effects de GEOTrack (src/core/reducer, src/core/effects)
- * y sessionStoreAdapter; SessionEngineService del proyecto fuente anterior LEDTracker.
+ * y sessionStoreAdapter del motor de jornada anterior.
  * Solo este servicio muta el ciclo de vida: geocerca, notificaciones y
  * watchdog entran como intenciones con su origen.
  */
 import type * as SQLite from "expo-sqlite";
 import type {
+  CompanyPolicy,
   IntentOrigin,
   IntentResult,
   LedgerActor,
@@ -42,6 +43,7 @@ import { NotificationService } from "../runtime/NotificationService";
 import { IN_APP_CRITICAL, recordCriticalNotice } from "../runtime/criticalNotices";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
+import { lunchOnDay, payrollDayKey } from "./dayLunch";
 import { FeedbackService } from "../application/FeedbackService";
 import { deviceOffGap } from "../evidence/deviceOffGap";
 import { appendSessionSeal } from "../evidence/sessionSeal";
@@ -53,7 +55,7 @@ import { SettingsService } from "../persistence/SettingsService";
 import { ConcurrencyGuardService, MutexBusyError } from "./ConcurrencyGuardService";
 import { DualDisclosureService } from "./DualDisclosureService";
 import { IntegrityLedgerService } from "./IntegrityLedgerService";
-import { PayrollEngineService } from "./PayrollEngineService";
+import { PayrollEngineService, policyForPeriod } from "./PayrollEngineService";
 import { FixedLunchError, FutureTimestampError } from "./sessionTimeGuard";
 import type { EngineEffect, TransitionContext } from "./sessionMachine";
 import { transition } from "./sessionMachine";
@@ -208,6 +210,26 @@ async function coalescedEnterId(db: SQLite.SQLiteDatabase, fact: SpatialFact): P
   return null;
 }
 
+/** true si otra jornada del mismo dayKey de nómina ya descontó el almuerzo. */
+async function dayAlreadyHadLunch(open: SessionRecord, company: CompanyPolicy, nowMs: number): Promise<boolean> {
+  const packs = await PersistenceService.listPacks();
+  const history = companyCalendar(company);
+  const start = open.actualStartAtMs ?? open.declaredStartAtMs;
+  const policyId = policyForPeriod(
+    packs.map((p) => ({
+      periodStart: p.manifest.periodStart,
+      periodEnd: p.manifest.periodEnd,
+      policyId: p.statement.policyId,
+      createdAtMs: p.createdAtMs,
+    })),
+    workweekStartAt(start, history),
+    workweekEndAt(start, history),
+    company.overtimePolicyId,
+  );
+  const others = (await PersistenceService.listSessions()).filter((s) => s.id !== open.id);
+  return lunchOnDay(others, payrollDayKey(open, company, nowMs, policyId), company, nowMs, policyId) != null;
+}
+
 function degradedReason(open: SessionRecord | null): TransitionContext["degradedReason"] {
   const h = Store.getState().health;
   return blockingIntegrityReason(h, !!open) ?? (TimeAuthorityService.isDriftExceeded() ? "CLOCK_DRIFT" : null);
@@ -274,6 +296,9 @@ export const SessionEngineService = {
         }
         if (intent.type === "RESOLVE_KEEP_GPS" && target) {
           ctx.cleanGpsPair = await hasCleanGpsPair(target.id);
+        }
+        if (open && (intent.type === "CLOSE_DAY" || intent.type === "LUNCH_START")) {
+          ctx.dayLunchUsed = await dayAlreadyHadLunch(open, settings.company, nowMs);
         }
 
         // §12: sin cifrado no se escribe una nota sobre una sesión cerrada.

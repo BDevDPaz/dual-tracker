@@ -30,6 +30,7 @@ import {
   moneyCents,
   trimDisplayNote,
 } from "../../services/domain/payrollDisplay";
+import { type DayLunch, lunchOnDay, lunchPromptForClose, payrollDayKey } from "../../services/domain/dayLunch";
 import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
 import { restoreClippedTransits } from "../../services/domain/sessionMachine";
 import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
@@ -64,6 +65,25 @@ export const selectActiveSession = (s: DualTrackerState): SessionRecord | null =
   const session = s.sessions.byId[String(id)];
   return session && !session.bookkeeping.isDeleted && OPEN_SESSION_STATES.includes(session.domainStatus) ? session : null;
 };
+
+/**
+ * Almuerzo del día de la jornada abierta (lunchUsedToday).
+ * dayKey = el de nómina para la política del periodo (dateString en v1,
+ * inicio de jornada en v2). Incluye esta jornada si su pausa ya llega a
+ * 30 min, y las cerradas del mismo día. Una pausa < 30 min no cuenta.
+ */
+export function selectDayLunch(s: DualTrackerState, nowMs: number): DayLunch | null {
+  const active = selectActiveSession(s);
+  if (!active) return null;
+  const policyId = selectPolicyForSession(s, active);
+  const key = payrollDayKey(active, s.settings.company, nowMs, policyId);
+  return lunchOnDay(selectVisibleSessions(s), key, s.settings.company, nowMs, policyId);
+}
+
+/** I2 si lunchUsedToday; si no, I1 al cerrar. */
+export function selectLunchPrompt(s: DualTrackerState, nowMs: number): "I1" | "I2" {
+  return lunchPromptForClose(selectDayLunch(s, nowMs));
+}
 
 export const selectVisibleSessions = (s: DualTrackerState): SessionRecord[] =>
   s.sessions.order.map((id) => s.sessions.byId[String(id)]).filter((x): x is SessionRecord => !!x && !x.bookkeeping.isDeleted);

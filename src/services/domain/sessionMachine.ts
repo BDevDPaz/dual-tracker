@@ -32,6 +32,7 @@ import { companyCalendar, companyTimezone } from "../../utils/companyPolicy";
 import { applyRestAcknowledgement } from "./caPremiums";
 import { nextWorkdayBoundary, workdayDateString } from "../../utils/dateUtils";
 import { siteCheckedInBefore } from "./siteVisits";
+import { qualifyingLunch } from "./dayLunch";
 import { fixedLunchExceedsSession, isFutureInstant, lunchOutsideSession, recordedPauseMinutes, sessionSpanMinutes, FUTURE_TIME_TOLERANCE_MS } from "./sessionTimeGuard";
 import { TransitPolicyService } from "./TransitPolicyService";
 
@@ -68,6 +69,11 @@ export interface TransitionContext {
   cleanGpsPair?: boolean;
   /** Generador de ids de tramo. */
   newId: () => string;
+  /**
+   * Otra jornada del mismo dayKey de nómina ya tiene el almuerzo del día.
+   * CLOSE_DAY no aplica otra deducción; LUNCH_START no abre otro almuerzo.
+   */
+  dayLunchUsed?: boolean;
 }
 
 export type EngineEffect =
@@ -681,8 +687,12 @@ export function transition(
         if (fromExit) effects.push({ type: "CANCEL_EXIT_DECISION", sessionId: open.id });
         return ok(open, next, ctx, "REST_STARTED", effects, "LUNCH_STARTED");
       }
-      // Primera pausa = almuerzo (línea explícita). Pausas siguientes = pausa genérica.
-      const next: SessionRecord = open.lunch.taken
+      // Pausa ≥ 30 min (o declaración) = almuerzo del día: la siguiente es pausa.
+      // Una pausa < 30 min no cuenta: se puede iniciar el almuerzo de verdad.
+      // Si otra jornada del día ya lo usó, no se abre un segundo almuerzo.
+      const qualifies = qualifyingLunch(open, now) != null;
+      if (ctx.dayLunchUsed && !qualifies) return reject("ILLEGAL_TRANSITION", "LUNCH_ALREADY_USED");
+      const next: SessionRecord = qualifies
         ? {
             ...open,
             domainStatus: "PAUSADA",
@@ -696,12 +706,12 @@ export function transition(
         : {
             ...open,
             domainStatus: "PAUSADA",
-            lunch: { ...open.lunch, taken: true, startAtMs: at, endAtMs: null },
+            lunch: { taken: true, startAtMs: at, endAtMs: null, deductedMinutes: null },
             bookkeeping: { ...open.bookkeeping, ...cleared },
           };
       const effects: EngineEffect[] = [sync(next, next.siteId)];
       if (fromExit) effects.push({ type: "CANCEL_EXIT_DECISION", sessionId: open.id });
-      return ok(open, next, ctx, open.lunch.taken ? "PAUSE_STARTED" : "LUNCH_STARTED", effects, "LUNCH_STARTED");
+      return ok(open, next, ctx, qualifies ? "PAUSE_STARTED" : "LUNCH_STARTED", effects, "LUNCH_STARTED");
     }
 
     // ------------------------------------------------------------ RESUME
@@ -845,8 +855,17 @@ export function transition(
       if (endMs < sessionStart) return reject("INVALID_TIMES", "END_NOT_AFTER_START");
       let next = closeRecord(open, endMs, ctx.company);
       const declared = intent.lunchDeductedMinutes;
-      if (declared !== undefined && declared !== null && !next.lunch.startAtMs) {
-        let lunch: SessionRecord["lunch"] = { ...next.lunch, taken: declared > 0, deductedMinutes: declared };
+      // Pausa ≥ 30 min: ya es el almuerzo del día (I2). No se pisa con I1.
+      // Pausa < 30 min: no cuenta; I1 sí, salvo que otra jornada del día ya descontó.
+      const already = qualifyingLunch(next, endMs) != null;
+      if (!already && !ctx.dayLunchUsed && declared !== undefined && declared !== null) {
+        let lunch: SessionRecord["lunch"] = {
+          taken: declared > 0,
+          startAtMs: null,
+          endAtMs: null,
+          deductedMinutes: declared,
+          ...(next.lunch.interrupted ? { interrupted: true } : {}),
+        };
         const room = sessionSpanMinutes(sessionStart, endMs) - recordedPauseMinutes(open);
         if (declared > 0 && Math.round(declared) > Math.max(0, room)) {
           return reject("INVALID_TIMES", "LUNCH_EXCEEDS_SESSION");
@@ -942,7 +961,13 @@ export function transition(
         endMs = ceiling;
       }
 
-      const next = withIntegrity(closeRecord(open, endMs, ctx.company), cls, reason);
+      const lunchWasOpen = Boolean(open.lunch.startAtMs && !open.lunch.endAtMs);
+      let next = withIntegrity(closeRecord(open, endMs, ctx.company), cls, reason);
+      // Sin I1. Una pausa de almuerzo aún abierta no se vuelve descuento:
+      // 0 min y la jornada sigue editable. Una pausa ya cerrada (≥ 30 min) se conserva.
+      if (lunchWasOpen) {
+        next = { ...next, lunch: { taken: false, startAtMs: null, endAtMs: null, deductedMinutes: 0 } };
+      }
       return ok(open, next, ctx, `AUTO_CLOSE_${intent.cause}`, [sync(next, null), { type: "CANCEL_EXIT_DECISION", sessionId: open.id }], "DAY_AUTO_CLOSED");
     }
 
