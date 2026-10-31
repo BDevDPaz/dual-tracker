@@ -13,8 +13,8 @@ export interface PersonProfile {
   /** HH:mm del recordatorio diario. */
   dailyReminderTime: string;
   /**
-   * Tema visual (ThemeContext). Ausente = "dark". El selector no se expone en
-   * la UI hasta que todas las pantallas lean useTheme() (ver ThemeContext.tsx).
+   * Tema visual (ThemeContext). El perfil nuevo usa "system" (el teléfono).
+   * Ausente en una fila ya guardada = "dark" (ThemeContext).
    */
   theme?: "system" | "dark" | "light";
   /**

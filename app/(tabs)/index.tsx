@@ -6,7 +6,7 @@
  * sale de selectores; toda mutación es una ViewIntent.
  */
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { Platform, View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import {
   Banner,
@@ -57,6 +57,7 @@ import {
   type HeroAction,
 } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
+import { homeBannerSettingsTarget, homeOptionalBanners } from "../../src/onboarding/flow";
 import { formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
 type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_DONE_DAY" | "LUNCH_DONE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "PAUSE" | "CANCEL_TRANSFER" | "NOTE" | "CANCEL_DAY" | "EXTEND" | "TRUST";
@@ -236,6 +237,22 @@ export default function TodayScreen() {
         {hasConflict ? (
           <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
         ) : null}
+
+        {homeOptionalBanners({
+          platform: Platform.OS,
+          background: healthRaw.locationBackground,
+          battery: healthRaw.batteryOptimization,
+          notifications: healthRaw.notifications,
+        }).map((id) => (
+          <Banner
+            key={id}
+            tone="warning"
+            message={t(
+              id === "notifications" ? "onboarding.permNotifHomeBanner" : id === "battery" ? "onboarding.permBatteryHomeBanner" : "onboarding.permBgHomeBanner",
+            )}
+            onPress={() => void emit({ type: "OPEN_OS_SETTINGS", target: homeBannerSettingsTarget(id) })}
+          />
+        ))}
 
         {active?.bookkeeping.integrityReason === "ORPHAN_SESSION" ? (
           <OrphanReviewCard
