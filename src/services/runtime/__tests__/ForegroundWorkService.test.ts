@@ -4,6 +4,9 @@ import { BREADCRUMB_TASK_NAME } from "../../../constants/geolocation";
 import { setLanguage, t } from "../../../i18n";
 import { ForegroundWorkService } from "../ForegroundWorkService";
 import { LocationMock } from "../../../../test/runtimeHarness";
+import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
+import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
+import { time } from "../../../../test/time";
 
 function fgsBody(): string {
   const opts = LocationMock.__state.locationUpdates.get(BREADCRUMB_TASK_NAME) as {
@@ -53,6 +56,37 @@ describe("ForegroundWorkService", () => {
     expect(fgsBody()).toBe("Shift in progress · we record your location until you end it");
     await ForegroundWorkService.stop();
     setLanguage("es");
+  });
+
+  test("N02: pausa y GPS apagado cambian el texto; el seguimiento normal conserva el de la jornada", async () => {
+    setLanguage("es");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Jornada en curso · registramos tu ubicación hasta que termines");
+    expect(await ForegroundWorkService.sync("PAUSADA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Pausado");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { notice: { site: "Sitio A", gps: "off", monitoring: "MONITORING" } })).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Sin GPS");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { notice: { site: "Sitio A", gps: "ok", monitoring: "MONITORING" } })).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Sitio A · Ubicación: correcto");
+    setLanguage("en");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running", reason: "UNCHANGED" });
+    expect(fgsBody()).toBe("Sitio A · Ubicación: correcto");
+  });
+
+  test("N02: el almuerzo y el descanso pagado no comparten el mismo texto", async () => {
+    setLanguage("es");
+    const { siteA } = await seedWorld();
+    await startAndArrive(siteA);
+    time.travel(HOUR);
+    await mustDispatch({ type: "LUNCH_START", kind: "LUNCH" });
+    expect(await ForegroundWorkService.sync("PAUSADA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("En almuerzo");
+    time.travel(10 * MIN);
+    await mustDispatch({ type: "RESUME" });
+    time.travel(HOUR);
+    await mustDispatch({ type: "LUNCH_START", kind: "REST" });
+    expect(await ForegroundWorkService.sync("PAUSADA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("En descanso");
   });
 
   test("en iOS arranca con deferred updates y sin foregroundService", async () => {

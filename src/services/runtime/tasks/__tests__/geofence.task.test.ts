@@ -3,6 +3,7 @@
  * "updateStatus" de la propuesta = cualquier PersistenceService.updateSession
  * fuera de SessionEngineService.dispatch (no existe updateStatus en el código).
  */
+import * as Notifications from "expo-notifications";
 import { GEOFENCE_TASK_NAME } from "../../../../constants/geolocation";
 import { IntegrityLedgerService } from "../../../domain/IntegrityLedgerService";
 import { SessionEngineService } from "../../../domain/SessionEngineService";
@@ -12,7 +13,7 @@ import { KV_KEYS } from "../../../persistence/schema";
 import { GeofenceRuntimeService, geofenceIdentifier } from "../../GeofenceRuntimeService";
 import { TaskOrchestratorService } from "../../TaskOrchestratorService";
 import { runGeofenceTask } from "../geofence.task";
-import { HOUR } from "../../../../../test/fixtures/session.fixture";
+import { HOUR, MIN } from "../../../../../test/fixtures/session.fixture";
 import { SITE_LAT, SITE_LON } from "../../../../../test/fixtures/spatial.fixture";
 import { mustDispatch, seedWorld, startAndArrive } from "../../../../../test/helpers";
 import { LocationMock, TaskManagerMock, watchStatusWrites } from "../../../../../test/runtimeHarness";
@@ -376,5 +377,47 @@ describe("geofence.task", () => {
     expect(raw).not.toContain(String(SITE_LAT));
     expect(raw).not.toContain("latitude");
     expect(raw).not.toContain("\"lat\"");
+  });
+
+  test("N04: la llegada fiable avisa con la hora de esa lectura", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    LocationMock.__setPosition(SITE_LAT, SITE_LON, 10);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: ENTER, region: region(s.id, siteA) });
+    const notes = (Notifications as unknown as { __state: { scheduled: { content: { data?: { kind?: string } } }[] } }).__state.scheduled;
+    expect(notes.some((n) => n.content.data?.kind === "ARRIVAL_REGISTERED")).toBe(true);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+  });
+
+  test("N06: 10 min quieto fuera del radio avisa una vez y no cambia el estado", async () => {
+    const { siteA } = await seedWorld();
+    const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
+    const lat = SITE_LAT + 300 / 111_320;
+    await GeofenceRuntimeService.observeSample({ lat, lon: SITE_LON, accuracyM: 10, timestampMs: time.now() });
+    const notes = (Notifications as unknown as { __state: { scheduled: { content: { data?: { kind?: string }; body?: string } }[] } }).__state.scheduled;
+    expect(notes.filter((n) => n.content.data?.kind === "OFFSITE")).toHaveLength(0);
+    time.travel(10 * MIN);
+    await GeofenceRuntimeService.observeSample({ lat, lon: SITE_LON, accuracyM: 10, timestampMs: time.now() });
+    expect(notes.filter((n) => n.content.data?.kind === "OFFSITE")).toHaveLength(1);
+    expect(notes.find((n) => n.content.data?.kind === "OFFSITE")?.content.body).toContain("Main St");
+    await GeofenceRuntimeService.observeSample({ lat, lon: SITE_LON, accuracyM: 10, timestampMs: time.now() });
+    expect(notes.filter((n) => n.content.data?.kind === "OFFSITE")).toHaveLength(1);
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ESPERANDO");
+  });
+
+  test("F04: cancelar el traslado fuera del origen no abre SALIDA con el EXIT de re-registro", async () => {
+    const { siteA, siteB } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    await mustDispatch({ type: "TRANSFER_START", toSiteId: siteB });
+    time.travel(MIN);
+    await mustDispatch({ type: "TRANSFER_CANCEL" });
+    LocationMock.__setPosition(SITE_LAT + 0.01, SITE_LON, 10);
+    expect(await GeofenceRuntimeService.startMonitoring(s.id, siteA)).toBe(true);
+    await TaskManagerMock.__run(GEOFENCE_TASK_NAME, { eventType: EXIT, region: region(s.id, siteA) });
+    expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
+    expect(await GeofenceRuntimeService.getPendingExit()).toBeNull();
+    const notes = (Notifications as unknown as { __state: { scheduled: { content: { data?: { kind?: string } } }[] } }).__state.scheduled;
+    expect(notes.some((n) => n.content.data?.kind === "RETURN_OR_FINISH")).toBe(true);
   });
 });

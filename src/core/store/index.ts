@@ -222,7 +222,7 @@ export const StoreActions = {
   uiRequestsConsumed(): void {
     commit({
       ...state,
-      uiRequests: { openExitModal: false, openDailySetup: null, openExtendConfirm: false, correctSessionId: null, openOrphanReview: false, exitReopened: false, autoCloseBanner: null },
+      uiRequests: { openExitModal: false, openDailySetup: null, openExtendConfirm: false, correctSessionId: null, openOrphanReview: false, exitReopened: false, autoCloseBanner: null, openHealth: false, openMoveSite: false },
     });
   },
 };

@@ -288,6 +288,14 @@ export const KV_KEYS = {
   DEVICE_INTEGRITY: "runtime.device_integrity",
   /** Llegada automática en espera de dwell. No es la salida pendiente. */
   ARRIVAL_DWELL: "runtime.arrival_dwell",
+  /** EXIT inicial de Android al re-registrar la geocerca de origen tras cancelar un traslado. */
+  REREGISTER_EXIT_GUARD: "runtime.reregister_exit_guard",
+  /** Día (YYYY-MM-DD) en que no debe salir el recordatorio. */
+  SILENCE_DAY: "runtime.silence_day",
+  /** N18 ya enviado para esta jornada. */
+  STILL_GOING: "runtime.still_going",
+  /** N06 ya enviado para un punto y un día. */
+  OFFSITE_PROMPT: "runtime.offsite_prompt",
   /** Reinicio del teléfono ya anotado (bootAtMs). */
   BOOT_RESUME: "runtime.boot_resume",
   LAST_PACK_WEEK: "runtime.last_payroll_export_week",

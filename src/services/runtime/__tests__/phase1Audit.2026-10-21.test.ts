@@ -34,8 +34,8 @@ const region = (sessionId: number, siteId: number) => ({
   radius: 100,
 });
 
-function dataOf(payloadJson: string): { success?: boolean; severity?: string; gapSeconds?: number; mocked?: boolean; errorName?: string } {
-  return (JSON.parse(payloadJson) as { data?: { success?: boolean; severity?: string; gapSeconds?: number; mocked?: boolean; errorName?: string } }).data ?? {};
+function dataOf(payloadJson: string): { success?: boolean; severity?: string; gapSeconds?: number; mocked?: boolean; errorName?: string; kind?: string } {
+  return (JSON.parse(payloadJson) as { data?: { success?: boolean; severity?: string; gapSeconds?: number; mocked?: boolean; errorName?: string; kind?: string } }).data ?? {};
 }
 
 async function closeOpen(): Promise<void> {
@@ -203,6 +203,7 @@ describe("fase 1 · 21 oct 2026", () => {
     await runSessionWatchdog();
     const rows = await IntegrityLedgerService.listForSession(s.id);
     expect(rows.some((e) => e.intent === "MONITORING_STOPPED_DETECTED")).toBe(true);
+    expect(rows.filter((e) => e.intent === "ANOMALY" && dataOf(e.payloadJson).kind === "SERVICE_STOPPED")).toHaveLength(1);
     const recovery = rows.filter((e) => e.intent === "SERVICE_RECOVERY");
     expect(recovery).toHaveLength(1);
     expect(dataOf(recovery[0].payloadJson).success).toBe(true);

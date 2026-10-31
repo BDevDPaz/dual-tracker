@@ -6,6 +6,7 @@ import { StoreActions } from "../../core/store";
 import { t } from "../../i18n";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
+import { NOTIFICATION_CATEGORIES } from "../../constants/notifications";
 import { NotificationService } from "./NotificationService";
 
 export async function noteMockedFix(sessionId: number): Promise<void> {
@@ -14,7 +15,8 @@ export async function noteMockedFix(sessionId: number): Promise<void> {
   if (prev === sessionId) return;
   await PersistenceService.setKv(KV_KEYS.MOCK_NOTICE, sessionId);
   await NotificationService.notifyImmediate(t("notifications.mockLocationTitle"), t("notifications.mockLocationBody"), {
+    kind: "MOCK",
     criticalKind: "MOCK",
     sessionId,
-  });
+  }, { categoryIdentifier: NOTIFICATION_CATEGORIES.INTEGRITY });
 }

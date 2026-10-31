@@ -16,11 +16,12 @@ import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
 import { KV_KEYS } from "../persistence/schema";
 import { SettingsService } from "../persistence/SettingsService";
-import { reviewMonitoringAnomaliesSafely } from "./anomalyEngine";
+import { recordAnomaly, reviewMonitoringAnomaliesSafely } from "./anomalyEngine";
 import { ForegroundWorkService } from "./ForegroundWorkService";
 import { buildForegroundNotice } from "./monitoringSnapshot";
 import { GeofenceRuntimeService } from "./GeofenceRuntimeService";
 import { readHeartbeat } from "./heartbeat";
+import { NOTIFICATION_CATEGORIES } from "../../constants/notifications";
 import { NotificationService } from "./NotificationService";
 
 /**
@@ -99,6 +100,13 @@ async function recoverBody(origin: "background" | "foreground"): Promise<void> {
           db,
         );
       });
+      await recordAnomaly({
+        sessionId: session.id,
+        kind: "SERVICE_STOPPED",
+        token: "stopped",
+        reason: "SERVICE_STOPPED",
+        state: session.domainStatus,
+      }).catch(() => {});
       const settings = await SettingsService.load();
       const notice = await buildForegroundNotice(session).catch(() => null);
       let recovered = false;
@@ -146,10 +154,11 @@ async function recoverBody(origin: "background" | "foreground"): Promise<void> {
           );
         });
         await NotificationService.notifyImmediate(t("notifications.monitoringStoppedTitle"), t("notifications.monitoringStoppedBody"), {
+          kind: "MONITORING_STOPPED",
           criticalKind: "MONITORING_STOPPED",
           criticalKinds: ["MONITORING_STOPPED", "RECOVERY_FAILED"],
           sessionId: session.id,
-        });
+        }, { categoryIdentifier: NOTIFICATION_CATEGORIES.INTEGRITY });
       }
     }
   }

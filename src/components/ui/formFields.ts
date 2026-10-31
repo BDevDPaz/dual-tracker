@@ -52,12 +52,8 @@ export const FORM_FIELDS = {
     { id: "client", kind: "text" },
     { id: "notes", multiline: true },
     { id: "radius", kind: "integer" },
-    { id: "arrivalDwell", kind: "integer" },
   ],
-  siteRadius: [
-    { id: "radius", kind: "integer" },
-    { id: "arrivalDwell", kind: "integer" },
-  ],
+  siteRadius: [{ id: "radius", kind: "integer" }],
   siteSearch: [{ id: "search", kind: "search" }],
   practiceNote: [{ id: "note", kind: "text" }],
   conflictNote: [{ id: "note", multiline: true }],

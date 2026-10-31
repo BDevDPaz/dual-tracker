@@ -13,7 +13,12 @@ import { PersistenceService } from "../../persistence/PersistenceService";
 import { GEOFENCE_TASK_NAME } from "../../../constants/geolocation";
 import { GeofenceRuntimeService } from "../../runtime/GeofenceRuntimeService";
 import { osGeofenceRadius } from "../../runtime/geofencePolicy";
+import * as Notifications from "expo-notifications";
+import { __state as notificationState } from "../../../../test/mocks/expo-notifications";
+import { NOTIFICATION_ACTIONS } from "../../../constants/notifications";
+import { NotificationService } from "../../runtime/NotificationService";
 import { routeIntent } from "../intentRouter";
+import { SecurityService } from "../../runtime/SecurityService";
 import { LocationMock } from "../../../../test/runtimeHarness";
 import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
 import { makeExit } from "../../../../test/fixtures/spatial.fixture";
@@ -157,11 +162,37 @@ describe("intentRouter", () => {
     const s = await mustDispatch({ type: "START_DAY", siteId: siteA });
     expect(await GeofenceRuntimeService.startMonitoring(s.id, siteA)).toBe(true);
     const site = (await PersistenceService.getSite(siteA))!;
+    expect(await routeIntent({ type: "SETUP_ADMIN_PIN", pin: "654321" })).toMatchObject({ ok: true });
+    expect((await SecurityService.unlock("654321")).ok).toBe(true);
     const r = await routeIntent({ type: "UPSERT_SITE", site: { id: siteA, alias: site.alias, address: site.address, clientName: site.clientName, radiusM: 80 } });
     expect(r.ok).toBe(true);
     const regions = LocationMock.__state.geofences.get(GEOFENCE_TASK_NAME) as { radius: number }[];
     // En Android el SO no baja de 100 m; la decisión de fichar sigue usando el radio lógico (80).
     expect(regions?.[0]?.radius).toBe(osGeofenceRadius(80, Platform.OS));
+  });
+
+  test("E12: un botón de una jornada ya cerrada no escribe y avisa que no aplica", async () => {
+    const { siteA } = await seedWorld();
+    const open = await startAndArrive(siteA);
+    time.travel(HOUR);
+    await mustDispatch({ type: "EXIT_DETECTED", fact: makeExit({ sessionId: open.id, timestampMs: time.now() }) });
+    await mustDispatch({ type: "CLOSE_DAY", mode: "MANUAL" });
+    await NotificationService.init({
+      intent: async (intent) => {
+        await SessionEngineService.dispatch(intent, "NOTIFICATION");
+      },
+      ui: () => {},
+    });
+    const before = (await PersistenceService.listLedger({ sessionId: open.id })).length;
+    (Notifications as unknown as { __emit: (r: unknown) => void }).__emit({
+      actionIdentifier: NOTIFICATION_ACTIONS.END_SESSION,
+      notification: { request: { identifier: `dualtracker-exit-${open.id}`, content: { data: { sessionId: open.id, kind: "EXIT_DECISION" } } } },
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await PersistenceService.listLedger({ sessionId: open.id })).length).toBe(before);
+    const stale = (notificationState.scheduled as { content: { title?: string } }[]).some((n) => n.content.title === "Esta acción ya no aplica");
+    expect(stale).toBe(true);
+    expect((notificationState.dismissed as string[]).includes(`dualtracker-exit-${open.id}`)).toBe(true);
   });
 
   test("OPEN_TRACE es navegación pura: no despacha", async () => {
