@@ -1,60 +1,71 @@
 /**
- * (onboarding)/permissions.tsx — Permisos reales (Producto §5.5).
- * Ubicación en uso → segundo plano → notificaciones, y en Android la
- * optimización de batería (Samsung / One UI incluido). El alta no se
- * bloquea: sin permisos se sigue en modo limitado y el pago no cambia.
+ * (onboarding)/permissions.tsx — Un solo route, tres subpasos visuales.
+ * 1 ubicación precisa (obligatoria). 2 segundo plano + batería (opcional).
+ * 3 notificaciones (opcional; Android 12 y anteriores no tienen este paso).
+ * El estado sale de PermissionsHealthService. Continuar del paso 2 no
+ * vuelve a pedir la ubicación precisa.
  */
 import { useState } from "react";
 import { Platform, ScrollView, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
-import * as Device from "expo-device";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { PermissionsStep } from "../../src/components/blocks/PermissionsStep";
 import { TOKENS } from "../../src/constants/theme";
 import { useResponsive } from "../../src/components/ui/responsive";
 import type { OsSettingsTarget, PermissionKey } from "../../src/core/contracts";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
-import { selectHealth } from "../../src/core/selectors";
-import { androidApiLevel, isSamsungManufacturer } from "../../src/utils/permissionGuidance";
+import { selectHealth, selectSettings } from "../../src/core/selectors";
+import { formatReminderClock, permissionSubsteps, readDeviceHour24, substepIndex } from "../../src/onboarding/flow";
+import { androidApiLevel } from "../../src/utils/permissionGuidance";
 
 export default function PermissionsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ focus?: string }>();
+  const focus = typeof params.focus === "string" ? params.focus : undefined;
   const { state, emit } = useWorkTracker();
   const health = selectHealth(state);
+  const reminder = selectSettings(state).profile.dailyReminderTime;
   const { busy, run } = useBusyAction();
-  const [attempted, setAttempted] = useState<Partial<Record<PermissionKey, boolean>>>({});
   const { screenPadding } = useResponsive();
+  const platform = Platform.OS;
+  const apiLevel = androidApiLevel(platform, Platform.Version);
+  const steps = permissionSubsteps(platform, apiLevel);
+  const [index, setIndex] = useState(() => substepIndex(steps, focus));
+  const step = steps[Math.min(index, steps.length - 1)] ?? "fine";
 
   const request = (key: PermissionKey) =>
     run(async () => {
-      try {
-        const res = await emit({ type: "REQUEST_PERMISSION", permission: key });
-        // El servicio traga el fallo y devuelve "unknown" con ok: true. Hay que avisarlo.
-        if (res.ok && res.data === "unknown") return { ok: false as const, code: "ERROR" };
-        return res;
-      } finally {
-        setAttempted((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
-      }
+      const res = await emit({ type: "REQUEST_PERMISSION", permission: key });
+      if (res.ok && res.data === "unknown") return { ok: false as const, code: "ERROR" };
+      return res;
     });
 
   const openSettings = (target: OsSettingsTarget) => run(() => emit({ type: "OPEN_OS_SETTINGS", target }));
+
+  const onAdvance = () => {
+    if (index < steps.length - 1) setIndex(index + 1);
+    else router.push("/(onboarding)/profile");
+  };
 
   return (
     <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
       <PermissionsStep
         titleAccessory={<HelpButton screen="permissions" />}
+        step={step}
+        index={index + 1}
+        total={steps.length}
         foreground={health.locationForeground}
+        accuracy={health.locationAccuracy}
         background={health.locationBackground}
         notifications={health.notifications}
         battery={health.batteryOptimization}
-        platform={Platform.OS}
-        apiLevel={androidApiLevel(Platform.OS, Platform.Version)}
-        samsung={isSamsungManufacturer(Device.brand, Device.manufacturer)}
+        platform={platform}
+        apiLevel={apiLevel}
         busy={busy}
-        attempted={attempted}
+        reminderLabel={formatReminderClock(reminder, readDeviceHour24())}
         onRequest={(key) => void request(key)}
         onOpenSettings={(target) => void openSettings(target)}
-        onContinue={() => router.push("/(onboarding)/profile")}
+        onAdvance={onAdvance}
       />
     </ScrollView>
   );

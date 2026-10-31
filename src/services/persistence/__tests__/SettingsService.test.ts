@@ -59,9 +59,9 @@ describe("SettingsService", () => {
     expect((await SettingsService.load()).company.employerPortalEnabled).toBe(true);
   });
 
-  test("profile.theme: por defecto dark, se persiste y rechaza valores desconocidos", async () => {
+  test("profile.theme: el alta parte del sistema, se persiste y rechaza valores desconocidos", async () => {
     const cur = await SettingsService.load();
-    expect(cur.profile.theme).toBe("dark");
+    expect(cur.profile.theme).toBe("system");
     const r = await SettingsService.applyPatch(cur, { profile: { theme: "light" } }, { adminUnlocked: false });
     expect(r.ok).toBe(true);
     expect((await SettingsService.load()).profile.theme).toBe("light");

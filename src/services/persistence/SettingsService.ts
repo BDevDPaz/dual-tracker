@@ -43,7 +43,9 @@ export const DEFAULT_PROFILE: PersonProfile = {
   // cuando el perfil aún no se ha guardado (ver resolveInitialLanguage).
   language: "es",
   dailyReminderTime: "07:00",
-  theme: "dark",
+  // El alta parte del tema del teléfono. Una fila vieja sin `theme` sigue
+  // en oscuro: ThemeContext trata el ausente como "dark".
+  theme: "system",
   highContrast: false,
 };
 
