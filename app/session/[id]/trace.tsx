@@ -1,149 +1,205 @@
-/**
- * session/[id]/trace.tsx — Rastro (Producto §5.10).
- * Plano local (sin teselas, sin enviar coordenadas) y lista de puntos.
- * Capas Perímetro / Miga de pan. Precisión visible por punto. Solo lee.
- */
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Chip, NotFoundState, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
-import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
-import { TracePlane, type TraceSiteMark } from "../../../src/components/trace/TracePlane";
-import { TOKENS, FONT, ICON } from "../../../src/constants/theme";
+
+import dayjs from "../../../src/utils/dayjsSetup";
+import { FONT, type AppTokens } from "../../../src/constants/theme";
 import { useTheme } from "../../../src/context/ThemeContext";
-import type { SpatialFact } from "../../../src/core/contracts";
-import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectIsHydrated, selectSessionById, selectSiteById } from "../../../src/core/selectors";
-import { t, tSpatialType } from "../../../src/i18n";
-import { formatTime } from "../../../src/utils/dateUtils";
+import { useLanguage } from "../../../src/context/LanguageContext";
+import type { translations } from "../../../src/utils/i18n";
+import {
+  ScreenContainer,
+  PageHeader,
+  Card,
+  Button,
+  EmptyState,
+  LoadingOverlay,
+} from "../../../src/components/ui";
+import { useSessionTrace } from "../../../src/core/hooks/dualTracker";
+import type { SpatialFact, SpatialFactType } from "../../../src/core/contracts/domain";
 
-type Layer = "PERIMETER" | "BREADCRUMB";
+type Layer = "PERIMETRO" | "BREADCRUMB";
 
-export default function TraceScreen() {
-  const router = useRouter();
+/** Icono por tipo de hecho espacial (ENTER/EXIT/DWELL/BREADCRUMB/ACCURACY_DROP/PROVIDER_LOSS). */
+function iconForFactType(type: SpatialFactType): React.ComponentProps<typeof Ionicons>["name"] {
+  switch (type) {
+    case "ENTER":
+      return "log-in-outline";
+    case "EXIT":
+      return "log-out-outline";
+    case "DWELL":
+      return "pause-circle-outline";
+    case "BREADCRUMB":
+      return "footsteps-outline";
+    case "ACCURACY_DROP":
+      return "warning-outline";
+    case "PROVIDER_LOSS":
+      return "cloud-offline-outline";
+    default:
+      return "location-outline";
+  }
+}
+
+type TF = (key: keyof typeof translations.es, vars?: Record<string, string | number>) => string;
+
+function factTypeLabel(t: TF, type: SpatialFactType): string {
+  switch (type) {
+    case "ENTER":
+      return t("trace_fact_enter");
+    case "EXIT":
+      return t("trace_fact_exit");
+    case "DWELL":
+      return t("trace_fact_dwell");
+    case "BREADCRUMB":
+      return t("trace_fact_breadcrumb");
+    case "ACCURACY_DROP":
+      return t("trace_fact_accuracy");
+    case "PROVIDER_LOSS":
+      return t("trace_fact_provider");
+    default:
+      return type;
+  }
+}
+
+function FactRow({ fact }: { fact: SpatialFact }) {
+  const { tokens } = useTheme();
+  const { t } = useLanguage();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
+  const unreliable = !fact.reliable;
+  return (
+    <Card
+      variant={unreliable ? "outline" : "elevated"}
+      style={[styles.factCard, unreliable ? styles.unreliableCard : null]}
+    >
+      <View style={styles.factRow}>
+        <Ionicons
+          name={iconForFactType(fact.type)}
+          size={22}
+          color={unreliable ? tokens.colors.status.warning : tokens.colors.text.primary}
+          style={styles.factIcon}
+        />
+        <View style={styles.factContent}>
+          <View style={styles.factTitleRow}>
+            <Text style={styles.factTitle}>{factTypeLabel(t, fact.type)}</Text>
+            {unreliable ? <Text style={styles.unreliableTag}>{t("trace_unreliable")}</Text> : null}
+          </View>
+          <Text style={styles.factCoords}>
+            {fact.lat.toFixed(5)}, {fact.lon.toFixed(5)} · ±{Math.round(fact.accuracyM)}m
+          </Text>
+          <Text style={styles.factTime}>{dayjs(fact.timestampMs).format("DD MMM, HH:mm:ss")}</Text>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+export default function SessionTraceScreen() {
+  const { tokens } = useTheme();
+  const { t } = useLanguage();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { colors } = useTheme();
-  const sessionId = Number(id);
-  const { state, queries } = useWorkTracker();
-  const { refreshControl } = usePullToRefresh();
-  useAutoRefresh();
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({ PERIMETER: true, BREADCRUMB: true });
-  const session = selectSessionById(state, sessionId);
-  const site = selectSiteById(state, session?.siteId ?? null);
-  const radius = site?.radiusM ?? state.settings.company.defaultRadiusM;
-  const updatedAt = session?.bookkeeping.updatedAtMs ?? 0;
-  const facts = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
+  const router = useRouter();
+  const sessionId = id ? Number(id) : NaN;
+  const validId = Number.isFinite(sessionId) ? sessionId : null;
 
-  const all = useMemo(() => facts.data ?? [], [facts.data]);
-  const visible = all.filter((f) => (f.type === "BREADCRUMB" ? layers.BREADCRUMB : layers.PERIMETER));
-  const crumbs = all.filter((f) => f.type === "BREADCRUMB");
-  const isUnreliable = (f: SpatialFact) => !f.reliable || (f.accuracyM !== null && f.accuracyM > radius);
-  const gapKey = `${state.settings.company.traceRetentionDays}:${Object.keys(state.packs.byId).join(",")}`;
-  const gaps = useMemo(() => (gapKey && facts.data ? queries.traceGaps(facts.data) : []), [facts.data, queries, gapKey]);
-  const siteMarks = useMemo(() => {
-    const ids = new Set<number>();
-    if (session?.siteId) ids.add(session.siteId);
-    for (const f of all) if (typeof f.siteId === "number") ids.add(f.siteId);
-    const marks: TraceSiteMark[] = [];
-    for (const id of ids) {
-      const s = selectSiteById(state, id);
-      if (!s || s.targetLat === null || s.targetLon === null) continue;
-      if (s.unreadableFields?.includes("coords")) continue;
-      marks.push({ id: s.id, lat: s.targetLat, lon: s.targetLon, radiusM: s.radiusM ?? state.settings.company.defaultRadiusM });
-    }
-    return marks;
-  }, [all, session?.siteId, state]);
-  const mapFacts = visible.filter((f) => f.lat !== null && f.lon !== null && !f.unreadable);
-  const mapGaps = layers.BREADCRUMB ? gaps : [];
+  const { loading, error, perimeterFacts, breadcrumbFacts } = useSessionTrace(validId);
+  const [layer, setLayer] = useState<Layer>("PERIMETRO");
 
-  // FieldCrypto §14: coordenadas de una clave perdida → texto de ilegible (nunca ciphertext).
-  const unreadable = all.some((f) => f.unreadable);
+  const facts = useMemo(
+    () => (layer === "PERIMETRO" ? perimeterFacts : breadcrumbFacts),
+    [layer, perimeterFacts, breadcrumbFacts],
+  );
 
-  if (!selectIsHydrated(state) || (facts.loading && !facts.data)) {
-    return (
-      <ScreenContainer edges={SAFE_EDGES.stack}>
-        <ScreenStatusBanner status="loading" message={t("common.loading")} />
-      </ScreenContainer>
-    );
-  }
-  if (!session) {
-    return (
-      <ScreenContainer edges={SAFE_EDGES.stack}>
-        <NotFoundState title={t("trace.notFound")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/history"))} />
-      </ScreenContainer>
-    );
-  }
+  const totalFacts = perimeterFacts.length + breadcrumbFacts.length;
 
   return (
-    <ScreenContainer edges={SAFE_EDGES.stack}>
-      {unreadable ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableTrace")} /> : null}
-      <Text style={[styles.offline, { color: colors.text.secondary }]}>{t("trace.offline")}</Text>
-      {mapGaps.some((g) => g.kind === "retention") ? <ScreenStatusBanner status="degraded" message={t("trace.retentionGap")} /> : null}
-      {mapGaps.some((g) => g.kind === "recording") ? <ScreenStatusBanner status="degraded" message={t("trace.recordingGap")} /> : null}
-      {mapFacts.length > 0 || siteMarks.length > 0 ? (
-        <TracePlane
-          facts={mapFacts}
-          sites={siteMarks}
-          gaps={mapGaps}
-          summary={t("trace.mapSummary", {
-            points: mapFacts.length,
-            exits: mapFacts.filter((f) => f.type === "EXIT").length,
-            distance: crumbs.length > 1 ? Math.round(queries.traceDistanceMeters(crumbs)) : 0,
-          })}
+    <ScreenContainer noPadding>
+      <Stack.Screen options={{ headerShown: false }} />
+      <PageHeader title={t("trace_title")} showBack onBack={() => router.back()} />
+
+      {loading ? <LoadingOverlay visible message={t("trace_loading")} /> : null}
+
+      {!loading && error ? (
+        <EmptyState
+          title={t("trace_load_error")}
+          description={error}
+          icon="alert-circle-outline"
         />
       ) : null}
-      <View style={styles.layers}>
-        {(["PERIMETER", "BREADCRUMB"] as const).map((l) => (
-          <Chip
-            key={l}
-            label={t(l === "PERIMETER" ? "trace.layerPerimeter" : "trace.layerBreadcrumb")}
-            selected={layers[l]}
-            onPress={() => setLayers((s) => ({ ...s, [l]: !s[l] }))}
-          />
-        ))}
-      </View>
-      {crumbs.length > 1 ? (
-        <KeyValueRow label={t("trace.distance")} value={`${Math.round(queries.traceDistanceMeters(crumbs))} m`} />
+
+      {!loading && !error && totalFacts === 0 ? (
+        <EmptyState title={t("trace_geofence_only")} icon="location-outline" />
       ) : null}
-      <FlatList
-        style={styles.list}
-        data={visible}
-        refreshControl={refreshControl}
-        contentContainerStyle={styles.listContent}
-        keyExtractor={(f, i) => String(f.id ?? `${f.timestampMs}-${i}`)}
-        ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("trace.empty")} emptyDescription={t("trace.emptyBody")} emptyIcon="navigate-circle-outline" />}
-        renderItem={({ item }) => {
-          const bad = isUnreliable(item);
-          const color = bad ? colors.status.warning : colors.text.primary;
-          const precision = bad ? t("trace.unreliable") : t("trace.reliable");
-          return (
-            <View style={[styles.row, { borderColor: colors.border }]}>
-              <Ionicons name={item.type === "BREADCRUMB" ? "ellipse" : item.type === "ENTER" ? "enter-outline" : item.type === "EXIT" ? "exit-outline" : "alert-circle-outline"} size={ICON.sm} color={color} accessibilityElementsHidden importantForAccessibility="no" />
-              <View style={styles.flex}>
-                <Text style={[styles.type, { color }]}>
-                  {tSpatialType(item.type)} · {formatTime(item.timestampMs)} · {precision}
-                </Text>
-                <Text style={[styles.meta, { color: colors.text.secondary }]}>
-                  {item.lat !== null && item.lon !== null ? `${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}` : "—"} · {t("trace.accuracy")}:{" "}
-                  {item.accuracyM !== null ? `±${Math.round(item.accuracyM)} m` : "—"}
-                </Text>
-              </View>
-            </View>
-          );
-        }}
-      />
+
+      {!loading && !error && totalFacts > 0 ? (
+        <>
+          <View style={styles.toggleRow}>
+            <Button
+              label={t("trace_layer_perimeter")}
+              variant={layer === "PERIMETRO" ? "primary" : "secondary"}
+              size="sm"
+              onPress={() => setLayer("PERIMETRO")}
+              style={styles.toggleButton}
+            />
+            <Button
+              label={t("trace_layer_breadcrumb")}
+              variant={layer === "BREADCRUMB" ? "primary" : "secondary"}
+              size="sm"
+              onPress={() => setLayer("BREADCRUMB")}
+              style={styles.toggleButton}
+            />
+          </View>
+
+          {facts.length === 0 ? (
+            <EmptyState
+              title={
+                layer === "PERIMETRO"
+                  ? t("trace_empty_perimeter")
+                  : t("trace_empty_breadcrumb")
+              }
+              icon="location-outline"
+            />
+          ) : (
+            <FlatList
+              data={facts}
+              keyExtractor={(fact) => fact.id}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item }) => <FactRow fact={item} />}
+            />
+          )}
+        </>
+      ) : null}
     </ScreenContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  offline: { ...FONT.caption, marginBottom: TOKENS.spacing.sm },
-  list: { flex: 1 },
-  listContent: { flexGrow: 1 },
-  layers: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
-  row: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.md, paddingVertical: TOKENS.spacing.sm, borderBottomWidth: TOKENS.layout.hairline },
-  flex: { flex: 1 },
-  type: { ...FONT.bodySmall },
-  meta: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
-});
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+  toggleRow: {
+    flexDirection: "row",
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.layout.screenPadding,
+    marginBottom: tokens.spacing.md,
+  },
+  toggleButton: { flex: 1 },
+  listContent: {
+    paddingHorizontal: tokens.layout.screenPadding,
+    paddingBottom: tokens.spacing["4xl"],
+  },
+  factCard: { marginBottom: tokens.spacing.md },
+  unreliableCard: { borderColor: tokens.colors.status.warning },
+  factRow: { flexDirection: "row", alignItems: "flex-start" },
+  factIcon: { marginRight: tokens.spacing.md, marginTop: 2 },
+  factContent: { flex: 1 },
+  factTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  factTitle: { ...FONT.bodyStrong, color: tokens.colors.text.primary },
+  unreliableTag: {
+    ...FONT.label,
+    color: tokens.colors.status.warning,
+    fontWeight: "800",
+  },
+  factCoords: { ...FONT.caption, color: tokens.colors.text.secondary, marginTop: 2 },
+  factTime: { ...FONT.caption, color: tokens.colors.text.muted, marginTop: 2 },
+  });
+}

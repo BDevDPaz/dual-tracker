@@ -1,57 +1,23 @@
-/**
- * (tabs)/settings.tsx — Ajustes y política (Producto §5.14). REDISEÑO.
- * Regiones: perfil laboral (siempre editable), monitoreo (estado REAL desde
- * PermissionsHealthService, no toggle simulado), destinos, zona
- * administrativa (SecurityService, PIN real; sin '1234') y legal.
- * Footer "Guardar" solo con cambios pendientes. Intenciones: SAVE_SETTINGS,
- * UNLOCK_ADMIN, LOCK_ADMIN, SETUP_ADMIN_PIN, OPEN_OS_SETTINGS.
- */
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, StyleSheet, Switch, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { ConfirmActionModal } from "../../src/components/modals";
-import { Button, Card, Chip, Input, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, StatusPill } from "../../src/components/ui";
-import { useFormFocusChain } from "../../src/components/ui/formChain";
-import { FORM_FIELDS } from "../../src/components/ui/formFields";
-import { KeyValueRow } from "../../src/components/blocks";
-import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
-import { TOKENS, FONT, ICON } from "../../src/constants/theme";
-import { useTheme } from "../../src/context/ThemeContext";
-import { PIN_MIN_LENGTH } from "../../src/constants/security";
-import type { PayrollLegalFlags, SettingsPatch, TraceMode } from "../../src/core/contracts";
-import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import {
-  selectAdmin,
-  selectCalendarHistory,
-  selectHealth,
-  selectIsAdminUnlocked,
-  selectPendingCalendarChange,
-  selectRetentionStatus,
-  selectSettings,
-  selectSystemHealth,
-} from "../../src/core/selectors";
-import { companyTimezone, legalFlags } from "../../src/utils/companyPolicy";
-import { PAYROLL_TIMEZONES, calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
-import { getLanguage, t, tHealthValue, useLanguage } from "../../src/i18n";
-import { settingsFooterLine } from "../../src/support/versionLine";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
-const TIMEZONE_LABEL: Record<(typeof PAYROLL_TIMEZONES)[number], string> = {
-  "America/Los_Angeles": "pacific",
-  "America/Denver": "mountain",
-  "America/Phoenix": "arizona",
-  "America/Chicago": "central",
-  "America/New_York": "eastern",
-  "America/Anchorage": "alaska",
-  "Pacific/Honolulu": "hawaii",
-  "America/Guatemala": "guatemala",
-  "America/El_Salvador": "elSalvador",
-  "America/Tegucigalpa": "honduras",
-  "America/Managua": "nicaragua",
-  "America/Costa_Rica": "costaRica",
-  "America/Panama": "panama",
-  "America/Belize": "belize",
-};
+import { FONT, type AppTokens } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
+import { useLanguage } from "../../src/context/LanguageContext";
+import { useWorkTracker } from "../../src/core/hooks/useWorkTracker";
+import { useSystemHealth, useAdminSecurity, useDisclosure } from "../../src/core/hooks/dualTracker";
+import { sessionStore } from "../../src/core/runtime";
+import type { AppSettingsRecord } from "../../src/core/contracts";
+import { ScreenContainer, PageHeader, Section, Input, Button, Card } from "../../src/components/ui";
+import { useToast } from "../../src/context/ToastContext";
+import type { translations } from "../../src/utils/i18n";
+
+type TF = (key: keyof typeof translations.es, vars?: Record<string, string | number>) => string;
+const PIN_MIN_LENGTH = 4;
+
+type TraceMode = "PERIMETER" | "BREADCRUMB" | "RASTRO_ACTIVO" | "SOLO_GEOCERCA" | "SIN_UBICACION";
 
 interface Draft {
   employeeName: string;
@@ -68,503 +34,280 @@ interface Draft {
   portalUrl: string;
   portalEnabled: boolean;
   timezone: string;
+  highContrast: boolean;
+  comprobanteTheme: "light" | "dark";
+}
+
+function toDraft(s: any): Draft {
+  return {
+    employeeName: s.employeeName ?? "",
+    dailyReminderTime: s.dailyReminderTime ?? "08:00",
+    hourlyRate: String(s.hourlyRate ?? ""),
+    employerName: s.employerName ?? "",
+    companyEmail: s.companyEmail ?? "",
+    overtimeMultiplier: String(s.overtimeMultiplier ?? "1.5"),
+    overtimePolicyId: s.overtimePolicyId ?? "default",
+    traceRetentionDays: String(s.traceRetentionDays ?? "90"),
+    traceMode: s.traceMode ?? "SOLO_GEOCERCA",
+    defaultRadiusM: String(s.defaultRadiusM ?? s.toleranceRadiusMeters ?? "100"),
+    arrivalDwellMin: String(s.arrivalDwellMin ?? "5"),
+    portalUrl: s.portalUrl ?? s.employerPortalUrl ?? "",
+    portalEnabled: s.portalEnabled ?? s.employerPortalEnabled ?? false,
+    timezone: s.timezone ?? "America/Los_Angeles",
+    highContrast: s.highContrast ?? false,
+    comprobanteTheme: s.comprobanteTheme ?? "light",
+  };
+}
+
+function statusLabel(t: TF, status: "unknown" | "granted" | "denied"): string {
+  switch (status) {
+    case "granted": return t("status_granted");
+    case "denied": return t("status_denied");
+    default: return t("status_unknown");
+  }
+}
+
+function traceModeLabel(t: TF, mode: string): string {
+  switch (mode) {
+    case "RASTRO_ACTIVO":
+      return t("tracemode_breadcrumb");
+    case "SOLO_GEOCERCA":
+      return t("tracemode_geofence");
+    case "SIN_UBICACION":
+      return t("tracemode_none");
+    default:
+      return t("status_unknown");
+  }
 }
 
 export default function SettingsScreen() {
-  useLanguage();
-  const { colors } = useTheme();
+  const { tokens, mode, setMode } = useTheme();
+  const { lang, changeLanguage, t } = useLanguage();
+  const styles = useMemo(() => getStyles(tokens), [tokens]);
   const router = useRouter();
-  const { state, emit, queries } = useWorkTracker();
-  const nowMs = useClock(15_000);
-  const { refreshControl } = usePullToRefresh();
-  useAutoRefresh();
-  const settings = selectSettings(state);
-  const admin = selectAdmin(state);
-  const unlocked = selectIsAdminUnlocked(state, nowMs);
-  const health = selectHealth(state);
-  const sys = selectSystemHealth(state);
-  const retentionRows = selectRetentionStatus(state, nowMs);
+  const { showToast } = useToast();
+  const { state } = useWorkTracker();
+  const { health } = useSystemHealth();
+  const { unlocked, error: adminError, busy, unlock, lock } = useAdminSecurity();
+  const { traceMode } = useDisclosure();
 
-  const initial = useMemo<Draft>(
-    () => ({
-      employeeName: settings.profile.employeeName,
-      dailyReminderTime: settings.profile.dailyReminderTime,
-      hourlyRate: String(settings.profile.hourlyRate),
-      employerName: settings.company.employerName,
-      companyEmail: settings.company.companyEmail,
-      overtimeMultiplier: String(settings.company.overtimeMultiplier),
-      overtimePolicyId: settings.company.overtimePolicyId,
-      traceRetentionDays: String(settings.company.traceRetentionDays),
-      traceMode: settings.company.traceMode,
-      defaultRadiusM: String(settings.company.defaultRadiusM),
-      arrivalDwellMin: String(Math.round((settings.company.arrivalDwellMs ?? 0) / 60_000)),
-      portalUrl: settings.company.employerPortalUrl ?? "",
-      portalEnabled: settings.company.employerPortalEnabled === true,
-      timezone: companyTimezone(settings.company),
-    }),
-    [settings],
-  );
-  const [draft, setDraft] = useState<Draft>(initial);
-  const [pin, setPin] = useState("");
-  const [code, setCode] = useState("");
-  const [fingerprint, setFingerprint] = useState("");
-  const { busy, run } = useBusyAction();
-  const queue = useQuery(() => queries.listOfflineQueue(), [settings.company.employerPortalUrl ?? "", settings.company.employerPortalEnabled === true], ["packs", "settings"]);
-  // El idioma no vive en el borrador: lo pinta LanguageSwitch y se guarda al
-  // pulsar. Un SET_LANGUAGE no debe borrar el resto si aún no se pulsó Guardar.
-  const seen = useRef(initial);
-  useEffect(() => {
-    const base = seen.current;
-    setDraft((prev) => {
-      const next: Draft = { ...initial };
-      (Object.keys(prev) as (keyof Draft)[]).forEach((k) => {
-        if (prev[k] !== base[k]) (next as Record<keyof Draft, Draft[keyof Draft]>)[k] = prev[k];
-      });
-      return next;
-    });
-    seen.current = initial;
-  }, [initial]);
+  const settings: any = (state as any).domain?.settings ?? {};
 
-  // El primer dep es estable: teclear el código no vacía la vista previa.
-  const provisionPreview = useQuery(
-    () => queries.previewEmployerCode(code, fingerprint),
-    ["employer-code", code, fingerprint, admin.pinOrigin, admin.hasPin],
-  );
-  const codeFingerprint = provisionPreview.data?.fingerprint ?? null;
-  const showFingerprint = provisionPreview.data?.needsFingerprint === true;
-  const canProvision = code.trim().length > 0 && !busy && provisionPreview.data?.confirmed === true;
-  const provisionFields = useMemo(
-    () => (showFingerprint ? FORM_FIELDS.settingsProvision : FORM_FIELDS.settingsProvision.filter((field) => field.id === "code")),
-    [showFingerprint],
+  const initial = useMemo(() => toDraft(settings), [state]);
+  const [draft, setDraftField] = useState<Draft>(initial);
+  const [pinInput, setPinInput] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setDraftField(initial); }, [initial]);
+
+  const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
+    setDraftField((d) => ({ ...d, [k]: v }));
+
+  const dirty = useMemo(
+    () => (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== (initial as any)[k]),
+    [draft, initial]
   );
 
-  const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
-  const dirty = (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== initial[k]);
-
-  const num = (s: string) => Number(s.replace(",", "."));
-  const finiteAtLeast = (s: string, min: number) => {
-    const n = num(s);
-    return s.trim() !== "" && Number.isFinite(n) && n >= min;
-  };
-  const rateOk = finiteAtLeast(draft.hourlyRate, 0.0001);
-  const adminNumbersOk =
-    rateOk &&
-    finiteAtLeast(draft.overtimeMultiplier, 0.0001) &&
-    finiteAtLeast(draft.traceRetentionDays, 0) &&
-    finiteAtLeast(draft.defaultRadiusM, 1) &&
-    finiteAtLeast(draft.arrivalDwellMin, 0);
-  const canSave = dirty && !busy && (!unlocked || adminNumbersOk);
-  const numberError = (s: string, min: number) => (finiteAtLeast(s, min) ? undefined : t("settings.numberInvalid"));
-  const onSave = async () => {
-    if (!canSave) return { ok: false as const, code: "INVALID_VALUE" as const };
-    const patch: SettingsPatch = {
-      profile: { employeeName: draft.employeeName.trim(), language: getLanguage(), dailyReminderTime: draft.dailyReminderTime },
-    };
-    if (unlocked) {
-      // Campo vacío ≠ tarifa 0: no se guarda (tarifa 0 nunca silenciosa).
-      if (draft.hourlyRate !== initial.hourlyRate && draft.hourlyRate.trim() !== "") patch.profile!.hourlyRate = num(draft.hourlyRate);
-      patch.company = {
-        employerName: draft.employerName.trim(),
-        companyEmail: draft.companyEmail.trim(),
-        overtimeMultiplier: num(draft.overtimeMultiplier),
-        overtimePolicyId: draft.overtimePolicyId,
-        traceRetentionDays: Math.round(num(draft.traceRetentionDays)),
-        traceMode: draft.traceMode,
-        defaultRadiusM: Math.round(num(draft.defaultRadiusM)),
-        arrivalDwellMs: Math.min(30, Math.max(0, Math.round(num(draft.arrivalDwellMin) || 0))) * 60_000,
-        employerPortalUrl: draft.portalUrl.trim() ? draft.portalUrl.trim() : null,
-        employerPortalEnabled: draft.portalEnabled,
-        timezone: draft.timezone,
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const merged: any = {
+        ...settings,
+        ...draft,
+        hourlyRate: Number(draft.hourlyRate) || 0,
+        overtimeMultiplier: Number(draft.overtimeMultiplier) || 1,
+        traceRetentionDays: Math.round(Number(draft.traceRetentionDays) || 0),
+        defaultRadiusM: Math.round(Number(draft.defaultRadiusM) || 0),
+        toleranceRadiusMeters: Math.round(Number(draft.defaultRadiusM) || 0),
       };
+      await sessionStore.saveSettings(merged as AppSettingsRecord);
+      showToast(t("toast_settings_saved"), "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("toast_error_generic"), "error");
+    } finally {
+      setSaving(false);
     }
-    return run(() => emit({ type: "SAVE_SETTINGS", patch }));
-  };
+  }, [settings, draft, showToast, t]);
 
-  const onAdminPin = () =>
-    run(async () => {
-      const res = await emit(admin.hasPin ? { type: "UNLOCK_ADMIN", pin } : { type: "SETUP_ADMIN_PIN", pin });
-      setPin("");
-      return res;
-    });
+  const handleUnlock = useCallback(async () => {
+    const ok = await unlock(pinInput);
+    if (ok) setPinInput("");
+  }, [unlock, pinInput]);
 
-  const onProvision = () =>
-    run(async () => {
-      const res = await emit({
-        type: "PROVISION_ADMIN_PIN",
-        code: code.trim(),
-        ...(showFingerprint && fingerprint.trim() ? { fingerprint: fingerprint.trim() } : {}),
-      });
-      setCode("");
-      setFingerprint("");
-      return res;
-    });
-
-  const permTone = (ok: boolean) => (ok ? "success" : "warning");
-  const profileChain = useFormFocusChain(FORM_FIELDS.settingsProfile, { onSubmit: () => void onSave(), canSubmit: canSave });
-  const pinChain = useFormFocusChain(FORM_FIELDS.settingsPin, {
-    onSubmit: () => void onAdminPin(),
-    canSubmit: pin.length >= PIN_MIN_LENGTH && !busy && admin.status !== "locked_out",
+  const currentTraceMode = traceMode({
+    disclaimerAccepted: settings.disclaimerAccepted,
+    hasBackgroundLocation: health?.locationBackground === "granted",
+    hasForegroundLocation: health?.locationForeground === "granted",
   });
-  const adminChain = useFormFocusChain(FORM_FIELDS.settingsAdmin, { onSubmit: () => void onSave(), canSubmit: canSave && unlocked });
-  const provisionChain = useFormFocusChain(provisionFields, {
-    onSubmit: () => void onProvision(),
-    canSubmit: canProvision,
-  });
-  const portalLabel = !settings.company.employerPortalUrl?.trim()
-    ? t("settings.portalUnconfigured")
-    : settings.company.employerPortalEnabled === true
-      ? t("settings.portalActive")
-      : t("settings.portalDisabled");
 
   return (
-    <ScreenScroll
-      edges={SAFE_EDGES.tab}
-      refreshControl={refreshControl}
-      footer={dirty ? <PrimaryButton label={t("common.save")} disabled={!canSave} isLoading={busy} onPress={() => void onSave()} /> : null}
-    >
-        <PageHeader title={t("settings.title")} helpScreen="settings" showHealth />
-
-        <Section title={t("settings.profile")}>
-          <Input {...profileChain.props("name")} label={t("onboarding.employeeName")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} />
-          <LanguageSwitch />
-          <Pressable
-            onPress={() => void emit({ type: "SAVE_SETTINGS", patch: { profile: { highContrast: settings.profile.highContrast !== true } } })}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: settings.profile.highContrast === true }}
-            accessibilityLabel={t("settings.highContrast")}
-            style={styles.statusRow}
-          >
-            <Text style={{ color: colors.text.primary }}>{t("settings.highContrast")}</Text>
-            <StatusPill tone={settings.profile.highContrast ? "success" : "neutral"} label={t(settings.profile.highContrast ? "settings.highContrastOn" : "settings.highContrastOff")} />
+    <ScreenContainer noPadding>
+      <PageHeader title={t("settings_title")} />
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        enableOnAndroid={true}
+        extraScrollHeight={24}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* PERFIL */}
+        <Section title={t("settings_profile")}>
+          <Input label={t("label_name")} value={draft.employeeName} onChangeText={(v) => set("employeeName", v)} icon="person-outline" />
+          <View style={styles.languageRow}>
+            <Text style={styles.languageLabel}>{t("label_lang")}: {t("lang_es")}</Text>
+            <Switch value={lang === "en"} onValueChange={(v) => changeLanguage(v ? "en" : "es")}
+              trackColor={{ false: tokens.colors.border, true: tokens.colors.primary }} />
+            <Text style={styles.languageLabel}>{t("lang_en")}</Text>
+          </View>
+          <Input label={t("label_start_time")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} icon="alarm-outline" placeholder="08:00" />
+          <Pressable onPress={() => set("highContrast", !draft.highContrast)} style={styles.statusRow}>
+            <Text style={{ color: tokens.colors.text.primary }}>{t("settings_high_contrast")}</Text>
+            <Text style={styles.languageLabel}>{draft.highContrast ? t("toggle_on") : t("toggle_off")}</Text>
           </Pressable>
-          <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.highContrastHint")}</Text>
-          <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.comprobanteTheme")}</Text>
+          <Text style={[styles.label, { color: tokens.colors.text.secondary }]}>{t("settings_receipt_theme")}</Text>
           <View style={styles.row}>
-            <Chip
-              label={t("settings.comprobanteLight")}
-              selected={settings.profile.comprobanteTheme !== "dark"}
-              onPress={() => void emit({ type: "SAVE_SETTINGS", patch: { profile: { comprobanteTheme: "light" } } })}
-            />
-            <Chip
-              label={t("settings.comprobanteDark")}
-              selected={settings.profile.comprobanteTheme === "dark"}
-              onPress={() => void emit({ type: "SAVE_SETTINGS", patch: { profile: { comprobanteTheme: "dark" } } })}
-            />
+            <Button label={t("settings_theme_light")} variant={draft.comprobanteTheme !== "dark" ? "primary" : "secondary"} size="sm" onPress={() => set("comprobanteTheme", "light")} />
+            <Button label={t("settings_theme_dark")} variant={draft.comprobanteTheme === "dark" ? "primary" : "secondary"} size="sm" onPress={() => set("comprobanteTheme", "dark")} />
           </View>
-          <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.comprobanteThemeHint")}</Text>
-          <Input {...profileChain.props("reminder")} label={t("onboarding.reminderTime")} value={draft.dailyReminderTime} onChangeText={(v) => set("dailyReminderTime", v)} mask="HH:mm" />
         </Section>
 
-        <Section title={t("settings.monitoring")}>
-          <Card style={styles.card}>
-            <View style={styles.statusRow}>
-              <Text style={{ color: colors.text.primary }}>{t("health.gps")}</Text>
-              <StatusPill tone={permTone(sys.gpsOk)} label={t(`permission.${health.locationForeground}`)} />
+        {/* APARIENCIA */}
+        <Section title={t("settings_appearance")}>
+          <View style={styles.languageRow}>
+            <Text style={styles.languageLabel}>{t("label_dark_mode")}</Text>
+            <Switch value={mode === "dark"} onValueChange={(v) => setMode(v ? "dark" : "light")}
+              trackColor={{ false: tokens.colors.border, true: tokens.colors.primary }} />
+          </View>
+        </Section>
+        {/* MONITOREO */}
+        <Section title={t("settings_monitoring")}>
+          <Card variant="surface" style={styles.monitorCard}>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>{t("monitor_fg_gps")}</Text>
+              <Text style={styles.monitorValue}>{statusLabel(t, health?.locationForeground ?? "unknown")}</Text>
             </View>
-            <View style={styles.statusRow}>
-              <Text style={{ color: colors.text.primary }}>{t("health.background")}</Text>
-              <StatusPill tone={permTone(sys.backgroundOk)} label={t(`permission.${health.locationBackground}`)} />
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>{t("monitor_bg_gps")}</Text>
+              <Text style={styles.monitorValue}>{statusLabel(t, health?.locationBackground ?? "unknown")}</Text>
             </View>
-            <View style={styles.statusRow}>
-              <Text style={{ color: colors.text.primary }}>{t("health.sensors.foregroundService")}</Text>
-              <StatusPill tone={health.foregroundService === "running" ? "success" : "neutral"} label={tHealthValue(health.foregroundService)} />
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>{t("monitor_fg_service")}</Text>
+              <Text style={styles.monitorValue}>{health?.androidForegroundServiceType ?? "unknown"}</Text>
             </View>
-            <View style={styles.statusRow}>
-              <Text style={{ color: colors.text.primary }}>{t("settings.traceMode")}</Text>
-              <Text style={{ color: colors.text.secondary }}>{t(`settings.traceModes.${settings.company.traceMode}`)}</Text>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>{t("monitor_trace")}</Text>
+              <Text style={styles.monitorValue}>{traceModeLabel(t, currentTraceMode)}</Text>
             </View>
-            <Button label={t("settings.openHealth")} variant="secondary" size="sm" onPress={() => router.push("/system/health")} />
-            <Button label={t("settings.openOsSettings")} variant="ghost" size="sm" onPress={() => void emit({ type: "OPEN_OS_SETTINGS", target: "APP" })} />
+            <Text style={[styles.label, { color: tokens.colors.text.secondary }]}>{t("settings_trace_mode")}</Text>
+            <View style={styles.row}>
+              <Button label={t("tracemode_geofence_short")} variant={draft.traceMode === "SOLO_GEOCERCA" ? "primary" : "secondary"} size="sm" onPress={() => set("traceMode", "SOLO_GEOCERCA")} />
+              <Button label={t("tracemode_breadcrumb_short")} variant={draft.traceMode === "BREADCRUMB" ? "primary" : "secondary"} size="sm" onPress={() => set("traceMode", "BREADCRUMB")} />
+              <Button label={t("tracemode_perimeter_short")} variant={draft.traceMode === "PERIMETER" ? "primary" : "secondary"} size="sm" onPress={() => set("traceMode", "PERIMETER")} />
+            </View>
           </Card>
+          <Button label={t("btn_system_health")} variant="secondary" size="sm" iconName="pulse-outline" onPress={() => router.push("/system/health")} style={styles.linkButton} />
         </Section>
 
-        <Section title={t("settings.sites")}>
-          <Card style={styles.card}>
-            <KeyValueRow label={t("settings.defaultRadius")} value={`${settings.company.defaultRadiusM} m`} />
-            <KeyValueRow label={t("settings.arrivalDwell")} value={`${Math.round((settings.company.arrivalDwellMs ?? 0) / 60_000)} min`} />
-            <Button label={t("cta.manageSites")} variant="secondary" size="sm" onPress={() => router.push("/sites")} />
+        {/* DESTINOS */}
+        <Section title={t("settings_sites")}>
+          <Card variant="surface" style={styles.monitorCard}>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>{t("settings_default_radius")}</Text>
+              <Text style={styles.monitorValue}>{draft.defaultRadiusM} {t("unit_m")}</Text>
+            </View>
+            <View style={styles.monitorRow}>
+              <Text style={styles.monitorLabel}>{t("settings_arrival_dwell")}</Text>
+              <Text style={styles.monitorValue}>{draft.arrivalDwellMin} {t("unit_min")}</Text>
+            </View>
           </Card>
+          <Button label={t("btn_manage_sites")} variant="secondary" size="sm" iconName="location-outline" onPress={() => router.push("/sites")} style={styles.linkButton} />
+          <Input label={t("label_radius")} value={String(draft.defaultRadiusM)}
+            onChangeText={(text) => {
+              const parsed = Number(text.replace(/[^0-9]/g, ""));
+              if (Number.isFinite(parsed)) set("defaultRadiusM", String(parsed));
+            }} keyboardType="numeric" icon="radio-button-on-outline" />
+          <Input label={t("label_arrival_dwell")} value={String(draft.arrivalDwellMin)}
+            onChangeText={(text) => {
+              const parsed = Number(text.replace(/[^0-9]/g, ""));
+              if (Number.isFinite(parsed)) set("arrivalDwellMin", String(parsed));
+            }} keyboardType="numeric" icon="timer-outline" />
         </Section>
 
-        <Section title={t("settings.admin")}>
-          <Text style={[styles.hint, { color: colors.text.secondary }]}>
-            {admin.pinOrigin === "EMPLOYER" ? t("settings.pinEmployer") : t("settings.pinLocal")}
-          </Text>
+        {/* ZONA ADMIN */}
+        <Section title={t("admin_zone")}>
           {!unlocked ? (
-            <Card style={styles.card}>
-              <View style={styles.statusRow}>
-                <Ionicons name="lock-closed-outline" size={ICON.md} color={colors.text.secondary} />
-                <Text style={[styles.hint, { color: colors.text.secondary }]}>
-                  {admin.hasPin ? t("settings.adminLocked") : t("settings.adminSetup", { min: PIN_MIN_LENGTH })}
-                </Text>
-              </View>
-              <Input {...pinChain.props("pin")} label={t("settings.pin")} value={pin} onChangeText={setPin} secureToggle />
-              <Button
-                label={admin.hasPin ? t("settings.unlock") : t("settings.setPin")}
-                disabled={pin.length < PIN_MIN_LENGTH || busy || admin.status === "locked_out"}
-                isLoading={busy && admin.status === "validating"}
-                onPress={() => void onAdminPin()}
-              />
-            </Card>
+            <View>
+              <Input label={t("admin_pass_placeholder")} value={pinInput} onChangeText={setPinInput} secureTextEntry icon="lock-closed-outline" error={adminError ?? undefined} />
+              <Button label={t("admin_unlock")} variant="primary" onPress={handleUnlock} isLoading={busy} />
+              <Text style={styles.hint}>{t("hint_pin_min", { n: PIN_MIN_LENGTH })}</Text>
+            </View>
           ) : (
-            <Card style={styles.card}>
-              <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} prefix="$" suffix={t("common.perHour")} error={!rateOk ? (Number.isFinite(num(draft.hourlyRate)) ? t("onboarding.rateInvalid") : t("settings.numberInvalid")) : undefined} />
-              <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} error={numberError(draft.overtimeMultiplier, 0.0001)} />
-              <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
-              <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} />
-              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
-              <View style={styles.row}>
-                {queries.payrollPolicies().map((p) => {
-                  const key = `settings.policies.${p.id}`;
-                  const label = t(key);
-                  return (
-                    <Chip key={p.id} label={label === key ? p.label : label} selected={draft.overtimePolicyId === p.id} onPress={() => set("overtimePolicyId", p.id)} />
-                  );
-                })}
+            <View>
+              <Input label={t("label_rate")} value={String(draft.hourlyRate)} onChangeText={(v) => set("hourlyRate", v)} keyboardType="decimal-pad" icon="cash-outline" />
+              <Input label={t("label_multiplier")} value={String(draft.overtimeMultiplier)} onChangeText={(v) => set("overtimeMultiplier", v)} keyboardType="decimal-pad" icon="trending-up-outline" />
+              <Input label={t("label_report_email")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} keyboardType="email-address" autoCapitalize="none" icon="mail-outline" />
+              <Input label={t("label_company_name")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} icon="business-outline" />
+              <Input label={t("label_overtime_policy")} value={draft.overtimePolicyId} onChangeText={(v) => set("overtimePolicyId", v)} icon="document-text-outline" />
+              <Input label={t("label_retention_days")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} keyboardType="numeric" icon="archive-outline" />
+              <Input label={t("label_portal_url")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" icon="globe-outline" />
+              <View style={styles.languageRow}>
+                <Text style={styles.languageLabel}>{t("label_portal_enabled")}</Text>
+                <Switch value={draft.portalEnabled} onValueChange={(v) => set("portalEnabled", v)} trackColor={{ false: tokens.colors.border, true: tokens.colors.primary }} />
               </View>
-              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.traceMode")}</Text>
-              <View style={styles.row}>
-                {(["PERIMETER", "BREADCRUMB"] as const).map((m) => (
-                  <Chip key={m} label={t(`settings.traceModes.${m}`)} selected={draft.traceMode === m} onPress={() => set("traceMode", m)} />
-                ))}
-              </View>
-              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.timezone")}</Text>
-              <View style={styles.row}>
-                {PAYROLL_TIMEZONES.map((zone) => (
-                  <Chip
-                    key={zone}
-                    label={t(`settings.timezones.${TIMEZONE_LABEL[zone]}`)}
-                    selected={draft.timezone === zone}
-                    onPress={() => set("timezone", zone)}
-                  />
-                ))}
-              </View>
-              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.timezoneHint")}</Text>
-              <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} error={numberError(draft.traceRetentionDays, 0)} />
-              <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} error={numberError(draft.defaultRadiusM, 1)} />
-              <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
-              <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} error={numberError(draft.arrivalDwellMin, 0)} />
-              <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.arrivalDwellHint")}</Text>
-              <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalOn")}</Text>
-              <View style={styles.row}>
-                <Chip label={t("settings.portalOff")} selected={!draft.portalEnabled} onPress={() => set("portalEnabled", false)} />
-                <Chip label={t("settings.portalOn")} selected={draft.portalEnabled} onPress={() => set("portalEnabled", true)} />
-              </View>
-              <WorkCalendarBlock />
-              <Button label={t("settings.lock")} variant="ghost" size="sm" iconName="lock-closed-outline" onPress={() => void emit({ type: "LOCK_ADMIN" })} />
-            </Card>
+              <Input label={t("label_timezone")} value={draft.timezone} onChangeText={(v) => set("timezone", v)} icon="time-outline" />
+              <Text style={styles.hint}>{t("hint_timezone_example")}</Text>
+              <Button label={t("btn_lock")} variant="secondary" onPress={lock} />
+            </View>
           )}
-          <Card style={styles.card}>
-            <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.provisionHint")}</Text>
-            <Input {...provisionChain.props("code")} label={t("settings.provisionCode")} value={code} onChangeText={setCode} autoCapitalize="none" autoCorrect={false} />
-            {showFingerprint ? (
-              <>
-                <Text style={[styles.hint, { color: colors.text.primary }]}>{t("settings.provisionFingerprintShown", { fingerprint: codeFingerprint ?? "" })}</Text>
-                <Input
-                  {...provisionChain.props("fingerprint")}
-                  label={t("settings.provisionFingerprint")}
-                  value={fingerprint}
-                  onChangeText={setFingerprint}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                />
-                <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.provisionFingerprintHint")}</Text>
-              </>
-            ) : null}
-            <Button label={t("settings.provisionSubmit")} disabled={!canProvision} isLoading={busy} onPress={() => void onProvision()} />
-          </Card>
-          <Card style={styles.card}>
-            <Text style={[styles.hint, { color: colors.text.primary }]}>{portalLabel}</Text>
-            <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalQueue")}</Text>
-            {(queue.data ?? []).length === 0 ? (
-              <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.queueEmpty")}</Text>
-            ) : (
-              (queue.data ?? []).map((item) => (
-                <KeyValueRow key={item.id} label={item.packId} value={t(`settings.queue.${item.status}`)} />
-              ))
-            )}
+        </Section>
+
+        {/* CALENDARIO */}
+        <Section title={t("settings_calendar")}>
+          <Card variant="surface" style={styles.monitorCard}>
+            <Text style={styles.monitorLabel}>{t("settings_calendar_desc")}</Text>
           </Card>
         </Section>
 
-        <Section title={t("settings.retentionStatus")}>
-          <Card style={styles.card}>
-            {retentionRows.length === 0 ? (
-              <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.retentionEmpty")}</Text>
-            ) : (
-              retentionRows.map((row) => (
-                <KeyValueRow key={row.periodStart} label={formatRange(row.periodStart, row.periodEnd)} value={t(`settings.retentionPhase.${row.phase}`)} />
-              ))
-            )}
-          </Card>
+        {/* LEGAL */}
+        <Section title={t("settings_legal")}>
+          <Button label={t("btn_view_disclosure")} variant="secondary" size="sm" iconName="document-text-outline" onPress={() => router.push("/legal/disclosure")} style={styles.linkButton} />
+          <Button label={t("btn_view_retention")} variant="secondary" size="sm" iconName="archive-outline" onPress={() => router.push("/legal/retention")} style={styles.linkButton} />
         </Section>
 
-        <Section title={t("support.title")}>
-          <Card style={styles.card}>
-            <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("support.blurb")}</Text>
-            <Text style={[styles.hint, { color: colors.text.muted }]} testID="settings-footer">{settingsFooterLine()}</Text>
-            <Button label={t("support.open")} variant="secondary" size="sm" onPress={() => router.push("/support")} />
-          </Card>
-        </Section>
+        <View style={styles.footerSpacer} />
+      </KeyboardAwareScrollView>
 
-        <Section title={t("settings.legal")}>
-          <Card style={styles.card}>
-            <LinkRow label={t("settings.disclosure")} onPress={() => router.push("/legal/disclosure")} />
-            <LinkRow label={t("settings.retentionPolicy")} onPress={() => router.push("/legal/retention")} />
-          </Card>
-        </Section>
-    </ScreenScroll>
-  );
-}
-
-const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0] as const;
-const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-
-/**
- * Calendario laboral (spec v1.3 §5.1) [CONFIRMAR CON ASESORÍA LEGAL]: inicio de
- * jornada y día de inicio de semana. El cambio es prospectivo (final de la
- * semana en curso) y se puede anular antes de entrar en vigor.
- */
-function WorkCalendarBlock() {
-  const { colors } = useTheme();
-  const { state, emit } = useWorkTracker();
-  const nowMs = useClock(60_000);
-  const current = calendarAt(nowMs, selectCalendarHistory(state));
-  const pending = selectPendingCalendarChange(state, nowMs);
-  const flags = legalFlags(selectSettings(state).company);
-  const [start, setStart] = useState(hhmm(current.workdayStartMinutes));
-  const [day, setDay] = useState<number>(current.workweekStartDay);
-  const { busy, run: guard } = useBusyAction();
-  const [pendingFlag, setPendingFlag] = useState<LegalFlagDraft | null>(null);
-  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(start.trim());
-  const minutes = m ? Number(m[1]) * 60 + Number(m[2]) : null;
-  const changed = minutes !== null && (minutes !== current.workdayStartMinutes || day !== current.workweekStartDay);
-  const run = (intent: Parameters<typeof emit>[0]) => guard(() => emit(intent));
-  const askFlag = (draft: LegalFlagDraft) => {
-    if (busy || pendingFlag || flags[draft.key] === draft.value) return;
-    setPendingFlag(draft);
-  };
-  const applyFlag = () => {
-    if (!pendingFlag) return;
-    const draft = pendingFlag;
-    void guard(async () => {
-      const res = await emit({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, [draft.key]: draft.value } } } });
-      if (res.ok) setPendingFlag(null);
-      return res;
-    });
-  };
-  const calendarChain = useFormFocusChain(FORM_FIELDS.settingsCalendar, {
-    canSubmit: changed && !busy,
-    onSubmit: () => {
-      if (minutes === null || !changed) return;
-      void run({ type: "SAVE_SETTINGS", patch: { calendar: { workdayStartMinutes: minutes, workweekStartDay: day } } });
-    },
-  });
-
-  return (
-    <View style={styles.calendar}>
-      <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.calendar.title")}</Text>
-      <KeyValueRow
-        label={t("settings.calendar.current")}
-        value={`${hhmm(current.workdayStartMinutes)} · ${t(`settings.calendar.days.${current.workweekStartDay}`)}`}
-      />
-      {pending ? (
-        <>
-          <Text style={[styles.hint, { color: colors.status.warning }]}>
-            {t("settings.calendar.pending", {
-              start: hhmm(pending.workdayStartMinutes),
-              day: t(`settings.calendar.days.${pending.workweekStartDay}`),
-              date: formatDateTime(pending.effectiveFromMs),
-            })}
-          </Text>
-          <Button label={t("settings.calendar.cancel")} variant="secondary" size="sm" disabled={busy} onPress={() => void run({ type: "CANCEL_CALENDAR_CHANGE" })} />
-        </>
-      ) : (
-        <>
-          <Input {...calendarChain.props("start")} label={t("settings.calendar.workdayStart")} value={start} onChangeText={setStart} placeholder="00:00" mask="HH:mm" />
-          <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.calendar.weekStart")}</Text>
-          <View style={styles.row}>
-            {WEEKDAYS.map((d) => (
-              <Chip key={d} label={t(`settings.calendar.days.${d}`)} selected={day === d} onPress={() => setDay(d)} />
-            ))}
-          </View>
-          <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.calendar.hint")}</Text>
-          <Button
-            label={t("settings.calendar.schedule")}
-            size="sm"
-            disabled={!changed || busy}
-            isLoading={busy}
-            onPress={() => void run({ type: "SAVE_SETTINGS", patch: { calendar: { workdayStartMinutes: minutes!, workweekStartDay: day } } })}
-          />
-        </>
+      {dirty && (
+        <View style={styles.stickyFooter}>
+          <Button label={t("settings_save")} onPress={handleSave} isLoading={saving} />
+        </View>
       )}
-      <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.calendar.transitionThreshold")}</Text>
-      <View style={styles.row}>
-        {(["FULL", "PRORATED"] as const).map((v) => (
-          <Chip
-            key={v}
-            label={t(`settings.calendar.threshold.${v}`)}
-            selected={flags.transitionWeeklyThreshold === v}
-            onPress={() => askFlag({ key: "transitionWeeklyThreshold", value: v })}
-          />
-        ))}
-      </View>
-      {(["caDoubleTime", "caSeventhDay"] as const).map((flag) => (
-        <Fragment key={flag}>
-          <Text style={[styles.label, { color: colors.text.secondary }]}>{t(`settings.calendar.${flag}`)}</Text>
-          <View style={styles.row}>
-            {([false, true] as const).map((v) => (
-              <Chip
-                key={String(v)}
-                label={t(v ? "settings.calendar.flagOn" : "settings.calendar.flagOff")}
-                selected={flags[flag] === v}
-                onPress={() => askFlag({ key: flag, value: v })}
-              />
-            ))}
-          </View>
-        </Fragment>
-      ))}
-      <Text style={[styles.hint, { color: colors.text.muted }]}>{t("settings.legalReview")}</Text>
-      <ConfirmActionModal
-        visible={pendingFlag !== null}
-        title={t("settings.legalFlagTitle")}
-        description={t("settings.legalFlagBody")}
-        confirmLabel={t("common.confirm")}
-        tone="warning"
-        busy={busy}
-        onCancel={() => setPendingFlag(null)}
-        onConfirm={applyFlag}
-      />
-    </View>
+    </ScreenContainer>
   );
 }
 
-type LegalFlagDraft =
-  | { key: "transitionWeeklyThreshold"; value: PayrollLegalFlags["transitionWeeklyThreshold"] }
-  | { key: "caDoubleTime"; value: boolean }
-  | { key: "caSeventhDay"; value: boolean };
-
-function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      accessibilityHint={t("a11y.linkHint")}
-      style={[styles.statusRow, styles.linkHit]}
-    >
-      <Text style={{ color: colors.text.primary, flex: 1 }}>{label}</Text>
-      <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
-    </Pressable>
-  );
+function getStyles(tokens: AppTokens) {
+  return StyleSheet.create({
+    scroll: { flex: 1 },
+    scrollContent: { flexGrow: 1, paddingBottom: tokens.spacing["3xl"] },
+    languageRow: { flexDirection: "row", alignItems: "center", gap: tokens.spacing.sm, marginBottom: tokens.spacing.md },
+    languageLabel: { ...FONT.caption, color: tokens.colors.text.secondary },
+    monitorCard: { marginBottom: tokens.spacing.md },
+    monitorRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: tokens.spacing.xs },
+    monitorLabel: { ...FONT.caption, color: tokens.colors.text.secondary },
+    monitorValue: { ...FONT.caption, color: tokens.colors.text.primary, fontWeight: "700" },
+    linkButton: { marginBottom: tokens.spacing.md, alignSelf: "flex-start" },
+    footerSpacer: { height: tokens.spacing["4xl"] },
+    stickyFooter: {
+      position: "absolute", left: 0, right: 0, bottom: 0,
+      padding: tokens.layout.screenPadding,
+      backgroundColor: tokens.colors.background,
+      borderTopWidth: 1, borderTopColor: tokens.colors.border,
+    },
+    row: { flexDirection: "row", flexWrap: "wrap", gap: tokens.spacing.sm, marginBottom: tokens.spacing.md },
+    label: { ...FONT.label, marginTop: tokens.spacing.sm },
+    hint: { ...FONT.caption, color: tokens.colors.text.muted, marginTop: 4 },
+    statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: tokens.spacing.xs },
+  });
 }
-
-const styles = StyleSheet.create({
-  card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
-  label: { ...FONT.label, marginTop: TOKENS.spacing.sm },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.sm },
-  statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: TOKENS.spacing.sm, paddingVertical: TOKENS.spacing.xs },
-  linkHit: { minHeight: TOKENS.layout.minTouchTarget },
-  hint: { ...FONT.caption, flex: 1 },
-  calendar: { gap: TOKENS.spacing.sm, marginTop: TOKENS.spacing.sm },
-});
