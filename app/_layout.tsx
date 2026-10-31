@@ -1,6 +1,6 @@
 /**
  * app/_layout.tsx — Layout raíz (Producto §3.1).
- * Carga Montserrat, envuelve ThemeContext y ToastContext, llama boot() de
+ * Carga Inter, envuelve ThemeContext y ToastContext, llama boot() de
  * src/core/boot.ts y registra las tareas de TaskOrchestrator en el ámbito
  * global del bundle. El entry index.js carga la definición headless antes
  * de React; aquí se reafirma (idempotente) por el camino que sí puede
@@ -16,10 +16,10 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { enableFreeze } from "react-native-screens";
 import {
   useFonts,
-  Montserrat_400Regular,
-  Montserrat_500Medium,
-  Montserrat_600SemiBold,
-} from "@expo-google-fonts/montserrat";
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+} from "@expo-google-fonts/inter";
 import { ThemeProvider } from "../src/context/ThemeContext";
 import { ToastProvider } from "../src/context/ToastContext";
 import { FeedbackBridge } from "../src/components/feedback/FeedbackBridge";
@@ -37,15 +37,15 @@ registerBackgroundTasks();
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-/** Si Montserrat no carga en este plazo se pinta con la fuente del sistema (nunca pantalla en blanco). */
+/** Si Inter no carga en este plazo se pinta con la fuente del sistema (nunca pantalla en blanco). */
 const FONT_LOAD_TIMEOUT_MS = 3000;
 
 export default function RootLayout() {
   useLanguage();
   const [fontsLoaded, fontError] = useFonts({
-    Montserrat_400Regular,
-    Montserrat_500Medium,
-    Montserrat_600SemiBold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
   });
 
   // No se pinta copy hasta que el perfil (o el idioma del teléfono, si aún

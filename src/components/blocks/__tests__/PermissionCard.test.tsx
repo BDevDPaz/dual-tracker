@@ -36,7 +36,7 @@ describe("PermissionCard", () => {
   test("la pendiente usa el acento oro del tema y no apaga el contraste con opacidad", () => {
     render(<PermissionCard {...base} state="denied" highlighted testID="card" />);
     const style = StyleSheet.flatten(screen.getByTestId("card").props.style) as { borderColor?: string; opacity?: number; backgroundColor?: string };
-    expect(style.borderColor).toBe(TOKENS.colors.primary);
+    expect(style.borderColor).toBe(TOKENS.colors.goldText);
     expect(style.backgroundColor).toBe(TOKENS.colors.glass.fill);
     expect(style.opacity).toBeUndefined();
     expect(screen.getByLabelText(t("a11y.permissionPending", { title: base.title }))).toBeTruthy();

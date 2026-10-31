@@ -24,7 +24,7 @@ type PinClockMarkProps = {
 export function PinClockMark({ size = ICON.xl, color, handColor, decorative = false, testID = "pin-clock-mark" }: PinClockMarkProps) {
   useLanguage();
   const { colors } = useTheme();
-  const pin = color ?? colors.primary;
+  const pin = color ?? colors.goldText;
   const hands = handColor ?? colors.text.primary;
   return (
     <Svg

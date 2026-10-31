@@ -69,7 +69,7 @@ export function SessionListItem({
       </View>
       <View style={styles.side}>
         <Text style={[styles.hours, { color: colors.text.primary }]}>{hours}</Text>
-        <Text style={[styles.amount, { color: colors.primary }]}>
+        <Text style={[styles.amount, { color: colors.goldText }]}>
           {slice?.grossCents != null ? formatCents(slice.grossCents) : gross == null ? "—" : formatCurrency(gross)}
         </Text>
       </View>

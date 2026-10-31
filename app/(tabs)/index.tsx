@@ -289,7 +289,7 @@ export default function TodayScreen() {
         {!active ? (
           <Pressable onPress={() => setModal("TRUST")} accessibilityRole="button" style={styles.footerLink}>
             <Text style={[styles.link, { color: colors.text.secondary }]}>{t("today.trustShort")}</Text>
-            <Text style={[styles.link, { color: colors.primary }]}>{t("today.howItWorks")}</Text>
+            <Text style={[styles.link, { color: colors.goldText }]}>{t("today.howItWorks")}</Text>
           </Pressable>
         ) : null}
         {active?.bookkeeping.compliance?.manualArrival ? <Banner tone="info" message={t("today.manualArrival")} /> : null}

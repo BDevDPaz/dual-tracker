@@ -113,7 +113,7 @@ export function SessionTimeline({ events, title, emptyText, loading = false, ins
   const getEventStyle = (type: TimelineEvent["type"]) => {
     switch (type) {
       case "start":
-        return { dotColor: colors.primary, hasBorder: false };
+        return { dotColor: colors.goldText, hasBorder: false };
       case "arrival":
         return { dotColor: colors.status.success, hasBorder: false };
       case "warning":

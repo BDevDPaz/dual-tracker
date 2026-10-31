@@ -65,8 +65,8 @@ export function CardHeader({
   const { colors } = useTheme();
   return (
     <View style={styles.header}>
-      <View style={[styles.iconCircle, { borderColor: colors.primary, backgroundColor: colors.background }]}>
-        <Ionicons name={icon} size={ICON.md} color={colors.primary} accessibilityElementsHidden importantForAccessibility="no" />
+      <View style={[styles.iconCircle, { borderColor: colors.goldText, backgroundColor: colors.background }]}>
+        <Ionicons name={icon} size={ICON.md} color={colors.goldText} accessibilityElementsHidden importantForAccessibility="no" />
       </View>
       <View style={styles.headerCopy}>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>{title}</Text>

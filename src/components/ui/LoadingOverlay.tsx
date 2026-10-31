@@ -109,7 +109,7 @@ export function LoadingOverlay({
                 style={[
                   styles.spinnerRing,
                   animatedSpinnerStyle,
-                  { borderColor: colors.track, borderTopColor: colors.primary },
+                  { borderColor: colors.track, borderTopColor: colors.goldText },
                 ]}
               />
             </View>

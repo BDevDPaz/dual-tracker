@@ -101,7 +101,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
       : undefined;
   const shownError = error ?? maskError;
 
-  const borderColor = shownError ? colors.status.danger : focused ? colors.primary : colors.border;
+  const borderColor = shownError ? colors.status.danger : focused ? colors.goldText : colors.border;
 
   return (
     <View style={[styles.container, containerStyle]}>

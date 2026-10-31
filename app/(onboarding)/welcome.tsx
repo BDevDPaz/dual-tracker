@@ -41,7 +41,7 @@ export default function WelcomeScreen() {
           </Card>
         ))}
       </View>
-      <Text style={[styles.scope, { color: colors.primary }]}>{t("onboarding.scope")}</Text>
+      <Text style={[styles.scope, { color: colors.goldText }]}>{t("onboarding.scope")}</Text>
     </ScreenScroll>
   );
 }

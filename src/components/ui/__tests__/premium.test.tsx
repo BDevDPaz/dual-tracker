@@ -19,7 +19,7 @@ describe("premium", () => {
     render(<SummaryCard hoursLabel="Horas" hours="8.00 h" moneyLabel="Estimado" money="$160.00" />);
     const money = StyleSheet.flatten(screen.getByText("$160.00").props.style) as { color: string; fontVariant?: string[] };
     const hours = StyleSheet.flatten(screen.getByText("8.00 h").props.style) as { fontVariant?: string[] };
-    expect(money.color).toBe(TOKENS.colors.primary);
+    expect(money.color).toBe(TOKENS.colors.goldText);
     expect(money.fontVariant).toContain("tabular-nums");
     expect(hours.fontVariant).toContain("tabular-nums");
   });

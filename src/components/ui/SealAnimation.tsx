@@ -31,8 +31,8 @@ export function SealAnimation({ visible, onDone }: SealAnimationProps) {
   if (!visible) return null;
   return (
     <View pointerEvents="none" style={styles.overlay} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Animated.View style={[styles.seal, { borderColor: colors.primary, backgroundColor: colors.surfaceElevated }, animated]}>
-        <Ionicons name="shield-checkmark" size={ICON.empty} color={colors.primary} />
+      <Animated.View style={[styles.seal, { borderColor: colors.goldText, backgroundColor: colors.surfaceElevated }, animated]}>
+        <Ionicons name="shield-checkmark" size={ICON.empty} color={colors.goldText} />
       </Animated.View>
     </View>
   );

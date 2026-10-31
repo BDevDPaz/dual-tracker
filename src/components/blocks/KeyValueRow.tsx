@@ -9,7 +9,7 @@ export function KeyValueRow({ label, value, emphasis = false, mono = false }: { 
   return (
     <View style={styles.row}>
       <Text style={[styles.label, { color: colors.text.secondary }]}>{label}</Text>
-      <Text selectable style={[styles.value, { color: emphasis ? colors.primary : colors.text.primary }, mono && styles.mono]}>
+      <Text selectable style={[styles.value, { color: emphasis ? colors.goldText : colors.text.primary }, mono && styles.mono]}>
         {value}
       </Text>
     </View>

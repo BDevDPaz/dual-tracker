@@ -129,7 +129,7 @@ export function ModalShell({
       case "neutral":
       default:
         return {
-          color: colors.primary,
+          color: colors.goldText,
           bg: colors.statusBg.primary,
           icon: icon || ICONS.status.neutral,
         };

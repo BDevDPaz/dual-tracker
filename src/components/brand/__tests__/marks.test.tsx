@@ -26,7 +26,7 @@ describe("trazos fuente", () => {
 });
 
 describe("ArrivalMark", () => {
-  test("oscuro: acento mutedGold y línea secundaria", () => {
+  test("oscuro: acento dorado y línea secundaria", () => {
     render(
       <ThemeProvider preference="dark">
         <ArrivalMark />
@@ -35,7 +35,7 @@ describe("ArrivalMark", () => {
     const mark = screen.getByTestId("arrival-mark");
     expect(mark.props.accessibilityLabel).toBe(t("a11y.arrivalConfirmed", {}, "es"));
     const pin = screen.UNSAFE_getAllByType(Path).map((n) => n.props);
-    expect(pin.some((p) => p.fill === COLORS.dark.primary)).toBe(true);
+    expect(pin.some((p) => p.fill === COLORS.dark.goldText)).toBe(true);
     expect(pin.some((p) => p.stroke === COLORS.dark.text.secondary)).toBe(true);
   });
 
@@ -46,9 +46,11 @@ describe("ArrivalMark", () => {
       </ThemeProvider>,
     );
     const pin = screen.UNSAFE_getAllByType(Path).map((n) => n.props);
-    expect(pin.some((p) => p.fill === COLORS.light.primary)).toBe(true);
+    expect(pin.some((p) => p.fill === COLORS.light.goldText)).toBe(true);
     expect(pin.some((p) => p.stroke === COLORS.light.text.secondary)).toBe(true);
-    expect(COLORS.light.primary).not.toBe(COLORS.dark.primary);
+    expect(COLORS.light.goldText).toBe("#7A5D0A");
+    expect(COLORS.light.primary).toBe("#F6C452");
+    expect(COLORS.light.goldText).not.toBe(COLORS.light.primary);
   });
 });
 
@@ -62,7 +64,7 @@ describe("PinClockMark", () => {
     const mark = screen.getByLabelText(t("a11y.brandMark"));
     expect(mark.props.accessibilityRole).toBe("image");
     const paths = screen.UNSAFE_getAllByType(Path).map((n) => n.props);
-    expect(paths.some((p) => p.stroke === COLORS.dark.primary)).toBe(true);
+    expect(paths.some((p) => p.stroke === COLORS.dark.goldText)).toBe(true);
     expect(paths.some((p) => p.stroke === COLORS.dark.text.primary)).toBe(true);
   });
 
