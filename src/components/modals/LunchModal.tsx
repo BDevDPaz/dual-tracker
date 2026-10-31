@@ -98,7 +98,8 @@ export function LunchModal(props: LunchModalProps) {
     return (
       <ModalShell
         visible={props.visible}
-        title={t("modals.lunchDone", { minutes: props.minutes, start: props.startLabel, end: props.endLabel })}
+        title={t("modals.lunchDoneTitle")}
+        description={t("modals.lunchDone", { minutes: props.minutes, start: props.startLabel, end: props.endLabel })}
         icon={ICONS.domain.lunch}
         onClose={props.onCancel}
         testID="lunch-done"

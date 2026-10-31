@@ -32,6 +32,7 @@ export type FeedbackCode =
   | "SITE_ARCHIVED"
   | "PACK_SEALED"
   | "PACK_REUSED"
+  | "RANGE_PDF_SHARED"
   | "SETTINGS_SAVED"
   | "ADMIN_UNLOCKED"
   | "ADMIN_LOCKED"

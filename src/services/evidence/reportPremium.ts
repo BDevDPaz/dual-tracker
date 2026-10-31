@@ -217,6 +217,8 @@ function headerBlock(input: ReportInput, role: PremiumRole, lang: Language): str
   const employee = input.profile.employeeName.trim() || t("comprobante.unspecifiedEmployee", {}, lang);
   const employer = input.company.employerName.trim() || t("comprobante.unspecifiedEmployer", {}, lang);
   const doc = input.manifest.documentVersion ?? 2;
+  const stamp = input.rangeCopy ? t("comprobante.notSealed", {}, lang) : t("comprobante.seal", {}, lang);
+  const stampAttrs = input.rangeCopy ? ` data-range-copy="1"` : "";
   return `
     <div class="brand-row">
       ${MARK}
@@ -224,7 +226,7 @@ function headerBlock(input: ReportInput, role: PremiumRole, lang: Language): str
         <div class="brand-name">Dual Tracker</div>
         <div class="doc-title">${escapeHtml(title)}</div>
       </div>
-      <div class="stamp-slot"><div class="stamp-seal">${escapeHtml(t("comprobante.seal", {}, lang))}</div></div>
+      <div class="stamp-slot"><div class="stamp-seal"${stampAttrs}>${escapeHtml(stamp)}</div></div>
     </div>
     <div class="gold-rule"></div>
     <div class="meta">
@@ -429,6 +431,14 @@ function retentionBlock(input: ReportInput, lang: Language): string {
     <p class="muted">${escapeHtml(t("comprobante.exportBody", {}, lang))}</p>`;
 }
 
+function rangeCopyNotice(input: ReportInput, lang: Language): string {
+  const uncertified = input.statement.integrityRollup.certified
+    ? ""
+    : `<div class="uncertified">${escapeHtml(t("comprobante.uncertified", {}, lang))}</div>`;
+  const weekNote = (input.rangeWeekCount ?? 1) > 1 ? `<p class="muted">${escapeHtml(t("reports.weekMath", {}, lang))}</p>` : "";
+  return `${uncertified}<p class="indicator" data-range-copy="1">${escapeHtml(t("comprobante.rangeNotice", {}, lang))}</p>${weekNote}`;
+}
+
 function verifyBlock(input: ReportInput, lang: Language): string {
   const fmt: FormatOptions = { lang };
   const when = `${formatDate(input.manifest.sealedAtMs, fmt)} ${formatTime(input.manifest.sealedAtMs, fmt)}`;
@@ -443,20 +453,23 @@ function verifyBlock(input: ReportInput, lang: Language): string {
     </div>`;
 }
 
-function versionsBlock(input: ReportInput, lang: Language): string {
-  const doc = input.manifest.documentVersion ?? 1;
-  const manifest = input.manifest.manifestVersion ?? 1;
-  const lines = [t("comprobante.versions", { doc, manifest, packId: input.manifest.packId }, lang)];
+function buildVersionLine(input: ReportInput, lang: Language): string {
   const version = input.manifest.appVersion?.trim() || APP_VERSION;
   const codeNum = input.manifest.versionCode;
   const code = codeNum != null && Number.isFinite(codeNum) ? String(codeNum) : readBuildLabel();
   const commitRaw = (input.manifest.gitCommit ?? readGitCommit() ?? "").trim();
   const commit = /^[0-9a-f]{7,40}$/i.test(commitRaw) ? commitRaw.slice(0, 7) : "";
-  lines.push(
-    commit
-      ? t("comprobante.versionsBuild", { version, code, commit }, lang)
-      : t("comprobante.versionsBuildNoCommit", { version, code }, lang),
-  );
+  return commit
+    ? t("comprobante.versionsBuild", { version, code, commit }, lang)
+    : t("comprobante.versionsBuildNoCommit", { version, code }, lang);
+}
+
+function versionsBlock(input: ReportInput, lang: Language): string {
+  if (input.rangeCopy) return `<p class="versions">${escapeHtml(buildVersionLine(input, lang))}</p>`;
+  const doc = input.manifest.documentVersion ?? 1;
+  const manifest = input.manifest.manifestVersion ?? 1;
+  const lines = [t("comprobante.versions", { doc, manifest, packId: input.manifest.packId }, lang)];
+  lines.push(buildVersionLine(input, lang));
   const zones = input.manifest.sessionTimeZones;
   if (zones?.length) {
     const zone = [...new Set(zones.map((z) => z.timeZone))].join(", ");
@@ -734,7 +747,7 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
     <div class="sheet">
       ${headerBlock(input, role, lang)}
       ${mockLocationBlock(input.evidence.traces, lang)}
-      ${signatureBlock(input, lang)}
+      ${input.rangeCopy ? rangeCopyNotice(input, lang) : signatureBlock(input, lang)}
       ${metricsBlock(input, lang)}
       ${rows.html}
       ${forensicBlock(input, lang)}
@@ -746,11 +759,11 @@ export function renderPremiumDocument(input: ReportInput, role: PremiumRole): st
       ${premiumLinesBlock(input, lang)}
       ${employer}
       ${policyBlock(input, lang)}
-      ${retentionBlock(input, lang)}
+      ${input.rangeCopy ? "" : retentionBlock(input, lang)}
       <div class="sheet-tail">
-        ${verifyBlock(input, lang)}
+        ${input.rangeCopy ? "" : verifyBlock(input, lang)}
         ${versionsBlock(input, lang)}
-        <div class="footer">${escapeHtml(t("comprobante.legalFooter", {}, lang))}</div>
+        <div class="footer">${escapeHtml(t(input.rangeCopy ? "comprobante.rangeFooter" : "comprobante.legalFooter", {}, lang))}</div>
       </div>
       ${annexes}
     </div>

@@ -91,7 +91,7 @@ describe("LunchModal", () => {
     expect(onFinish).not.toHaveBeenCalled();
   });
 
-  test("I2 muestra lunchDone en ES y EN, sin la rejilla de I1", () => {
+  test("I2 usa un título corto y deja lunchDone en la descripción, en ES y EN", () => {
     const onConfirm = jest.fn();
     setLanguage("es");
     const props = {
@@ -103,18 +103,24 @@ describe("LunchModal", () => {
       onCancel: jest.fn(),
       onConfirm,
     };
+    const doneEs = "Ya descontamos 45 min de almuerzo hoy (12:00 PM – 12:45 PM). No lo volvemos a preguntar.";
+    const doneEn = "We already deducted 45 min of lunch today (12:00 PM – 12:45 PM). We won't ask again.";
     const view = render(<LunchModal {...props} />);
+    expect(t("modals.lunchDoneTitle")).toBe("Almuerzo de hoy");
+    expect(screen.getByText("Almuerzo de hoy")).toBeTruthy();
+    expect(screen.getByText(doneEs)).toBeTruthy();
     expect(screen.getByText(t("modals.lunchDone", { minutes: 45, start: "12:00 PM", end: "12:45 PM" }))).toBeTruthy();
-    expect(screen.getByText("Ya descontamos 45 min de almuerzo hoy (12:00 PM – 12:45 PM). No lo volvemos a preguntar.")).toBeTruthy();
     expect(screen.queryByTestId("lunch-options")).toBeNull();
     fireEvent.press(screen.getByText(t("cta.finishDay")));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     view.unmount();
     setLanguage("en");
     render(<LunchModal {...props} />);
-    expect(screen.getByText(t("modals.lunchDone", { minutes: 45, start: "12:00 PM", end: "12:45 PM" }))).toBeTruthy();
-    expect(screen.getByText("We already deducted 45 min of lunch today (12:00 PM – 12:45 PM). We won't ask again.")).toBeTruthy();
-    expect(screen.queryByText("Ya descontamos 45 min de almuerzo hoy (12:00 PM – 12:45 PM). No lo volvemos a preguntar.")).toBeNull();
+    expect(t("modals.lunchDoneTitle")).toBe("Today's lunch");
+    expect(screen.getByText("Today's lunch")).toBeTruthy();
+    expect(screen.getByText(doneEn)).toBeTruthy();
+    expect(screen.queryByText(doneEs)).toBeNull();
+    expect(screen.queryByText("Almuerzo de hoy")).toBeNull();
     setLanguage("es");
   });
 

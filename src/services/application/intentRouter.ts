@@ -44,6 +44,7 @@ import {
   confirmExit,
   exportLedgerIncident,
   exportSupportDiagnostic,
+  exportRangePdf,
   generateWeeklyPayroll,
   provisionAdminPin,
   requestCalendarChange,
@@ -259,6 +260,11 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         return report(await EvidencePackService.shareEmployee(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
       case "SHARE_EMPLOYER":
         return report(await EvidencePackService.shareEmployer(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
+      case "EXPORT_RANGE_PDF": {
+        const r = await exportRangePdf(intent.periodStart, intent.periodEnd);
+        if (r.ok) FeedbackService.emit("RANGE_PDF_SHARED");
+        return r.ok ? { ok: true, data: { uri: r.uri, name: r.name } } : report(r);
+      }
       case "EXPORT_PACK": {
         // §16: reutiliza el pack más reciente del periodo; si no hay, sella
         // (certificado; un periodo no certificable se remite al flujo de Reportes).
