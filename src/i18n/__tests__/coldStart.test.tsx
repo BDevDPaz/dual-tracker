@@ -3,8 +3,17 @@ import React, { useEffect, useState } from "react";
 import { Text } from "react-native";
 import { render, screen, waitFor } from "@testing-library/react-native";
 import { setLanguage, t, useLanguage } from "..";
+import * as Notifications from "expo-notifications";
+import { NOTIFICATION_ACTIONS } from "../../constants/notifications";
 import { applyPersistedLanguage } from "../../core/boot";
+import { SessionEngineService } from "../../services/domain/SessionEngineService";
+import { PersistenceService } from "../../services/persistence/PersistenceService";
 import { SettingsService } from "../../services/persistence/SettingsService";
+import { NotificationService } from "../../services/runtime/NotificationService";
+import { HOUR } from "../../../test/fixtures/session.fixture";
+import { makeExit } from "../../../test/fixtures/spatial.fixture";
+import { startAndArrive, seedWorld } from "../../../test/helpers";
+import { time } from "../../../test/time";
 
 function Gate() {
   useLanguage();
@@ -42,5 +51,26 @@ describe("arranque en frío", () => {
     render(<Gate />);
     await waitFor(() => expect(screen.getByTestId("tab").props.children).toBe(t("tabs.today")));
     expect(screen.getByTestId("tab").props.children).toBe("Hoy");
+  });
+
+  test("F03: un botón pulsado con la app cerrada se despacha al arrancar", async () => {
+    const { siteA } = await seedWorld();
+    const s = await startAndArrive(siteA);
+    time.travel(HOUR);
+    await SessionEngineService.dispatch({ type: "EXIT_DETECTED", fact: makeExit({ sessionId: s.id, timestampMs: time.now() }) }, "GEOFENCE");
+    (Notifications as unknown as { __state: { lastResponse: unknown } }).__state.lastResponse = {
+      actionIdentifier: NOTIFICATION_ACTIONS.END_SESSION,
+      notification: { request: { identifier: `dualtracker-exit-${s.id}`, content: { data: { sessionId: s.id, kind: "EXIT_DECISION" } } } },
+    };
+    await NotificationService.init({
+      intent: async (intent) => {
+        await SessionEngineService.dispatch(intent, "NOTIFICATION");
+      },
+      ui: () => {},
+    });
+    const closed = await PersistenceService.getSession(s.id);
+    expect(closed?.domainStatus).toBe("CERRADA");
+    const rows = await PersistenceService.listLedger({ sessionId: s.id });
+    expect(rows.some((e) => e.intent === "CLOSE_DAY" && e.actor === "USER")).toBe(true);
   });
 });

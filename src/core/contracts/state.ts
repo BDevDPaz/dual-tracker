@@ -61,5 +61,7 @@ export interface DualTrackerState {
     openOrphanReview: boolean;
     exitReopened: boolean;
     autoCloseBanner: string | null;
+    openHealth: boolean;
+    openMoveSite: boolean;
   };
 }

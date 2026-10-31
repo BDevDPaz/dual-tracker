@@ -61,6 +61,7 @@ beforeEach(async () => {
   ConcurrencyGuardService.__resetForTests();
   GeofenceRuntimeService.__resetForTests();
   ForegroundWorkService.__resetForTests();
+  (require("../src/services/runtime/NotificationService") as typeof import("../src/services/runtime/NotificationService")).NotificationService.__resetForTests();
   __resetMonitoringRecoveryForTests();
   (require("../src/services/runtime/deviceIntegrity") as typeof import("../src/services/runtime/deviceIntegrity")).__setDeviceProbeForTests(null);
   Store.reset();
@@ -91,6 +92,7 @@ beforeEach(async () => {
 afterEach(() => {
   // Ningún temporizador de debounce vivo entre casos (evita handles abiertos).
   GeofenceRuntimeService.__resetForTests();
+  (require("../src/services/runtime/NotificationService") as typeof import("../src/services/runtime/NotificationService")).NotificationService.__resetForTests();
   (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();
   // Un test que deja el idioma en EN no puede teñir el siguiente.
   (require("../src/i18n") as typeof import("../src/i18n")).setLanguage("es");

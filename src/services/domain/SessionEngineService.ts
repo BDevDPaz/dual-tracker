@@ -69,6 +69,8 @@ export interface SessionRuntimePorts {
   scheduleExitDecision(sessionId: number, firstExitAtMs: number, windowMs: number): Promise<void>;
   cancelExitDecision(sessionId: number): Promise<void>;
   onResumed?(sessionId: number): Promise<void>;
+  /** N14. Opcional: los tests que no lo cablean no avisan. */
+  notifyIntegrity?(sessionId: number): Promise<void>;
 }
 
 const NOOP_PORTS: SessionRuntimePorts = {
@@ -381,6 +383,11 @@ export const SessionEngineService = {
         if (intent.type === "RESUME" && saved.domainStatus === "ACTIVA") {
           await ports.onResumed?.(saved.id).catch((error) => {
             LoggingService.log("ROJO", "ERROR_EFECTO", "ERROR", "Lectura al reanudar falló", serializeError(error));
+          });
+        }
+        if (intent.type === "INTEGRITY_DEGRADE") {
+          await ports.notifyIntegrity?.(saved.id).catch((error) => {
+            LoggingService.log("ROJO", "ERROR_EFECTO", "ERROR", "Aviso de integridad falló", serializeError(error));
           });
         }
 

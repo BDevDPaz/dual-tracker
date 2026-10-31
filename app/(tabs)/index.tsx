@@ -98,9 +98,13 @@ export default function TodayScreen() {
     else if (uiRequests.correctSessionId) router.push(`/session/${uiRequests.correctSessionId}`);
     else if (uiRequests.openOrphanReview) {
       // La tarjeta de revisión ya está en Hoy. El aviso solo abre la app.
+    } else if (uiRequests.openHealth) router.push("/system/health");
+    else if (uiRequests.openMoveSite) {
+      const siteId = active?.siteId ?? target?.id ?? null;
+      router.push(siteId != null ? `/sites/${siteId}` : "/sites");
     } else return;
     void emit({ type: "CONSUME_UI_REQUEST" });
-  }, [uiRequests.openExitModal, uiRequests.exitReopened, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, emit, router]);
+  }, [uiRequests.openExitModal, uiRequests.exitReopened, uiRequests.openDailySetup, uiRequests.openExtendConfirm, uiRequests.correctSessionId, uiRequests.openOrphanReview, uiRequests.openHealth, uiRequests.openMoveSite, active?.siteId, target?.id, emit, router]);
 
   // Si el estado deja de ser SALIDA (p. ej. decidido desde la notificación), cerrar el hub.
   useEffect(() => {

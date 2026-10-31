@@ -55,6 +55,21 @@ describe("ForegroundWorkService", () => {
     setLanguage("es");
   });
 
+  test("N02: pausa y GPS apagado cambian el texto; el seguimiento normal conserva el de la jornada", async () => {
+    setLanguage("es");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Jornada en curso · registramos tu ubicación hasta que termines");
+    expect(await ForegroundWorkService.sync("PAUSADA", "PERIMETER")).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Pausado");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { notice: { site: "Sitio A", gps: "off", monitoring: "MONITORING" } })).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Sin GPS");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER", { notice: { site: "Sitio A", gps: "ok", monitoring: "MONITORING" } })).toMatchObject({ status: "running" });
+    expect(fgsBody()).toBe("Sitio A · Ubicación: correcto");
+    setLanguage("en");
+    expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running", reason: "UNCHANGED" });
+    expect(fgsBody()).toBe("Sitio A · Ubicación: correcto");
+  });
+
   test("en iOS arranca con deferred updates y sin foregroundService", async () => {
     Object.defineProperty(Platform, "OS", { value: "ios", configurable: true });
     expect(await ForegroundWorkService.sync("ACTIVA", "PERIMETER")).toMatchObject({ status: "running" });

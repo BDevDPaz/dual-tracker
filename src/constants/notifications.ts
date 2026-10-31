@@ -26,6 +26,24 @@ export const NOTIFICATION_ACTIONS = {
   EXTEND_SHIFT: "ACTION_EXTEND_SHIFT",
   /** N12: reanudar el almuerzo. */
   RESUME: "ACTION_RESUME",
+  /** N01: empieza la jornada del sitio propuesto. */
+  START_DAY: "ACTION_START_DAY",
+  /** N01: silencia solo el día en curso. */
+  SILENCE_DAY: "ACTION_SILENCE_DAY",
+  /** N07: otro trabajo. Abre el selector de traslado. */
+  OTHER_WORK: "ACTION_OTHER_WORK",
+  /** N07: mandado. TRANSFER_START con propósito ERRAND. */
+  ERRAND: "ACTION_ERRAND",
+  /** N13. */
+  TRANSIT_BACK: "ACTION_TRANSIT_BACK",
+  TRANSIT_ARRIVED: "ACTION_TRANSIT_ARRIVED",
+  /** N14 y N19: abre Salud. */
+  REPAIR: "ACTION_REPAIR",
+  /** N06: la persona confirma que trabaja en ese punto. */
+  OFFSITE_YES: "ACTION_OFFSITE_YES",
+  /** Tras cancelar un traslado lejos del origen. */
+  RETURN_TO_SITE: "ACTION_RETURN_TO_SITE",
+  FINISH_SHIFT: "ACTION_FINISH_SHIFT",
 } as const;
 
 export const NOTIFICATION_CATEGORIES = {
@@ -38,6 +56,10 @@ export const NOTIFICATION_CATEGORIES = {
   ORPHAN_REVIEW: "CATEGORY_ORPHAN_REVIEW",
   EXTEND_SHIFT: "CATEGORY_EXTEND_SHIFT",
   LUNCH_RESUME: "CATEGORY_LUNCH_RESUME",
+  TRANSIT: "CATEGORY_TRANSIT",
+  INTEGRITY: "CATEGORY_INTEGRITY",
+  OFFSITE: "CATEGORY_OFFSITE",
+  RETURN_OR_FINISH: "CATEGORY_RETURN_OR_FINISH",
 } as const;
 
 export const NOTIFICATION_CHANNELS = {

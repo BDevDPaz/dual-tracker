@@ -15,7 +15,7 @@ import { HelpButton } from "../../src/components/support/HelpButton";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
-import { selectComputedSessions, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
+import { selectComputedSessions, selectIsAdminUnlocked, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
 import { readTwoPositions } from "../../src/utils/locateReadings";
@@ -30,6 +30,7 @@ export default function SiteDetailScreen() {
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
   const site = Number.isFinite(siteId) ? selectSiteById(state, siteId) : null;
+  const unlocked = selectIsAdminUnlocked(state, nowMs);
   const [radius, setRadius] = useState<string | null>(null);
   const [dwell, setDwell] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -146,12 +147,22 @@ export default function SiteDetailScreen() {
 
         {site.active ? (
           <Card style={styles.card}>
-            <SiteRadiusField {...chain.props("radius")} value={radiusValue} onChangeText={setRadius} />
-            <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwellValue} onChangeText={setDwell} />
-            <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
-            {formDirty ? (
-              <Button label={t("common.save")} size="sm" disabled={radiusM === null || busy} isLoading={busy} onPress={() => void saveRadius()} />
-            ) : null}
+            {unlocked ? (
+              <>
+                <SiteRadiusField {...chain.props("radius")} value={radiusValue} onChangeText={setRadius} />
+                <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwellValue} onChangeText={setDwell} />
+                <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
+                {formDirty ? (
+                  <Button label={t("common.save")} size="sm" disabled={radiusM === null || busy} isLoading={busy} onPress={() => void saveRadius()} />
+                ) : null}
+              </>
+            ) : (
+              <>
+                <KeyValueRow label={t("sites.radius")} value={`${storedRadius} m`} />
+                <KeyValueRow label={t("sites.arrivalDwell")} value={storedDwell === "" ? t("common.notSet") : `${storedDwell} min`} />
+                <Text style={{ color: TOKENS.colors.text.secondary }}>{t("notifications.thresholdsLocked")}</Text>
+              </>
+            )}
           </Card>
         ) : null}
 

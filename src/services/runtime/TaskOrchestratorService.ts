@@ -190,6 +190,7 @@ export const TaskOrchestratorService = {
     await PersistenceService.deleteKv(KV_KEYS.EXIT_REOPEN).catch(() => {});
     armExitFailsafeInProcess();
     await NotificationService.notifyExitDetected(sessionId, firstExitAtMs);
+    await NotificationService.scheduleExitReminder(sessionId, firstExitAtMs, windowMs);
     if (exitTimer) clearTimeout(exitTimer);
     exitTimer = setTimeout(() => {
       exitTimer = null;

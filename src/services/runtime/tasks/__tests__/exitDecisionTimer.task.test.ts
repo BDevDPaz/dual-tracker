@@ -63,6 +63,18 @@ describe("exitDecisionTimer.task", () => {
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
   });
 
+  test("N09: a los 10 min hay un recordatorio; no hay un aviso que cierre la jornada", async () => {
+    const { s, firstExit } = await inSalida();
+    const scheduled = (Notifications as unknown as { __state: { scheduled: { identifier?: string; content: { data?: { kind?: string } }; trigger: { type?: string; date?: Date } }[]; cancelled: string[] } }).__state;
+    const remind = scheduled.scheduled.find((n) => n.identifier === `dualtracker-exit-remind-${s.id}`);
+    expect(remind?.trigger.type).toBe(Notifications.SchedulableTriggerInputTypes.DATE);
+    expect(remind?.content.data?.kind).toBe("EXIT_REMINDER");
+    expect(new Date(remind!.trigger.date as Date).getTime()).toBe(firstExit + 10 * MIN);
+    expect(scheduled.scheduled.some((n) => n.identifier === `dualtracker-exit-close-${s.id}`)).toBe(false);
+    await TaskOrchestratorService.cancelExitDecision(s.id);
+    expect(scheduled.cancelled).toEqual(expect.arrayContaining([`dualtracker-exit-remind-${s.id}`]));
+  });
+
   test("si el usuario ya eligió STAY_WORKING, el plazo caduca sin cerrar", async () => {
     const { s } = await inSalida();
     await mustDispatch({ type: "STAY_WORKING" });

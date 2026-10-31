@@ -58,6 +58,8 @@ async function syncRuntimeFor(session: SessionRecord, geofenceSiteId: number | n
     if (geofenceSiteId !== null) await GeofenceRuntimeService.startMonitoring(session.id, geofenceSiteId);
     const notice = await buildForegroundNotice(session).catch(() => null);
     await ForegroundWorkService.sync(session.domainStatus, settings.company.traceMode, notice ? { notice } : undefined);
+    if (session.domainStatus === "TRASLADO") await NotificationService.notifyTransit(session.id).catch(() => {});
+    else await NotificationService.dismissTransit(session.id).catch(() => {});
   }
   StoreActions.healthUpdated({
     isMonitoring: await GeofenceRuntimeService.isMonitoring(),
@@ -71,6 +73,9 @@ function wirePorts(): void {
     scheduleExitDecision: (id, firstExit, windowMs) => TaskOrchestratorService.scheduleExitDecision(id, firstExit, windowMs),
     cancelExitDecision: (id) => TaskOrchestratorService.cancelExitDecision(id),
     onResumed: () => GeofenceRuntimeService.sampleExitAfterResume(),
+    notifyIntegrity: async (id) => {
+      await NotificationService.notifyIntegrity(id);
+    },
   });
   TraceRecorderService.setSink((fact) => SessionEngineService.recordSpatialFact(fact));
   // spec v1.3 §13: el ledger recibe el digester de notas (HMAC con clave HKDF de la MK).
