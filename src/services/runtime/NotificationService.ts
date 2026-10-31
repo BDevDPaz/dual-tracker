@@ -171,7 +171,6 @@ async function ensureCategories(): Promise<void> {
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.EXIT_DETECTION, [
     button(NOTIFICATION_ACTIONS.END_SESSION, t("notifications.actionDoneToday")),
     button(NOTIFICATION_ACTIONS.OTHER_WORK, t("notifications.actionOtherWork"), true),
-    button(NOTIFICATION_ACTIONS.ERRAND, t("notifications.actionErrand")),
     button(NOTIFICATION_ACTIONS.STAY_WORKING, t("notifications.actionStillHere")),
   ]);
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.DAILY_REMINDER, [

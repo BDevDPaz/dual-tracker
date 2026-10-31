@@ -20,7 +20,7 @@
  */
 import * as Location from "expo-location";
 import { Platform } from "react-native";
-import type { SessionRecordStatus, TraceMode } from "../../core/contracts";
+import type { SessionRecord, SessionRecordStatus, TraceMode } from "../../core/contracts";
 import { BREADCRUMB_TASK_NAME } from "../../constants/geolocation";
 import { t } from "../../i18n";
 import type { ForegroundNotice } from "./monitoringSnapshot";
@@ -48,16 +48,32 @@ export interface ForegroundSyncResult {
   errorName: string | null;
 }
 
-function statusCue(status: SessionRecordStatus | "NO_INICIADA", notice?: ForegroundNotice | null): string {
-  if (notice?.gps === "off") return "gps:off";
-  if (notice) return `notice:${notice.site}|${notice.gps}|${notice.monitoring}`;
-  return status === "PAUSADA" ? "paused" : "following";
+type PauseKind = "lunch" | "rest" | "other";
+
+function pauseKindOf(session: SessionRecord | null): PauseKind {
+  if (!session) return "other";
+  if (session.lunch.startAtMs != null && session.lunch.endAtMs == null) return "lunch";
+  if ((session.bookkeeping.pauses ?? []).some((pause) => pause.kind === "REST" && pause.endAtMs == null)) return "rest";
+  return "other";
 }
 
-function nextForegroundBody(status: SessionRecordStatus | "NO_INICIADA", notice?: ForegroundNotice | null): string {
+function pauseBody(kind: PauseKind): string {
+  if (kind === "lunch") return t("notifications.fgsPausedLunch");
+  if (kind === "rest") return t("notifications.fgsPausedRest");
+  return t("notifications.fgsPaused");
+}
+
+function statusCue(status: SessionRecordStatus | "NO_INICIADA", notice: ForegroundNotice | null | undefined, pause: PauseKind | null): string {
+  if (notice?.gps === "off") return "gps:off";
+  if (status === "PAUSADA") return `paused:${pause ?? "other"}`;
+  if (notice) return `notice:${notice.site}|${notice.gps}|${notice.monitoring}`;
+  return "following";
+}
+
+function nextForegroundBody(status: SessionRecordStatus | "NO_INICIADA", notice: ForegroundNotice | null | undefined, pause: PauseKind | null): string {
   if (notice?.gps === "off") return t("notifications.fgsNoGps");
+  if (status === "PAUSADA") return pauseBody(pause ?? "other");
   if (notice) return renderForegroundBody(notice);
-  if (status === "PAUSADA") return t("notifications.fgsPaused");
   return t("notifications.fgsBody");
 }
 
@@ -120,9 +136,10 @@ export const ForegroundWorkService = {
       return { status: "stopped", reason: "NOT_REQUIRED", errorName: null };
     }
     const key = `${Platform.OS}:${profile.timeIntervalMs}:${profile.distanceIntervalM}`;
-    const keepLiveNotice = opts?.notice === undefined && !opts?.relabel && appliedCue != null && appliedCue.startsWith("notice:");
-    const cue = keepLiveNotice ? appliedCue! : statusCue(status, opts?.notice ?? null);
-    const nextBody = keepLiveNotice ? (appliedBody ?? nextForegroundBody(status, null)) : nextForegroundBody(status, opts?.notice ?? null);
+    const pause = status === "PAUSADA" ? pauseKindOf(await PersistenceService.getOpenSession().catch(() => null)) : null;
+    const keepLiveNotice = pause == null && opts?.notice === undefined && !opts?.relabel && appliedCue != null && appliedCue.startsWith("notice:");
+    const cue = keepLiveNotice ? appliedCue! : statusCue(status, opts?.notice, pause);
+    const nextBody = keepLiveNotice ? (appliedBody ?? nextForegroundBody(status, null, null)) : nextForegroundBody(status, opts?.notice, pause);
     const body = opts?.relabel || appliedBody == null || cue !== appliedCue ? nextBody : appliedBody;
     const running = await ForegroundWorkService.isRunning();
     if (running && key === currentProfileKey && !opts?.relabel && body === appliedBody) {

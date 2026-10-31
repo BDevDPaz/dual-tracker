@@ -49,15 +49,15 @@ describe("PR3 notificaciones", () => {
     const s = await startAndArrive(siteA);
     time.travel(HOUR);
     await NotificationService.notifyExitDetected(s.id, time.now());
-    const actions = notificationState.categories.get(NOTIFICATION_CATEGORIES.EXIT_DETECTION) as { identifier: string; options?: { opensAppToForeground?: boolean } }[];
+    const actions = notificationState.categories.get(NOTIFICATION_CATEGORIES.EXIT_DETECTION) as { identifier: string; buttonTitle?: string; options?: { opensAppToForeground?: boolean } }[];
     expect(actions.map((a) => a.identifier)).toEqual([
       NOTIFICATION_ACTIONS.END_SESSION,
       NOTIFICATION_ACTIONS.OTHER_WORK,
-      NOTIFICATION_ACTIONS.ERRAND,
       NOTIFICATION_ACTIONS.STAY_WORKING,
     ]);
+    expect(actions.map((a) => a.buttonTitle)).toEqual(["Terminar jornada", "Otro trabajo", "Sigo trabajando"]);
     expect(actions[1]?.options?.opensAppToForeground).toBe(true);
-    expect(actions[3]?.options?.opensAppToForeground).toBe(false);
+    expect(actions[2]?.options?.opensAppToForeground).toBe(false);
     const seen = await wire();
     press(NOTIFICATION_ACTIONS.END_SESSION, s.id, `dualtracker-exit-${s.id}`);
     await settle(() => seen.some((i) => i.type === "CLOSE_DAY"));
@@ -67,7 +67,7 @@ describe("PR3 notificaciones", () => {
     expect(close?.actor).toBe("USER");
   });
 
-  test("N07: Otro trabajo abre el traslado y Mandado despacha el recado", async () => {
+  test("N07: Otro trabajo abre el traslado y la jornada sigue activa", async () => {
     const { siteA } = await seedWorld();
     const s = await startAndArrive(siteA);
     time.travel(HOUR);
@@ -83,11 +83,6 @@ describe("PR3 notificaciones", () => {
     press(NOTIFICATION_ACTIONS.OTHER_WORK, s.id, `dualtracker-exit-${s.id}`);
     await settle(() => ui.some((req) => req.openDailySetup === "transit"));
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
-    press(NOTIFICATION_ACTIONS.ERRAND, s.id, `dualtracker-exit-${s.id}`, { siteId: siteA });
-    await settle(async () => (await PersistenceService.getSession(s.id))?.domainStatus === "TRASLADO");
-    const moved = (await PersistenceService.getSession(s.id))!;
-    expect(moved.domainStatus).toBe("TRASLADO");
-    expect(moved.transitSegments.at(-1)?.purpose).toBe("ERRAND");
   });
 
   test("C10/E23: N01 propone el último sitio activo y, si está archivado, abre el selector", async () => {

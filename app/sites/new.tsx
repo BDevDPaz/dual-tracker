@@ -27,7 +27,6 @@ export default function NewSiteScreen() {
   const [client, setClient] = useState("");
   const [notes, setNotes] = useState("");
   const [radius, setRadius] = useState(String(state.settings.company.defaultRadiusM));
-  const [dwell, setDwell] = useState("");
   const { busy, run } = useBusyAction();
   const [saved, setSaved] = useState<Site | null>(null);
 
@@ -46,7 +45,6 @@ export default function NewSiteScreen() {
           clientName: client.trim() || null,
           notes: notes.trim() || null,
           radiusM: savedRadius,
-          arrivalDwellMs: dwell.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwell.replace(",", ".")) || 0))) * 60_000,
         },
       });
       if (res.ok && res.data) setSaved(res.data as Site);
@@ -66,7 +64,6 @@ export default function NewSiteScreen() {
           clientName: client.trim() || null,
           notes: notes.trim() || null,
           radiusM: savedRadius,
-          arrivalDwellMs: dwell.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwell.replace(",", ".")) || 0))) * 60_000,
         },
       });
       if (res.ok && res.data) setSaved(res.data as Site);
@@ -82,8 +79,6 @@ export default function NewSiteScreen() {
       <Input {...chain.props("client")} label={t("sites.client")} value={client} onChangeText={setClient} />
       <Input {...chain.props("notes")} label={t("sites.notes")} value={notes} onChangeText={setNotes} multiline />
       <SiteRadiusField {...chain.props("radius")} value={radius} onChangeText={setRadius} />
-      <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwell} onChangeText={setDwell} />
-      <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
 
       <Card style={styles.card}>
         <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("sites.coords")}</Text>

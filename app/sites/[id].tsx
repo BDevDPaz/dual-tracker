@@ -8,7 +8,7 @@ import { Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ConfirmActionModal } from "../../src/components/modals";
 import { SiteRadiusField } from "../../src/components/sites/SiteRadiusField";
-import { Button, Card, Input, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
+import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
@@ -32,7 +32,6 @@ export default function SiteDetailScreen() {
   const site = Number.isFinite(siteId) ? selectSiteById(state, siteId) : null;
   const unlocked = selectIsAdminUnlocked(state, nowMs);
   const [radius, setRadius] = useState<string | null>(null);
-  const [dwell, setDwell] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmMove, setConfirmMove] = useState(false);
   const [locateError, setLocateError] = useState(false);
@@ -40,12 +39,7 @@ export default function SiteDetailScreen() {
   const storedRadius = site?.radiusM ?? state.settings.company.defaultRadiusM;
   const radiusValue = radius ?? String(storedRadius);
   const radiusM = parseSiteRadius(radiusValue);
-  const storedDwell = site?.arrivalDwellMs == null ? "" : String(Math.round(site.arrivalDwellMs / 60_000));
-  const dwellValue = dwell ?? storedDwell;
-  const dwellMs = dwellValue.trim() === "" ? null : Math.min(30, Math.max(0, Math.round(Number(dwellValue.replace(",", ".")) || 0))) * 60_000;
   const radiusDirty = site != null && radius !== null && radiusM !== storedRadius;
-  const dwellDirty = site != null && dwell !== null && dwellMs !== (site.arrivalDwellMs ?? null);
-  const formDirty = radiusDirty || dwellDirty;
 
   const saveRadius = () => {
     if (!site || radiusM === null) return;
@@ -60,18 +54,14 @@ export default function SiteDetailScreen() {
           clientName: site.clientName,
           notes: site.notes,
           radiusM: savedRadius,
-          arrivalDwellMs: dwellMs,
         },
       });
-      if (res.ok) {
-        setRadius(null);
-        setDwell(null);
-      }
+      if (res.ok) setRadius(null);
       return res;
     });
   };
   const chain = useFormFocusChain(FORM_FIELDS.siteRadius, {
-    canSubmit: formDirty && radiusM !== null && !busy,
+    canSubmit: radiusDirty && radiusM !== null && !busy,
     onSubmit: () => void saveRadius(),
   });
 
@@ -150,16 +140,13 @@ export default function SiteDetailScreen() {
             {unlocked ? (
               <>
                 <SiteRadiusField {...chain.props("radius")} value={radiusValue} onChangeText={setRadius} />
-                <Input {...chain.props("arrivalDwell")} label={t("sites.arrivalDwell")} value={dwellValue} onChangeText={setDwell} />
-                <Text style={{ color: TOKENS.colors.text.secondary }}>{t("sites.arrivalDwellHint")}</Text>
-                {formDirty ? (
+                {radiusDirty ? (
                   <Button label={t("common.save")} size="sm" disabled={radiusM === null || busy} isLoading={busy} onPress={() => void saveRadius()} />
                 ) : null}
               </>
             ) : (
               <>
                 <KeyValueRow label={t("sites.radius")} value={`${storedRadius} m`} />
-                <KeyValueRow label={t("sites.arrivalDwell")} value={storedDwell === "" ? t("common.notSet") : `${storedDwell} min`} />
                 <Text style={{ color: TOKENS.colors.text.secondary }}>{t("notifications.thresholdsLocked")}</Text>
               </>
             )}
