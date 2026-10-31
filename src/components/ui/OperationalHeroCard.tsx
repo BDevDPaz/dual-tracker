@@ -127,7 +127,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
             <View style={[styles.metricBlockRight, narrow && styles.metricBlock]}>
               <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{t("today.gross").toUpperCase()}</Text>
               <Text
-                style={[styles.timerValue, narrow && styles.metricBigValueNarrow, { color: colors.primary }]}
+                style={[styles.timerValue, narrow && styles.metricBigValueNarrow, { color: colors.goldText }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}

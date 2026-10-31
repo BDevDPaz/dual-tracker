@@ -20,7 +20,7 @@ type ArrivalMarkProps = {
 /**
  * Concepto D · Llegada confirmada. El check es un recorte: se ve el fondo
  * de la pastilla, el aviso o la línea de tiempo. El pin usa el acento
- * (mutedGold en oscuro, gold en claro) y la línea el texto secundario.
+ * (texto dorado del tema) y la línea el texto secundario.
  */
 export function ArrivalMark({
   size = ICON.xl,
@@ -31,7 +31,7 @@ export function ArrivalMark({
 }: ArrivalMarkProps) {
   useLanguage();
   const { colors } = useTheme();
-  const pin = color ?? colors.primary;
+  const pin = color ?? colors.goldText;
   const line = lineColor ?? colors.text.secondary;
   const maskId = `dt-arrival-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (

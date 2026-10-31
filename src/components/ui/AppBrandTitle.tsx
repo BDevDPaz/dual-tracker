@@ -107,13 +107,13 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
             style={[
               styles.accentGlow,
               accentAnimatedStyle,
-              { backgroundColor: colors.primary },
+              { backgroundColor: colors.goldText },
             ]}
           />
 
           <Text style={[styles.title, { color: colors.text.primary }]}>
             <Text
-              style={[styles.titleAccent, { color: colors.primary }]}
+              style={[styles.titleAccent, { color: colors.goldText }]}
             >
               Dual
             </Text>
@@ -135,7 +135,7 @@ export function AppBrandTitle({ subtitle: subtitleProp }: AppBrandTitleProps) {
           style={[
             styles.lineAccent,
             lineAnimatedStyle,
-            { backgroundColor: colors.primary },
+            { backgroundColor: colors.goldText },
           ]}
         />
       </View>

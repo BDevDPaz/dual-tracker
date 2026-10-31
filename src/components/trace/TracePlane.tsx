@@ -130,7 +130,7 @@ export function TracePlane({ facts, sites, gaps, summary, height = 280 }: Props)
                   <Circle key={c.id} cx={c.cx} cy={c.cy} r={c.r} fill={colors.statusBg.info} stroke={colors.status.info} strokeWidth={1.5} />
                 ))}
                 {model.segments.map((points, i) => (
-                  <Polyline key={i} points={points} fill="none" stroke={colors.primary} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+                  <Polyline key={i} points={points} fill="none" stroke={colors.goldText} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
                 ))}
                 {model.markers
                   .filter((m) => m.role === "exit")
@@ -144,7 +144,7 @@ export function TracePlane({ facts, sites, gaps, summary, height = 280 }: Props)
                   .filter((m) => m.role !== "exit")
                   .map((m) => (
                     <View key={m.key} style={[styles.mark, { left: m.x - ICON.md / 2, top: m.y - ICON.md }]} pointerEvents="none">
-                      <ArrivalMark size={ICON.md} color={m.role === "transfer" ? colors.status.info : colors.primary} decorative />
+                      <ArrivalMark size={ICON.md} color={m.role === "transfer" ? colors.status.info : colors.goldText} decorative />
                     </View>
                   ))
               : null}

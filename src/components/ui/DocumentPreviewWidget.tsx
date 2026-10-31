@@ -68,7 +68,7 @@ export function DocumentPreviewWidget({
   return (
     <View style={[styles.container, inset && styles.inset]}>
       <View style={styles.docHeader}>
-        <Ionicons name="document-text-outline" size={ICON.sm} color={colors.primary} />
+        <Ionicons name="document-text-outline" size={ICON.sm} color={colors.goldText} />
         <Text style={[styles.docHeaderText, { color: colors.text.secondary }]}>{t("report.previewTitle")}</Text>
       </View>
 
@@ -127,7 +127,7 @@ export function DocumentPreviewWidget({
           accessibilityHint={t("report.hashHint")}
           testID="preview-hash"
         >
-          <Ionicons name="finger-print-outline" size={ICON.sm} color={colors.primary} />
+          <Ionicons name="finger-print-outline" size={ICON.sm} color={colors.goldText} />
           <View style={styles.hashText}>
             <Text style={[styles.hashLabel, { color: colors.text.secondary }]}>{t("report.hash")}</Text>
             <Text style={[styles.hashValue, { color: colors.text.primary }]}>…{tail}</Text>

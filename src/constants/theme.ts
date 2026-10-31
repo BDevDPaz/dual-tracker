@@ -1,7 +1,10 @@
 /**
- * THEME TOKENS — W Tracker «Control diario», sobre el cristal oscuro.
- * Fondo #0A0A0C, tarjetas #121214, campos y secundarios #1A1A1C,
- * divisores #33343A, oro #D4AF37. Montserrat 400/500/600.
+ * THEME TOKENS — Dual Tracker V1.0.0.
+ * Fondo #0E0E0E, tarjetas #121212, campos y elevados #1E1E1E,
+ * borde #2A2A2A, divisores #33343A.
+ * Relleno primario #F6C452, texto sobre ese relleno #1C1B19.
+ * Texto dorado y acentos lineales: #F6C452 en oscuro, #7A5D0A en claro.
+ * Inter 400/500/600.
  */
 
 import { Platform } from "react-native";
@@ -12,23 +15,24 @@ export type ThemePreference = "system" | "dark" | "light";
 
 /** Paleta oscura (por defecto, userInterfaceStyle "dark"). */
 export const PALETTE_DARK = {
-  obsidian: "#0A0A0C", // Fondo
-  graphite: "#121214", // Tarjetas
-  carbonMist: "#1A1A1C", // Campos y botón secundario
-  steelLine: "#1F1F22", // Borde 1 px
+  obsidian: "#0E0E0E", // Fondo
+  graphite: "#121212", // Tarjetas
+  carbonMist: "#1E1E1E", // Campos, elevado y botón secundario
+  steelLine: "#2A2A2A", // Borde 1 px
   divider: "#33343A",
   textPrimary: "#FFFFFF",
-  textSecondary: "#9A9AA0",
+  textSecondary: "#A8A9AB", // Gris de marca
   textMuted: "#6B6B72",
-  mutedGold: "#D4AF37", // Acción primaria, selección y dinero
-  successGreen: "#27AE60",
-  amberWarning: "#F2994A",
-  deepRed: "#EB5757",
-  slateBlue: "#2F80ED",
+  mutedGold: "#F6C452", // Relleno primario (botón, chip sólido)
+  goldText: "#F6C452", // Enlaces, texto dorado y acentos lineales
+  successGreen: "#5CD65C",
+  amberWarning: "#F8C650",
+  deepRed: "#D9534F",
+  slateBlue: "#4A90E2",
 };
 
 /**
- * Alto contraste: mismo oro, texto y bordes más claros sobre negro.
+ * Alto contraste: mismo oro de Dual Tracker V1.0.0, texto y bordes más claros sobre negro.
  * No sustituye a theme (system | dark | light); es una capa aparte.
  */
 export const PALETTE_CONTRAST: typeof PALETTE_DARK = {
@@ -40,11 +44,12 @@ export const PALETTE_CONTRAST: typeof PALETTE_DARK = {
   textPrimary: "#FFFFFF",
   textSecondary: "#F2F2F2",
   textMuted: "#D0D0D0",
-  mutedGold: "#D4AF37",
-  successGreen: "#3DDC97",
-  amberWarning: "#FFC14D",
-  deepRed: "#FF6B6B",
-  slateBlue: "#9AD7FF",
+  mutedGold: "#F6C452",
+  goldText: "#F6C452",
+  successGreen: "#5CD65C",
+  amberWarning: "#F8C650",
+  deepRed: "#D9534F",
+  slateBlue: "#4A90E2",
 };
 
 /** Paleta clara ("papel"): preparada y cableada en primitivas; el selector sigue oculto. */
@@ -54,14 +59,15 @@ export const PALETTE_LIGHT: typeof PALETTE_DARK = {
   carbonMist: "#FBF9F4",
   steelLine: "#D6CFC1",
   divider: "#C8C0B2",
-  textPrimary: "#1A1714", // ink
+  textPrimary: "#1C1B19", // ink, alineada a onPrimary
   textSecondary: "#5A534A",
   textMuted: "#8A8378",
-  mutedGold: "#8A6D1F", // gold
-  successGreen: "#1E7F47",
-  amberWarning: "#A85A12",
-  deepRed: "#B83227",
-  slateBlue: "#3F5963",
+  mutedGold: "#F6C452", // Relleno del botón primario
+  goldText: "#7A5D0A", // Enlaces, texto dorado pequeño y acentos lineales
+  successGreen: "#5CD65C",
+  amberWarning: "#F8C650",
+  deepRed: "#D9534F",
+  slateBlue: "#4A90E2",
 };
 
 /** Compatibilidad: PALETTE sigue siendo la oscura. */
@@ -80,7 +86,12 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
     background: p.obsidian,
     surface: p.graphite,
     surfaceElevated: p.carbonMist,
+    /** Relleno primario (#F6C452). El texto encima es onPrimary, no este hex. */
     primary: p.mutedGold,
+    /** Texto e icono sobre el relleno primario. Claro y oscuro. */
+    onPrimary: "#1C1B19",
+    /** Enlaces, texto dorado y acentos lineales. En claro no es el relleno. */
+    goldText: p.goldText,
     border: p.steelLine,
     text: {
       primary: p.textPrimary,
@@ -102,18 +113,19 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
       info: withAlpha(p.slateBlue, STATUS_BG_ALPHA),
       primary: withAlpha(p.mutedGold, STATUS_BG_ALPHA),
     },
-    /** Texto sobre botones sólidos danger/success. */
+    /** Texto sobre botones sólidos danger (el rojo de marca aguanta blanco). */
     onDanger: "#FFFFFF",
-    onSuccess: "#FFFFFF",
-    /** Anillo de foco de Input: primario al 40 %. */
-    /** Campos y botón secundario (#1A1A1C en oscuro). */
+    /** Texto sobre el verde de marca: el relleno es claro, la tinta es #1C1B19. */
+    onSuccess: "#1C1B19",
+    /** Anillo de foco de Input: texto dorado al 40 %. */
+    /** Campos y botón secundario (#1E1E1E en oscuro). */
     input: p.carbonMist,
     divider: p.divider,
-    focusRing: withAlpha(p.mutedGold, 0.4),
+    focusRing: withAlpha(p.goldText, 0.4),
     overlay: scheme === "dark" ? "rgba(0, 0, 0, 0.65)" : "rgba(26, 23, 20, 0.35)",
     /** Cristal (hero y modales): la tarjeta sólida se lee debajo del desenfoque. */
     glass: {
-      fill: scheme === "dark" ? "rgba(18, 18, 20, 0.92)" : "rgba(255, 255, 255, 0.72)",
+      fill: scheme === "dark" ? "rgba(18, 18, 18, 0.92)" : "rgba(255, 255, 255, 0.72)",
       hairline: p.steelLine,
       blurTint: scheme === "dark" ? ("dark" as const) : ("light" as const),
     },
@@ -312,15 +324,15 @@ export const SPACING = {
 
 export type FontWeight = "400" | "500" | "600";
 
-/** Familias de @expo-google-fonts/montserrat cargadas con useFonts en app/_layout.tsx. */
+/** Familias de @expo-google-fonts/inter cargadas con useFonts en app/_layout.tsx. */
 export const FONT_FAMILY: Record<FontWeight, string> = {
-  "400": "Montserrat_400Regular",
-  "500": "Montserrat_500Medium",
-  "600": "Montserrat_600SemiBold",
+  "400": "Inter_400Regular",
+  "500": "Inter_500Medium",
+  "600": "Inter_600SemiBold",
 };
 
 /**
- * Montserrat del peso pedido. En Android la familia ya ES el peso (sumar
+ * Inter del peso pedido. En Android la familia ya ES el peso (sumar
  * fontWeight provoca negrita sintética o caída a la fuente del sistema); en
  * iOS/web se conserva fontWeight para que, si las fuentes no cargan, la caída
  * a la fuente del sistema mantenga la jerarquía.

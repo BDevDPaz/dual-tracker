@@ -41,7 +41,7 @@ export default function TabsLayout() {
         // repinta también las que no están enfocadas.
         freezeOnBlur: false,
         sceneStyle: { backgroundColor: colors.background },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.goldText,
         tabBarInactiveTintColor: colors.text.muted,
         tabBarHideOnKeyboard: true,
         tabBarStyle: exitPending
@@ -67,7 +67,7 @@ export default function TabsLayout() {
                     width: TOKENS.layout.dot,
                     height: TOKENS.layout.dot,
                     borderRadius: TOKENS.radius.pill,
-                    backgroundColor: colors.primary,
+                    backgroundColor: colors.goldText,
                   }}
                   accessibilityElementsHidden
                 />

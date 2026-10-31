@@ -35,9 +35,9 @@ export function SelectableCard({
   const reduceMotion = useMotionPreference();
   const palette = {
     backgroundColor: selected ? colors.statusBg.primary : colors.surface,
-    borderColor: selected ? colors.primary : colors.border,
+    borderColor: selected ? colors.goldText : colors.border,
   };
-  const labelColor = disabled ? colors.text.muted : selected ? colors.primary : colors.text.primary;
+  const labelColor = disabled ? colors.text.muted : selected ? colors.goldText : colors.text.primary;
   const body = (
     <>
       <Text style={[styles.label, { color: labelColor }]}>{label}</Text>

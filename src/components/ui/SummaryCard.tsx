@@ -39,10 +39,10 @@ export function SummaryCard({ hoursLabel, hours, moneyLabel, money, inset = fals
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
       <View style={styles.metricZone}>
         <View style={styles.metricHeader}>
-          <Ionicons name="cash-outline" size={ICON.xl} color={colors.primary} />
+          <Ionicons name="cash-outline" size={ICON.xl} color={colors.goldText} />
           <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>{moneyLabel}</Text>
         </View>
-        <Text style={[styles.metricValue, { color: colors.primary }]}>{money}</Text>
+        <Text style={[styles.metricValue, { color: colors.goldText }]}>{money}</Text>
       </View>
     </Animated.View>
   );

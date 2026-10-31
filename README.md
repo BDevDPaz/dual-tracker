@@ -104,7 +104,7 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 ```
 dual-tracker/
 ├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 36 rutas, sin `__tests__` (Producto §2)
-│   ├── _layout.tsx              fuentes Montserrat, Theme/Toast, FeedbackBridge, boot(), registro de tareas
+│   ├── _layout.tsx              fuentes Inter, Theme/Toast, FeedbackBridge, boot(), registro de tareas
 │   ├── index.tsx                gate: hidratación → onboarding → descargo → tabs
 │   ├── +not-found.tsx  +html.tsx
 │   ├── (boot)/                  _layout, hydrating
@@ -236,7 +236,7 @@ W Tracker, LEDTracker y GEOTrack son proyectos fuente anteriores, no el nombre d
 
 | Origen | Portado a | Notas |
 |---|---|---|
-| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | El design system salió de GEOTrack. Los tokens vigentes son W Tracker «Control diario» (`src/constants/theme.ts`, PR #33): fondo `#0A0A0C`, tarjetas `#121214`, oro `#D4AF37`, Montserrat 400/500/600. El nombre del producto es Dual Tracker V1.0.0. Se quitaron los nombres en duro ("GEOTrack Solutions Inc."). |
+| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | El design system salió de GEOTrack. Los tokens vigentes son Dual Tracker V1.0.0 (`src/constants/theme.ts`): Inter 400/500/600; fondo `#0E0E0E`, tarjetas `#121212`, elevados y campos `#1E1E1E`, borde `#2A2A2A`; relleno primario `#F6C452` con texto `#1C1B19`; texto dorado en claro `#7A5D0A`; info `#4A90E2`, éxito `#5CD65C`, aviso `#F8C650`, peligro `#D9534F`, gris `#A8A9AB`. El nombre del producto es Dual Tracker V1.0.0. Se quitaron los nombres en duro ("GEOTrack Solutions Inc."). |
 | **GEOTrack** | `core/store`, `core/selectors`, `core/hooks/useWorkTracker` | Suscripción reactiva real. `dispatch(DomainEvent)` pasa a ser `emit(ViewIntent)`. |
 | **GEOTrack** | `domain/sessionMachine`, `SessionEngineService` | Transiciones de jornada, almuerzo, traslado, salida, auto-cierre de 12 h, anti-rebote. Estados en español (NO_INICIADA…CERRADA). |
 | **GEOTrack** | `persistence/PersistenceService`, `schema`, `mappers` | SQLite WAL, migraciones, `checkOverlap`, borrado lógico. |
@@ -427,7 +427,7 @@ Detalle: `docs/SOPORTE.md`. Entra con el PR #7 y el texto vigente es `soporte.v6
 
 Detalle: `docs/UI_PREMIUM.md` (PR #14) y `docs/COMPROBANTES_PREMIUM.md` (PR #15). La plantilla vigente es la v3 (`DOCUMENT_VERSION` en `src/core/contracts/evidence.ts`).
 
-- El restyle (obsidiana, oro `#C5A059`, Montserrat 400/500/600, ritmo de 8 px) no cambia la nómina, el libro ni los hashes.
+- El restyle de presentación (ritmo de 8 px) no cambia la nómina, el libro ni los hashes. La interfaz vigente usa Inter y los tokens de Dual Tracker V1.0.0 en `src/constants/theme.ts`.
 - Un sello nuevo pinta el comprobante premium. `documentVersion`, `documentTheme` y `documentLocale` quedan fuera de `packHash` y de `contentHash`. Un expediente ya sellado no se reescribe.
 - La v2 es el papel premium: tema claro por defecto, idioma del perfil al sellar, QR del `packHash` (sin URL ni red), firma y anexos.
 - La v3 es ese mismo papel más el anexo de tramos de tránsito y la identidad del build en el pie.
@@ -546,7 +546,7 @@ Etiquetas para TalkBack, textos y contraste del comprobante. No cambia la matem�
 
 ## Hecho en el rediseño visual (PR #33)
 
-Capa de presentación, sobre los tokens que ya existían (`ModalShell`, `OperationalHeroCard`). No hay un tema paralelo. Las marcas A «Pin-Reloj» y D «Llegada confirmada» se quedan. La paleta de la interfaz es W Tracker «Control diario»: fondo `#0A0A0C`, tarjetas `#121214`, oro `#D4AF37` (`PALETTE_DARK` en `src/constants/theme.ts`). El selector claro de la app sigue oculto. La nómina, la máquina de estados, los hashes del libro, el manifiesto v5 y el sello no cambian.
+Capa de presentación, sobre los tokens que ya existían (`ModalShell`, `OperationalHeroCard`). No hay un tema paralelo. Las marcas A «Pin-Reloj» y D «Llegada confirmada» se quedan. La paleta vigente es Dual Tracker V1.0.0 (`PALETTE_DARK` / `PALETTE_LIGHT` en `src/constants/theme.ts`): Inter 400/500/600; fondo `#0E0E0E`, tarjetas `#121212`, elevados y campos `#1E1E1E`, borde `#2A2A2A`; relleno primario `#F6C452` y texto sobre ese relleno `#1C1B19`; en claro el papel sigue `#F4F1EA`, la tinta `#1C1B19` y el texto dorado `#7A5D0A`. Estado (claro y oscuro): info `#4A90E2`, éxito `#5CD65C`, aviso `#F8C650`, peligro `#D9534F`, gris `#A8A9AB`. El selector claro de la app sigue oculto. La nómina, la máquina de estados, los hashes del libro, el manifiesto v5 y el sello no cambian.
 
 - **Hoy.** `LiveShiftPanel`: hero con badge, cronómetro y estimado, y «Resumen del día» en el mismo reloj de 1 s. El resto de la pantalla sigue en 60 s. Sin estimado antes de la llegada. `GpsExceptionCard` cubre retraso de señal, asincronía, no show y abandono de zona (`gpsException.ts`). Cada caso es presentación de un estado que ya existía: no cierra la jornada ni cambia el pago. La salida detectada ofrece seguir en operación. El cierre muestra chips de almuerzo 0/30/45/60. Un tránsito cancelado se lee «tránsito (cancelado)».
 - **Historial, Reportes, Ajustes y alta.** Historial filtra con chips y cada fila muestra el id (`history.sessionId` en `SessionListItem`). La vista previa de Reportes pasa `settings.profile.employeeName` a `DocumentPreviewWidget`. Ajustes valida tarifa y números en línea: Guardar no persiste `NaN`, y un campo de tarifa vacío no se guarda como 0. El pie usa `settingsFooterLine`: versión, build y, si la build lo trae, los 7 primeros caracteres del commit. La bienvenida lee `useTheme()` y deja Continuar en el `footer` de `ScreenScroll`.

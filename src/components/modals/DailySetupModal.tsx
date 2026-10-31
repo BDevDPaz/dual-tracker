@@ -106,8 +106,8 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
         {(["pick", "quick"] as const).map((k) => {
           const active = (k === "quick") === quick;
           return (
-            <Pressable key={k} onPress={() => setQuick(k === "quick")} style={[styles.tab, { borderColor: active ? colors.primary : colors.border }]} accessibilityRole="tab" accessibilityState={{ selected: active }}>
-              <Text style={[styles.tabText, { color: active ? colors.primary : colors.text.secondary }]}>
+            <Pressable key={k} onPress={() => setQuick(k === "quick")} style={[styles.tab, { borderColor: active ? colors.goldText : colors.border }]} accessibilityRole="tab" accessibilityState={{ selected: active }}>
+              <Text style={[styles.tabText, { color: active ? colors.goldText : colors.text.secondary }]}>
                 {t(k === "pick" ? "modals.pickSite" : "modals.quickCreate")}
               </Text>
             </Pressable>

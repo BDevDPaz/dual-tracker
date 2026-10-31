@@ -25,14 +25,17 @@ describe("ThemeContext", () => {
     expect(screen.getByTestId("probe").props.children.startsWith("dark|")).toBe(true);
   });
 
-  test("light: papel #F4F1EA, tinta #1A1714, oro #8A6D1F", () => {
+  test("light: papel #F4F1EA, tinta #1C1B19, relleno #F6C452, texto dorado #7A5D0A", () => {
     render(
       <ThemeProvider preference="light">
         <Probe />
       </ThemeProvider>,
     );
-    expect(screen.getByTestId("probe").props.children).toBe("light|#F4F1EA|#8A6D1F");
-    expect(COLORS.light.text.primary).toBe("#1A1714");
+    expect(screen.getByTestId("probe").props.children).toBe("light|#F4F1EA|#F6C452");
+    expect(COLORS.light.text.primary).toBe("#1C1B19");
+    expect(COLORS.light.onPrimary).toBe("#1C1B19");
+    expect(COLORS.light.goldText).toBe("#7A5D0A");
+    expect(COLORS.light.primary).toBe("#F6C452");
     expect(PALETTE_LIGHT.obsidian).toBe("#F4F1EA");
   });
 
@@ -48,17 +51,32 @@ describe("ThemeContext", () => {
     expect(theme.highContrast).toBe(true);
     expect(theme.scheme).toBe("dark");
     expect(theme.colors.background).toBe(CONTRAST_COLORS.background);
-    expect(theme.colors.primary).toBe("#D4AF37");
+    expect(theme.colors.primary).toBe("#F6C452");
+    expect(theme.colors.onPrimary).toBe("#1C1B19");
+    expect(theme.colors.goldText).toBe("#F6C452");
     expect(theme.colors.text.primary).toBe("#FFFFFF");
     expect(theme.colors.border).toBe("#FFFFFF");
   });
 
   test("fondos de estado son rgba fijos por tono (no `${color}15`)", () => {
     for (const v of Object.values(COLORS.dark.statusBg)) expect(v).toMatch(/^rgba\(\d+, \d+, \d+, 0\.12\)$/);
-    expect(COLORS.dark.focusRing).toBe("rgba(212, 175, 55, 0.4)");
-    expect(COLORS.dark.background).toBe("#0A0A0C");
-    expect(COLORS.dark.surface).toBe("#121214");
-    expect(COLORS.dark.input).toBe("#1A1A1C");
+    expect(COLORS.dark.focusRing).toBe("rgba(246, 196, 82, 0.4)");
+    expect(COLORS.dark.background).toBe("#0E0E0E");
+    expect(COLORS.dark.surface).toBe("#121212");
+    expect(COLORS.dark.surfaceElevated).toBe("#1E1E1E");
+    expect(COLORS.dark.input).toBe("#1E1E1E");
+    expect(COLORS.dark.border).toBe("#2A2A2A");
+    expect(COLORS.dark.text.secondary).toBe("#A8A9AB");
+    expect(COLORS.dark.primary).toBe("#F6C452");
+    expect(COLORS.dark.onPrimary).toBe("#1C1B19");
+    expect(COLORS.dark.status.info).toBe("#4A90E2");
+    expect(COLORS.dark.status.success).toBe("#5CD65C");
+    expect(COLORS.dark.status.warning).toBe("#F8C650");
+    expect(COLORS.dark.status.danger).toBe("#D9534F");
+    expect(COLORS.light.status.info).toBe("#4A90E2");
+    expect(COLORS.light.status.success).toBe("#5CD65C");
+    expect(COLORS.light.status.warning).toBe("#F8C650");
+    expect(COLORS.light.status.danger).toBe("#D9534F");
     expect(COLORS.dark.divider).toBe("#33343A");
   });
 });

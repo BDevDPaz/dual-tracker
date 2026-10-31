@@ -18,10 +18,10 @@ export function Chip({ label, selected = false, onPress, testID, accessibilityLa
   const { colors } = useTheme();
   const reduceMotion = useMotionPreference();
   const palette = {
-    borderColor: selected ? colors.primary : colors.border,
+    borderColor: selected ? colors.goldText : colors.border,
     backgroundColor: selected ? colors.statusBg.primary : "transparent",
   };
-  const text = <Text style={[styles.label, { color: selected ? colors.primary : colors.text.secondary }]}>{label}</Text>;
+  const text = <Text style={[styles.label, { color: selected ? colors.goldText : colors.text.secondary }]}>{label}</Text>;
   if (!onPress) {
     return (
       <View accessible accessibilityRole="text" accessibilityLabel={accessibilityLabel ?? label} testID={testID} style={styles.staticChip}>

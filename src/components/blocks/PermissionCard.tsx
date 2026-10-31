@@ -130,7 +130,7 @@ export function PermissionCard({
   const pill = statusLabel ?? t(`permission.${state}`);
   const showBody = open && body.length > 0 && body !== guidance?.body;
   const pendingLabel = highlighted ? t("a11y.permissionPending", { title }) : undefined;
-  const highlightStyle = highlighted ? { borderColor: colors.primary, backgroundColor: colors.glass.fill } : null;
+  const highlightStyle = highlighted ? { borderColor: colors.goldText, backgroundColor: colors.glass.fill } : null;
 
   return (
     <Card testID={testID} style={[styles.card, highlightStyle]}>
