@@ -12,6 +12,7 @@ import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectIsHydrated, selectSiteLastVisitAtMs, selectSites } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
@@ -19,6 +20,7 @@ import { formatDate } from "../../src/utils/dateUtils";
 
 export default function SitesIndexScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { state } = useWorkTracker();
   const { refreshControl } = usePullToRefresh();
   useAutoRefresh();
@@ -78,17 +80,17 @@ export default function SitesIndexScreen() {
             accessibilityRole="button"
             accessibilityLabel={`${alias}. ${meta}. ${t("sites.lastVisit")}: ${visit}`}
             accessibilityHint={t("a11y.linkHint")}
-            style={[styles.row, { borderColor: TOKENS.colors.border }]}
+            style={[styles.row, { borderColor: colors.border }]}
           >
             <View style={styles.flex}>
-              <Text style={[styles.alias, { color: TOKENS.colors.text.primary }]}>{alias}</Text>
-              <Text style={[styles.meta, { color: TOKENS.colors.text.secondary }]}>{meta}</Text>
-              <Text style={[styles.meta, { color: TOKENS.colors.text.muted }]}>
+              <Text style={[styles.alias, { color: colors.text.primary }]}>{alias}</Text>
+              <Text style={[styles.meta, { color: colors.text.secondary }]}>{meta}</Text>
+              <Text style={[styles.meta, { color: colors.text.muted }]}>
                 {t("sites.lastVisit")}: {visit}
               </Text>
-              {item.targetLat === null ? <Text style={[styles.meta, { color: TOKENS.colors.status.warning }]}>{t("sites.coordsMissing")}</Text> : null}
+              {item.targetLat === null ? <Text style={[styles.meta, { color: colors.status.warning }]}>{t("sites.coordsMissing")}</Text> : null}
             </View>
-            <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
+            <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
           </Pressable>
           );
         }}

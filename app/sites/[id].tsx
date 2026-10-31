@@ -14,6 +14,7 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectComputedSessions, selectIsAdminUnlocked, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
@@ -23,6 +24,7 @@ import { parseSiteRadius } from "../../src/utils/siteRadius";
 
 export default function SiteDetailScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const siteId = Number(id);
   const { state, emit } = useWorkTracker();
@@ -132,7 +134,7 @@ export default function SiteDetailScreen() {
               onPress={() => (hasPoint ? setConfirmMove(true) : void locate())}
             />
           ) : null}
-          {locateError ? <Text style={{ color: TOKENS.colors.status.warning }}>{t("sites.locateFailed")}</Text> : null}
+          {locateError ? <Text style={{ color: colors.status.warning }}>{t("sites.locateFailed")}</Text> : null}
         </Card>
 
         {site.active ? (
@@ -147,14 +149,14 @@ export default function SiteDetailScreen() {
             ) : (
               <>
                 <KeyValueRow label={t("sites.radius")} value={`${storedRadius} m`} />
-                <Text style={{ color: TOKENS.colors.text.secondary }}>{t("notifications.thresholdsLocked")}</Text>
+                <Text style={{ color: colors.text.secondary }}>{t("notifications.thresholdsLocked")}</Text>
               </>
             )}
           </Card>
         ) : null}
 
         <Section title={`${t("sites.visits")} (${visits.length})`}>
-          {visits.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
+          {visits.length === 0 ? <Text style={{ color: colors.text.muted }}>{t("common.noData")}</Text> : null}
           {visits.map((c) => (
             <SessionListItem key={c.session.id} item={c} onPress={() => router.push(`/session/${c.session.id}`)} />
           ))}

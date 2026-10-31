@@ -14,6 +14,7 @@ import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import type { Site } from "../../src/core/contracts";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { t } from "../../src/i18n";
@@ -21,6 +22,7 @@ import { parseSiteRadius } from "../../src/utils/siteRadius";
 
 export default function NewSiteScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { state, emit } = useWorkTracker();
   const [alias, setAlias] = useState("");
   const [address, setAddress] = useState("");
@@ -81,15 +83,15 @@ export default function NewSiteScreen() {
       <SiteRadiusField {...chain.props("radius")} value={radius} onChangeText={setRadius} />
 
       <Card style={styles.card}>
-        <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("sites.coords")}</Text>
+        <Text style={[styles.label, { color: colors.text.secondary }]}>{t("sites.coords")}</Text>
         {saved ? (
           saved.targetLat !== null && saved.targetLon !== null ? (
             <KeyValueRow label={t("sites.latLon")} value={`${saved.targetLat.toFixed(5)}, ${saved.targetLon.toFixed(5)}`} mono />
           ) : (
-            <Text style={{ color: TOKENS.colors.status.warning }}>{t("sites.coordsMissing")}</Text>
+            <Text style={{ color: colors.status.warning }}>{t("sites.coordsMissing")}</Text>
           )
         ) : (
-          <Text style={{ color: TOKENS.colors.text.muted }}>{t("sites.coordsPending")}</Text>
+          <Text style={{ color: colors.text.muted }}>{t("sites.coordsPending")}</Text>
         )}
       </Card>
 
