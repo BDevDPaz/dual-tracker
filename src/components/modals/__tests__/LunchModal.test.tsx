@@ -91,6 +91,33 @@ describe("LunchModal", () => {
     expect(onFinish).not.toHaveBeenCalled();
   });
 
+  test("I2 muestra lunchDone en ES y EN, sin la rejilla de I1", () => {
+    const onConfirm = jest.fn();
+    setLanguage("es");
+    const props = {
+      visible: true as const,
+      mode: "done" as const,
+      minutes: 45,
+      startLabel: "12:00 PM",
+      endLabel: "12:45 PM",
+      onCancel: jest.fn(),
+      onConfirm,
+    };
+    const view = render(<LunchModal {...props} />);
+    expect(screen.getByText(t("modals.lunchDone", { minutes: 45, start: "12:00 PM", end: "12:45 PM" }))).toBeTruthy();
+    expect(screen.getByText("Ya descontamos 45 min de almuerzo hoy (12:00 PM – 12:45 PM). No lo volvemos a preguntar.")).toBeTruthy();
+    expect(screen.queryByTestId("lunch-options")).toBeNull();
+    fireEvent.press(screen.getByText(t("cta.finishDay")));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    view.unmount();
+    setLanguage("en");
+    render(<LunchModal {...props} />);
+    expect(screen.getByText(t("modals.lunchDone", { minutes: 45, start: "12:00 PM", end: "12:45 PM" }))).toBeTruthy();
+    expect(screen.getByText("We already deducted 45 min of lunch today (12:00 PM – 12:45 PM). We won't ask again.")).toBeTruthy();
+    expect(screen.queryByText("Ya descontamos 45 min de almuerzo hoy (12:00 PM – 12:45 PM). No lo volvemos a preguntar.")).toBeNull();
+    setLanguage("es");
+  });
+
   test("el aviso de almuerzo fuera de la jornada también está en inglés", () => {
     setLanguage("en");
     const sessionStartMs = Date.UTC(2026, 8, 26, 13, 0, 0);

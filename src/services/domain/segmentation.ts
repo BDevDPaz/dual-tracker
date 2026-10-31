@@ -123,8 +123,10 @@ export function deductibleLunchMinutes(
         ? Math.max(0, nowMs - meal.startAtMs)
         : null;
   if (timed != null) {
-    if (timed < MEAL_QUALIFY_MS) return { minutes: 0, unknown: false };
-    return { minutes: Math.floor(timed / MIN), unknown: false };
+    if (timed >= MEAL_QUALIFY_MS) return { minutes: Math.floor(timed / MIN), unknown: false };
+    // Menos de 30 min no es el almuerzo del día. Sin minutos declarados
+    // tampoco se inventa duración (no es LUNCH_DURATION_UNKNOWN).
+    if (meal.deductedMinutes == null) return { minutes: 0, unknown: false };
   }
   if (meal.deductedMinutes !== null && meal.deductedMinutes !== undefined) {
     if (meal.deductedMinutes < 30) return { minutes: 0, unknown: false };

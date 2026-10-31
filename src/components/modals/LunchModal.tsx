@@ -37,7 +37,18 @@ type LunchModalProps =
       onCancel: () => void;
       onConfirm: (minutes: number | null, startHHmm: string | null) => void;
     }
-  | { visible: boolean; mode: "supervisor"; busy?: boolean; elapsed: string; onCancel: () => void; onResume: () => void; onFinish: () => void };
+  | { visible: boolean; mode: "supervisor"; busy?: boolean; elapsed: string; onCancel: () => void; onResume: () => void; onFinish: () => void }
+  | {
+      visible: boolean;
+      /** I2: el día ya tiene almuerzo. No vuelve a preguntar 0/30/45/60. */
+      mode: "done";
+      minutes: number;
+      startLabel: string;
+      endLabel: string;
+      busy?: boolean;
+      onCancel: () => void;
+      onConfirm: () => void;
+    };
 
 const OPTIONS = [0, 30, 45, 60];
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -81,6 +92,28 @@ export function LunchModal(props: LunchModalProps) {
       props.onConfirm(selected, needsStart ? startHHmm.trim() : null);
     },
   });
+
+  if (props.mode === "done") {
+    const busy = props.busy === true;
+    return (
+      <ModalShell
+        visible={props.visible}
+        title={t("modals.lunchDone", { minutes: props.minutes, start: props.startLabel, end: props.endLabel })}
+        icon={ICONS.domain.lunch}
+        onClose={props.onCancel}
+        testID="lunch-done"
+        primaryAction={{
+          label: t("cta.finishDay"),
+          onPress: () => {
+            if (!busy) props.onConfirm();
+          },
+          disabled: busy,
+          loading: busy,
+        }}
+        secondaryAction={{ label: t("common.cancel"), onPress: props.onCancel }}
+      />
+    );
+  }
 
   if (props.mode === "supervisor") {
     const busy = props.busy === true;

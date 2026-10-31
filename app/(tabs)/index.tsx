@@ -37,6 +37,8 @@ import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTrack
 import {
   getSessionStateUI,
   selectActiveSession,
+  selectDayLunch,
+  selectLunchPrompt,
   selectCurrentTargetSite,
   selectHasConflict,
   selectActiveCrossesWorkday,
@@ -57,7 +59,7 @@ import {
 import { t } from "../../src/i18n";
 import { formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
-type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "PAUSE" | "CANCEL_TRANSFER" | "NOTE" | "CANCEL_DAY" | "EXTEND" | "TRUST";
+type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "LUNCH_CLOSE_EXIT" | "LUNCH_DONE_DAY" | "LUNCH_DONE_EXIT" | "LUNCH_SUPERVISOR" | "EXIT" | "PAUSE" | "CANCEL_TRANSFER" | "NOTE" | "CANCEL_DAY" | "EXTEND" | "TRUST";
 
 export default function TodayScreen() {
   const router = useRouter();
@@ -76,6 +78,9 @@ export default function TodayScreen() {
   const sessionState = selectSessionState(state, nowMs);
   const ui = getSessionStateUI(sessionState);
   const active = selectActiveSession(state);
+  const dayLunch = selectDayLunch(state, nowMs);
+  const lunchUsedToday = dayLunch != null;
+  const lunchPrompt = selectLunchPrompt(state, nowMs);
   const lastToday = selectLastSessionToday(state, nowMs);
   const target = selectCurrentTargetSite(state);
   const sites = selectSites(state);
@@ -128,7 +133,7 @@ export default function TodayScreen() {
       case "VIEW_DESTINATION":
         return target ? router.push(`/sites/${target.id}`) : router.push("/sites");
       case "OPEN_LUNCH_CLOSE":
-        return setModal("LUNCH_CLOSE_DAY");
+        return setModal(lunchPrompt === "I2" ? "LUNCH_DONE_DAY" : "LUNCH_CLOSE_DAY");
       case "START_LUNCH":
       case "OPEN_PAUSE":
         return setModal("PAUSE");
@@ -407,7 +412,21 @@ export default function TodayScreen() {
         elapsed={formatDuration(selectLunchElapsedMs(state, nowMs))}
         onCancel={() => setModal(null)}
         onResume={() => void run({ type: "RESUME" }, () => setModal(null))}
-        onFinish={() => void run({ type: "CLOSE_DAY" }, () => setModal(null))}
+        onFinish={() => setModal(lunchPrompt === "I2" ? "LUNCH_DONE_DAY" : "LUNCH_CLOSE_DAY")}
+      />
+
+      <LunchModal
+        visible={modal === "LUNCH_DONE_DAY" || modal === "LUNCH_DONE_EXIT"}
+        mode="done"
+        busy={busy}
+        minutes={dayLunch?.minutes ?? 0}
+        startLabel={formatTime(dayLunch?.startAtMs ?? null)}
+        endLabel={formatTime(dayLunch?.endAtMs ?? null)}
+        onCancel={() => setModal(null)}
+        onConfirm={() => {
+          const fromExit = modal === "LUNCH_DONE_EXIT";
+          void run(fromExit ? { type: "CONFIRM_EXIT" } : { type: "CLOSE_DAY" }, () => setModal(null));
+        }}
       />
 
       <ModalShell
@@ -463,7 +482,7 @@ export default function TodayScreen() {
       <PauseKindModal
         visible={modal === "PAUSE"}
         busy={busy}
-        lunchUsed={active?.lunch.taken === true}
+        lunchUsed={lunchUsedToday}
         onCancel={() => setModal(null)}
         onLunch={() => void run({ type: "START_LUNCH" }, () => setModal(null))}
         onRest={() => void run({ type: "START_REST" }, () => setModal(null))}
@@ -485,7 +504,7 @@ export default function TodayScreen() {
         busy={busy}
         onStay={() => void run({ type: "STAY_WORKING" }, () => setModal(null))}
         onTransfer={() => setModal("SETUP_TRANSIT")}
-        onCloseDay={() => setModal("LUNCH_CLOSE_EXIT")}
+        onCloseDay={() => setModal(lunchPrompt === "I2" ? "LUNCH_DONE_EXIT" : "LUNCH_CLOSE_EXIT")}
         onDismiss={() => setModal(null)}
       />
     </ScreenScroll>
