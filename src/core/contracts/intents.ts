@@ -206,6 +206,8 @@ export type ViewIntent =
   | { type: "SHARE_EMPLOYER"; packId: string; annexLedger?: boolean; annexEnterExit?: boolean }
   /** FieldCrypto v1.3 §16: "Exportar expediente" → SEAL_PACK si falta y luego compartir (empleado). */
   | { type: "EXPORT_PACK"; periodStart: number; periodEnd: number }
+  /** PDF del rango en pantalla. No sella la semana ni escribe un expediente. */
+  | { type: "EXPORT_RANGE_PDF"; periodStart: number; periodEnd: number }
   // Ajustes
   | { type: "SAVE_SETTINGS"; patch: import("./settings").SettingsPatch }
   /** Cambia el idioma al momento y lo persiste, sin el resto del formulario de Ajustes. */

@@ -71,6 +71,43 @@ function raster(svg: string): { data: Uint8ClampedArray; width: number } {
 }
 
 describe("comprobante premium", () => {
+  test("la copia de rango no se presenta como expediente sellado; el sello real sigue diciendo SELLADO", () => {
+    const sealed = ReportService.renderHtml("EMPLOYEE_RECEIPT", base());
+    expect(sealed).toContain("Dual Tracker");
+    expect(sealed).toContain(">SELLADO<");
+    expect(sealed).toContain("Las cifras son el estado de nómina sellado del periodo.");
+    expect(sealed).not.toContain('data-range-copy="1"');
+    expect(sealed).not.toContain("LEDTracker");
+
+    const copy = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
+      ...base(),
+      rangeCopy: true,
+      rangeWeekCount: 2,
+      statement: { ...base().statement, packHash: null },
+      manifest: { ...base().manifest, packHash: "", certified: true, documentVersion: 3, documentLocale: "es" },
+    });
+    expect(copy).toContain("Dual Tracker");
+    expect(copy).toContain('data-range-copy="1"');
+    expect(copy).toContain(">SIN SELLO<");
+    expect(copy).not.toContain(">SELLADO<");
+    expect(copy).not.toContain("estado de nómina sellado");
+    expect(copy).not.toContain('class="qr"');
+    expect(copy).not.toContain("LEDTracker");
+    expect(copy).toContain(t("reports.weekMath"));
+
+    setLanguage("en");
+    const english = ReportService.renderHtml("EMPLOYEE_RECEIPT", {
+      ...base(),
+      rangeCopy: true,
+      manifest: { ...base().manifest, packHash: "", documentVersion: 3, documentLocale: "en" },
+    });
+    expect(english).toContain(">NOT SEALED<");
+    expect(english).toContain("Copy of the range shown in Reports.");
+    expect(english).not.toContain(">SEALED<");
+    expect(english).not.toContain("sealed payroll statement");
+    setLanguage("es");
+  });
+
   afterEach(() => setLanguage("es"));
 
   test("el QR codifica el packHash y se puede leer sin red", () => {

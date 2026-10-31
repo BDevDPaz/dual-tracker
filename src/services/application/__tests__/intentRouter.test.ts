@@ -137,6 +137,21 @@ describe("intentRouter", () => {
     expect(Store.getState().feedback.pending.at(-1)?.code).toBe("PACK_SEALED");
   });
 
+  test("EXPORT_RANGE_PDF comparte el rango en pantalla y no llama a seal", async () => {
+    const { siteA } = await seedWorld();
+    await startAndArrive(siteA);
+    time.travel(8 * HOUR);
+    await mustDispatch({ type: "CLOSE_DAY", mode: "MANUAL" });
+    const seal = jest.spyOn(EvidencePackService, "seal");
+    const periodStart = getWeekStart(time.now());
+    const periodEnd = getWeekEnd(time.now());
+    const r = await routeIntent({ type: "EXPORT_RANGE_PDF", periodStart, periodEnd });
+    expect(r.ok).toBe(true);
+    expect(seal).not.toHaveBeenCalled();
+    expect(await PersistenceService.listPacks()).toHaveLength(0);
+    expect(Store.getState().feedback.pending.at(-1)?.code).toBe("RANGE_PDF_SHARED");
+  });
+
   test("intenciones de jornada simples se traducen al SessionIntent correcto", async () => {
     const { siteA, siteB } = await seedWorld();
     await routeIntent({ type: "START_DAY", siteId: siteA });

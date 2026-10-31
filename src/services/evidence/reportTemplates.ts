@@ -91,6 +91,13 @@ export interface ReportInput {
   annex?: ReportAnnexOptions;
   /** Marca de agua PRÁCTICA. El sello real no la pone. */
   practice?: boolean;
+  /**
+   * Copia del rango que se ve en Reportes. No es un sello: la plantilla
+   * premium no pone «SELLADO» ni un código de verificación.
+   */
+  rangeCopy?: boolean;
+  /** Semanas laborales que suma la copia. Más de una muestra el aviso semanal. */
+  rangeWeekCount?: number;
   /** Asientos ya filtrados al expediente. Solo si annex.ledger. */
   ledger?: ForensicLedgerRow[];
   /**

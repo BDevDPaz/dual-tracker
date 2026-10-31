@@ -66,6 +66,7 @@ export default function ReportsScreen() {
   const { busy: sealing, run: runSeal } = useBusyAction();
   const { busy: exporting, run: runExport } = useBusyAction();
   const { busy: sharing, run: runShare } = useBusyAction();
+  const { busy: printing, run: runPdf } = useBusyAction();
   const calendar = selectCalendarHistory(state);
   const settings = selectSettings(state);
 
@@ -267,6 +268,21 @@ export default function ReportsScreen() {
           </Card>
         ) : null}
 
+        {requested && combined && shown && closedCount > 0 && !customError ? (
+          <View style={styles.pdfAction}>
+            <Button
+              label={t("reports.generatePdf")}
+              iconName="document-outline"
+              variant="secondary"
+              isLoading={printing}
+              disabled={printing || sealing}
+              accessibilityHint={t("reports.generatePdfHint")}
+              onPress={() => void runPdf(() => emit({ type: "EXPORT_RANGE_PDF", periodStart: requested.start, periodEnd: requested.end }))}
+            />
+            <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("reports.generatePdfHint")}</Text>
+          </View>
+        ) : null}
+
         {single ? (
           <ExportStatusCard
             sealed={!!fresh?.latestPackId}
@@ -393,6 +409,8 @@ const styles = StyleSheet.create({
   dates: { gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
   card: { padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.sm },
   label: { ...FONT.label, marginBottom: TOKENS.spacing.sm },
+  hint: { ...FONT.caption },
   gate: { gap: TOKENS.spacing.sm },
+  pdfAction: { gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
   actions: { gap: TOKENS.spacing.sm, marginTop: TOKENS.spacing.sm },
 });
