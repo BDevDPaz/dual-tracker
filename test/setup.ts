@@ -65,6 +65,7 @@ beforeEach(async () => {
   __resetMonitoringRecoveryForTests();
   (require("../src/services/runtime/deviceIntegrity") as typeof import("../src/services/runtime/deviceIntegrity")).__setDeviceProbeForTests(null);
   Store.reset();
+  (require("../src/services/domain/SiteRegistryService") as typeof import("../src/services/domain/SiteRegistryService")).SiteRegistryService.setReverseGeocoder(null);
   FieldCryptoService.__resetForTests();
   (require("../src/core/refresh/dataRevision") as typeof import("../src/core/refresh/dataRevision")).__resetForTests();
   (require("../src/services/application/refreshMirror") as typeof import("../src/services/application/refreshMirror")).__resetForTests();

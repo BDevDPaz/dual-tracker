@@ -461,6 +461,7 @@ export const es = {
     moveTitle: "Mover este destino",
     moveBody: "Las dos lecturas de ahora sustituyen el punto guardado. El punto anterior queda en el registro.",
     locateFailed: "No se pudo fijar el destino con estas lecturas.",
+    placeNameUnavailable: "El punto quedó guardado. No se obtuvo el nombre del lugar: falló la red, se agotó el tiempo o falta el permiso. No se inventa una dirección.",
   },
   reports: {
     title: "Reportes",

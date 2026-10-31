@@ -240,7 +240,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         StoreActions.siteUpserted(r.site);
         await resyncGeofenceIfTarget(r.site);
         FeedbackService.emit("SITE_SAVED");
-        return { ok: true, data: r.site };
+        return { ok: true, data: { site: r.site, placeName: r.placeName } };
       }
       case "ARCHIVE_SITE": {
         const r = await SiteRegistryService.archive(intent.siteId);

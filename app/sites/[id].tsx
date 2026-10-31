@@ -37,6 +37,7 @@ export default function SiteDetailScreen() {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmMove, setConfirmMove] = useState(false);
   const [locateError, setLocateError] = useState(false);
+  const [placeNameMissing, setPlaceNameMissing] = useState(false);
   const { busy, run } = useBusyAction();
   const storedRadius = site?.radiusM ?? state.settings.company.defaultRadiusM;
   const radiusValue = radius ?? String(storedRadius);
@@ -93,14 +94,19 @@ export default function SiteDetailScreen() {
   const locate = () =>
     run(async () => {
       setLocateError(false);
+      setPlaceNameMissing(false);
       const readings = await readTwoPositions();
       if (!readings) {
         setLocateError(true);
         return { ok: false as const, code: "INVALID_POINT" };
       }
       const res = await emit({ type: "LOCATE_SITE", siteId: site.id, readings });
-      if (res.ok) setConfirmMove(false);
-      else setLocateError(true);
+      if (res.ok) {
+        setConfirmMove(false);
+        const data = res.data;
+        const placeName = data && typeof data === "object" && "placeName" in data ? (data as { placeName: unknown }).placeName : null;
+        setPlaceNameMissing(typeof placeName !== "string" || placeName.trim().length === 0);
+      } else setLocateError(true);
       return res;
     });
 
@@ -135,6 +141,7 @@ export default function SiteDetailScreen() {
             />
           ) : null}
           {locateError ? <Text style={{ color: colors.status.warning }}>{t("sites.locateFailed")}</Text> : null}
+          {placeNameMissing ? <Text style={{ color: colors.status.warning }}>{t("sites.placeNameUnavailable")}</Text> : null}
         </Card>
 
         {site.active ? (

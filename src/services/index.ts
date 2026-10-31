@@ -20,7 +20,7 @@
  *  - Solo SessionEngine muta el ciclo de vida de la jornada.
  *  - Dominio no importa Runtime: los efectos salen por puertos inyectados en
  *    src/core/boot.ts (SessionEngineService.setRuntimePorts, TraceRecorder.setSink,
- *    SiteRegistry.setGeocoder).
+ *    SiteRegistry.setGeocoder, SiteRegistry.setReverseGeocoder).
  *  - Solo TimeAuthority lee el reloj del sistema.
  */
 

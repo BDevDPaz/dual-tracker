@@ -463,6 +463,7 @@ export const en: Dictionary = {
     moveTitle: "Move this site",
     moveBody: "The two readings from now replace the saved point. The previous point stays in the record.",
     locateFailed: "The site could not be fixed from these readings.",
+    placeNameUnavailable: "The pin is saved. The place name was not available: the network failed, the lookup timed out, or location permission is missing. No address is invented.",
   },
   reports: {
     title: "Reports",
