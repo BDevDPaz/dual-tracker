@@ -308,6 +308,7 @@ export default function SettingsScreen() {
             </Card>
           ) : (
             <Card style={styles.card}>
+              {/* D1: la tarifa solo se edita con la zona admin desbloqueada. El router rechaza el cambio sin PIN. */}
               <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} prefix="$" suffix={t("common.perHour")} error={!rateOk ? (Number.isFinite(num(draft.hourlyRate)) ? t("onboarding.rateInvalid") : t("settings.numberInvalid")) : undefined} />
               <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} error={numberError(draft.overtimeMultiplier, 0.0001)} />
               <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />

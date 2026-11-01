@@ -1,7 +1,7 @@
 /**
  * ThemeContext — fuente única de color: { scheme, colors, tokens, preference }.
- * La preferencia se persiste en settings.profile.theme (system | dark | light);
- * por defecto "dark" (app.json fija userInterfaceStyle "dark").
+ * La preferencia se persiste en settings.profile.theme (system | dark | light).
+ * El perfil nuevo usa "system". Si el campo no está, se queda en "dark".
  *
  * Alto contraste (profile.highContrast) sustituye la paleta sin cambiar
  * system | dark | light. El selector claro sigue oculto: varias pantallas

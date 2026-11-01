@@ -1,35 +1,37 @@
 /**
- * (onboarding)/disclosure.tsx — Descargo DualDisclosure (Producto §5.4).
- * Contenido servido por DualDisclosureService (vía queries del hook), el
- * mismo que legal/disclosure.tsx. Checkbox "He leído y acepto"; Continuar
- * deshabilitado hasta marcarlo. Intención: ACCEPT_DISCLOSURE.
+ * (onboarding)/disclosure.tsx — Aviso de ubicación laboral.
+ * Los tres bloques muestran el texto de legal.ts (misma versión). «No acepto»
+ * no cierra el camino: se vuelve al aviso o a la bienvenida.
  */
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Button } from "../../src/components/ui";
+import { Button, ModalShell } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
-import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useResponsive } from "../../src/components/ui/responsive";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectNeedsOnboarding } from "../../src/core/selectors";
 import { getLanguage, t } from "../../src/i18n";
+import { disclosureSections } from "../../src/onboarding/flow";
 
 export default function OnboardingDisclosureScreen() {
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
   const [accepted, setAccepted] = useState(false);
+  const [declined, setDeclined] = useState(false);
+  const { colors } = useTheme();
   const { busy, run } = useBusyAction();
   const content = queries.disclosure(getLanguage());
+  const sections = disclosureSections(content.blocks);
   const { screenPadding } = useResponsive();
 
   const onContinue = () =>
     run(async () => {
       const res = await emit({ type: "ACCEPT_DISCLOSURE", version: queries.disclosureVersion() });
       if (!res.ok) return res;
-      // Política nueva con alta ya completada → de vuelta al gate; si no, sigue el wizard.
       if (selectNeedsOnboarding(state)) router.push("/(onboarding)/permissions");
       else router.replace("/");
       return res;
@@ -38,21 +40,49 @@ export default function OnboardingDisclosureScreen() {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={[styles.content, { padding: screenPadding }]} keyboardShouldPersistTaps="handled">
-        <DisclosureContent content={content} titleAccessory={<HelpButton screen="onboardingDisclosure" />} />
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, styles.titleFlex, { color: colors.text.primary }]}>{t("onboarding.avisoTitle")}</Text>
+          <HelpButton screen="onboardingDisclosure" />
+        </View>
+        {sections.map((section) => (
+          <View key={section.id} style={[styles.block, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.blockTitle, { color: colors.primary }]}>{t(section.headingKey)}</Text>
+            {section.items.map((item) => (
+              <View key={item.key} style={styles.item}>
+                <Text style={[styles.itemTitle, { color: colors.text.primary }]}>{item.title}</Text>
+                <Text style={[styles.body, { color: colors.text.secondary }]}>{item.body}</Text>
+              </View>
+            ))}
+          </View>
+        ))}
+        <Text style={[styles.version, { color: colors.text.muted }]}>v{content.version}</Text>
       </ScrollView>
-      <View style={[styles.footer, { borderColor: TOKENS.colors.border, padding: screenPadding }]}>
+      <View style={[styles.footer, { borderColor: colors.border, padding: screenPadding }]}>
         <Pressable
-          onPress={() => setAccepted((v) => !v)}
+          onPress={() => setAccepted((value) => !value)}
           style={styles.checkRow}
           accessibilityRole="checkbox"
           accessibilityLabel={t("onboarding.acceptCheckbox")}
           accessibilityState={{ checked: accepted }}
         >
-          <Ionicons name={accepted ? "checkbox" : "square-outline"} size={ICON.xl} color={TOKENS.colors.primary} />
-          <Text style={[styles.checkText, { color: TOKENS.colors.text.primary }]}>{t("onboarding.acceptCheckbox")}</Text>
+          <Ionicons name={accepted ? "checkbox" : "square-outline"} size={ICON.xl} color={colors.primary} />
+          <Text style={[styles.checkText, { color: colors.text.primary }]}>{t("onboarding.acceptCheckbox")}</Text>
         </Pressable>
         <Button label={t("common.continue")} disabled={!accepted} isLoading={busy} onPress={onContinue} />
+        <Button label={t("onboarding.decline")} variant="ghost" disabled={busy} onPress={() => setDeclined(true)} />
       </View>
+      {declined ? (
+        <ModalShell
+          visible
+          title={t("onboarding.declineTitle")}
+          description={t("onboarding.declineBody")}
+          onClose={() => setDeclined(false)}
+          showCloseButton={false}
+          testID="disclosure-decline-sheet"
+          secondaryAction={{ label: t("onboarding.declineBack"), onPress: () => setDeclined(false) }}
+          primaryAction={{ label: t("onboarding.declineExit"), onPress: () => router.replace("/(onboarding)/welcome") }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -60,6 +90,15 @@ export default function OnboardingDisclosureScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { flexGrow: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm },
+  title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
+  titleFlex: { flex: 1 },
+  block: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md, gap: TOKENS.spacing.md },
+  blockTitle: { ...FONT.label },
+  item: { gap: TOKENS.spacing.xs },
+  itemTitle: { ...FONT.bodyStrong },
+  body: { ...FONT.bodySmall },
+  version: { ...FONT.caption, textAlign: "right", marginTop: TOKENS.spacing.sm },
   footer: { borderTopWidth: TOKENS.layout.hairline, gap: TOKENS.spacing.md },
   checkRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm, minHeight: TOKENS.layout.minTouchTarget },
   checkText: { ...FONT.bodyStrong },

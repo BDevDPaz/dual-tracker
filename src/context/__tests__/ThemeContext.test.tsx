@@ -1,6 +1,6 @@
 /** ThemeContext — fuente única de color: esquema, paletas y caída a oscuro. */
 import React from "react";
-import { Text } from "react-native";
+import { Text, useColorScheme } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 import { COLORS, CONTRAST_COLORS, PALETTE_LIGHT, TOKENS } from "../../constants/theme";
 import { ThemeProvider, resolveScheme, themeFor, useTheme } from "../ThemeContext";
@@ -10,19 +10,28 @@ function Probe() {
   return <Text testID="probe">{`${scheme}|${colors.background}|${colors.primary}`}</Text>;
 }
 
+function Prefs() {
+  const { scheme, preference } = useTheme();
+  const system = useColorScheme();
+  return <Text testID="prefs">{`${preference}|${scheme}|${system ?? "none"}`}</Text>;
+}
+
 describe("ThemeContext", () => {
   test("sin proveedor → oscuro (compatibilidad con TOKENS)", () => {
     render(<Probe />);
     expect(screen.getByTestId("probe").props.children).toBe(`dark|${TOKENS.colors.background}|${TOKENS.colors.primary}`);
   });
 
-  test("por defecto el proveedor usa profile.theme ausente = dark", () => {
+  test("el perfil nuevo usa theme system y sigue el teléfono; ausente sigue en oscuro", () => {
     render(
       <ThemeProvider>
-        <Probe />
+        <Prefs />
       </ThemeProvider>,
     );
-    expect(screen.getByTestId("probe").props.children.startsWith("dark|")).toBe(true);
+    const [preference, scheme, system] = String(screen.getByTestId("prefs").props.children).split("|");
+    expect(preference).toBe("system");
+    expect(scheme).toBe(resolveScheme("system", system === "none" ? null : system));
+    expect(themeFor("dark").scheme).toBe("dark");
   });
 
   test("light: papel #F4F1EA, tinta #1C1B19, relleno #F6C452, texto dorado #7A5D0A", () => {
