@@ -1,12 +1,4 @@
-/**
- * app/_layout.tsx — Layout raíz (Producto §3.1).
- * Carga Inter, envuelve ThemeContext y ToastContext, llama boot() de
- * src/core/boot.ts y registra las tareas de TaskOrchestrator en el ámbito
- * global del bundle. El entry index.js carga la definición headless antes
- * de React; aquí se reafirma (idempotente) por el camino que sí puede
- * importar app/. No pinta UI de negocio: la decisión de grupo visible
- * ((boot) / (onboarding) / (tabs)) la toma el gate app/index.tsx.
- */
+// app/_layout.tsx — RootLayout con dual boot: viejo + core-v2
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -24,20 +16,15 @@ import { ThemeProvider } from "../src/context/ThemeContext";
 import { ToastProvider } from "../src/context/ToastContext";
 import { FeedbackBridge } from "../src/components/feedback/FeedbackBridge";
 import { boot, ensureRuntimeReady, registerBackgroundTasks } from "../src/core/boot";
+import { initBootV2 } from "../src/core-v2/bootWiringV2"; // <-- NUEVO
 import { TOKENS } from "../src/constants/theme";
 import { useLanguage } from "../src/i18n";
 
-// Las pantallas del fondo (pila, pestañas, modal) siguen vivas: un cambio de
-// idioma las repinta aunque no tengan el foco. react-freeze las dejaría en el idioma anterior.
 enableFreeze(false);
-
-// TaskManager.defineTask debe ejecutarse al evaluar el bundle, antes del primer render
-// (también cuando el SO despierta la app en segundo plano sin UI).
-registerBackgroundTasks();
+registerBackgroundTasks(); // viejo - lo dejamos
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-/** Si Inter no carga en este plazo se pinta con la fuente del sistema (nunca pantalla en blanco). */
 const FONT_LOAD_TIMEOUT_MS = 3000;
 
 export default function RootLayout() {
@@ -48,20 +35,21 @@ export default function RootLayout() {
     Inter_600SemiBold,
   });
 
-  // No se pinta copy hasta que el perfil (o el idioma del teléfono, si aún
-  // no hay perfil) está aplicado. Así no hay un fotograma en español que
-  // salta a inglés cuando arranca boot().
   const [langReady, setLangReady] = useState(false);
   useEffect(() => {
     let live = true;
     void (async () => {
       try {
         await ensureRuntimeReady();
-      } catch {
-        /* boot() publica el fallo; no dejamos el splash colgado. */
+      } catch {}
+      try {
+        await initBootV2(); // <-- NUEVO: programa 7am y 12:30pm + define GEOFENCE_TRACKING_TASK
+        console.log("[ROOT] core-v2 boot ok");
+      } catch (e) {
+        console.warn("[ROOT] core-v2 boot fail", e);
       }
       if (live) setLangReady(true);
-      void boot();
+      void boot(); // viejo - lo dejamos para no romper hydrating.tsx
     })();
     return () => {
       live = false;
