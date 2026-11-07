@@ -25,10 +25,6 @@ export function HelpButton({ screen }: { screen: ScreenId }) {
   );
 }
 
-export function helpHeader(screen: ScreenId): { headerRight: () => React.ReactElement } {
-  return { headerRight: () => <HeaderActions screen={screen} /> };
-}
-
 /** Ayuda y salud en la cabecera nativa (detalle, rastro, salud). */
 export function HeaderActions({ screen }: { screen: ScreenId }) {
   const router = useRouter();

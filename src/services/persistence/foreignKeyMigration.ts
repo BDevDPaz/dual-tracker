@@ -19,17 +19,6 @@ export interface OrphanReport {
   logSession: number;
 }
 
-const EMPTY: OrphanReport = {
-  sessionSite: 0,
-  sessionSplit: 0,
-  spatialSession: 0,
-  spatialSite: 0,
-  ledgerSession: 0,
-  queuePack: 0,
-  auditSession: 0,
-  logSession: 0,
-};
-
 async function count(database: SQLite.SQLiteDatabase, sql: string): Promise<number> {
   const row = await database.getFirstAsync<{ n: number }>(sql);
   return Number(row?.n ?? 0);
@@ -310,5 +299,3 @@ export async function ensureForeignKeys(database: SQLite.SQLiteDatabase, opts?: 
   }
   return before;
 }
-
-export const EMPTY_ORPHAN_REPORT = EMPTY;

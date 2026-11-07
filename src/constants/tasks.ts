@@ -1,15 +1,6 @@
 /**
- * Inventario de tareas OS (Propuesta Técnica §5.7 y §7.2).
+ * Worker de fondo y topes de jornada (Propuesta Técnica §5.7 y §7.2).
  */
-export const TASK_INVENTORY = [
-  "GEOFENCE",
-  "BREADCRUMB",
-  "SESSION_WATCHDOG",
-  "EXIT_DECISION_TIMER",
-  "DAILY_REMINDER",
-  "INTEGRITY_SWEEP",
-  "PAYROLL_EXPORT",
-] as const;
 
 /** Worker único de expo-background-task que ejecuta watchdog, sweep y export. */
 export const BACKGROUND_WORKER_TASK_NAME = "DUALTRACKER_BACKGROUND_WORKER";

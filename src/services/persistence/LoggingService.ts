@@ -36,19 +36,6 @@ export interface AuditLogEntry {
   details: string;
 }
 
-/** Acciones de auditoría heredadas de GEOTrack. */
-export const AUDIT_ACTIONS = {
-  AUTO_CHECKIN: "AUTO_CHECKIN",
-  AUTO_CHECKOUT: "AUTO_CHECKOUT",
-  MANUAL: "MANUAL",
-  OVERLAP: "OVERLAP",
-  MUTEX: "MUTEX",
-  LOCATION: "LOCATION",
-  PDF: "PDF",
-  PAYROLL: "PAYROLL",
-  DB: "DB",
-} as const;
-
 type QueuedSystem = SystemLogEntry & { timestamp: number; timestampStr: string };
 type QueuedAudit = AuditLogEntry & { timestamp: number };
 

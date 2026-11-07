@@ -4,8 +4,6 @@
  * (scripts/brand/build.py). El viewBox es 1024.
  */
 
-export const MARK_VIEWBOX = 1024;
-
 /** Pin del concepto A. */
 export const PIN_CLOCK_PIN = "M 347.9,554.3 A 200 200 0 1 1 676.1,554.3 L 512,790 Z";
 /** Manecillas: 12 en punto y hacia las 4. */

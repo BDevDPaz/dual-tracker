@@ -36,7 +36,3 @@ export function classifyBreadcrumbGaps(
   }
   return gaps;
 }
-
-export function traceHasRetentionGap(gaps: readonly TraceGap[]): boolean {
-  return gaps.some((g) => g.kind === "retention");
-}

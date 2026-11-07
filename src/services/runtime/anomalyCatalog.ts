@@ -50,16 +50,6 @@ export const OPERATIONAL_SEVERITY = {
   ROOTED: "CRITICAL",
 } as const satisfies Record<string, AnomalySeverity>;
 
-/** Colores de LoggingService. VERDE no es un fallo. */
-export const LOG_COLOR_SEVERITY = {
-  VERDE: null,
-  BLANCO: "LOW",
-  AZUL: "LOW",
-  AMARILLO: "LOW",
-  NARANJA: "MEDIUM",
-  ROJO: "HIGH",
-} as const satisfies Record<string, AnomalySeverity | null>;
-
 const RANK: Record<AnomalySeverity, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
 
 export function maxSeverity(levels: (AnomalySeverity | null | undefined)[]): AnomalySeverity | null {
