@@ -62,7 +62,6 @@ export default function HistoryScreen() {
     const map = new Map(selectComputedSessions(state, nowMs).map((c) => [c.session.id, c]));
     return map;
   }, [state, nowMs]);
-  const hoursFor = (minutes: number) => `${formatHundredths(minutesToHundredths(minutes))} ${t("common.hours")}`;
   const weekHours = formatHundredths(minutesToHundredths(weekRows.reduce((a, r) => a + (r.netMinutes ?? 0), 0)));
   const weekGrossCents = weekRows.reduce((a, r) => a + (r.grossCents ?? 0), 0);
   const counts = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
@@ -73,6 +72,8 @@ export default function HistoryScreen() {
   // Interpretación: "Todo" = historial completo; el resto se acota a la semana seleccionada.
   type HistoryRow = { key: string; item: ComputedSession; slice?: PeriodSessionRow; hoursText?: string };
   const items = useMemo((): HistoryRow[] => {
+    const hoursUnit = t("common.hours", {}, lang);
+    const hoursFor = (minutes: number) => `${formatHundredths(minutesToHundredths(minutes))} ${hoursUnit}`;
     const hoursById = new Map(weekRows.map((r) => [r.session.id, hoursFor(r.netMinutes ?? 0)]));
     if (filter === "ALL") {
       return selectComputedSessions(state, nowMs, selectVisibleSessions(state)).map((item) => ({
