@@ -306,22 +306,6 @@ export const TOKENS = {
   },
 };
 
-// --- MANTENIMIENTO DE COMPATIBILIDAD HACIA ATRÁS ---
-export const RADIUS = {
-  round: TOKENS.radius.round,
-  cards: TOKENS.radius.lg,
-  inputs: TOKENS.radius.md,
-};
-
-export const SPACING = {
-  xs: TOKENS.spacing.xs,
-  sm: TOKENS.spacing.sm,
-  md: TOKENS.spacing.md,
-  lg: TOKENS.spacing.lg,
-  xl: TOKENS.spacing.xl,
-  xxl: TOKENS.spacing["2xl"],
-};
-
 export type FontWeight = "400" | "500" | "600";
 
 /** Familias de @expo-google-fonts/inter cargadas con useFonts en app/_layout.tsx. */

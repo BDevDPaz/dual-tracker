@@ -164,9 +164,6 @@ export function parseTimestamp(input: unknown): number | null {
   return null;
 }
 
-/** true si `input` es interpretable como fecha. */
-export const isValidTimestamp = (input: unknown): boolean => parseTimestamp(input) !== null;
-
 // ---------------------------------------------------------------------------
 // Zona corporativa (sin parseo de cadenas)
 // ---------------------------------------------------------------------------
@@ -366,10 +363,6 @@ export const formatDuration = (ms: number): string => {
   return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
 };
 
-/** Horas decimales con 2 decimales (Ej: 8.25 h). */
-export const formatHours = (hours: number): string =>
-  `${(Number.isFinite(hours) ? hours : 0).toFixed(2)} h`;
-
 /**
  * Moneda USD fija (`$1.50`), sin separador de miles ni coma decimal.
  * No sigue el idioma de la UI: la nómina es en dólares y el mismo formato
@@ -410,12 +403,6 @@ export const isDateString = (s: unknown): s is string => {
   if (typeof s !== "string") return false;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   return !!m && validYmd(Number(m[1]), Number(m[2]), Number(m[3]));
-};
-
-/** Día de la semana (0=domingo) y hora del reloj de pared corporativo. */
-export const corporateDayAndHour = (ts: number): { day: number; hour: number } => {
-  const w = wall(ts);
-  return { day: w.getUTCDay(), hour: w.getUTCHours() };
 };
 
 // ---------------------------------------------------------------------------

@@ -6,7 +6,6 @@
 import type { PayrollCompliance, PayrollLine, PayrollRates, SessionRecord } from "../../core/contracts";
 import { workdayStartAt, type CalendarHistory } from "../../utils/dateUtils";
 import { moneyCents } from "./payrollDisplay";
-import { deductibleLunchMinutes } from "./segmentation";
 
 export const FIRST_MEAL_DEADLINE_MIN = 300;
 export const FIRST_MEAL_NOTICE_MIN = 270;
@@ -245,25 +244,4 @@ function premiumLine(it: PremiumAllocItem, kind: "MEAL_PREMIUM" | "REST_PREMIUM"
     amount: moneyCents(PREMIUM_MINUTES, rate) / 100,
     warnings: [],
   };
-}
-
-/** Minutos de la segunda comida que sí se descuentan (declarada y ≥ 30 min). */
-export function secondMealDeductionMinutes(session: SessionRecord, spanMinutes: number, pauseAndLunch: number, nowMs: number): number {
-  const second = session.bookkeeping.compliance?.secondMeal;
-  if (!second) return 0;
-  const d = deductibleLunchMinutes(
-    {
-      taken: true,
-      startAtMs: second.startAtMs,
-      endAtMs: second.endAtMs,
-      deductedMinutes: second.deductedMinutes ?? null,
-      interrupted: second.interrupted,
-    },
-    spanMinutes,
-    pauseAndLunch,
-    nowMs,
-    false,
-  );
-  const room = Math.max(0, spanMinutes - pauseAndLunch);
-  return Math.min(d.minutes, room);
 }

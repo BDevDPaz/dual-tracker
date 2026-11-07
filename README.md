@@ -135,7 +135,7 @@ dual-tracker/
 │   │   ├── monitoringCoverage.ts  cobertura informativa de la jornada
 │   │   ├── locationTrust.ts     puntaje 0–100 de la ubicación
 │   │   └── deviceIntegrityAssess.ts  lectura de emulador, root y opciones de desarrollador
-│   ├── services/                DualTracker_ServiceLayer — catálogo de 23 servicios (Técnica §6, src/services/index.ts)
+│   ├── services/                DualTracker_ServiceLayer — 23 servicios en sus carpetas (Técnica §6). El cableado está en boot.ts.
 │   │   ├── domain/              SessionEngine, PayrollEngine (+payrollPolicies, payrollDisplay, segmentation,
 │   │   │                        periodSlice, policyValidation), IntegrityLedger, SiteRegistry, siteMinutes, siteVisits,
 │   │   │                        TransitPolicy, transitExport, ConcurrencyGuard, DualDisclosure, sessionMachine,
@@ -154,7 +154,6 @@ dual-tracker/
 │   │   ├── application/         Feedback, intentRouter, refreshMirror, useCases/ (startDay, confirmExit,
 │   │   │                        generateWeeklyPayroll, calendarChange, policyMigration, ledgerIntegrity,
 │   │   │                        provisionAdminPin, exportSupportDiagnostic, fieldCryptoHealth)
-│   │   └── index.ts             catálogo canónico (los módulos de al lado no suman un servicio 24)
 │   ├── support/                 catalog, practice, tips, memory, diagnostic, contentVersion, types, buildLabel, versionLine
 │   ├── components/
 │   │   ├── ui/                  design system (portado de GEOTrack): OperationalHeroCard, SystemHealthBlock,
@@ -176,7 +175,7 @@ dual-tracker/
 │   │                            legal.ts (descargo/retención versionados), locale.ts
 │   ├── constants/               theme, icons, animations, geolocation, notifications, tasks, security, flags, app, uiLiterals
 │   ├── context/                 ThemeContext, ToastContext
-│   └── utils/                   dateUtils (dayjs tz), geoUtils, canonicalJson, safeFileName, serializeError,
+│   └── utils/                   dateUtils (zona corporativa con Intl), geoUtils, canonicalJson, safeFileName, serializeError,
 │                                hhmm, localPlane, reportRange, companyPolicy, permissionChain,
 │                                permissionGuidance, siteRadius
 ├── assets/images/               icon, splash, adaptive-icon, favicon, notification (marca A y D)
@@ -216,7 +215,7 @@ dual-tracker/
  persistence ── Persistence (SQLite WAL) · Settings · Logging · OfflineQueue · FieldCrypto
 ```
 
-El catálogo sigue siendo de 23 servicios (`src/services/index.ts`). `sessionSeal`, `sessionReplay`, `arrivalDwell`, `monitoringRecovery`, `serviceHealth`, `bootResume`, `criticalNotices` y `anomalyCatalog` viven en esas capas y no añaden un nombre al catálogo. `app/` sigue sin importar servicios.
+Los 23 servicios viven en `domain/`, `evidence/`, `runtime/`, `persistence/` y `application/`, y se importan por su archivo. `boot.ts` inyecta los puertos. `sessionSeal`, `sessionReplay`, `arrivalDwell`, `monitoringRecovery`, `serviceHealth`, `bootResume`, `criticalNotices` y `anomalyCatalog` viven en esas capas y no añaden un nombre al catálogo. `app/` sigue sin importar servicios.
 
 Reglas que se cumplen en el código:
 
@@ -244,7 +243,7 @@ W Tracker, LEDTracker y GEOTrack son proyectos fuente anteriores, no el nombre d
 | **GEOTrack** | `runtime/NotificationService`, `tasks/dailyReminder.task.ts` | Categoría de salida con acciones, recordatorio diario. |
 | **GEOTrack** | `runtime/TaskOrchestratorService`, `sessionWatchdog`, `integritySweep` | Registro global de tareas, BackgroundTask, heartbeat. |
 | **GEOTrack** | `evidence/ReportService`, `reportTemplates` | HTML → PDF con expo-print, compartir y email. Ahora a partir de un `PayrollStatement` sellado, con escape-html. |
-| **GEOTrack** | `i18n`, `context/Toast*`, `ThemeContext`, `utils/dateUtils`, `geoUtils` | dayjs con zona corporativa. |
+| **GEOTrack** | `i18n`, `context/Toast*`, `ThemeContext`, `utils/dateUtils`, `geoUtils` | Zona corporativa con Intl. Sin dayjs: en Hermes su plugin de zonas no es fiable. |
 | **GEOTrack** | `app.json` | Permisos de ubicación, segundo plano y FGS con textos en español, adaptados a "Dual Tracker" y al alcance "solo con jornada abierta". |
 | **LEDTracker** (fuente anterior) | `runtime/ForegroundWorkService` | `startLocationUpdatesAsync` con `foregroundService` (notificación persistente Android). |
 | **LEDTracker** (fuente anterior) | `SiteRegistryService` (geocoder vía `GeofenceRuntimeService.geocodeAddress`) | `Location.geocodeAsync` para convertir una dirección en coordenadas objetivo. |

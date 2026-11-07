@@ -18,7 +18,6 @@
  *  - En ACTIVA/SALIDA se vigilan los demás destinos (hasta 20). Llegar a otro
  *    sitio continúa la misma jornada (traslado), no abre una sesión nueva.
  */
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { Platform } from "react-native";
 import type { SessionRecord, SpatialFact, SpatialSource } from "../../core/contracts";
@@ -1302,7 +1301,3 @@ export const GeofenceRuntimeService = {
     });
   },
 };
-
-export async function clearLegacyLocationKeys(): Promise<void> {
-  await AsyncStorage.multiRemove(["LAST_GEOFENCE_EXIT_TIMESTAMP", "LAST_VALID_LOCATION", "GPS_DRIFT_COUNTER"]).catch(() => {});
-}

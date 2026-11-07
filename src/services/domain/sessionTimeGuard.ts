@@ -16,10 +16,6 @@ import { FUTURE_TIME_TOLERANCE_MS } from "../../config/provisional";
 
 export { FUTURE_TIME_TOLERANCE_MS };
 
-export function futureCeilingMs(nowMs: number, toleranceMs = FUTURE_TIME_TOLERANCE_MS): number {
-  return nowMs + toleranceMs;
-}
-
 /** Tope de un control de hora. El valor es el instante, no el HH:mm: la regla de medianoche puede caer al día siguiente. */
 export function timePickerMaximum(ceilingMs: number): Date {
   return new Date(ceilingMs);
@@ -55,11 +51,6 @@ function scheduleKeys(record: SessionRecord): { key: string; ts: number }[] {
   push("lastPauseStartMs", record.bookkeeping?.lastPauseStartMs);
   push("firstExitAtMs", record.bookkeeping?.firstExitAtMs);
   return out;
-}
-
-/** Instants that define declared or paid time. */
-export function scheduleInstants(record: SessionRecord): number[] {
-  return scheduleKeys(record).map((x) => x.ts);
 }
 
 /**

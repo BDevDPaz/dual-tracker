@@ -10,7 +10,6 @@ import { companyCalendar, pendingCalendarChange } from "../../utils/companyPolic
 import type {
   DualTrackerState,
   EvidencePack,
-  IntegrityClass,
   SessionPayrollPreview,
   SessionRecord,
   SessionState,
@@ -52,7 +51,6 @@ export const selectNeedsOnboarding = (s: DualTrackerState): boolean => !s.settin
 /** "Alta incompleta o política nueva": una versión nueva del texto vuelve a pedir aceptación. */
 export const selectNeedsDisclaimer = (s: DualTrackerState): boolean =>
   s.settings.device.disclosureAcceptedVersion !== DISCLOSURE_VERSION;
-export const selectOsKillDetected = (s: DualTrackerState): boolean => s.boot.osKillDetected;
 
 // ---------------------------------------------------------------------------
 // Sesiones
@@ -230,22 +228,6 @@ export const selectTodaySummary = (s: DualTrackerState, nowMs: number): DaySumma
     grossEstimate: Math.round(items.reduce((a, c) => a + (c.preview?.grossEstimate ?? 0), 0) * 100) / 100,
     certified: items.every((c) => isCertifiable(c.session)),
     visitedSiteIds: visited,
-  };
-};
-
-export interface WeekRollup {
-  netMinutes: number;
-  grossEstimate: number;
-  byClass: Record<IntegrityClass, number>;
-}
-
-export const selectRollup = (items: ComputedSession[]): WeekRollup => {
-  const byClass: Record<IntegrityClass, number> = { VALID: 0, MANUAL: 0, AUTO: 0, CONFLICT: 0 };
-  items.forEach((c) => byClass[c.session.integrityClass]++);
-  return {
-    netMinutes: items.reduce((a, c) => a + (c.preview?.netMinutes ?? 0), 0),
-    grossEstimate: Math.round(items.reduce((a, c) => a + (c.preview?.grossEstimate ?? 0), 0) * 100) / 100,
-    byClass,
   };
 };
 

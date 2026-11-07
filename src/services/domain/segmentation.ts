@@ -339,8 +339,3 @@ function cancelledFor(
   const picked = only ? rows : rows.filter((r) => r.startAtMs >= segment.startMs && r.startAtMs < segment.endMs);
   return picked.map(({ minutes, endAtMs, note }) => ({ minutes, endAtMs, note }));
 }
-
-/** ¿La jornada [start, end) cruza un límite de jornada? (LunchModal pide la hora, §5.3). */
-export function crossesWorkdayBoundary(startMs: number, endMs: number, history: CalendarHistory): boolean {
-  return nextWorkdayBoundary(startMs, history) < endMs;
-}

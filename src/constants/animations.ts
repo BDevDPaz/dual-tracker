@@ -1,6 +1,5 @@
 import {
   Easing,
-  WithSpringConfig,
   FadeInDown,
   FadeIn,
   SlideInDown,
@@ -29,16 +28,6 @@ export const EASINGS = {
   accelerate: Easing.in(Easing.quad),
   emphasized: Easing.bezier(0.4, 0.0, 0.2, 1.0),
 };
-
-/**
- * Devuelve la configuración global de resortes.
- */
-export const getSpringConfig = (): WithSpringConfig => ({
-  damping: 20,
-  stiffness: 90,
-  mass: 1,
-  overshootClamping: false,
-});
 
 /**
  * PRESETS REUTILIZABLES
