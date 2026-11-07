@@ -33,7 +33,8 @@ import {
   selectSettings,
   trimDisplayNote,
 } from "../../src/core/selectors";
-import { t, tLedgerIntent, tLineKind } from "../../src/i18n";
+import { t, tLineKind } from "../../src/i18n";
+import { tLedgerIntent } from "../../src/i18n/labels";
 import { formatCurrency, formatDate, formatTime, formatUiDecimal } from "../../src/utils/dateUtils";
 
 function ledgerLabel(e: LedgerEntry): string {

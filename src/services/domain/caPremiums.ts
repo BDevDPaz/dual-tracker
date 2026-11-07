@@ -181,13 +181,13 @@ export function evaluateDayPremiums(input: {
         secondFilled = true;
       }
     }
-    for (const _m of untimed) {
+    untimed.forEach(() => {
       if (!firstFilled) {
         firstFilled = true;
-        continue;
+        return;
       }
       if (!secondFilled) secondFilled = true;
-    }
+    });
     if (!firstFilled || !secondFilled) {
       lines.push(premiumLine(earliest, "MEAL_PREMIUM", premiumRate(dayItems, input)));
       meal = true;

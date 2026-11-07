@@ -105,6 +105,5 @@ export function tWarning(code: string, lang: Language = current): string {
 }
 
 export { es, en };
-export { reminderTitleForHour, spokenDuration, tLedgerIntent, tPackFileRole, tReviewReason, tSpatialType } from "./labels";
 export { MICROCOPY, MICROCOPY_VERSION } from "./microcopy";
 export { bootstrapLocaleTag, languageFromLocaleTag, readDeviceLocaleTag, resolveInitialLanguage } from "./locale";

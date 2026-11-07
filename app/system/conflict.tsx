@@ -19,7 +19,8 @@ import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectConflictViews, type ConflictView } from "../../src/core/selectors";
-import { t, tReviewReason } from "../../src/i18n";
+import { t } from "../../src/i18n";
+import { tReviewReason } from "../../src/i18n/labels";
 import { formatCurrency, formatDate, formatTime } from "../../src/utils/dateUtils";
 
 export default function ConflictScreen() {

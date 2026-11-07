@@ -58,6 +58,10 @@ const RESETTABLE = [
 
 beforeEach(async () => {
   time.reset();
+  // Mismo cable que boot.ensureRuntimeReady: los specs leen sesiones sin pasar por boot.
+  const { setQuarantineAppender } = require("../src/services/persistence/PersistenceService") as typeof import("../src/services/persistence/PersistenceService");
+  const { IntegrityLedgerService } = require("../src/services/domain/IntegrityLedgerService") as typeof import("../src/services/domain/IntegrityLedgerService");
+  setQuarantineAppender((draft, db) => IntegrityLedgerService.append(draft, db));
   ConcurrencyGuardService.__resetForTests();
   GeofenceRuntimeService.__resetForTests();
   ForegroundWorkService.__resetForTests();

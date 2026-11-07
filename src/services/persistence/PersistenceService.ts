@@ -17,6 +17,7 @@ import * as SQLite from "expo-sqlite";
 import type {
   CertificationBlocker,
   EvidencePack,
+  LedgerDraft,
   LedgerEntry,
   OfflineQueueItem,
   OfflineQueueStatus,
@@ -75,6 +76,25 @@ let ready = false;
 let txChain: Promise<unknown> = Promise.resolve();
 /** > 0 mientras esta conexión tiene un BEGIN abierto. */
 let txDepth = 0;
+
+/** Asiento de cuarentena, sin payloadJson: el libro calcula hash y prevHash. */
+export type QuarantineAppendDraft = Omit<LedgerDraft, "payloadJson"> & { data?: unknown };
+
+export type QuarantineAppender = (
+  draft: QuarantineAppendDraft,
+  database?: SQLite.SQLiteDatabase,
+) => Promise<unknown>;
+
+/**
+ * Lo conecta ensureRuntimeReady a IntegrityLedgerService.append, antes de
+ * leer sesiones. También el setup de Jest, porque los specs no pasan por boot.
+ * null desconecta (tests).
+ */
+let quarantineAppender: QuarantineAppender | null = null;
+
+export function setQuarantineAppender(appender: QuarantineAppender | null): void {
+  quarantineAppender = appender;
+}
 
 async function configure(database: SQLite.SQLiteDatabase): Promise<void> {
   const wal = await database.getFirstAsync<{ journal_mode?: string }>("PRAGMA journal_mode = WAL");
@@ -373,15 +393,25 @@ async function quarantineUnknownSessions(): Promise<void> {
     KNOWN_STATUS_SQL,
   );
   if (!unknown.length) return;
-  // IntegrityLedgerService importa este módulo. Un import estático cicla la carga.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { IntegrityLedgerService } = require("../domain/IntegrityLedgerService") as typeof import("../domain/IntegrityLedgerService");
+  // Sin callback no se toca la fila: el asiento y el estado siguen atómicos.
+  // La próxima getSession/listSessions, ya con el appender, hace la cuarentena.
+  // Así un headless que lee antes de ensureRuntimeReady no deja CUARENTENA sin libro.
+  if (!quarantineAppender) {
+    LoggingService.system({
+      color: "AMARILLO",
+      category: "INTEGRIDAD_COMPROMETIDA",
+      severity: "WARN",
+      message: "Cuarentena aplazada: el libro aún no está conectado",
+    });
+    return;
+  }
+  const append = quarantineAppender;
   const now = TimeAuthorityService.now();
   await PersistenceService.transaction(async (db) => {
     for (const row of unknown) {
       const current = await db.getFirstAsync<{ domain_status: string }>(`SELECT domain_status FROM sessions WHERE id = ?`, [row.id]);
       if (!current || isKnownPersistedStatus(current.domain_status)) continue;
-      await IntegrityLedgerService.append(
+      await append(
         {
           sessionId: row.id,
           actor: "SYSTEM",

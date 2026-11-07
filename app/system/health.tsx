@@ -23,7 +23,8 @@ import { foregroundLocationHealth, readingLooksOk, sensorBlocksValid } from "../
 import { SERVICE_COMPONENTS } from "../../src/core/contracts";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
-import { t, tHealthValue, tReviewReason } from "../../src/i18n";
+import { t, tHealthValue } from "../../src/i18n";
+import { tReviewReason } from "../../src/i18n/labels";
 import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
 import { androidApiLevel, guidanceForHealthSensor, isSamsungManufacturer } from "../../src/utils/permissionGuidance";
 
