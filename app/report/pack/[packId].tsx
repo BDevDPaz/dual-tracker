@@ -12,7 +12,8 @@ import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
-import { t, tPackFileRole } from "../../../src/i18n";
+import { t } from "../../../src/i18n";
+import { tPackFileRole } from "../../../src/i18n/labels";
 import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
 
 export default function PackScreen() {

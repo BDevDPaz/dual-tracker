@@ -3,7 +3,7 @@ import React from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 import { getSessionStateUI } from "../../../core/selectors";
-import { spokenDuration } from "../../../i18n";
+import { spokenDuration } from "../../../i18n/labels";
 import { OperationalHeroCard } from "../OperationalHeroCard";
 
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({ __esModule: true, default: jest.fn() }));

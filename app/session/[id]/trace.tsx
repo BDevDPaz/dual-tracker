@@ -15,7 +15,8 @@ import { useTheme } from "../../../src/context/ThemeContext";
 import type { SpatialFact } from "../../../src/core/contracts";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectIsHydrated, selectSessionById, selectSiteById } from "../../../src/core/selectors";
-import { t, tSpatialType } from "../../../src/i18n";
+import { t } from "../../../src/i18n";
+import { tSpatialType } from "../../../src/i18n/labels";
 import { formatTime } from "../../../src/utils/dateUtils";
 
 type Layer = "PERIMETER" | "BREADCRUMB";
