@@ -32,7 +32,7 @@ import { FieldCryptoService } from "../services/persistence/FieldCryptoService";
 import { IntegrityLedgerService } from "../services/domain/IntegrityLedgerService";
 import { bootFieldCrypto } from "../services/persistence/cryptoMigrations";
 import { LoggingService } from "../services/persistence/LoggingService";
-import { PersistenceService } from "../services/persistence/PersistenceService";
+import { PersistenceService, setQuarantineAppender } from "../services/persistence/PersistenceService";
 import { SettingsService } from "../services/persistence/SettingsService";
 import { KV_KEYS } from "../services/persistence/schema";
 import { noteBootResume } from "../services/runtime/bootResume";
@@ -118,6 +118,10 @@ export async function applyPersistedLanguage(): Promise<void> {
 
 /** Mínimo imprescindible para UI y tareas headless. Idempotente. */
 export function ensureRuntimeReady(): Promise<void> {
+  // Síncrono, antes del primer await y de cualquier getSession de la tarea
+  // que acaba de despertar este bundle. El require diferido al libro cerraba
+  // el ciclo PersistenceService ↔ IntegrityLedgerService.
+  setQuarantineAppender((draft, db) => IntegrityLedgerService.append(draft, db));
   if (!runtimeReady) {
     runtimeReady = (async () => {
       // Orden de arranque (spec FieldCrypto v1.3 §11):
