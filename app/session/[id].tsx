@@ -12,6 +12,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrivalMark } from "../../src/components/brand/ArrivalMark";
 import { Button, Card, IntegrityBadge, LoadingState, NotFoundState, PrimaryButton, SAFE_EDGES, ScreenContainer, ScreenScroll, Section, SessionTimeline, VmacSheet, ledgerToTimeline } from "../../src/components/ui";
+import { AlertCenter } from "../../src/components/ui/AlertCenter";
 import { HeaderActions } from "../../src/components/support/HelpButton";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { AddNoteModal, DeleteSessionModal, EditSessionModal } from "../../src/components/modals";
@@ -97,6 +98,19 @@ export default function SessionDetailScreen() {
       return res;
     });
 
+  // P1: banners de estado en un solo AlertCenter (1 + +N), no apilados.
+  const alerts: React.ComponentProps<typeof AlertCenter>["alerts"] = [];
+  if (deleted) {
+    alerts.push({ key: "deleted", message: t("session.deletedBanner"), tone: "warning" });
+  } else {
+    if (session.domainStatus === "CUARENTENA") {
+      alerts.push({ key: "quarantine", message: t("session.quarantineNotice"), tone: "danger" });
+    }
+    if (session.bookkeeping.integrityReason !== "ORPHAN_SESSION" && session.integrityClass === "CONFLICT") {
+      alerts.push({ key: "conflict", message: t("today.conflictBanner"), tone: "danger", onPress: () => router.push("/system/conflict") });
+    }
+  }
+
   return (
     <ScreenScroll
       edges={SAFE_EDGES.stack}
@@ -112,8 +126,7 @@ export default function SessionDetailScreen() {
     >
       <Stack.Screen options={{ title: formatDate(start), headerRight: () => <HeaderActions screen="session" /> }} />
         <ScreenTips screen="session" sessionState={session.domainStatus} siteCount={0} batteryRestricted={false} provisionalSeal={false} hasSplitRow={false} hasZeroOmitted={false} />
-        {deleted ? <ScreenStatusBanner status="degraded" message={t("session.deletedBanner")} /> : null}
-        {session.domainStatus === "CUARENTENA" && !deleted ? <ScreenStatusBanner status="conflict" message={t("session.quarantineNotice")} /> : null}
+        {alerts.length > 0 ? <AlertCenter alerts={alerts} /> : null}
         {session.bookkeeping.integrityReason === "ORPHAN_SESSION" && !deleted ? (
           <OrphanReviewCard
             startMs={start}
@@ -123,8 +136,6 @@ export default function SessionDetailScreen() {
             onContinue={() => void run({ type: "CONTINUE_ORPHAN" })}
             onConfirm={(endAtMs, note) => void run({ type: "CONFIRM_ORPHAN_END", endAtMs, note })}
           />
-        ) : session.integrityClass === "CONFLICT" && !deleted ? (
-          <ScreenStatusBanner status="conflict" message={t("today.conflictBanner")} onPress={() => router.push("/system/conflict")} />
         ) : null}
 
         <View style={styles.titleRow}>
@@ -134,14 +145,14 @@ export default function SessionDetailScreen() {
           <IntegrityBadge integrity={session.integrityClass} blocked={cert.blocked} />
         </View>
         <Button label={t("vmac.mark")} size="sm" variant="ghost" onPress={() => setVmac(true)} accessibilityLabel={t("vmac.open")} />
-        {cert.blocked ? <Text style={[styles.caption, { color: colors.status.warning }]}>{t("integrity.blockedDetail")}</Text> : null}
+        {cert.blocked ? <Text style={[styles.caption, { color: colors.statusText.warning }]}>{t("integrity.blockedDetail")}</Text> : null}
         <View style={styles.stateLine}>
           {session.domainStatus === "ACTIVA" ? <ArrivalMark size={ICON.lg} decorative /> : null}
           <Text style={[styles.caption, styles.stateCaption, FONT.tabularNums, { color: colors.text.secondary }]}>
             {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
           </Text>
         </View>
-        {zeroDuration ? <Text style={[styles.caption, { color: colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
+        {zeroDuration ? <Text style={[styles.caption, { color: colors.statusText.warning }]}>{t("history.zeroDuration")}</Text> : null}
 
         <Card style={styles.card}>
           <KeyValueRow

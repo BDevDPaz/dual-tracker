@@ -133,7 +133,7 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
           <Input {...chain.props("address")} label={t("sites.address")} icon="map-outline" value={address} onChangeText={setAddress} autoFocus />
           <Input {...chain.props("alias")} label={t("sites.alias")} icon={ICONS.domain.location} value={alias} onChangeText={setAlias} />
           <Input {...chain.props("client")} label={t("sites.client")} icon="business-outline" value={client} onChangeText={setClient} />
-          {createError ? <Text style={[styles.siteAddr, { color: colors.status.danger }]}>{createError}</Text> : null}
+          {createError ? <Text style={[styles.siteAddr, { color: colors.statusText.danger }]}>{createError}</Text> : null}
         </View>
       )}
     </ModalShell>

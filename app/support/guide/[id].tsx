@@ -7,12 +7,14 @@ import { Button, EmptyState, SAFE_EDGES, ScreenScroll } from "../../../src/compo
 import { LanguageSwitch } from "../../../src/components/support/LanguageSwitch";
 import { Walkthrough } from "../../../src/components/support/Walkthrough";
 import { TOKENS, FONT } from "../../../src/constants/theme";
+import { useTheme } from "../../../src/context/ThemeContext";
 import { t, useLanguage } from "../../../src/i18n";
 import { FLOWS, SCREEN_GUIDES } from "../../../src/support/catalog";
 import { isFlowId, isScreenId } from "../../../src/support/types";
 
 export default function GuideScreen() {
   useLanguage();
+  const { colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const key = String(id ?? "");
@@ -40,11 +42,11 @@ export default function GuideScreen() {
   return (
     <ScreenScroll edges={SAFE_EDGES.stack}>
       <LanguageSwitch />
-      <Text style={[styles.intro, { color: TOKENS.colors.text.secondary }]}>{t(guide.intro)}</Text>
+      <Text style={[styles.intro, { color: colors.text.secondary }]}>{t(guide.intro)}</Text>
       <Walkthrough title={guide.title} steps={guide.steps} />
       {guide.flows.length > 0 ? (
         <>
-          <Text style={[styles.related, { color: TOKENS.colors.text.muted }]}>{t("support.related")}</Text>
+          <Text style={[styles.related, { color: colors.text.muted }]}>{t("support.related")}</Text>
           {guide.flows.map((flowId) => (
             <Button key={flowId} label={t(FLOWS[flowId].title)} variant="secondary" onPress={() => router.push(`/support/guide/${flowId}`)} />
           ))}

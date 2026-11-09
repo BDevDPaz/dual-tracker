@@ -470,7 +470,7 @@ function WorkCalendarBlock() {
       />
       {pending ? (
         <>
-          <Text style={[styles.hint, { color: colors.status.warning }]}>
+          <Text style={[styles.hint, { color: colors.statusText.warning }]}>
             {t("settings.calendar.pending", {
               start: hhmm(pending.workdayStartMinutes),
               day: t(`settings.calendar.days.${pending.workweekStartDay}`),

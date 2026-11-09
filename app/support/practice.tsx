@@ -11,6 +11,7 @@ import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { ScreenStatusBanner, KeyValueRow } from "../../src/components/blocks";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useBusyAction, usePractice } from "../../src/core/hooks";
 import { getSessionStateUI } from "../../src/core/selectors";
 import { t, useLanguage } from "../../src/i18n";
@@ -18,6 +19,7 @@ import { practicePhase, type PracticeAction, type PracticeCode } from "../../src
 
 export default function PracticeScreen() {
   useLanguage();
+  const { colors } = useTheme();
   const router = useRouter();
   const navigation = useNavigation();
   const { snapshot, enter, exit, dispatch } = usePractice();
@@ -68,21 +70,21 @@ export default function PracticeScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScreenStatusBanner status="degraded" message={t("support.practice.banner")} />
       <ScreenScroll edges={SAFE_EDGES.stack}>
         <LanguageSwitch />
-        <Text style={[styles.note, { color: TOKENS.colors.text.secondary }]}>{t("support.practice.isolated")}</Text>
+        <Text style={[styles.note, { color: colors.text.secondary }]}>{t("support.practice.isolated")}</Text>
         <Card style={styles.card}>
           <StatusPill tone={ui.tone} label={t(ui.labelKey)} symbol={phase === "ACTIVA" ? "arrival" : undefined} />
-          <Text style={[styles.site, { color: TOKENS.colors.text.primary }]}>
+          <Text style={[styles.site, { color: colors.text.primary }]}>
             {session?.site === "B" ? t("support.practice.siteB") : t("support.practice.siteA")}
             {session?.transfer ? ` → ${t("support.practice.siteB")}` : ""}
           </Text>
           {session ? <IntegrityBadge integrity={session.integrity} blocked={session.blocked} /> : null}
         </Card>
 
-        {error ? <Text style={[styles.error, { color: TOKENS.colors.status.danger }]}>{t(`support.practice.errors.${error}`)}</Text> : null}
+        {error ? <Text style={[styles.error, { color: colors.statusText.danger }]}>{t(`support.practice.errors.${error}`)}</Text> : null}
 
         {asking ? (
           <Card style={styles.card}>
@@ -155,21 +157,21 @@ export default function PracticeScreen() {
           </View>
         )}
 
-        {session?.sealed ? <Text style={[styles.note, { color: TOKENS.colors.status.warning }]}>{t("support.practice.provisional")}</Text> : null}
-        {session?.note ? <Text style={[styles.note, { color: TOKENS.colors.text.secondary }]}>{session.note}</Text> : null}
+        {session?.sealed ? <Text style={[styles.note, { color: colors.statusText.warning }]}>{t("support.practice.provisional")}</Text> : null}
+        {session?.note ? <Text style={[styles.note, { color: colors.text.secondary }]}>{session.note}</Text> : null}
 
         {statement && phase === "CERRADA" ? (
           <Card style={styles.card}>
-            <Text style={[styles.note, { color: TOKENS.colors.text.muted }]}>{t("support.practice.notPayroll")}</Text>
+            <Text style={[styles.note, { color: colors.text.muted }]}>{t("support.practice.notPayroll")}</Text>
             <KeyValueRow label={t("support.practice.siteA")} value={t("support.practice.hours")} />
             <KeyValueRow label={t("support.practice.minutesLabel")} value={t("support.practice.minutes")} />
             <KeyValueRow label={t("reports.total")} value={t("support.practice.amount")} emphasis />
-            <Text style={[styles.note, { color: TOKENS.colors.text.primary }]}>
+            <Text style={[styles.note, { color: colors.text.primary }]}>
               {t("history.continuesUntil", { date: t("support.practice.nextMonday") })}
             </Text>
             <KeyValueRow label={t("support.practice.zeroMinutes")} value={t("support.practice.zeroAmount")} />
-            <Text style={[styles.note, { color: TOKENS.colors.text.secondary }]}>{t("support.practice.hiddenZero")}</Text>
-            <Text style={[styles.note, { color: TOKENS.colors.text.secondary }]}>{t("reports.zeroRowsOmitted", { count: 1 })}</Text>
+            <Text style={[styles.note, { color: colors.text.secondary }]}>{t("support.practice.hiddenZero")}</Text>
+            <Text style={[styles.note, { color: colors.text.secondary }]}>{t("reports.zeroRowsOmitted", { count: 1 })}</Text>
           </Card>
         ) : null}
 
@@ -182,7 +184,7 @@ export default function PracticeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: TOKENS.colors.background },
+  root: { flex: 1 },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.sm },
   actions: { gap: TOKENS.spacing.sm },
   site: { ...FONT.h3 },

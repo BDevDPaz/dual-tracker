@@ -109,6 +109,12 @@ export interface CompanyPolicy {
    * No cambia la fórmula de la nómina.
    */
   arrivalDwellMs?: number;
+  /**
+   * Objetivo diario en minutos para la barra de progreso (P6).
+   * Ausente = 480 (8 h). LiveShiftPanel / Hero usan este valor y lo limitan a 0-1.
+   * No cambia la nómina: solo el progreso visual del día.
+   */
+  dailyTargetMinutes?: number;
 }
 
 /** Preferencias de dispositivo (no sensibles). */

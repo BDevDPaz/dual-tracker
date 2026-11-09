@@ -104,39 +104,64 @@ export function ModalShell({
     switch (tone) {
       case "danger":
         return {
-          color: colors.status.danger,
-          bg: colors.statusBg.danger,
+          color: colors.statusText.danger,
+          bg: colors.statusBgStrong.danger,
           icon: icon || ICONS.status.error,
+          barHeight: TOKENS.modal.bar.danger,
+          wrapperSize: TOKENS.modal.icon.danger,
+          iconSize: 28,
         };
       case "warning":
         return {
-          color: colors.status.warning,
-          bg: colors.statusBg.warning,
+          color: colors.statusText.warning,
+          bg: colors.statusBgStrong.warning,
           icon: icon || ICONS.status.warning,
+          barHeight: TOKENS.modal.bar.warning,
+          wrapperSize: TOKENS.modal.icon.warning,
+          iconSize: ICON.xl,
         };
       case "success":
         return {
-          color: colors.status.success,
-          bg: colors.statusBg.success,
+          color: colors.statusText.success,
+          bg: colors.statusBgStrong.success,
           icon: icon || ICONS.status.success,
+          barHeight: TOKENS.modal.bar.success,
+          wrapperSize: TOKENS.modal.icon.success,
+          iconSize: ICON.xl,
         };
       case "info":
         return {
-          color: colors.status.info,
-          bg: colors.statusBg.info,
+          color: colors.statusText.info,
+          bg: colors.statusBgStrong.info,
           icon: icon || ICONS.status.info,
+          barHeight: TOKENS.modal.bar.info,
+          wrapperSize: TOKENS.modal.icon.info,
+          iconSize: ICON.lg,
         };
       case "neutral":
       default:
         return {
           color: colors.goldText,
-          bg: colors.statusBg.primary,
+          bg: colors.statusBgStrong.primary,
           icon: icon || ICONS.status.neutral,
+          barHeight: TOKENS.modal.bar.neutral,
+          wrapperSize: TOKENS.modal.icon.neutral,
+          iconSize: ICON.lg,
         };
     }
   };
 
   const toneConfig = getToneConfig();
+  const cardBorderColor =
+    tone === "danger"
+      ? colors.statusBorderStrong.danger
+      : tone === "neutral"
+        ? colors.border
+        : colors.statusBorder[tone as "info" | "warning" | "success"];
+
+  // P7: el tono llega al botón primario si el llamador no pasa variant explícita.
+  const defaultPrimaryVariant: ButtonVariant =
+    tone === "danger" ? "danger" : tone === "warning" ? "warning" : tone === "success" ? "success" : "primary";
 
   const renderContent = () => {
     const content = (
@@ -146,12 +171,12 @@ export function ModalShell({
             <View
               style={[
                 styles.iconWrapper,
-                { backgroundColor: toneConfig.bg },
+                { backgroundColor: toneConfig.bg, width: toneConfig.wrapperSize, height: toneConfig.wrapperSize },
               ]}
             >
               <Ionicons
                 name={toneConfig.icon as any}
-                size={ICON.xl}
+                size={toneConfig.iconSize}
                 color={toneConfig.color}
               />
             </View>
@@ -206,10 +231,7 @@ export function ModalShell({
           {primaryAction && (
             <Button
               label={primaryAction.label}
-              variant={
-                primaryAction.variant ||
-                (tone === "danger" ? "danger" : "primary")
-              }
+              variant={primaryAction.variant || defaultPrimaryVariant}
               onPress={primaryAction.onPress}
               disabled={primaryAction.disabled}
               isLoading={primaryAction.loading}
@@ -239,10 +261,11 @@ export function ModalShell({
   const card = (
     <Animated.View
       entering={reduceMotion ? ANIM_PRESETS.reducedFade : ANIM_PRESETS.modalEnter}
-      style={[styles.modalCard, containerStyle, styles.modalCardEdges, { maxHeight: windowHeight * TOKENS.layout.sheetMaxRatio }]}
+      style={[styles.modalCard, containerStyle, styles.modalCardEdges, { maxHeight: windowHeight * TOKENS.layout.sheetMaxRatio, borderColor: cardBorderColor, borderWidth: TOKENS.layout.hairline }]}
       testID={testID ? `${testID}-card` : undefined}
     >
       <GlassLayers enabled={glass} />
+      <View style={[styles.topBar, { height: toneConfig.barHeight, backgroundColor: toneConfig.color }]} />
       {/* Borde inferior seguro real en lugar del paddingBottom fijo de 40 en iOS. */}
       <SafeAreaView edges={["bottom"]} style={styles.safeArea}>
         {renderContent()}
@@ -303,6 +326,9 @@ const styles = StyleSheet.create({
   },
   modalCardEdges: {
     borderBottomWidth: 0,
+  },
+  topBar: {
+    width: "100%",
   },
   safeArea: {
     flexShrink: 1,

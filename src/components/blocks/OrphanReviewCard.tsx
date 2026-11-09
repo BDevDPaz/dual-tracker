@@ -72,7 +72,7 @@ export function OrphanReviewCard({
       <Input {...chain.props("end")} label={t("today.orphanEnd")} value={endText} onChangeText={setEndText} mask="HH:mm" maximumDate={timePickerMaximum(ceilingMs)} testID="orphan-end" />
       <Input {...chain.props("note")} label={t("today.orphanNote")} value={note} onChangeText={setNote} testID="orphan-note" />
       {error ? (
-        <Text style={[styles.body, { color: colors.status.warning }]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+        <Text style={[styles.body, { color: colors.statusText.warning }]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
           {error}
         </Text>
       ) : null}

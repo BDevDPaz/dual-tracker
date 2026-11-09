@@ -20,17 +20,17 @@ interface Props {
 export function HealthRow({ label, value, ok, blocksValid, busy = false, onRepair, guidance }: Props) {
   useLanguage();
   const { colors } = useTheme();
-  const color = ok ? colors.status.success : colors.status.warning;
+  const color = ok ? colors.statusText.success : colors.statusText.warning;
   return (
     <View style={[styles.block, { borderColor: colors.border }]}>
       <View style={styles.row}>
         <View style={styles.texts}>
           <Text style={[styles.label, { color: colors.text.primary }]}>{label}</Text>
           <Text style={[styles.value, { color }]}>{value}</Text>
-          <Text style={[styles.impact, { color: blocksValid ? colors.status.warning : colors.text.muted }]}>
+          <Text style={[styles.impact, { color: blocksValid ? colors.statusText.warning : colors.text.muted }]}>
             {blocksValid ? t("health.impactBlocking") : t("health.impactWarning")}
           </Text>
-          {!ok && blocksValid ? <Text style={[styles.impact, { color: colors.status.warning }]}>{t("health.impactNoValid")}</Text> : null}
+          {!ok && blocksValid ? <Text style={[styles.impact, { color: colors.statusText.warning }]}>{t("health.impactNoValid")}</Text> : null}
         </View>
         {!ok && onRepair ? <Button label={t("health.repair")} size="sm" variant="secondary" disabled={busy} onPress={onRepair} /> : null}
       </View>

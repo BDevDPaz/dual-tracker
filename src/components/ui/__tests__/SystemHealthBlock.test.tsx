@@ -6,7 +6,7 @@ import { t } from "../../../i18n";
 import { SystemHealthBlock } from "../SystemHealthBlock";
 import { ReduceMotionPref } from "../motion";
 
-const healthy = { gpsOk: true, backgroundOk: true, traceMode: "SOLO_GEOCERCA" as const, degraded: false, checked: true };
+const healthy = { gpsOk: true, backgroundOk: true, foregroundOk: true, clockDriftExceeded: false, traceMode: "SOLO_GEOCERCA" as const, degraded: false, checked: true };
 
 describe("SystemHealthBlock", () => {
   test("sano: sin línea de impacto; segundo plano con icono de teléfono (no luna)", () => {
@@ -18,6 +18,11 @@ describe("SystemHealthBlock", () => {
 
   test("degradado: una línea t('health.impactNoValid')", () => {
     render(<SystemHealthBlock health={{ ...healthy, backgroundOk: false, degraded: true }} tracking />);
+    expect(screen.getByTestId("health-impact").props.children).toBe(t("health.impactNoValid"));
+  });
+
+  test("degradado por deriva de reloj: muestra impacto aunque GPS y fondo estén bien", () => {
+    render(<SystemHealthBlock health={{ ...healthy, clockDriftExceeded: true, degraded: true }} tracking />);
     expect(screen.getByTestId("health-impact").props.children).toBe(t("health.impactNoValid"));
   });
 

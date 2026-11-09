@@ -20,11 +20,10 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
 } from "@expo-google-fonts/inter";
-import { ThemeProvider } from "../src/context/ThemeContext";
+import { ThemeProvider, useTheme } from "../src/context/ThemeContext";
 import { ToastProvider } from "../src/context/ToastContext";
 import { FeedbackBridge } from "../src/components/feedback/FeedbackBridge";
 import { boot, ensureRuntimeReady, registerBackgroundTasks } from "../src/core/boot";
-import { TOKENS } from "../src/constants/theme";
 import { useLanguage } from "../src/i18n";
 
 // Las pantallas del fondo (pila, pestañas, modal) siguen vivas: un cambio de
@@ -39,6 +38,34 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 /** Si Inter no carga en este plazo se pinta con la fuente del sistema (nunca pantalla en blanco). */
 const FONT_LOAD_TIMEOUT_MS = 3000;
+
+/**
+ * Interior ya dentro de ThemeProvider: aquí sí se puede usar useTheme()
+ * para el fondo del root y del Stack. El componente exterior monta el
+ * proveedor, así que no puede consumirlo él mismo.
+ */
+function RootShell() {
+  const { colors } = useTheme();
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style="light" />
+      <FeedbackBridge />
+      <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(boot)" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="session" />
+        <Stack.Screen name="sites" />
+        <Stack.Screen name="report" />
+        <Stack.Screen name="system" options={{ presentation: "modal" }} />
+        <Stack.Screen name="legal" />
+        <Stack.Screen name="support" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+    </GestureHandlerRootView>
+  );
+}
 
 export default function RootLayout() {
   useLanguage();
@@ -82,28 +109,12 @@ export default function RootLayout() {
   if (!fontsSettled || !langReady) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: TOKENS.colors.background }}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <ToastProvider>
-            <StatusBar style="light" />
-            <FeedbackBridge />
-            <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: TOKENS.colors.background } }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(boot)" options={{ gestureEnabled: false }} />
-              <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
-              <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-              <Stack.Screen name="session" />
-              <Stack.Screen name="sites" />
-              <Stack.Screen name="report" />
-              <Stack.Screen name="system" options={{ presentation: "modal" }} />
-              <Stack.Screen name="legal" />
-              <Stack.Screen name="support" />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-          </ToastProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <RootShell />
+        </ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

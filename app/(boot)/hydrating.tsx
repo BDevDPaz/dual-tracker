@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { AppBrandTitle, Button } from "../../src/components/ui";
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useWorkTracker } from "../../src/core/hooks";
 import { selectBootError, selectIsHydrated } from "../../src/core/selectors";
 import { boot } from "../../src/core/boot";
@@ -19,6 +20,7 @@ import { t } from "../../src/i18n";
 
 export default function HydratingScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { state } = useWorkTracker();
   const hydrated = selectIsHydrated(state);
   const bootError = selectBootError(state);
@@ -28,20 +30,20 @@ export default function HydratingScreen() {
   }, [hydrated, router]);
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: TOKENS.colors.background }]} edges={["top", "bottom", "left", "right"]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top", "bottom", "left", "right"]}>
       <View style={styles.help}>
         <HelpButton screen="boot" />
       </View>
       <AppBrandTitle />
       {bootError ? (
         <>
-          <Text style={[styles.status, { color: TOKENS.colors.status.danger }]}>{t("boot.error")}</Text>
+          <Text style={[styles.status, { color: colors.statusText.danger }]}>{t("boot.error")}</Text>
           <Button label={t("common.retry")} variant="secondary" onPress={() => void boot()} />
         </>
       ) : (
         <>
-          <ActivityIndicator color={TOKENS.colors.primary} style={styles.spinner} />
-          <Text style={[styles.status, { color: TOKENS.colors.text.secondary }]}>{t("boot.restoring")}</Text>
+          <ActivityIndicator color={colors.primary} style={styles.spinner} />
+          <Text style={[styles.status, { color: colors.text.secondary }]}>{t("boot.restoring")}</Text>
         </>
       )}
     </SafeAreaView>

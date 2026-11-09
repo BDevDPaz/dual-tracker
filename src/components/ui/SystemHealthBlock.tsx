@@ -16,6 +16,7 @@ import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
  * PermissionsHealth (vía selectSystemHealth): GPS / segundo plano / rastro.
  * Se elimina "Sincronización en tiempo real" (no hay backend).
  * Si hay degradación el bloque es tappable y no se disimula en gris (Producto §5.7).
+ * Detalle de /system/health. La línea resumida vive en el Hero (P3).
  */
 interface SystemHealthBlockProps {
   health: SystemHealthView;
@@ -45,17 +46,20 @@ export const SystemHealthBlock = React.memo(function SystemHealthBlock({ health,
   }, [pulsing, reduceMotion, pulseOpacity]);
   const animatedDotStyle = useAnimatedStyle(() => ({ opacity: pulseOpacity.value }));
 
-  const ok = colors.status.success;
-  const warn = colors.status.warning;
+  // P10: texto e iconos usan statusText, no el color vivido. Borde usa statusBorder.
+  const ok = colors.statusText.success;
+  const warn = colors.statusText.warning;
   const muted = colors.text.muted;
+  const gpsOk = health.gpsOk && health.foregroundOk;
   const rows = [
-    { icon: ICONS.domain.gps, label: t("health.gps"), color: !health.checked ? muted : health.gpsOk ? ok : warn, status: health.gpsOk ? t("health.ok") : t("health.warn"), pulse: pulsing },
+    { icon: ICONS.domain.gps, label: t("health.gps"), color: !health.checked ? muted : gpsOk ? ok : warn, status: gpsOk ? t("health.ok") : t("health.warn"), pulse: pulsing },
     { icon: ICONS.domain.background, label: t("health.background"), color: !health.checked ? muted : health.backgroundOk ? ok : warn, status: health.backgroundOk ? t("health.ok") : t("health.warn"), pulse: false },
     { icon: ICONS.domain.trace, label: t("health.trace"), color: health.traceMode === "SIN_UBICACION" ? muted : ok, status: t(`health.modes.${health.traceMode}`), pulse: false },
   ] as const;
 
   const content = (
-    <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: TOKENS.layout.hairline, borderColor: warn }]}>
+    <Card variant="surface" style={[styles.block, inset && styles.inset, health.degraded && { borderWidth: TOKENS.layout.hairline, borderColor: colors.statusBorder.warning }]}
+>
       <View style={styles.titleRow}>
         <View style={styles.titleGrow}>
           <CardHeader icon={ICONS.domain.gps} title={t("health.systemTitle")} subtitle={t("health.systemSubtitle")} />

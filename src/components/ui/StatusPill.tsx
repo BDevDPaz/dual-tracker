@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { TOKENS, FONT, ICON, font, withAlpha, type ThemeColors } from "../../constants/theme";
+import { TOKENS, FONT, ICON, font, type ThemeColors } from "../../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { ICONS } from "../../constants/icons";
@@ -10,6 +10,8 @@ import { ArrivalMark } from "../brand/ArrivalMark";
  * StatusPill — portado de GEOTrack. Los tonos dejan de ser estados de dominio
  * ("ACTIVE_WORK" | "CLOSED") y pasan a ser tonos visuales; el mapeo
  * estado → tono vive en getSessionStateUI (selectores).
+ * Es una etiqueta secundaria, no el título principal. El título principal
+ * del estado vive en OperationalHeroCard con FONT.hero.
  */
 export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -18,6 +20,8 @@ interface StatusPillProps {
   label: string;
   /** Concepto D en lugar del glifo genérico: En sitio / llegada confirmada. */
   symbol?: "arrival";
+  /** Punto dorado antes del glifo, para acento de estado. Por defecto false. */
+  goldAccent?: boolean;
 }
 
 export function toneColors(colors: ThemeColors, tone: StatusTone): { color: string; bg: string } {
@@ -25,13 +29,13 @@ export function toneColors(colors: ThemeColors, tone: StatusTone): { color: stri
     case "neutral":
       return { color: colors.text.secondary, bg: colors.surface };
     case "info":
-      return { color: colors.status.info, bg: colors.statusBg.info };
+      return { color: colors.statusText.info, bg: colors.statusBg.info };
     case "success":
-      return { color: colors.status.success, bg: colors.statusBg.success };
+      return { color: colors.statusText.success, bg: colors.statusBg.success };
     case "warning":
-      return { color: colors.status.warning, bg: colors.statusBg.warning };
+      return { color: colors.statusText.warning, bg: colors.statusBg.warning };
     case "danger":
-      return { color: colors.status.danger, bg: colors.statusBg.danger };
+      return { color: colors.statusText.danger, bg: colors.statusBg.danger };
   }
 }
 
@@ -44,11 +48,18 @@ export const PILL_GLYPH: Record<StatusTone, React.ComponentProps<typeof Ionicons
   danger: ICONS.status.error,
 };
 
-export function StatusPill({ tone, label, symbol }: StatusPillProps) {
+export function StatusPill({ tone, label, symbol, goldAccent = false }: StatusPillProps) {
   const { colors } = useTheme();
   const { color, bg } = toneColors(colors, tone);
+  const borderColor =
+    tone === "danger"
+      ? colors.statusBorderStrong.danger
+      : tone === "neutral"
+        ? colors.border
+        : colors.statusBorder[tone as "info" | "success" | "warning" | "danger"];
   return (
-    <View style={[styles.pill, { backgroundColor: bg, borderColor: withAlpha(color, 0.4) }]} accessibilityRole="text" accessibilityLabel={label}>
+    <View style={[styles.pill, { backgroundColor: bg, borderColor }]} accessibilityRole="text" accessibilityLabel={label}>
+      {goldAccent ? <View style={[styles.goldDot, { backgroundColor: colors.goldAccent }]} /> : null}
       {symbol === "arrival" ? (
         <ArrivalMark size={ICON.lg} decorative />
       ) : (
@@ -70,6 +81,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: TOKENS.spacing.sm,
+  },
+  goldDot: {
+    width: TOKENS.accent.dot,
+    height: TOKENS.accent.dot,
+    borderRadius: TOKENS.accent.dot / 2,
   },
   text: {
     ...FONT.badge,

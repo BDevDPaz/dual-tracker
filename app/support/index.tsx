@@ -10,6 +10,7 @@ import { PermissionGuidancePanel } from "../../src/components/blocks/PermissionG
 import { Button, Card, SAFE_EDGES, ScreenScroll, Section } from "../../src/components/ui";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { useToast } from "../../src/context/ToastContext";
 import { t, useLanguage } from "../../src/i18n";
@@ -20,6 +21,7 @@ import { troubleGuidance } from "../../src/utils/permissionGuidance";
 
 export default function SupportIndexScreen() {
   useLanguage();
+  const { colors } = useTheme();
   const router = useRouter();
   const { emit } = useWorkTracker();
   const { showToast } = useToast();
@@ -45,7 +47,7 @@ export default function SupportIndexScreen() {
   return (
     <ScreenScroll edges={SAFE_EDGES.stack}>
       <LanguageSwitch />
-      <Text style={[styles.blurb, { color: TOKENS.colors.text.secondary }]}>{t("support.blurb")}</Text>
+      <Text style={[styles.blurb, { color: colors.text.secondary }]}>{t("support.blurb")}</Text>
 
       <Section title={t("support.manual")}>
         {FLOW_IDS.map((id) => (
@@ -68,9 +70,9 @@ export default function SupportIndexScreen() {
               onPress={() => setOpenFaq((cur) => (cur === id ? null : id))}
               style={styles.troubleHeader}
             >
-              <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`support.faq.${id}.q`)}</Text>
+              <Text style={[styles.question, { color: colors.text.primary }]}>{t(`support.faq.${id}.q`)}</Text>
             </Pressable>
-            {openFaq === id ? <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.faq.${id}.a`)}</Text> : null}
+            {openFaq === id ? <Text style={[styles.answer, { color: colors.text.secondary }]}>{t(`support.faq.${id}.a`)}</Text> : null}
           </Card>
         ))}
       </Section>
@@ -86,11 +88,11 @@ export default function SupportIndexScreen() {
                 onPress={() => setOpenTrouble((cur) => (cur === id ? null : id))}
                 style={styles.troubleHeader}
               >
-                <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`support.trouble.${id}.title`)}</Text>
+                <Text style={[styles.question, { color: colors.text.primary }]}>{t(`support.trouble.${id}.title`)}</Text>
               </Pressable>
               {openTrouble === id ? (
                 <View style={styles.answerBlock}>
-                  <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.trouble.${id}.body`)}</Text>
+                  <Text style={[styles.answer, { color: colors.text.secondary }]}>{t(`support.trouble.${id}.body`)}</Text>
                   {guide ? (
                     <PermissionGuidancePanel
                       body={t(guide.bodyKey)}
@@ -113,24 +115,24 @@ export default function SupportIndexScreen() {
         <Card style={styles.card}>
           {MACHINE_STATE_IDS.map((id) => (
             <View key={id} style={styles.gloss}>
-              <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`states.${id}.label`)}</Text>
-              <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.glossary.machine.${id}`)}</Text>
+              <Text style={[styles.question, { color: colors.text.primary }]}>{t(`states.${id}.label`)}</Text>
+              <Text style={[styles.answer, { color: colors.text.secondary }]}>{t(`support.glossary.machine.${id}`)}</Text>
             </View>
           ))}
           {INTEGRITY_IDS.map((id) => (
             <View key={id} style={styles.gloss}>
-              <Text style={[styles.question, { color: TOKENS.colors.text.primary }]}>{t(`integrity.${id}`)}</Text>
-              <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t(`support.glossary.integrity.${id}`)}</Text>
+              <Text style={[styles.question, { color: colors.text.primary }]}>{t(`integrity.${id}`)}</Text>
+              <Text style={[styles.answer, { color: colors.text.secondary }]}>{t(`support.glossary.integrity.${id}`)}</Text>
             </View>
           ))}
-          <Text style={[styles.answer, { color: TOKENS.colors.text.secondary }]}>{t("support.glossary.manualPatch")}</Text>
+          <Text style={[styles.answer, { color: colors.text.secondary }]}>{t("support.glossary.manualPatch")}</Text>
         </Card>
       </Section>
 
       <Button label={t("support.practice.enter")} iconName="school-outline" onPress={() => router.push("/support/practice")} />
       <Button label={t("support.tips.reset")} variant="secondary" onPress={() => void onResetTips()} />
       <Button label={t("support.export.action")} variant="secondary" disabled={busy} isLoading={busy} onPress={() => void share()} />
-      <Text style={[styles.about, { color: TOKENS.colors.text.muted }]}>
+      <Text style={[styles.about, { color: colors.text.muted }]}>
         {currentVersionLine()}
       </Text>
     </ScreenScroll>
@@ -138,10 +140,11 @@ export default function SupportIndexScreen() {
 }
 
 function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="link" accessibilityLabel={label} accessibilityHint={t("a11y.linkHint")} style={styles.link}>
-      <Text style={[styles.linkText, { color: TOKENS.colors.text.primary }]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={ICON.md} color={TOKENS.colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
+      <Text style={[styles.linkText, { color: colors.text.primary }]}>{label}</Text>
+      <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
     </Pressable>
   );
 }

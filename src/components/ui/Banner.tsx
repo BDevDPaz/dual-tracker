@@ -23,12 +23,13 @@ const ICONS_BY_TONE: Record<BannerTone, React.ComponentProps<typeof Ionicons>["n
 /** Aviso de radio 12. El tono sale del tema, no de un color suelto. */
 export function Banner({ tone, message, onPress, icon }: BannerProps) {
   const { colors } = useTheme();
-  const color =
-    tone === "danger" ? colors.status.danger : tone === "success" ? colors.status.success : tone === "info" ? colors.status.info : colors.status.warning;
-  const backgroundColor =
-    tone === "danger" ? colors.statusBg.danger : tone === "success" ? colors.statusBg.success : tone === "info" ? colors.statusBg.info : colors.statusBg.warning;
+  // P10: texto/icono en statusText (legible), borde en statusBorder, fondo suave en statusBg.
+  // Nunca status.* vivido para texto o borde.
+  const color = colors.statusText[tone];
+  const borderColor = colors.statusBorder[tone];
+  const backgroundColor = colors.statusBg[tone];
   const body = (
-    <View style={[styles.banner, { borderColor: color, backgroundColor }]}>
+    <View style={[styles.banner, { borderColor, backgroundColor }]}>
       <Ionicons name={icon ?? ICONS_BY_TONE[tone]} size={ICON.xl} color={color} />
       <Text style={[styles.text, { color }]}>{message}</Text>
       {onPress ? <Ionicons name="chevron-forward" size={ICON.xl} color={color} /> : null}

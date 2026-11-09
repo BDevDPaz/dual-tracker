@@ -1,6 +1,6 @@
 /**
  * (tabs)/index.tsx — Hoy: mando de jornada (Producto §5.7). REDISEÑO.
- * Compone PageHeader, SystemHealthBlock, OperationalHeroCard,
+ * Compone PageHeader, OperationalHeroCard,
  * DailySummaryBlock y la zona de CTAs según getSessionStateUI. Monta
  * DailySetupModal, LunchModal y ExitDetectionModal. No calcula horas: todo
  * sale de selectores; toda mutación es una ViewIntent.
@@ -19,7 +19,6 @@ import {
   PrimaryButton,
   SAFE_EDGES,
   ScreenScroll,
-  SystemHealthBlock,
   EmptyState,
   selectGpsExceptionKind,
   type GpsExceptionKind,
@@ -275,12 +274,6 @@ export default function TodayScreen() {
           />
         ) : null}
 
-        <SystemHealthBlock
-          health={health}
-          tracking={sessionState !== "NO_INICIADA" && sessionState !== "CERRADA"}
-          onPress={() => router.push("/system/health")}
-        />
-
         <LiveShiftPanel
           ui={ui}
           destination={
@@ -291,7 +284,7 @@ export default function TodayScreen() {
           uncertified={uncertified}
           nextAction={
             sessionState === "ESPERANDO"
-              ? `${t("today.nextAction", { site: target?.alias ?? t("today.noDestination") })} · ${t(healthRaw.isMonitoring ? "today.geofenceOn" : "today.geofenceOff")}`
+              ? t("today.nextAction", { site: target?.alias ?? t("today.noDestination") })
               : null
           }
           busy={busy}

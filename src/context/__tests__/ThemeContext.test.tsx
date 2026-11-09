@@ -80,11 +80,11 @@ describe("ThemeContext", () => {
     expect(COLORS.dark.onPrimary).toBe("#1C1B19");
     expect(COLORS.dark.status.info).toBe("#4A90E2");
     expect(COLORS.dark.status.success).toBe("#5CD65C");
-    expect(COLORS.dark.status.warning).toBe("#F8C650");
+    expect(COLORS.dark.status.warning).toBe("#F5A623");
     expect(COLORS.dark.status.danger).toBe("#D9534F");
     expect(COLORS.light.status.info).toBe("#4A90E2");
     expect(COLORS.light.status.success).toBe("#5CD65C");
-    expect(COLORS.light.status.warning).toBe("#F8C650");
+    expect(COLORS.light.status.warning).toBe("#F5A623");
     expect(COLORS.light.status.danger).toBe("#D9534F");
     expect(COLORS.dark.divider).toBe("#33343A");
   });

@@ -100,7 +100,7 @@ export function LoadingOverlay({
               <Ionicons
                 name="cloud-offline-outline"
                 size={ICON.xxl}
-                color={colors.status.warning}
+                color={colors.statusText.warning}
               />
             </Animated.View>
           ) : (
@@ -120,7 +120,7 @@ export function LoadingOverlay({
               styles.messageText,
               { color: colors.text.secondary },
               isReconnecting && {
-                color: colors.status.warning,
+                color: colors.statusText.warning,
                 ...font("600"),
               },
             ]}

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { TOKENS, FONT } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import type { LegalContent } from "../../i18n/legal";
 
 /**
@@ -9,19 +10,20 @@ import type { LegalContent } from "../../i18n/legal";
  * (modo lectura), para no divergir (Producto §5.4 y §5.17).
  */
 export function DisclosureContent({ content, titleAccessory }: { content: LegalContent; titleAccessory?: React.ReactNode }) {
+  const { colors } = useTheme();
   return (
     <View>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, styles.titleFlex, { color: TOKENS.colors.text.primary }]}>{content.title}</Text>
+        <Text style={[styles.title, styles.titleFlex, { color: colors.text.primary }]}>{content.title}</Text>
         {titleAccessory}
       </View>
       {content.blocks.map((b) => (
-        <View key={b.key} style={[styles.block, { borderColor: TOKENS.colors.border, backgroundColor: TOKENS.colors.surface }]}>
-          <Text style={[styles.blockTitle, { color: TOKENS.colors.primary }]}>{b.title}</Text>
-          <Text style={[styles.body, { color: TOKENS.colors.text.secondary }]}>{b.body}</Text>
+        <View key={b.key} style={[styles.block, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <Text style={[styles.blockTitle, { color: colors.primary }]}>{b.title}</Text>
+          <Text style={[styles.body, { color: colors.text.secondary }]}>{b.body}</Text>
         </View>
       ))}
-      <Text style={[styles.version, { color: TOKENS.colors.text.muted }]}>v{content.version}</Text>
+      <Text style={[styles.version, { color: colors.text.muted }]}>v{content.version}</Text>
     </View>
   );
 }

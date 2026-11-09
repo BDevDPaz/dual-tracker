@@ -88,7 +88,7 @@ export default function NewSiteScreen() {
           saved.targetLat !== null && saved.targetLon !== null ? (
             <KeyValueRow label={t("sites.latLon")} value={`${saved.targetLat.toFixed(5)}, ${saved.targetLon.toFixed(5)}`} mono />
           ) : (
-            <Text style={{ color: colors.status.warning }}>{t("sites.coordsMissing")}</Text>
+            <Text style={{ color: colors.statusText.warning }}>{t("sites.coordsMissing")}</Text>
           )
         ) : (
           <Text style={{ color: colors.text.muted }}>{t("sites.coordsPending")}</Text>
