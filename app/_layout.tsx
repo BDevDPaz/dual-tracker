@@ -23,6 +23,7 @@ import {
 import { ThemeProvider, useTheme } from "../src/context/ThemeContext";
 import { ToastProvider } from "../src/context/ToastContext";
 import { FeedbackBridge } from "../src/components/feedback/FeedbackBridge";
+import { ErrorBoundary } from "../src/components/feedback/ErrorBoundary";
 import { boot, ensureRuntimeReady, registerBackgroundTasks } from "../src/core/boot";
 import { useLanguage } from "../src/i18n";
 
@@ -50,6 +51,7 @@ function RootShell() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style={scheme === "light" ? "dark" : "light"} />
       <FeedbackBridge />
+      <ErrorBoundary>
       <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(boot)" options={{ gestureEnabled: false }} />
@@ -63,6 +65,7 @@ function RootShell() {
         <Stack.Screen name="support" />
         <Stack.Screen name="+not-found" />
       </Stack>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
