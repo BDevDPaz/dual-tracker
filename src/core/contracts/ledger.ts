@@ -1,5 +1,10 @@
 import type { IntegrityClass, SessionRecordStatus, SessionState } from "./session";
 import type { SessionIntentType } from "./intents";
+import type { LedgerActor, LedgerIncident } from "./ledgerBase";
+
+// Re-export para compatibilidad: quienes importaban LedgerActor / LedgerIncident
+// desde "./ledger" siguen funcionando. ledgerBase existe solo para romper el ciclo.
+export type { LedgerActor, LedgerIncident } from "./ledgerBase";
 
 /**
  * ============================================================================
@@ -14,7 +19,6 @@ import type { SessionIntentType } from "./intents";
  *  - integrityClass: clase resultante tras el asiento (para leer la historia
  *    desde el ledger y no desde el último UPDATE).
  */
-export type LedgerActor = "USER" | "GEOFENCE" | "WATCHDOG" | "SYSTEM";
 
 /** Intenciones del motor + hechos de sistema que también se asientan. */
 export type LedgerIntent =
@@ -129,27 +133,6 @@ export interface LedgerEntry {
 export type LedgerDraft = Omit<LedgerEntry, "id" | "prevHash" | "hash">;
 
 export const GENESIS_HASH = "0".repeat(64);
-
-/**
- * Incidente de cadena rota (spec v1.3 §5.5). Persistente en KV `ledger.broken`
- * hasta que el administrador lo reconoce con PIN.
- */
-export interface LedgerIncident {
-  /** Primer asiento que no verifica. */
-  breakAtId: number;
-  /** Último asiento válido (null si la ruptura está en el primer asiento). */
-  lastGoodId: number | null;
-  /** hash del último válido (GENESIS_HASH si lastGoodId es null). */
-  lastGoodHash: string;
-  /** prev_hash guardado en breakAtId. */
-  observedPrevHash: string;
-  /** hash guardado en breakAtId. */
-  observedHash: string;
-  /** sha256(prev esperado + payload guardado). */
-  recomputedHash: string;
-  detectedAtMs: number;
-  headAtDetection: { id: number; hash: string };
-}
 
 /** Segmento de cadena verificado (spec v1.3 §5.5). */
 export interface LedgerSegment {
