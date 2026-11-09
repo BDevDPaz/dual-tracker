@@ -45,10 +45,10 @@ const FONT_LOAD_TIMEOUT_MS = 3000;
  * proveedor, así que no puede consumirlo él mismo.
  */
 function RootShell() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style="light" />
+      <StatusBar style={scheme === "light" ? "dark" : "light"} />
       <FeedbackBridge />
       <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="index" />
