@@ -152,6 +152,10 @@ export const StoreActions = {
     return true;
   },
 
+  bootStarted(): void {
+    commit({ ...state, boot: { ...state.boot, isRehydrating: true, bootError: null } });
+  },
+
   bootFailed(error: string): void {
     commit({ ...state, boot: { ...state.boot, isRehydrating: false, bootError: error } });
   },

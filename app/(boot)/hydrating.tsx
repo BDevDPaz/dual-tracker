@@ -26,8 +26,8 @@ export default function HydratingScreen() {
   const bootError = selectBootError(state);
 
   useEffect(() => {
-    if (hydrated) router.replace("/");
-  }, [hydrated, router]);
+    if (hydrated && !bootError) router.replace("/");
+  }, [hydrated, bootError, router]);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top", "bottom", "left", "right"]}>

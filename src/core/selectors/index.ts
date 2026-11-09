@@ -45,7 +45,7 @@ export { allocateDisplayHundredths, displayStatement, formatCents, formatHundred
 // [STRIPPED 75 bytes]
 // Gate (Producto §5.1)
 // [STRIPPED 75 bytes]
-export const selectIsHydrated = (s: DualTrackerState): boolean => !s.boot.isRehydrating;
+export const selectIsHydrated = (s: DualTrackerState): boolean => !s.boot.isRehydrating && s.boot.bootError == null;
 export const selectBootError = (s: DualTrackerState): string | null => s.boot.bootError;
 export const selectNeedsOnboarding = (s: DualTrackerState): boolean => !s.settings.device.onboardingCompleted;
 /** "Alta incompleta o política nueva": una versión nueva del texto vuelve a pedir aceptación. */

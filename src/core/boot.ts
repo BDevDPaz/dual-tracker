@@ -180,6 +180,7 @@ export function boot(): Promise<void> {
   if (bootPromise) return bootPromise;
   bootPromise = (async () => {
     try {
+      StoreActions.bootStarted();
       await ensureRuntimeReady();
       TimeAuthorityService.reanchor();
       const settings = await SettingsService.load();

@@ -5,7 +5,7 @@
 import { Redirect } from "expo-router";
 import { useWorkTracker } from "../src/core/hooks";
 import { initialHref } from "../src/core/initialRoute";
-import { selectHasConflict, selectIsHydrated, selectNeedsDisclaimer, selectNeedsOnboarding } from "../src/core/selectors";
+import { selectBootError, selectHasConflict, selectIsHydrated, selectNeedsDisclaimer, selectNeedsOnboarding } from "../src/core/selectors";
 
 export default function Gate() {
   const { state } = useWorkTracker();
@@ -13,6 +13,7 @@ export default function Gate() {
     <Redirect
       href={initialHref({
         hydrated: selectIsHydrated(state),
+        bootError: selectBootError(state),
         needsOnboarding: selectNeedsOnboarding(state),
         needsDisclaimer: selectNeedsDisclaimer(state),
         hasConflict: selectHasConflict(state),

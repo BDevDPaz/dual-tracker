@@ -11,11 +11,12 @@ export type GateHref =
 
 export function initialHref(input: {
   hydrated: boolean;
+  bootError?: string | null;
   needsOnboarding: boolean;
   needsDisclaimer: boolean;
   hasConflict: boolean;
 }): GateHref {
-  if (!input.hydrated) return "/(boot)/hydrating";
+  if (!input.hydrated || input.bootError != null) return "/(boot)/hydrating";
   if (input.needsOnboarding) return "/(onboarding)/welcome";
   if (input.needsDisclaimer) return "/(onboarding)/disclosure";
   if (input.hasConflict) return "/system/conflict";
