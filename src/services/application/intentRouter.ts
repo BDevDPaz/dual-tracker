@@ -383,9 +383,14 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       // ---- Salud ----
       case "REQUEST_PERMISSION":
         return { ok: true, data: await PermissionsHealthService.request(intent.permission) };
-      case "OPEN_OS_SETTINGS":
-        await PermissionsHealthService.openOsSettings(intent.target);
+      case "OPEN_OS_SETTINGS": {
+        const opened = await PermissionsHealthService.openOsSettings(intent.target);
+        if (!opened) {
+          FeedbackService.emit("GENERIC_ERROR");
+          return { ok: false, code: "OS_SETTINGS_OPEN_FAILED" };
+        }
         return { ok: true };
+      }
 
       // ---- Integridad del ledger (spec v1.3 §5.5) ----
       case "ACKNOWLEDGE_LEDGER_BREAK": {
