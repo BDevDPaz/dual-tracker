@@ -4,8 +4,9 @@
  * pendiente (estado SALIDA: salida detectada), para que el operario no
  * navegue fuera sin decidir. sceneStyle obsidian.
  */
+import { useEffect } from "react";
 import { View } from "react-native";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter, useSegments } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TOKENS, ICON } from "../../src/constants/theme";
@@ -32,6 +33,17 @@ export default function TabsLayout() {
   const sessionState = selectSessionState(state, nowMs);
   const shiftActive = sessionState !== "NO_INICIADA" && sessionState !== "CERRADA";
   const exitPending = sessionState === "SALIDA" || selectUiRequests(state).openExitModal;
+  const router = useRouter();
+  const segments = useSegments() as string[];
+  const isHoy = segments[0] === "(tabs)" && (segments[1] == null || segments[1] === "index");
+
+  // SALIDA es decisión crítica y la hoja vive solo en Hoy: al entrar en
+  // SALIDA, llevar a Hoy para que la hoja quede enfocada y visible.
+  // Sin esto, en otra pestaña la tab bar se esconde (display: none)
+  // pero la hoja de una pestaña sin foco no se ve.
+  useEffect(() => {
+    if (exitPending && !isHoy) router.replace("/(tabs)");
+  }, [exitPending, isHoy, router]);
 
   return (
     <Tabs
