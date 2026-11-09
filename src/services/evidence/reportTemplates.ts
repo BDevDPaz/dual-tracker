@@ -11,12 +11,8 @@
  */
 import escapeHtml from "escape-html";
 import type {
-//  CompanyPolicy,
-//  EvidenceSummary,
-//  PackManifest,
   PayrollLine,
   PayrollStatement,
-//  PersonProfile,
   SessionRecord,
   Site,
 } from "../../core/contracts";
@@ -26,13 +22,10 @@ import { pdfIntegrityBadgesHtml } from "./pdfIntegrity";
 import { formatCurrency, formatDate, formatRange, formatTime, type FormatOptions } from "../../utils/dateUtils";
 import { companyCalendar } from "../../utils/companyPolicy";
 import { displayStatement, formatHundredths, formatSiteName, minutesToHundredths, noteToHtml } from "../domain/payrollDisplay";
-// import type { PowerOffNote } from "./deviceOffGap";
-// import { siteMoveBlock, type SiteMoveNote } from "./siteMoves";
 import { siteMoveBlock } from "./siteMoves";
 import { periodSliceOf } from "../domain/periodSlice";
 import { getPayrollPolicy } from "../domain/payrollPolicies";
 import { checkedInSiteIds } from "../domain/siteVisits";
-// import type { ReportAnnexOptions, ForensicLedgerRow, ReportInput } from "./reportTypes";
 import type { ReportInput } from "./reportTypes";
 
 // Re-export para compatibilidad: EvidencePackService / ReportService y otros
