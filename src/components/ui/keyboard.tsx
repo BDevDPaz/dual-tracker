@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { Dimensions, Keyboard, Platform, findNodeHandle, type KeyboardEvent, type ScrollView, type TextInput } from "react-native";
+import { Dimensions, Keyboard, Platform, type KeyboardEvent, type ScrollView, type TextInput } from "react-native";
 import { TOKENS } from "../../constants/theme";
 
 /** Cuánto tapa el teclado la ventana que React ve. Si Android ya encogió la ventana, el solape es 0. */
@@ -42,16 +42,19 @@ export function useKeyboardScroll(): KeyboardScrollApi | null {
 
 /** Lleva el campo enfocado por encima del teclado. No-op si el nodo de prueba no mide layout. */
 export function scrollFieldIntoView(scroll: ScrollView | null, node: TextInput | null): void {
-  if (!scroll || !node || typeof node.measureLayout !== "function") return;
-  const handle = findNodeHandle(scroll);
-  if (handle == null) return;
-  node.measureLayout(
-    handle,
-    (_x: number, y: number) => {
-      scroll.scrollTo({ y: Math.max(0, y - TOKENS.spacing.xl), animated: true });
-    },
-    () => undefined,
-  );
+  if (!scroll || !node || typeof (node as any).measureLayout !== "function") return;
+  try {
+    // Fabric: measureLayout espera el componente nativo, no un handle numérico de findNodeHandle.
+    (node as any).measureLayout(
+      scroll as any,
+      (_x: number, y: number) => {
+        scroll.scrollTo({ y: Math.max(0, y - TOKENS.spacing.xl), animated: true });
+      },
+      () => undefined,
+    );
+  } catch {
+    return;
+  }
 }
 
 export function KeyboardScrollProvider({

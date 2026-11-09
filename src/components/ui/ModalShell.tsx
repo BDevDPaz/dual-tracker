@@ -301,7 +301,8 @@ export function ModalShell({
         ) : null}
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={TOKENS.spacing.xl}
           style={styles.keyboardAvoider}
           pointerEvents="box-none"
           testID={testID ? `${testID}-kav` : undefined}
