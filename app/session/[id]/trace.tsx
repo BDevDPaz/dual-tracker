@@ -38,8 +38,8 @@ export default function TraceScreen() {
   const facts = useQuery(() => queries.loadTrace(sessionId), [sessionId, updatedAt], ["trace"]);
 
   const all = useMemo(() => facts.data ?? [], [facts.data]);
-  const visible = all.filter((f) => (f.type === "BREADCRUMB" ? layers.BREADCRUMB : layers.PERIMETER));
-  const crumbs = all.filter((f) => f.type === "BREADCRUMB");
+  const visible = useMemo(() => all.filter((f) => (f.type === "BREADCRUMB" ? layers.BREADCRUMB : layers.PERIMETER)), [all, layers]);
+  const crumbs = useMemo(() => all.filter((f) => f.type === "BREADCRUMB"), [all]);
   const isUnreliable = (f: SpatialFact) => !f.reliable || (f.accuracyM !== null && f.accuracyM > radius);
   const gapKey = `${state.settings.company.traceRetentionDays}:${Object.keys(state.packs.byId).join(",")}`;
   const gaps = useMemo(() => (gapKey && facts.data ? queries.traceGaps(facts.data) : []), [facts.data, queries, gapKey]);
@@ -56,7 +56,7 @@ export default function TraceScreen() {
     }
     return marks;
   }, [all, session?.siteId, state]);
-  const mapFacts = visible.filter((f) => f.lat !== null && f.lon !== null && !f.unreadable);
+  const mapFacts = useMemo(() => visible.filter((f) => f.lat !== null && f.lon !== null && !f.unreadable), [visible]);
   const mapGaps = layers.BREADCRUMB ? gaps : [];
 
   // FieldCrypto §14: coordenadas de una clave perdida → texto de ilegible (nunca ciphertext).
@@ -117,6 +117,11 @@ export default function TraceScreen() {
         data={visible}
         refreshControl={refreshControl}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={20}
+        maxToRenderPerBatch={20}
+        windowSize={5}
+        removeClippedSubviews
+        updateCellsBatchingPeriod={50}
         keyExtractor={(f, i) => String(f.id ?? `${f.timestampMs}-${i}`)}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("trace.empty")} emptyDescription={t("trace.emptyBody")} emptyIcon="navigate-circle-outline" />}
         renderItem={({ item }) => {

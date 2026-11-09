@@ -16,7 +16,7 @@ import { IntegrityBadge } from "../ui/IntegrityBadge";
  * `slice` es la porción del periodo (jornada que cruza la semana): el reloj
  * y las horas son de ese tramo, no de la jornada entera.
  */
-export function SessionListItem({
+function SessionListItemInner({
   item,
   onPress,
   slice,
@@ -76,6 +76,8 @@ export function SessionListItem({
     </Pressable>
   );
 }
+
+export const SessionListItem = React.memo(SessionListItemInner);
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", paddingVertical: TOKENS.spacing.md, borderBottomWidth: TOKENS.layout.hairline, gap: TOKENS.spacing.md },

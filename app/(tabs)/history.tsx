@@ -4,7 +4,7 @@
  * rollup semanal, filtros reales por periodo e integridad y tap →
  * /session/[id]. Sin mutaciones directas; sin swipe-to-delete.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -89,6 +89,14 @@ export default function HistoryScreen() {
       return [{ key: String(slice.session.id), item, slice, hoursText: hoursById.get(slice.session.id) }];
     });
   }, [filter, state, nowMs, weekRows, computedById, lang]);
+
+  const handlePress = useCallback((id: number) => router.push(`/session/${id}`), [router]);
+  const renderItem = useCallback(
+    ({ item }: { item: HistoryRow }) => (
+      <SessionListItem item={item.item} slice={item.slice} hoursText={item.hoursText} onPress={() => handlePress(item.item.session.id)} />
+    ),
+    [handlePress],
+  );
 
   // P1: 2 banners conflict en un solo AlertCenter.
   const orphan = selectReviewSessions(state).find((s) => s.bookkeeping.integrityReason === "ORPHAN_SESSION");
@@ -177,9 +185,12 @@ export default function HistoryScreen() {
         style={styles.listFlex}
         data={items}
         keyExtractor={(c) => c.key}
-        renderItem={({ item }) => (
-          <SessionListItem item={item.item} slice={item.slice} hoursText={item.hoursText} onPress={() => router.push(`/session/${item.item.session.id}`)} />
-        )}
+        renderItem={renderItem}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews
+        updateCellsBatchingPeriod={50}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("history.empty")} emptyDescription={t("history.emptyBody")} emptyIcon="calendar-outline" />}
         contentContainerStyle={styles.list}
         refreshControl={refreshControl}

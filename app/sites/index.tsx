@@ -68,6 +68,11 @@ export default function SitesIndexScreen() {
         keyExtractor={(s) => String(s.id)}
         refreshControl={refreshControl}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={15}
+        maxToRenderPerBatch={15}
+        windowSize={5}
+        removeClippedSubviews
+        updateCellsBatchingPeriod={50}
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("sites.noResults", { query: q.trim() })} emptyIcon="location-outline" />}
         renderItem={({ item }) => {
           const lastVisit = selectSiteLastVisitAtMs(state, item.id);
