@@ -1,5 +1,5 @@
 import type { SpatialFact } from "./spatial";
-import type { LedgerActor } from "./ledger";
+import type { LedgerActor, LedgerIncident } from "./ledgerBase";
 
 /**
  * ============================================================================
@@ -19,9 +19,9 @@ import type { LedgerActor } from "./ledger";
  *    intentRouter (capa Aplicación) lo traduce (ver VIEW_TO_SESSION_INTENT).
  */
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // 1) SessionIntent
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 
 export type SessionIntent =
   | { type: "START_DAY"; siteId: number; clientId?: string | null; note?: string | null }
@@ -147,9 +147,9 @@ export type IntentRejection =
   /** Continuar o confirmar fin solo aplica a una jornada en revisión por abandono. */
   | "NOT_ORPHAN";
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // 2) ViewIntent
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 
 export type ViewIntent =
   // Hoy
@@ -238,7 +238,7 @@ export type ViewIntent =
   | { type: "ACK_DAY_SUMMARY"; sessionId: number }
   | { type: "LOCATE_SITE"; siteId: number; readings: { lat: number; lon: number }[] }
   // Integridad del ledger (spec v1.3 §5.5)
-  | { type: "ACKNOWLEDGE_LEDGER_BREAK"; pin: string; incident: import("./ledger").LedgerIncident }
+  | { type: "ACKNOWLEDGE_LEDGER_BREAK"; pin: string; incident: LedgerIncident }
   | { type: "EXPORT_LEDGER_INCIDENT" }
   /** Diagnóstico de Soporte: versión, ajustes no sensibles, permisos y geocerca sin coordenadas. */
   | { type: "EXPORT_SUPPORT_DIAGNOSTIC" }

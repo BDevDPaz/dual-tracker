@@ -19,7 +19,7 @@ import { fingerprintFromB64url } from "../runtime/keyFingerprint";
 import { verificationQrSvg } from "./qrSvg";
 import type { PowerOffNote } from "./deviceOffGap";
 import { siteMoveBlock } from "./siteMoves";
-import type { ForensicLedgerRow, ReportInput } from "./reportTemplates";
+import type { ForensicLedgerRow, ReportInput } from "./reportTypes";
 
 export type PremiumRole = "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER";
 
