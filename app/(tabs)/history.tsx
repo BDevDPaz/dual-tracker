@@ -9,6 +9,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-n
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Chip, PageHeader, SAFE_EDGES, ScreenContainer, SummaryCard, VmacSheet } from "../../src/components/ui";
+import { AlertCenter } from "../../src/components/ui/AlertCenter";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
@@ -89,6 +90,16 @@ export default function HistoryScreen() {
     });
   }, [filter, state, nowMs, weekRows, computedById, lang]);
 
+  // P1: 2 banners conflict en un solo AlertCenter.
+  const orphan = selectReviewSessions(state).find((s) => s.bookkeeping.integrityReason === "ORPHAN_SESSION");
+  const historyAlerts: React.ComponentProps<typeof AlertCenter>["alerts"] = [];
+  if (selectHasConflict(state)) {
+    historyAlerts.push({ key: "conflict", message: t("screen.conflict"), tone: "danger", onPress: () => router.push("/system/conflict") });
+  }
+  if (orphan) {
+    historyAlerts.push({ key: "orphan", message: t("today.orphanTitle"), tone: "danger", onPress: () => router.push(`/session/${orphan.id}`) });
+  }
+
   return (
     <ScreenContainer edges={SAFE_EDGES.tab}>
       <PageHeader title={t("history.title")} helpScreen="history" showHealth />
@@ -136,19 +147,7 @@ export default function HistoryScreen() {
         </Pressable>
       </View>
 
-      {selectHasConflict(state) ? (
-        <ScreenStatusBanner status="conflict" message={t("screen.conflict")} onPress={() => router.push("/system/conflict")} />
-      ) : null}
-      {selectReviewSessions(state).some((s) => s.bookkeeping.integrityReason === "ORPHAN_SESSION") ? (
-        <ScreenStatusBanner
-          status="conflict"
-          message={t("today.orphanTitle")}
-          onPress={() => {
-            const orphan = selectReviewSessions(state).find((s) => s.bookkeeping.integrityReason === "ORPHAN_SESSION");
-            if (orphan) router.push(`/session/${orphan.id}`);
-          }}
-        />
-      ) : null}
+      {historyAlerts.length > 0 ? <AlertCenter alerts={historyAlerts} /> : null}
 
       <SummaryCard
         hoursLabel={t("today.netHours")}

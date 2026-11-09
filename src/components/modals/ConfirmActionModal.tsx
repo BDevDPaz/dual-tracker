@@ -41,7 +41,7 @@ export function ConfirmActionModal({
       primaryAction={{
         label: confirmLabel,
         onPress: onConfirm,
-        variant: tone === "danger" ? "danger" : "primary",
+        variant: tone === "danger" ? "danger" : tone === "warning" ? "warning" : tone === "success" ? "success" : "primary",
         loading: busy,
         disabled: busy,
       }}

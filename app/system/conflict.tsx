@@ -17,6 +17,7 @@ import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
 import { selectConflictViews, type ConflictView } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
@@ -79,6 +80,7 @@ export default function ConflictScreen() {
 }
 
 function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSession: () => void }) {
+  const { colors } = useTheme();
   const { emit } = useWorkTracker();
   const [note, setNote] = useState(view.session.bookkeeping.manualNote ?? "");
   const [splitOpen, setSplitOpen] = useState(false);
@@ -97,12 +99,12 @@ function ConflictCard({ view, onOpenSession }: { view: ConflictView; onOpenSessi
   return (
     <Card style={styles.card}>
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>
+        <Text style={[styles.title, { color: colors.text.primary }]}>
           {view.site?.alias ?? t("today.noDestination")} · {formatDate(view.factB.startAtMs)}
         </Text>
         <IntegrityBadge integrity={view.session.integrityClass} blocked={(view.session.bookkeeping.certificationBlockers ?? []).length > 0} />
       </View>
-      <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{tReviewReason(view.reason)}</Text>
+      <Text style={[styles.caption, { color: colors.text.muted }]}>{tReviewReason(view.reason)}</Text>
       <KeyValueRow label={t("conflict.factA")} value={range(view.factA)} />
       <KeyValueRow label={t("conflict.factB")} value={range(view.factB)} />
       <KeyValueRow label={t("conflict.diff")} value={view.diffMinutes !== null ? `${view.diffMinutes > 0 ? "+" : ""}${view.diffMinutes} ${t("common.minutes")}` : "—"} />

@@ -10,6 +10,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, SealAnimation, Section, StatusPill } from "../../../src/components/ui";
 import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TOKENS, FONT } from "../../../src/constants/theme";
+import { useTheme } from "../../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
 import { selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
@@ -17,6 +18,7 @@ import { tPackFileRole } from "../../../src/i18n/labels";
 import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
 
 export default function PackScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { packId, sealed } = useLocalSearchParams<{ packId: string; sealed?: string }>();
   const [showSeal, setShowSeal] = useState(sealed === "1");
@@ -59,11 +61,11 @@ export default function PackScreen() {
       {m.sealedAtMs <= m.periodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
       {m.sealWarnings?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.sealWarning")} /> : null}
       <Card style={styles.card}>
-        <Text style={[styles.label, { color: TOKENS.colors.text.secondary }]}>{t("report.hash")}</Text>
-        <Text selectable style={[styles.hash, { color: TOKENS.colors.primary }]}>
+        <Text style={[styles.label, { color: colors.text.secondary }]}>{t("report.hash")}</Text>
+        <Text selectable style={[styles.hash, { color: colors.primary }]}>
           {m.packHash}
         </Text>
-        <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.hashHint")}</Text>
+        <Text style={[styles.caption, { color: colors.text.muted }]}>{t("report.hashHint")}</Text>
       </Card>
       <Card style={styles.card}>
         <KeyValueRow label={t("report.sealedAt")} value={formatDateTime(m.sealedAtMs)} />
@@ -102,10 +104,10 @@ export default function PackScreen() {
             onPress={() => setAnnexLedger((v) => !v)}
             style={styles.switchRow}
           >
-            <Text style={{ color: TOKENS.colors.text.primary }}>{t("report.annexLedger")}</Text>
+            <Text style={{ color: colors.text.primary }}>{t("report.annexLedger")}</Text>
             <StatusPill tone={annexLedger ? "success" : "neutral"} label={t(annexLedger ? "report.annexOn" : "report.annexOff")} />
           </Pressable>
-          <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.annexLedgerHint")}</Text>
+          <Text style={[styles.caption, { color: colors.text.muted }]}>{t("report.annexLedgerHint")}</Text>
           <Pressable
             accessibilityRole="switch"
             accessibilityState={{ checked: annexEnterExit }}
@@ -113,10 +115,10 @@ export default function PackScreen() {
             onPress={() => setAnnexEnterExit((v) => !v)}
             style={styles.switchRow}
           >
-            <Text style={{ color: TOKENS.colors.text.primary }}>{t("report.annexEnterExit")}</Text>
+            <Text style={{ color: colors.text.primary }}>{t("report.annexEnterExit")}</Text>
             <StatusPill tone={annexEnterExit ? "success" : "neutral"} label={t(annexEnterExit ? "report.annexOn" : "report.annexOff")} />
           </Pressable>
-          <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>{t("report.annexEnterExitHint")}</Text>
+          <Text style={[styles.caption, { color: colors.text.muted }]}>{t("report.annexEnterExitHint")}</Text>
         </Section>
       ) : null}
 

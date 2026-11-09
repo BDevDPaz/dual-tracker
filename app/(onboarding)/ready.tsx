@@ -91,7 +91,7 @@ export default function ReadyScreen() {
               <Ionicons
                 name={row.ok ? "checkmark-circle" : "warning-outline"}
                 size={ICON.md}
-                color={row.ok ? colors.status.success : colors.status.warning}
+                color={row.ok ? colors.statusText.success : colors.statusText.warning}
               />
             )}
             <Text style={[styles.rowLabel, { color: colors.text.primary }]}>{label}</Text>

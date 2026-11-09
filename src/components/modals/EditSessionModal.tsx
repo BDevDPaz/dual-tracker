@@ -134,8 +134,8 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
     >
       {overlap ? (
-        <View style={[styles.banner, { borderColor: colors.status.warning }]}>
-          <Text style={[styles.bannerText, { color: colors.status.warning }]}>{t("modals.overlapBanner")}</Text>
+        <View style={[styles.banner, { borderColor: colors.statusBorder.warning }]}>
+          <Text style={[styles.bannerText, { color: colors.statusText.warning }]}>{t("modals.overlapBanner")}</Text>
         </View>
       ) : null}
       <View style={styles.row}>

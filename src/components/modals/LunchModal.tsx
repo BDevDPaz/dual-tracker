@@ -167,7 +167,7 @@ export function LunchModal(props: LunchModalProps) {
             : ""}
         </Text>
       ) : null}
-      {lunchError && !needsStart ? <Text style={[styles.hint, { color: colors.status.warning }]}>{lunchError}</Text> : null}
+      {lunchError && !needsStart ? <Text style={[styles.hint, { color: colors.statusText.warning }]}>{lunchError}</Text> : null}
       {needsStart ? (
         <View style={styles.startRow}>
           <Input {...chain.props("start")} label={t("modals.lunchStartQuestion")} value={startHHmm} onChangeText={setStartHHmm} placeholder="12:30" mask="HH:mm" maximumDate={maximumDate} error={lunchError} testID="lunch-start" />

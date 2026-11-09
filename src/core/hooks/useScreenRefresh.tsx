@@ -3,7 +3,7 @@
  *  - useAutoRefresh: al ganar el foco relee SQLite (las tabs no se desmontan;
  *    volver a Historial/Reportes no remontaba la query). El primer plano lo
  *    cubre boot.onForeground, una sola vez para toda la app.
- *  - usePullToRefresh: RefreshControl con los tokens Luxury Glass Dark.
+ *  - usePullToRefresh: RefreshControl con los colores del tema activo.
  *    `safeArea: "consumed"` cuando ScreenContainer ya aplicó el inset (offset 0).
  *    `safeArea: "edge"` en scroll a sangre (edge-to-edge): el spinner baja
  *    `insets.top` para no quedar bajo la barra de estado.
@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 import { RefreshControl, type RefreshControlProps } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TOKENS } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { t, useLanguage } from "../../i18n";
 import { refreshMirror } from "../../services/application/refreshMirror";
 import { PermissionsHealthService } from "../../services/runtime/PermissionsHealthService";
@@ -31,6 +31,7 @@ export function usePullToRefresh(options?: { safeArea?: "consumed" | "edge" }): 
   refreshControl: ReactElement<RefreshControlProps>;
 } {
   const language = useLanguage();
+  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
   const insets = useSafeAreaInsets();
@@ -61,12 +62,12 @@ export function usePullToRefresh(options?: { safeArea?: "consumed" | "edge" }): 
       testID="screen-refresh-control"
       refreshing={refreshing}
       onRefresh={onRefresh}
-      tintColor={TOKENS.colors.primary}
-      colors={[TOKENS.colors.primary]}
-      progressBackgroundColor={TOKENS.colors.surface}
+      tintColor={colors.primary}
+      colors={[colors.primary]}
+      progressBackgroundColor={colors.surface}
       progressViewOffset={progressViewOffset}
       title={reduceMotion ? undefined : t("a11y.refreshing", {}, language)}
-      titleColor={TOKENS.colors.text.secondary}
+      titleColor={colors.text.secondary}
       accessibilityLabel={t("a11y.refresh", {}, language)}
     />
   );

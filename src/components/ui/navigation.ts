@@ -1,7 +1,7 @@
-import { FONT, TOKENS, type ThemeColors } from "../../constants/theme";
+import { FONT, type ThemeColors } from "../../constants/theme";
 
 /** Cabecera de pila: título grande, tinta (no oro) y fondo del tema activo. */
-export function stackHeaderOptions(colors: ThemeColors = TOKENS.colors) {
+export function stackHeaderOptions(colors: ThemeColors) {
   return {
     headerShown: true as const,
     freezeOnBlur: false,

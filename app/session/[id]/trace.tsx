@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, FlatList } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Chip, NotFoundState, SAFE_EDGES, ScreenContainer } from "../../../src/components/ui";
+import { AlertCenter } from "../../../src/components/ui/AlertCenter";
 import { KeyValueRow, ScreenStatusBanner } from "../../../src/components/blocks";
 import { TracePlane, type TraceSiteMark } from "../../../src/components/trace/TracePlane";
 import { TOKENS, FONT, ICON } from "../../../src/constants/theme";
@@ -76,12 +77,16 @@ export default function TraceScreen() {
     );
   }
 
+  // P1: 3 degraded en un solo AlertCenter.
+  const traceAlerts: React.ComponentProps<typeof AlertCenter>["alerts"] = [];
+  if (unreadable) traceAlerts.push({ key: "unreadable", message: t("fieldCrypto.unreadableTrace"), tone: "warning" });
+  if (mapGaps.some((g) => g.kind === "retention")) traceAlerts.push({ key: "retention", message: t("trace.retentionGap"), tone: "warning" });
+  if (mapGaps.some((g) => g.kind === "recording")) traceAlerts.push({ key: "recording", message: t("trace.recordingGap"), tone: "warning" });
+
   return (
     <ScreenContainer edges={SAFE_EDGES.stack}>
-      {unreadable ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.unreadableTrace")} /> : null}
+      {traceAlerts.length > 0 ? <AlertCenter alerts={traceAlerts} /> : null}
       <Text style={[styles.offline, { color: colors.text.secondary }]}>{t("trace.offline")}</Text>
-      {mapGaps.some((g) => g.kind === "retention") ? <ScreenStatusBanner status="degraded" message={t("trace.retentionGap")} /> : null}
-      {mapGaps.some((g) => g.kind === "recording") ? <ScreenStatusBanner status="degraded" message={t("trace.recordingGap")} /> : null}
       {mapFacts.length > 0 || siteMarks.length > 0 ? (
         <TracePlane
           facts={mapFacts}
@@ -116,7 +121,7 @@ export default function TraceScreen() {
         ListEmptyComponent={<ScreenStatusBanner status="empty" message={t("trace.empty")} emptyDescription={t("trace.emptyBody")} emptyIcon="navigate-circle-outline" />}
         renderItem={({ item }) => {
           const bad = isUnreliable(item);
-          const color = bad ? colors.status.warning : colors.text.primary;
+          const color = bad ? colors.statusText.warning : colors.text.primary;
           const precision = bad ? t("trace.unreliable") : t("trace.reliable");
           return (
             <View style={[styles.row, { borderColor: colors.border }]}>

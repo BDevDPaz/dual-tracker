@@ -10,12 +10,14 @@ import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll,
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import { displayStatement, formatPayRateLine, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
 import { t, tLineKind, tWarning } from "../../src/i18n";
 import { formatCurrency, formatRange, formatUiDecimal, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
 export default function PeriodStatementScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { periodId } = useLocalSearchParams<{ periodId: string }>();
   const { state, queries, now } = useWorkTracker();
@@ -67,8 +69,8 @@ export default function PeriodStatementScreen() {
         hasSplitRow={portionRows.some((r) => r.continuesFromMs != null || r.continuesUntilMs != null)}
         hasZeroOmitted={portionRows.some((r) => r.zeroDuration)}
       />
-      <Text style={[styles.title, { color: TOKENS.colors.text.primary }]}>{t("report.statement")}</Text>
-      <Text style={[styles.caption, { color: TOKENS.colors.text.secondary }]}>{formatRange(range.start, range.end)}</Text>
+      <Text style={[styles.title, { color: colors.text.primary }]}>{t("report.statement")}</Text>
+      <Text style={[styles.caption, { color: colors.text.secondary }]}>{formatRange(range.start, range.end)}</Text>
       {st.sessionIds.length === 0 ? (
         <ScreenStatusBanner
           status="degraded"
@@ -87,13 +89,13 @@ export default function PeriodStatementScreen() {
         <KeyValueRow label={t("reports.transit")} value={`${formatUiDecimal(shown.transit)} ${t("common.hours")}`} />
         <KeyValueRow label={t("reports.lunch")} value={`${st.lunchMinutes} ${t("common.minutes")}`} />
         <KeyValueRow label={t("reports.total")} value={shown.gross} emphasis />
-        <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
+        <Text style={[styles.caption, { color: colors.text.muted }]}>
           {t("session.policy")}: {st.policyId} · {t(st.integrityRollup.certified ? "report.certified" : "report.uncertified")}
         </Text>
       </Card>
 
       <Section title={t("report.lines")}>
-        {st.lines.length === 0 ? <Text style={{ color: TOKENS.colors.text.muted }}>{t("common.noData")}</Text> : null}
+        {st.lines.length === 0 ? <Text style={{ color: colors.text.muted }}>{t("common.noData")}</Text> : null}
         {st.lines.map((l, i) => (
           <KeyValueRow key={`${l.sessionId}-${l.kind}-${l.dateString}-${i}`} label={`${l.dateString} · ${tLineKind(l.kind)} · ${formatPayRateLine(l.minutes, l.rate)}`} value={formatCurrency(l.amount)} />
         ))}
@@ -102,7 +104,7 @@ export default function PeriodStatementScreen() {
       {st.warnings.length > 0 ? (
         <Section title={t("report.warnings")}>
           {st.warnings.map((w) => (
-            <Text key={w} style={{ color: TOKENS.colors.status.warning }}>
+            <Text key={w} style={{ color: colors.statusText.warning }}>
               • {tWarning(w)}
             </Text>
           ))}

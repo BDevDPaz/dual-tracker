@@ -52,7 +52,7 @@ export function GpsExceptionCard({ kind, busy = false, onPrimary, onSecondary }:
   const { colors } = useTheme();
   useLanguage();
   const copy = COPY[kind];
-  const tone = copy.tone === "danger" ? colors.status.danger : colors.status.warning;
+  const tone = copy.tone === "danger" ? colors.statusBorder.danger : colors.statusBorder.warning;
   return (
     <Card testID={`gps-exception-${kind}`} style={{ borderColor: tone, borderWidth: TOKENS.layout.hairline }}>
       <Text style={[styles.title, { color: colors.text.primary }]}>{t(copy.title)}</Text>

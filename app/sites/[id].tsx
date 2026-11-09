@@ -140,8 +140,8 @@ export default function SiteDetailScreen() {
               onPress={() => (hasPoint ? setConfirmMove(true) : void locate())}
             />
           ) : null}
-          {locateError ? <Text style={{ color: colors.status.warning }}>{t("sites.locateFailed")}</Text> : null}
-          {placeNameMissing ? <Text style={{ color: colors.status.warning }}>{t("sites.placeNameUnavailable")}</Text> : null}
+          {locateError ? <Text style={{ color: colors.statusText.warning }}>{t("sites.locateFailed")}</Text> : null}
+          {placeNameMissing ? <Text style={{ color: colors.statusText.warning }}>{t("sites.placeNameUnavailable")}</Text> : null}
         </Card>
 
         {site.active ? (

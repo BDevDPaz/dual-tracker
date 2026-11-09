@@ -7,18 +7,20 @@ import { StyleSheet, Text } from "react-native";
 import { SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
 import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
 import { TOKENS, FONT } from "../../src/constants/theme";
+import { useTheme } from "../../src/context/ThemeContext";
 import { useWorkTracker } from "../../src/core/hooks";
 import { getLanguage } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
 
 export default function LegalDisclosureScreen() {
+  const { colors } = useTheme();
   const { state, queries } = useWorkTracker();
   const acceptedAt = state.settings.device.disclosureAcceptedAtMs;
   return (
     <ScreenScroll edges={SAFE_EDGES.stack} keyboard={false}>
       <DisclosureContent content={queries.disclosure(getLanguage())} />
       {acceptedAt ? (
-        <Text style={[styles.caption, { color: TOKENS.colors.text.muted }]}>
+        <Text style={[styles.caption, { color: colors.text.muted }]}>
           ✓ {state.settings.device.disclosureAcceptedVersion} · {formatDate(acceptedAt)}
         </Text>
       ) : null}

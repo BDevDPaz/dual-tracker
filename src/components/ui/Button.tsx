@@ -27,7 +27,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { DURATIONS, INTERACTION } from "../../constants/animations";
 
 export type ButtonVariant =
-  "primary" | "secondary" | "danger" | "ghost" | "success";
+  "primary" | "secondary" | "danger" | "ghost" | "success" | "warning";
 export type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends Omit<PressableProps, "style"> {
@@ -114,7 +114,7 @@ export const Button = React.memo(function Button({
       return;
     }
 
-    if (variant === "danger") {
+    if (variant === "danger" || variant === "warning") {
       haptics.notify(Haptics.NotificationFeedbackType.Warning, reduceMotion);
     } else if ((variant === "primary" || variant === "success") && !reduceMotion) {
       setTick((n) => n + 1);
@@ -150,6 +150,12 @@ export const Button = React.memo(function Button({
           backgroundColor: colors.status.success,
           textColor: colors.onSuccess,
           borderColor: colors.status.success,
+        };
+      case "warning":
+        return {
+          backgroundColor: colors.status.warning,
+          textColor: colors.onWarning,
+          borderColor: colors.status.warning,
         };
       case "ghost":
       default:

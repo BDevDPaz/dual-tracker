@@ -22,10 +22,10 @@ export function BackupAdviceCard({ onExport, busy }: Props) {
   return (
     <View
       accessibilityRole="summary"
-      style={[styles.card, { borderColor: colors.status.warning, backgroundColor: colors.surface }]}
+      style={[styles.card, { borderColor: colors.statusBorder.warning, backgroundColor: colors.surface }]}
     >
       <View style={styles.titleRow}>
-        <Ionicons name="warning-outline" size={ICON.md} color={colors.status.warning} accessibilityElementsHidden importantForAccessibility="no" />
+        <Ionicons name="warning-outline" size={ICON.md} color={colors.statusText.warning} accessibilityElementsHidden importantForAccessibility="no" />
         <Text style={[styles.title, { color: colors.text.primary }]}>{t("backup.title")}</Text>
       </View>
       <Text style={[styles.body, { color: colors.text.secondary }]}>{t("backup.advice")}</Text>

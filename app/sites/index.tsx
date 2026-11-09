@@ -88,7 +88,7 @@ export default function SitesIndexScreen() {
               <Text style={[styles.meta, { color: colors.text.muted }]}>
                 {t("sites.lastVisit")}: {visit}
               </Text>
-              {item.targetLat === null ? <Text style={[styles.meta, { color: colors.status.warning }]}>{t("sites.coordsMissing")}</Text> : null}
+              {item.targetLat === null ? <Text style={[styles.meta, { color: colors.statusText.warning }]}>{t("sites.coordsMissing")}</Text> : null}
             </View>
             <Ionicons name="chevron-forward" size={ICON.md} color={colors.text.muted} accessibilityElementsHidden importantForAccessibility="no" />
           </Pressable>

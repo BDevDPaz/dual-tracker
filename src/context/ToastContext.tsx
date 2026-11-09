@@ -199,19 +199,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     switch (type) {
       case "success":
         return {
-          color: colors.status.success,
+          color: colors.statusText.success,
+          border: colors.statusBorder.success,
           icon: ICONS.status.success,
         };
       case "error":
-        return { color: colors.status.danger, icon: ICONS.status.error };
+        return { color: colors.statusText.danger, border: colors.statusBorder.danger, icon: ICONS.status.error };
       case "warning":
         return {
-          color: colors.status.warning,
+          color: colors.statusText.warning,
+          border: colors.statusBorder.warning,
           icon: ICONS.status.warning,
         };
       case "info":
       default:
-        return { color: colors.status.info, icon: ICONS.status.info };
+        return { color: colors.statusText.info, border: colors.statusBorder.info, icon: ICONS.status.info };
     }
   };
 
@@ -234,7 +236,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               styles.toastCard,
               {
                 backgroundColor: colors.surface,
-                borderColor: config.color,
+                borderColor: config.border,
                 ...TOKENS.shadows.md,
               },
             ]}

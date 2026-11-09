@@ -161,7 +161,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
       </View>
 
       {shownError ? (
-        <Text style={[styles.errorText, { color: colors.status.danger }]} accessibilityLiveRegion="polite">
+        <Text style={[styles.errorText, { color: colors.statusText.danger }]} accessibilityLiveRegion="polite">
           {shownError}
         </Text>
       ) : hint ? (

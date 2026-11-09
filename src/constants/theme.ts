@@ -26,7 +26,7 @@ export const PALETTE_DARK = {
   mutedGold: "#F6C452", // Relleno primario (botón, chip sólido)
   goldText: "#F6C452", // Enlaces, texto dorado y acentos lineales
   successGreen: "#5CD65C",
-  amberWarning: "#F8C650",
+  amberWarning: "#F5A623", // Más naranja que el oro, para no confundirse con #F6C452
   deepRed: "#D9534F",
   slateBlue: "#4A90E2",
 };
@@ -47,7 +47,7 @@ export const PALETTE_CONTRAST: typeof PALETTE_DARK = {
   mutedGold: "#F6C452",
   goldText: "#F6C452",
   successGreen: "#5CD65C",
-  amberWarning: "#F8C650",
+  amberWarning: "#F5A623",
   deepRed: "#D9534F",
   slateBlue: "#4A90E2",
 };
@@ -65,7 +65,7 @@ export const PALETTE_LIGHT: typeof PALETTE_DARK = {
   mutedGold: "#F6C452", // Relleno del botón primario
   goldText: "#7A5D0A", // Enlaces, texto dorado pequeño y acentos lineales
   successGreen: "#5CD65C",
-  amberWarning: "#F8C650",
+  amberWarning: "#F5A623",
   deepRed: "#D9534F",
   slateBlue: "#4A90E2",
 };
@@ -80,8 +80,12 @@ export function withAlpha(hex: string, alpha: number): string {
 }
 
 const STATUS_BG_ALPHA = 0.12;
+const STATUS_BG_STRONG_ALPHA = 0.2;
+const STATUS_BORDER_ALPHA = 0.35;
+const STATUS_BORDER_STRONG_ALPHA = 0.55;
 
 function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
+  const isLight = scheme === "light";
   return {
     background: p.obsidian,
     surface: p.graphite,
@@ -92,6 +96,8 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
     onPrimary: "#1C1B19",
     /** Enlaces, texto dorado y acentos lineales. En claro no es el relleno. */
     goldText: p.goldText,
+    /** Acento de estado en dorado, alias semántico de goldText. Uso: punto dorado del Hero, acento del título de estado. No es relleno primario. */
+    goldAccent: p.goldText,
     border: p.steelLine,
     text: {
       primary: p.textPrimary,
@@ -105,6 +111,20 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
       danger: p.deepRed,
       info: p.slateBlue,
     },
+    /** Texto e icono sobre fondo, para texto e iconos. En oscuro es el color vivido, en claro es una versión oscurecida para contraste. No usar status.* para texto. */
+    statusText: isLight
+      ? {
+          success: "#1E6B1E",
+          warning: "#7A4A00",
+          danger: "#B3261E",
+          info: "#1E4A8A",
+        }
+      : {
+          success: p.successGreen,
+          warning: p.amberWarning,
+          danger: p.deepRed,
+          info: p.slateBlue,
+        },
     /** Fondo tenue por tono (StatusPill, IntegrityBadge, icono de ModalShell…). */
     statusBg: {
       success: withAlpha(p.successGreen, STATUS_BG_ALPHA),
@@ -113,10 +133,38 @@ function buildColors(p: typeof PALETTE_DARK, scheme: ColorScheme) {
       info: withAlpha(p.slateBlue, STATUS_BG_ALPHA),
       primary: withAlpha(p.mutedGold, STATUS_BG_ALPHA),
     },
+    /** Fondo tenue más fuerte, para pastillas o badges que necesitan más presencia sin usar el color vivido como fondo. */
+    statusBgStrong: {
+      success: withAlpha(p.successGreen, STATUS_BG_STRONG_ALPHA),
+      warning: withAlpha(p.amberWarning, STATUS_BG_STRONG_ALPHA),
+      danger: withAlpha(p.deepRed, STATUS_BG_STRONG_ALPHA),
+      info: withAlpha(p.slateBlue, STATUS_BG_STRONG_ALPHA),
+      primary: withAlpha(p.mutedGold, STATUS_BG_STRONG_ALPHA),
+    },
+    /** Borde tenue por tono, para Banner y pastillas. */
+    statusBorder: {
+      success: withAlpha(p.successGreen, STATUS_BORDER_ALPHA),
+      warning: withAlpha(p.amberWarning, STATUS_BORDER_ALPHA),
+      danger: withAlpha(p.deepRed, STATUS_BORDER_ALPHA),
+      info: withAlpha(p.slateBlue, STATUS_BORDER_ALPHA),
+      primary: withAlpha(p.mutedGold, STATUS_BORDER_ALPHA),
+    },
+    /** Borde fuerte, para danger en ModalShell y Banner. */
+    statusBorderStrong: {
+      success: withAlpha(p.successGreen, STATUS_BORDER_STRONG_ALPHA),
+      warning: withAlpha(p.amberWarning, STATUS_BORDER_STRONG_ALPHA),
+      danger: withAlpha(p.deepRed, STATUS_BORDER_STRONG_ALPHA),
+      info: withAlpha(p.slateBlue, STATUS_BORDER_STRONG_ALPHA),
+      primary: withAlpha(p.mutedGold, STATUS_BORDER_STRONG_ALPHA),
+    },
     /** Texto sobre botones sólidos danger (el rojo de marca aguanta blanco). */
     onDanger: "#FFFFFF",
     /** Texto sobre el verde de marca: el relleno es claro, la tinta es #1C1B19. */
     onSuccess: "#1C1B19",
+    /** Texto sobre el ámbar de warning: el relleno es claro, la tinta es #1C1B19. */
+    onWarning: "#1C1B19",
+    /** Texto sobre el azul de info: el relleno es oscuro, la tinta es blanco. */
+    onInfo: "#FFFFFF",
     /** Anillo de foco de Input: texto dorado al 40 %. */
     /** Campos y botón secundario (#1E1E1E en oscuro). */
     input: p.carbonMist,
@@ -204,6 +252,28 @@ export const ICON = {
 export const TOKENS = {
   /** Estático = oscuro. Las primitivas leen useTheme().colors. */
   colors: COLORS.dark,
+  accent: {
+    /** Punto dorado de 8 dp, acento de estado en Hero y StatusPill. */
+    dot: 8,
+  },
+  modal: {
+    /** Grosor de la barra superior por tono: danger 6, warning/success 4, info/neutral 2. */
+    bar: {
+      danger: 6,
+      warning: 4,
+      success: 4,
+      info: 2,
+      neutral: 2,
+    },
+    /** Tamaño de icono por tono: danger 56, warning/success 48, info/neutral 40. */
+    icon: {
+      danger: 56,
+      warning: 48,
+      success: 48,
+      info: 40,
+      neutral: 40,
+    },
+  },
   spacing: {
     zero: 0,
     /** Medio paso de la escala de 8. */
@@ -332,6 +402,8 @@ export const FONT = {
   h1: { fontSize: 28, lineHeight: 42, letterSpacing: -0.4, ...font("600") },
   h2: { fontSize: 26, lineHeight: 38, letterSpacing: -0.3, ...font("600") },
   h3: { fontSize: 18, lineHeight: 26, ...font("600") },
+  /** Título de estado del Hero, 28 pt. Alias semántico de display. */
+  hero: { fontSize: 28, lineHeight: 42, letterSpacing: -0.4, ...font("600") },
   display: { fontSize: 28, lineHeight: 42, letterSpacing: -0.4, ...font("600") },
   /** Cronómetro del hero (40, tabular). */
   timer: { fontSize: 40, lineHeight: 48, ...font("600"), fontVariant: TABULAR_NUMS },

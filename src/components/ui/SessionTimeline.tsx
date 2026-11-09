@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 
 import { TOKENS, FONT, ICON } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
@@ -104,12 +105,19 @@ interface SessionTimelineProps {
    * del ScrollView). true solo si se usa fuera de un contenedor con padding.
    */
   inset?: boolean;
+  /** Compacto por defecto: primeros 3 nodos visibles, resto bajo "+N eventos". */
+  compact?: boolean;
+  /** Empieza expandido. Por defecto false. */
+  defaultExpanded?: boolean;
 }
 
-export function SessionTimeline({ events, title, emptyText, loading = false, inset = false }: SessionTimelineProps) {
+export function SessionTimeline({ events, title, emptyText, loading = false, inset = false, compact = true, defaultExpanded = false }: SessionTimelineProps) {
   const { colors } = useTheme();
   useLanguage();
   const reduceMotion = useMotionPreference();
+  const [expanded, setExpanded] = React.useState(defaultExpanded);
+  const visibleEvents = compact && !expanded ? events.slice(0, 3) : events;
+  const hiddenCount = events.length - visibleEvents.length;
   const getEventStyle = (type: TimelineEvent["type"]) => {
     switch (type) {
       case "start":
@@ -148,9 +156,9 @@ export function SessionTimeline({ events, title, emptyText, loading = false, ins
         </Animated.Text>
       ) : (
         <View style={styles.timeline}>
-          {events.map((event, index) => {
+          {visibleEvents.map((event, index) => {
             const { dotColor, hasBorder } = getEventStyle(event.type);
-            const isLast = index === events.length - 1;
+            const isLast = index === visibleEvents.length - 1 && hiddenCount === 0;
 
             return (
               <Animated.View
@@ -205,6 +213,28 @@ export function SessionTimeline({ events, title, emptyText, loading = false, ins
               </Animated.View>
             );
           })}
+          {hiddenCount > 0 ? (
+            <Pressable
+              onPress={() => setExpanded(true)}
+              accessibilityRole="button"
+              testID="timeline-expand"
+              style={styles.expandRow}
+            >
+              <Text style={[styles.expandText, { color: colors.goldText }]}>{`+${hiddenCount} ${t("session.timelineMoreEvents")}`}</Text>
+              <Ionicons name="chevron-down-outline" size={ICON.sm} color={colors.goldText} accessibilityElementsHidden importantForAccessibility="no" />
+            </Pressable>
+          ) : null}
+          {compact && expanded && events.length > 3 ? (
+            <Pressable
+              onPress={() => setExpanded(false)}
+              accessibilityRole="button"
+              testID="timeline-collapse"
+              style={styles.expandRow}
+            >
+              <Text style={[styles.expandText, { color: colors.goldText }]}>{t("common.showLess")}</Text>
+              <Ionicons name="chevron-up-outline" size={ICON.sm} color={colors.goldText} accessibilityElementsHidden importantForAccessibility="no" />
+            </Pressable>
+          ) : null}
         </View>
       )}
     </View>
@@ -252,4 +282,6 @@ const styles = StyleSheet.create({
   },
   nodeTitle: { ...FONT.bodyStrong },
   nodeTime: { ...FONT.caption, ...FONT.tabularNums, marginTop: TOKENS.spacing.xxs },
+  expandRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.xs, marginTop: TOKENS.spacing.sm, minHeight: TOKENS.layout.minTouchTarget },
+  expandText: { ...FONT.caption },
 });

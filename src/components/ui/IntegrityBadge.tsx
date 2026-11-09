@@ -24,18 +24,18 @@ interface IntegrityBadgeProps {
   blocked?: boolean;
 }
 
-type BadgeConfig = { color: string; bg: string; icon: string };
+type BadgeConfig = { color: string; bg: string; border: string; icon: string };
 
 function configFor(colors: ThemeColors, integrity: IntegrityClass): BadgeConfig {
   switch (integrity) {
     case "VALID":
-      return { color: colors.status.success, bg: colors.statusBg.success, icon: ICONS.status.success };
+      return { color: colors.statusText.success, bg: colors.statusBg.success, border: colors.statusBorder.success, icon: ICONS.status.success };
     case "MANUAL":
-      return { color: colors.text.secondary, bg: colors.surface, icon: ICONS.actions.edit };
+      return { color: colors.text.secondary, bg: colors.surface, border: colors.border, icon: ICONS.actions.edit };
     case "AUTO":
-      return { color: colors.status.info, bg: colors.statusBg.info, icon: ICONS.domain.time };
+      return { color: colors.statusText.info, bg: colors.statusBg.info, border: colors.statusBorder.info, icon: ICONS.domain.time };
     case "CONFLICT":
-      return { color: colors.status.warning, bg: colors.statusBg.warning, icon: ICONS.status.warning };
+      return { color: colors.statusText.warning, bg: colors.statusBg.warning, border: colors.statusBorder.warning, icon: ICONS.status.warning };
   }
 }
 
@@ -48,7 +48,7 @@ export function IntegrityBadge({ integrity, blocked = false }: IntegrityBadgePro
   return (
     <Animated.View
       layout={LinearTransition.springify().damping(20).stiffness(150)}
-      style={[styles.badge, { borderColor: config.color, backgroundColor: config.bg }]}
+      style={[styles.badge, { borderColor: config.border, backgroundColor: config.bg }]}
       accessibilityLabel={t("integrity.a11yLabel", { label })}
     >
       <Ionicons name={config.icon as React.ComponentProps<typeof Ionicons>["name"]} size={ICON.xs} color={config.color} style={styles.icon} />

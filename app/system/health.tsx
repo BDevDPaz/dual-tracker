@@ -131,7 +131,7 @@ export default function HealthScreen() {
         hasSplitRow={false}
         hasZeroOmitted={false}
       />
-      <Text style={[styles.mode, { color: sys.degraded ? colors.status.warning : colors.status.success }]}>
+      <Text style={[styles.mode, { color: sys.degraded ? colors.statusText.warning : colors.statusText.success }]}>
         {t(`health.modes.${sys.traceMode}`)}
         {sys.degraded ? ` · ${t("screen.degraded")}` : ""}
       </Text>
@@ -235,7 +235,7 @@ export default function HealthScreen() {
                   style={styles.reviewHit}
                 >
                   <Text style={[styles.label, { color: colors.text.primary }]}>{when}</Text>
-                  <Text style={[styles.hint, { color: colors.status.warning }]}>{reason}</Text>
+                  <Text style={[styles.hint, { color: colors.statusText.warning }]}>{reason}</Text>
                 </Pressable>
               );
             })
@@ -260,7 +260,7 @@ export default function HealthScreen() {
                     {" · "}
                     {event.accuracyM === null ? t("health.diag.accuracyUnknown") : t("health.diag.accuracy", { m: Math.round(event.accuracyM) })}
                   </Text>
-                  <Text style={[styles.hint, { color: event.accepted ? colors.status.success : colors.status.warning }]}>
+                  <Text style={[styles.hint, { color: event.accepted ? colors.statusText.success : colors.statusText.warning }]}>
                     {event.accepted ? t("health.diag.accepted") : t("health.diag.rejected")}
                     {reason ? ` · ${reason}` : ""}
                   </Text>
@@ -285,7 +285,7 @@ export default function HealthScreen() {
               )}
             </>
           ) : ledger.acknowledgedBreaks > 0 ? (
-            <Text style={[styles.hint, { color: colors.status.warning }]}>{t("health.ledger.acknowledged")}</Text>
+            <Text style={[styles.hint, { color: colors.statusText.warning }]}>{t("health.ledger.acknowledged")}</Text>
           ) : (
             <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("health.ledger.ok")}</Text>
           )}

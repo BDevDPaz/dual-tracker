@@ -50,7 +50,7 @@ export function SessionListItem({
           <Text style={[styles.date, { color: colors.text.secondary }]}>{formatDate(start)}</Text>
           <IntegrityBadge integrity={s.integrityClass} blocked={(s.bookkeeping.certificationBlockers ?? []).length > 0} />
         </View>
-        <Text style={[styles.site, { color: conflict ? colors.status.warning : colors.text.primary }]} numberOfLines={1}>
+        <Text style={[styles.site, { color: conflict ? colors.statusText.warning : colors.text.primary }]} numberOfLines={1}>
           {item.siteLabel || item.site?.alias || t("today.noDestination")}
         </Text>
         <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.sessionId", { id: s.id })}</Text>
@@ -63,9 +63,9 @@ export function SessionListItem({
         {slice?.continuesUntilMs != null ? (
           <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}</Text>
         ) : null}
-        {zero ? <Text style={[styles.range, { color: colors.status.warning }]}>{t("history.zeroDuration")}</Text> : null}
-        {s.domainStatus === "CUARENTENA" ? <Text style={[styles.range, { color: colors.status.warning }]}>{t("session.quarantineNotice")}</Text> : null}
-        {reason ? <Text style={[styles.range, { color: colors.status.warning }]}>{reason}</Text> : null}
+        {zero ? <Text style={[styles.range, { color: colors.statusText.warning }]}>{t("history.zeroDuration")}</Text> : null}
+        {s.domainStatus === "CUARENTENA" ? <Text style={[styles.range, { color: colors.statusText.warning }]}>{t("session.quarantineNotice")}</Text> : null}
+        {reason ? <Text style={[styles.range, { color: colors.statusText.warning }]}>{reason}</Text> : null}
       </View>
       <View style={styles.side}>
         <Text style={[styles.hours, { color: colors.text.primary }]}>{hours}</Text>

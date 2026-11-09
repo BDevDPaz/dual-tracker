@@ -42,9 +42,9 @@ import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } fro
 /** Presentación de nómina para las pantallas (las rutas no importan services/). */
 export { allocateDisplayHundredths, displayStatement, formatCents, formatHundredths, formatPayRateLine, minutesToHundredths, moneyCents, trimDisplayNote };
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Gate (Producto §5.1)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export const selectIsHydrated = (s: DualTrackerState): boolean => !s.boot.isRehydrating;
 export const selectBootError = (s: DualTrackerState): string | null => s.boot.bootError;
 export const selectNeedsOnboarding = (s: DualTrackerState): boolean => !s.settings.device.onboardingCompleted;
@@ -52,9 +52,9 @@ export const selectNeedsOnboarding = (s: DualTrackerState): boolean => !s.settin
 export const selectNeedsDisclaimer = (s: DualTrackerState): boolean =>
   s.settings.device.disclosureAcceptedVersion !== DISCLOSURE_VERSION;
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Sesiones
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export const selectSessionById = (s: DualTrackerState, id: number): SessionRecord | null => s.sessions.byId[String(id)] ?? null;
 
 export const selectActiveSession = (s: DualTrackerState): SessionRecord | null => {
@@ -118,9 +118,9 @@ export const selectSessionsInRange = (s: DualTrackerState, from: number, to: num
     return start >= from && start <= to;
   });
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Mapa estado → UI y CTAs (Producto §5.7, tabla "Mapa estado → CTAs")
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export type HeroAction =
   | "OPEN_DAILY_SETUP_START"
   | "CANCEL_DAY"
@@ -166,9 +166,9 @@ export function getSessionStateUI(state: SessionState): SessionStateUI {
   return { state, labelKey: `states.${state}.label`, subKey: `states.${state}.sub`, ...UI_TABLE[state] };
 }
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Nómina derivada (preview; el statement sellado lo hace EvidencePack)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export interface ComputedSession {
   session: SessionRecord;
   preview: SessionPayrollPreview | null;
@@ -231,9 +231,9 @@ export const selectTodaySummary = (s: DualTrackerState, nowMs: number): DaySumma
   };
 };
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Destinos
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export const selectSites = (s: DualTrackerState, opts: { includeArchived?: boolean } = {}): Site[] =>
   s.sites.order.map((id) => s.sites.byId[String(id)]).filter((x): x is Site => !!x && (opts.includeArchived || x.active));
 
@@ -265,12 +265,14 @@ export const selectCurrentTargetSite = (s: DualTrackerState): Site | null => {
   return selectSiteById(s, seg ? seg.toSiteId : active.siteId);
 };
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Salud (Producto §5.7 SystemHealthBlock y §5.15)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export interface SystemHealthView {
   gpsOk: boolean;
   backgroundOk: boolean;
+  foregroundOk: boolean;
+  clockDriftExceeded: boolean;
   traceMode: VisibleTrackingMode;
   degraded: boolean;
   checked: boolean;
@@ -293,11 +295,26 @@ export const selectSystemHealth = (s: DualTrackerState): SystemHealthView => {
   return {
     gpsOk,
     backgroundOk,
+    foregroundOk,
+    clockDriftExceeded: h.clockDriftExceeded,
     traceMode: selectVisibleTrackingMode(s),
     degraded: h.checkedAtMs !== null && (!gpsOk || !backgroundOk || !foregroundOk || h.clockDriftExceeded),
     checked: h.checkedAtMs !== null,
   };
 };
+
+export type SystemHealthStatus = "OK" | "DEGRADED" | "UNCHECKED";
+
+/**
+ * Resumen para la línea de salud del Hero. La vista no debe inventarlo desde
+ * geofenceOn / geofenceOff: usa este helper, que distingue RASTRO_ACTIVO de
+ * SOLO_GEOCERCA y no oculta el fondo apagado.
+ */
+export function describeSystemHealth(health: SystemHealthView): { status: SystemHealthStatus; needsBackgroundAttention: boolean } {
+  if (!health.checked) return { status: "UNCHECKED", needsBackgroundAttention: false };
+  if (health.degraded) return { status: "DEGRADED", needsBackgroundAttention: !health.backgroundOk };
+  return { status: "OK", needsBackgroundAttention: false };
+}
 
 export interface RetentionStatusRow {
   periodStart: number;
@@ -332,9 +349,9 @@ export function selectRetentionStatus(s: DualTrackerState, nowMs: number): Reten
     });
 }
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Packs, feedback, admin, UI
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 /**
  * Jornadas que aportan tiempo a un periodo, con el reloj de ESA porción.
  * Con la política v2, una jornada que cruza la medianoche del domingo aparece
@@ -508,9 +525,9 @@ export const selectLunchElapsedMs = (s: DualTrackerState, nowMs: number): number
   return a?.bookkeeping.lastPauseStartMs ? Math.max(0, nowMs - a.bookkeeping.lastPauseStartMs) : 0;
 };
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Conflicto (Producto §5.16)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export interface ConflictView {
   session: SessionRecord;
   site: Site | null;
@@ -563,14 +580,14 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
   });
 };
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Integridad del ledger (spec v1.3 §5.5)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export const selectLedgerHealth = (s: DualTrackerState) => s.health.ledger;
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Cifrado de campos (spec FieldCrypto v1.3 §11, §12, §14)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export const selectCryptoHealth = (s: DualTrackerState) => s.health.fieldCrypto;
 
 export interface CertificationView {
@@ -589,9 +606,9 @@ export function selectCertification(s: DualTrackerState, session: SessionRecord)
   return { certifiable: isCertifiable(session), blocked: blockers.length > 0, blockers, unreadable: [...(session.bookkeeping.unreadableFields ?? [])] };
 }
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Calendario laboral (spec v1.3 §5.1)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export const selectCalendarHistory = (s: DualTrackerState) => companyCalendar(s.settings.company);
 export const selectPendingCalendarChange = (s: DualTrackerState, nowMs: number) => pendingCalendarChange(s.settings.company, nowMs);
 
@@ -619,9 +636,9 @@ export function selectPolicyForSession(s: DualTrackerState, session: SessionReco
   return policyForPeriod(packs, workweekStartAt(start, history), workweekEndAt(start, history), s.settings.company.overtimePolicyId);
 }
 
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 // Respaldos y exportación del expediente (spec FieldCrypto v1.3 §16)
-// ---------------------------------------------------------------------------
+// [STRIPPED 75 bytes]
 export interface BackupAdvice {
   /** Packs sellados sin ningún asiento PACK_SHARED (más reciente primero). */
   unsharedPacks: EvidencePack[];
