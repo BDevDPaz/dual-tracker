@@ -27,13 +27,14 @@ export function DailySummaryBlock({ hours, earnings, inset = false, netMinutes, 
   const target = dailyTargetMinutes && dailyTargetMinutes > 0 ? dailyTargetMinutes : 480;
   const fraction = hasProgress ? Math.min(1, Math.max(0, (netMinutes as number) / target)) : 0;
   return (
-    <View style={styles.wrap}>
+    // El margen de pantalla va en el bloque entero, así la barra de progreso
+    // queda alineada con la tarjeta cuando `inset` es true.
+    <View style={[styles.wrap, inset && styles.inset]}>
       <SummaryCard
         hoursLabel={t("today.netHours")}
         hours={formatUiDecimal(hours, language)}
         moneyLabel={t("today.estimate")}
         money={earnings}
-        inset={inset}
       />
       {hasProgress ? (
         <View style={styles.progressWrap}>
@@ -51,6 +52,7 @@ export function DailySummaryBlock({ hours, earnings, inset = false, netMinutes, 
 
 const styles = StyleSheet.create({
   wrap: { gap: TOKENS.spacing.sm },
+  inset: { marginHorizontal: TOKENS.layout.screenPadding },
   progressWrap: { gap: TOKENS.spacing.xs },
   track: {
     height: 6,

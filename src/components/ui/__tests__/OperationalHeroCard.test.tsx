@@ -1,7 +1,7 @@
 /** OperationalHeroCard — CTAs apilados en pantallas < 360 dp y línea de siguiente acción. */
 import React from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { getSessionStateUI } from "../../../core/selectors";
 import { spokenDuration } from "../../../i18n/labels";
 import { OperationalHeroCard } from "../OperationalHeroCard";
@@ -25,6 +25,9 @@ describe("OperationalHeroCard", () => {
     mockDims.mockReturnValue({ width: 390, height: 800, scale: 2, fontScale: 1 });
     render(<OperationalHeroCard {...props("ACTIVA")} />);
     expect(direction()).toBe("row");
+    // Desde #50 (P2) la píldora de estado con el símbolo de llegada vive en el Nivel 2 («Ver detalles»).
+    expect(screen.queryByTestId("arrival-mark", { includeHiddenElements: true })).toBeNull();
+    fireEvent.press(screen.getByTestId("hero-details-toggle"));
     expect(screen.getByTestId("arrival-mark", { includeHiddenElements: true })).toBeTruthy();
     expect(screen.getByTestId("hero-timer").props.accessibilityLabel).toBe(spokenDuration("1h 0m"));
   });
