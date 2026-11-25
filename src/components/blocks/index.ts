@@ -8,3 +8,6 @@ export * from "./SessionListItem";
 export * from "./OrphanReviewCard";
 export * from "./BackupAdviceCard";
 export * from "./BackupSection";
+export * from "./SessionAuditView";
+export * from "./PeriodAuditSection";
+export * from "./PayrollReportActions";

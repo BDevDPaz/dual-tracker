@@ -679,3 +679,4 @@ export function selectBackupAdvice(s: DualTrackerState, nowMs: number): BackupAd
 
 /** §16: ¿este pack ya se compartió al menos una vez? */
 export const selectPackShared = (s: DualTrackerState, packId: string): boolean => s.packs.sharedIds.includes(packId);
+export * from "./sessionAudit";

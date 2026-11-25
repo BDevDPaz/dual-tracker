@@ -1,4 +1,4 @@
-/** report/_layout.tsx — Stack de artefactos con header "Expediente". */
+/** report/_layout.tsx — Stack de Reportes: vista previa del periodo y expediente sellado. */
 import { Stack } from "expo-router";
 import { stackHeaderOptions } from "../../src/components/ui/navigation";
 import { HeaderActions } from "../../src/components/support/HelpButton";
@@ -12,7 +12,7 @@ export default function ReportLayout() {
     <Stack
       screenOptions={stackHeaderOptions(colors)}
     >
-      <Stack.Screen name="[periodId]" options={{ title: t("report.header"), headerRight: () => <HeaderActions screen="statement" /> }} />
+      <Stack.Screen name="[periodId]" options={{ title: t("report.previewTitle"), headerRight: () => <HeaderActions screen="statement" /> }} />
       <Stack.Screen name="pack/[packId]" options={{ title: t("report.packTitle"), headerRight: () => <HeaderActions screen="pack" /> }} />
     </Stack>
   );

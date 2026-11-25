@@ -25,7 +25,7 @@ import type {
 } from "../contracts";
 import { Store } from "../store";
 import { routeIntent } from "../../services/application/intentRouter";
-import { previewPayroll, previewPayrollRange, readBackupStatus } from "../../services/application/useCases";
+import { loadPeriodAuditInputs, loadSessionAuditInputs, previewPayroll, previewPayrollRange, readBackupStatus } from "../../services/application/useCases";
 import { OfflineQueueService } from "../../services/persistence/OfflineQueueService";
 import { DualDisclosureService } from "../../services/domain/DualDisclosureService";
 import { IntegrityLedgerService } from "../../services/domain/IntegrityLedgerService";
@@ -59,6 +59,9 @@ const queries = {
     const crumbs = facts.filter((f) => f.type === "BREADCRUMB").map((f) => ({ timestampMs: f.timestampMs }));
     return classifyBreadcrumbGaps(crumbs, packs, TimeAuthorityService.now(), state.settings.company.traceRetentionDays);
   },
+  /** Auditoría de jornadas (PR3): entradas del selector puro selectSessionAudit. Solo lectura. */
+  sessionAudit: (session: SessionRecord) => loadSessionAuditInputs(session),
+  periodAudit: (sessions: SessionRecord[]) => loadPeriodAuditInputs(sessions),
   traceDistanceMeters: (facts: SpatialFact[]): number => TraceRecorderService.distanceMeters(facts),
   previewPeriod: (periodStart: number, periodEnd: number): Promise<PayrollStatement> => previewPayroll(periodStart, periodEnd),
   previewRange: (periodStart: number, periodEnd: number) => previewPayrollRange(periodStart, periodEnd),
