@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { getSessionStateUI } from "../../../core/selectors";
+import { setLanguage } from "../../../i18n";
 import { spokenDuration } from "../../../i18n/labels";
 import { OperationalHeroCard } from "../OperationalHeroCard";
 
@@ -48,5 +49,23 @@ describe("OperationalHeroCard", () => {
     expect(screen.getByText("Siguiente: llegar a Obra · geocerca vigilando")).toBeTruthy();
     expect(screen.queryByTestId("hero-timer")).toBeNull();
     expect(screen.queryByTestId("arrival-mark")).toBeNull();
+  });
+
+  test("«Ver detalles» sale de i18n (common.showDetails/hideDetails) en ES y EN", () => {
+    mockDims.mockReturnValue({ width: 390, height: 800, scale: 2, fontScale: 1 });
+    try {
+      render(<OperationalHeroCard {...props("ACTIVA")} />);
+      expect(screen.getByText("Ver detalles")).toBeTruthy();
+      fireEvent.press(screen.getByTestId("hero-details-toggle"));
+      expect(screen.getByText("Ocultar detalles")).toBeTruthy();
+      screen.unmount();
+      setLanguage("en");
+      render(<OperationalHeroCard {...props("ACTIVA")} />);
+      expect(screen.getByText("Show details")).toBeTruthy();
+      fireEvent.press(screen.getByTestId("hero-details-toggle"));
+      expect(screen.getByText("Hide details")).toBeTruthy();
+    } finally {
+      setLanguage("es");
+    }
   });
 });

@@ -80,10 +80,6 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
   const primaryVariant = "primary" as const;
   const [detailsExpanded, setDetailsExpanded] = React.useState(false);
 
-  const showDetailsKey = t("common.showDetails");
-  const hideDetailsKey = t("common.hideDetails");
-  const showDetailsLabel = showDetailsKey === "common.showDetails" ? "Ver detalles" : showDetailsKey;
-  const hideDetailsLabel = hideDetailsKey === "common.hideDetails" ? "Ocultar detalles" : hideDetailsKey;
 
   const hasTimer = ui.showTimer;
   const nextInLevel1 = !hasTimer && nextAction;
@@ -197,7 +193,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
           style={styles.detailsToggle}
         >
           <Text style={[styles.detailsToggleText, { color: colors.goldText }]}>
-            {detailsExpanded ? hideDetailsLabel : showDetailsLabel}
+            {detailsExpanded ? t("common.hideDetails") : t("common.showDetails")}
           </Text>
           <Ionicons
             name={detailsExpanded ? "chevron-up-outline" : "chevron-down-outline"}

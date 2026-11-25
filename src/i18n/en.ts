@@ -35,6 +35,8 @@ export const en: Dictionary = {
     ok: "OK",
     reconnecting: "Reconnecting…",
     invalidTime: "Invalid time: use 24-hour HH:mm, for example 12:30.",
+    showDetails: "Show details",
+    hideDetails: "Hide details",
   },
   a11y: {
     closeModal: "Close",
