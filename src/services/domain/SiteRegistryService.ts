@@ -2,10 +2,10 @@
  * SiteRegistryService — Dominio (Propuesta Técnica §5.5, nuevo)
  * ============================================================================
  * Catálogo de destinos y clientes. Evita que cada jornada sea solo un string
- * de dirección tecleado el mismo día (como en DailySetupModal de GEOTrack).
+ * de dirección tecleado el mismo día (como en DailySetupModal del código heredado).
  *  - Sitio con alias, cliente, coordenadas objetivo, radio propio y estado activo.
  *  - Geocodificación al crear el sitio (el geocoder real lo inyecta el runtime:
- *    GeofenceRuntimeService.geocodeAddress, portado de DailySetupModal del proyecto fuente anterior LEDTracker).
+ *    GeofenceRuntimeService.geocodeAddress, portado de DailySetupModal del código heredado).
  *  - Al fijar el punto con GPS, reverse geocode (coordenadas → nombre). Si falla, null:
  *    se conserva la dirección que ya había. No se inventa una.
  *  - La jornada referencia siteId, no un texto libre.

@@ -150,7 +150,7 @@ export function effectiveJumpMeters(distanceM: number, accuracyM: number | null 
 
 /**
  * Velocidad o salto que no puede ser un operario. Un traslado en coche
- * (aunque supere los 15 km/h heredados de GEOTrack) NO es un rechazo:
+ * (aunque supere los 15 km/h heredados) NO es un rechazo:
  * el umbral antiguo bloqueaba el check-in real al llegar en la van.
  *
  * `jumpM` es el salto ya descontado (effectiveJumpMeters). Intervalos

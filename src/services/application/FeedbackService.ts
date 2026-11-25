@@ -3,7 +3,7 @@
  * ============================================================================
  * Traduce eventos técnicos a lenguaje de usuario sin filtrar jerga.
  *  - Diccionario MICROCOPY versionado (src/i18n/microcopy.ts); nunca se muestran
- *    códigos crudos como "Mutex failed" (vienen de logBridge de GEOTrack).
+ *    códigos crudos como "Mutex failed" (vienen de logBridge del código heredado).
  *  - Toast efímero vs. diálogo persistente según gravedad.
  *  - Mismo mensaje en ES/EN; si falta la traducción, cae a ES.
  *

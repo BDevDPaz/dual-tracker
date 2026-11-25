@@ -9,7 +9,7 @@
  * pantallas, tareas o servicios. Todo timestamp de nómina o auditoría pasa por
  * aquí. (El único `Date.now()` del proyecto vive en este archivo.)
  *
- * Origen: sustituye a src/utils/timeProvider.ts de GEOTrack.
+ * Origen: sustituye a src/utils/timeProvider.ts del código heredado.
  */
 import {
   CLOCK_DRIFT_CONSISTENCY_MS,

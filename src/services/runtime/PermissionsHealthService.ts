@@ -9,8 +9,8 @@
  *    y se notifica al instante (el hook onBackgroundRevoked lo cablea boot).
  *  - Peticiones secuenciales (tres tarjetas del onboarding), no un único
  *    diálogo opaco.
- *  - Sustituye al simulador "GPS revocado" de las maquetas de W Tracker.
- * Base: locationAdapter.requestPermissions + selectSystemHealth (GEOTrack).
+ *  - Sustituye al simulador "GPS revocado" de las maquetas del código heredado.
+ * Base: locationAdapter.requestPermissions + selectSystemHealth (código heredado).
  */
 import * as Battery from "expo-battery";
 import * as IntentLauncher from "expo-intent-launcher";

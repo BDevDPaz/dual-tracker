@@ -1,8 +1,6 @@
 /**
  * ReportService — Evidencia (Propuesta Técnica §4.5)
- * Fusiona PDFService (proyecto fuente anterior W Tracker), ReportGenerator
- * (proyectos fuente anteriores GEOTrack y LEDTracker) y
- * reportsAdapter (GEOTrack).
+ * Fusiona PDFService, ReportGenerator y reportsAdapter del código heredado.
  * ============================================================================
  *  - NO calcula overtime: recibe un PayrollStatement ya cerrado por
  *    PayrollEngine y un EvidenceSummary del ledger.

@@ -4,10 +4,10 @@
  * Única definición de transiciones legales. Solo SessionEngineService la
  * invoca (Propuesta Técnica §2: "Solo SessionEngine muta el ciclo de vida").
  *
- * Origen: guardas de transición del reducer de GEOTrack
- * (src/core/reducer/index.ts) + reglas de edición de W Tracker
+ * Origen: guardas de transición del reducer del código heredado
+ * (src/core/reducer/index.ts) + reglas de edición del código heredado
  * (src/domain/sessionEngine.ts: hasTimeChanged / requiresAuditNote).
- * La regla demo de W Tracker "00:00 = solape" NO se porta: el solape real lo
+ * La regla demo del código heredado "00:00 = solape" NO se porta: el solape real lo
  * calcula PersistenceService.checkOverlap y llega aquí como ctx.overlap.
  *
  * No lee el reloj ni toca SQLite: todo llega por `ctx`.
@@ -122,7 +122,7 @@ function withIntegrity(s: SessionRecord, cls: IntegrityClass, reason: IntegrityR
 }
 
 // ---------------------------------------------------------------------------
-// Reglas de edición (portadas de W Tracker)
+// Reglas de edición (portadas del código heredado)
 // ---------------------------------------------------------------------------
 
 export function hasTimeChanged(s: SessionRecord, start: number, end: number | null): boolean {
@@ -665,9 +665,12 @@ export function transition(
     // ------------------------------------------------------------ LUNCH_START
     case "LUNCH_START": {
       if (!open) return reject("NO_OPEN_SESSION");
-      // El hub de salida ofrece "Iniciar almuerzo" en SALIDA. El almuerzo
-      // empieza en la primera salida (el mismo instante que usa el traslado)
-      // y se anula el temporizador para que esa salida no cierre el día.
+      // La hoja de salida tiene tres acciones y no ofrece almuerzo (D-19,
+      // PR #38). La UI solo emite LUNCH_START en ACTIVA (PauseKindModal).
+      // La rama SALIDA se conserva porque sessionReplay vuelve a aplicar
+      // asientos anteriores: ahí el almuerzo empieza en la primera salida
+      // (el mismo instante que usa el traslado) y se anula el temporizador
+      // para que esa salida no cierre el día.
       if (open.domainStatus !== "ACTIVA" && open.domainStatus !== "SALIDA") return reject("ILLEGAL_TRANSITION");
       const fromExit = open.domainStatus === "SALIDA";
       const at = fromExit && open.bookkeeping.firstExitAtMs ? open.bookkeeping.firstExitAtMs : now;
@@ -999,7 +1002,7 @@ export function transition(
       let next: SessionRecord = {
         ...s,
         declaredStartAtMs: start,
-        // Corrige GEOTrack: allí solo se editaba start_time y la nómina seguía
+        // Corrige el código heredado: allí solo se editaba start_time y la nómina seguía
         // usando actual_start_time, así que la edición no tenía efecto.
         actualStartAtMs: s.actualStartAtMs === null ? null : start,
         endAtMs: end,

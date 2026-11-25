@@ -2,7 +2,7 @@
  * PayrollEngineService — Dominio (Propuesta Técnica §5.2, nuevo, crítico)
  * ============================================================================
  * Motor de nómina versionado. Sustituye calculateSessionDuration /
- * calculatePay (payrollUtils.ts de GEOTrack), calculateEarnings (proyecto fuente anterior LEDTracker)
+ * calculatePay (payrollUtils.ts del código heredado), calculateEarnings (código heredado)
  * y el cálculo embebido en el HTML del PDF (ReportGenerator).
  *
  * Entrada: sesiones cerradas, pausas, almuerzo, traslados, tarifa y multiplicador.
@@ -10,10 +10,10 @@
  *
  * Diferencias deliberadas con el código heredado:
  *  - El almuerzo es una línea explícita. Se usa (1) start/end reales, o
- *    (2) los minutos declarados en LunchModal. GEOTrack restaba 60 min por
+ *    (2) los minutos declarados en LunchModal. El código heredado restaba 60 min por
  *    defecto si solo había "Sí": aquí NO se inventa la duración; se emite la
  *    advertencia LUNCH_DURATION_UNKNOWN y la línea vale 0 min.
- *  - Aritmética en minutos enteros (como GEOTrack) para evitar redondeos.
+ *  - Aritmética en minutos enteros (como el código heredado) para evitar redondeos.
  *  - Interpretación documentada de "el traslado cuenta para overtime": los
  *    minutos de tránsito que cuentan consumen primero la capacidad regular del
  *    día; el tránsito se paga en su propia línea TRANSIT a su tarifa.
@@ -75,7 +75,7 @@ export function computeSessionMinutes(
   if (b.isDeleted || b.cancelled) return null;
 
   const startMs = session.actualStartAtMs ?? session.declaredStartAtMs;
-  // SALIDA: se mide hasta la primera salida (port de selectComputedSessions de GEOTrack).
+  // SALIDA: se mide hasta la primera salida (port de selectComputedSessions del código heredado).
   const endMs =
     session.domainStatus === "ESPERANDO"
       ? startMs

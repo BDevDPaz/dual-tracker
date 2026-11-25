@@ -1,7 +1,7 @@
 /**
  * TaskOrchestratorService — Runtime (Propuesta Técnica §5.7, nuevo, OS)
  * ============================================================================
- * Unifica BackgroundTasks.ts (GEOTrack), AutomatedReporting y los defineTask
+ * Unifica BackgroundTasks.ts (código heredado), AutomatedReporting y los defineTask
  * dispersos. Es el director de supervivencia del proceso.
  *  - Inventario: GEOFENCE, BREADCRUMB, SESSION_WATCHDOG, EXIT_DECISION_TIMER,
  *    DAILY_REMINDER, INTEGRITY_SWEEP, PAYROLL_EXPORT (src/constants/tasks.ts).

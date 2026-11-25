@@ -1,7 +1,7 @@
 /**
  * Tarea GEOFENCE (Propuesta Técnica §7.2) — Enter/Exit nativo del sitio activo.
  * Solo emite hechos espaciales vía GeofenceRuntimeService (portado del
- * GEOFENCE_TASK de LocationManager.ts, GEOTrack).
+ * GEOFENCE_TASK de LocationManager.ts del código heredado).
  */
 import type * as Location from "expo-location";
 import type { TaskManagerTaskBody } from "expo-task-manager";

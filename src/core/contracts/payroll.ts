@@ -26,7 +26,7 @@ export interface PayrollLine {
   dateString: string;
   siteId: number | null;
   kind: PayrollLineKind;
-  /** Minutos enteros (se evita el redondeo de horas decimales, como GEOTrack). */
+  /** Minutos enteros (se evita el redondeo de horas decimales, como el código heredado). */
   minutes: number;
   /** Tarifa efectiva aplicada a la línea (0 en deducciones). */
   rate: number;
@@ -110,7 +110,7 @@ export interface PayrollPolicy {
   weeklyOvertimeAfterMinutes: number | null;
   /**
    * Ámbito del umbral diario: "DAY" suma todas las sesiones del día;
-   * "SESSION" replica calculatePay() de GEOTrack (umbral por sesión).
+   * "SESSION" replica calculatePay() del código heredado (umbral por sesión).
    */
   dailyScope: "DAY" | "SESSION";
   /**

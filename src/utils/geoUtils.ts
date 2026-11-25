@@ -1,11 +1,11 @@
-// src/utils/geoUtils.ts (portado de los proyectos fuente anteriores GEOTrack y LEDTracker)
+// src/utils/geoUtils.ts (portado del código heredado)
 
 const deg2rad = (deg: number): number => deg * (Math.PI / 180);
 
 /**
  * Calcula la distancia en metros entre dos coordenadas (fórmula de Haversine).
  *
- * Cambio respecto a GEOTrack: el original devolvía 0 si alguna coordenada era
+ * Cambio respecto al código heredado: el original devolvía 0 si alguna coordenada era
  * falsy (incluido 0 legítimo). Aquí se valida con Number.isFinite y se
  * devuelve NaN si falta un dato, para no fingir "dentro del radio".
  */

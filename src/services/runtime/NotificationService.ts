@@ -1,13 +1,13 @@
 /**
  * NotificationService — Runtime (Propuesta Técnica §4.4)
- * Fusiona Notifications.ts, notificationsAdapter y NotificationActionHandler (GEOTrack).
+ * Fusiona Notifications.ts, notificationsAdapter y NotificationActionHandler (código heredado).
  * ============================================================================
  *  - Un solo servicio para permisos, canal Android, recordatorio diario,
  *    avisos inmediatos y acciones (cerrar / seguir / trasladar).
  *  - Las acciones REENTRAN a SessionEngine como intenciones (origen
  *    NOTIFICATION) a través de un sink inyectado; nunca tocan SQLite.
  *  - Payload validado: título y cuerpo vacíos no se programan.
- *  - Corrige GEOTrack: scheduleDailyReminder ya no cancela TODAS las
+ *  - Corrige el código heredado: scheduleDailyReminder ya no cancela TODAS las
  *    notificaciones programadas (borraba también avisos de salida); cancela
  *    solo por identificador.
  */

@@ -2,7 +2,7 @@
  * useWorkTracker — ÚNICO gancho que las rutas pueden usar para leer estado y
  * emitir intenciones (Propuesta de Producto §2).
  * ============================================================================
- * Portado de GEOTrack (src/core/hooks/useWorkTracker.ts): suscripción
+ * Portado del código heredado (src/core/hooks/useWorkTracker.ts): suscripción
  * reactiva real (sin polling) al store. Cambia `dispatch(DomainEvent)` por
  * `emit(ViewIntent)`: la vista expresa intención; decide el dominio.
  *
@@ -93,7 +93,7 @@ const queries = {
     }
     return lines;
   },
-  /** Solape REAL (EditSessionModal) — sustituye la regla demo "00:00" de W Tracker. */
+  /** Solape REAL (EditSessionModal) — sustituye la regla demo "00:00" del código heredado. */
   checkOverlap: (startMs: number, endMs: number | null, excludeId: number | null): Promise<boolean> =>
     PersistenceService.checkOverlap(startMs, endMs, excludeId),
   loadPack: (packId: string): Promise<EvidencePack | null> => EvidencePackService.get(packId),
@@ -133,7 +133,7 @@ export function useWorkTracker(): {
 
   useEffect(() => {
     const unsubscribe = Store.subscribe(setState);
-    // Sincronización por si cambió entre el primer render y el effect (GEOTrack).
+    // Sincronización por si cambió entre el primer render y el effect (código heredado).
     const current = Store.getState();
     setState((prev) => (prev !== current ? current : prev));
     return unsubscribe;

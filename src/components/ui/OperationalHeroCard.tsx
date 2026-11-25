@@ -14,7 +14,7 @@ import { Button } from "./Button";
 import { GlassLayers, useGlass } from "./GlassSurface";
 
 /**
- * OperationalHeroCard — portado de GEOTrack y rediseñado (Producto §5.7):
+ * OperationalHeroCard — portado del código heredado y rediseñado (Producto §5.7):
  * Estado como título principal, destino degradado, temporizador solo si `ui.showTimer`,
  * subtexto de getSessionStateUI, un CTA primario y como máximo un secundario.
  * No decide nada: recibe el view-model y callbacks.

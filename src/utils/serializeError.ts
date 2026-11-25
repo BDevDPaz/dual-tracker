@@ -1,7 +1,7 @@
 /**
  * Serializa un error o valor desconocido a string de forma segura.
  * Maneja objetos circulares y errores de JSON.stringify.
- * Portado de GEOTrack (src/core/workTrackerEngine.ts).
+ * Portado del código heredado (src/core/workTrackerEngine.ts).
  */
 export function serializeError(error: unknown): string {
   try {

@@ -1,7 +1,7 @@
 /**
  * boot — arranque de Dual Tracker (Producto §3 root _layout; Técnica §5.7 y §10)
  * ============================================================================
- * Portado de bootApplication (GEOTrack, src/core/boot.ts) con el nuevo orden:
+ * Portado de bootApplication (código heredado, src/core/boot.ts) con el nuevo orden:
  *  1. ensureRuntimeReady(): SQLite (WAL, esquema, migraciones), FieldCrypto y
  *     cableado de puertos Dominio → Runtime. También lo usan las tareas
  *     headless cuando el SO despierta la app sin UI.

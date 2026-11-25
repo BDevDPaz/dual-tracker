@@ -14,7 +14,7 @@ import { fixedLunchExceedsSession, lunchOutsideSession, timePickerMaximum } from
 import { formatCurrency, wallMinutesOnOrAfter } from "../../utils/dateUtils";
 
 /**
- * LunchModal — portado de GEOTrack con dos modos (Producto §7):
+ * LunchModal — portado del código heredado con dos modos (Producto §7):
  *  - "close": al cerrar la jornada, deducción de almuerzo (0/30/45/60).
  *    Sin preselección: no se asume 60 min (la nómina marca
  *    LUNCH_DURATION_UNKNOWN si se omite).

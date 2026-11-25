@@ -8,7 +8,7 @@ Cada entrada del módulo tiene unidad, motivo y fuente. Esta tabla es el mismo c
 
 | Id | Valor | Unidad | Por qué está así | Fuente |
 | --- | --- | --- | --- | --- |
-| `pin.attemptDelayMs` | 650 | ms | Frena la fuerza bruta antes de responder | GEOTrack, 650 ms. Técnica §4.8 pide retardo sin cifra |
+| `pin.attemptDelayMs` | 650 | ms | Frena la fuerza bruta antes de responder | Valor heredado, 650 ms. Técnica §4.8 pide retardo sin cifra |
 | `pin.hashIterations` | 1000 | rondas | Solo verifica un PIN guardado antes de scrypt. Si coincide, se reescribe | Técnica §4.8. Migración transparente |
 | `pin.scryptN` | 16384 | factor N (potencia de 2) | Unos 50 ms y 16 MB en el host de pruebas. En un Android de gama media, JS puro, cerca de 250–500 ms. No bajarlo | Tanda 2, endurecimiento. RFC 7914 |
 | `pin.scryptR` | 8 | factor r | Tamaño de bloque. La memoria es del orden de 128·N·r bytes | RFC 7914 |
@@ -23,7 +23,7 @@ Cada entrada del módulo tiene unidad, motivo y fuente. Esta tabla es el mismo c
 | `sites.destinationLimit` | 20 | destinos activos | Tope por dispositivo | Producto §5.5 nombra el límite y no fija el número |
 | `heartbeat.gapMs` | 45 min | ms | Hueco sin lectura dentro del sitio → jornada por revisar | Tanda 1 |
 | `exit.debounceMs` | 2 min | ms | Debounce antes de tratar la salida como real. La empresa puede cambiarlo | Técnica §4.3 («hoy ~2 min») |
-| `exit.decisionWindowMs` | 15 min | ms | Plazo para decidir tras la primera salida | GEOTrack 15 min. Técnica §7.2 no fija la cifra |
+| `exit.decisionWindowMs` | 15 min | ms | Plazo para decidir tras la primera salida | Valor heredado, 15 min. Técnica §7.2 no fija la cifra |
 | `clock.driftThresholdMs` | 3 min | ms | Un salto del reloj local pasa a Revisar. La hora de red solo avisa si varias muestras coinciden | Técnica §5.1. Prueba de campo 19 oct 2026 |
 | `clock.hostAgreementMs` | 5 s | ms | Las dos cabeceras `Date` tienen que coincidir | Tanda 1 |
 | `clock.maxSampleRttMs` | 1,5 s | ms | Por encima se descarta la muestra. El desfase usa el punto medio | Prueba de campo 19 oct 2026 |

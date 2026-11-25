@@ -1,7 +1,7 @@
 /**
  * DAILY_REMINDER (Propuesta Técnica §7.2) — trigger diario local.
  * Reprograma el recordatorio con la hora del perfil (portado de
- * scheduleDailyMorningNotification de GEOTrack).
+ * scheduleDailyMorningNotification del código heredado).
  */
 import { SettingsService } from "../../persistence/SettingsService";
 import { NotificationService } from "../NotificationService";

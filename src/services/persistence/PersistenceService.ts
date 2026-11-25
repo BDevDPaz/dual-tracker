@@ -1,13 +1,13 @@
 /**
  * PersistenceService — Persistencia (Propuesta Técnica §4.2)
  * ============================================================================
- * Fusiona DatabaseService (src/database/db.ts) y sessionStoreAdapter de
- * GEOTrack en un repositorio único con mapeo canónico ya resuelto.
+ * Fusiona DatabaseService (src/database/db.ts) y sessionStoreAdapter del
+ * código heredado en un repositorio único con mapeo canónico ya resuelto.
  *
- *  - WAL obligatorio (PRAGMAs portados de GEOTrack).
+ *  - WAL obligatorio (PRAGMAs portados del código heredado).
  *  - Transacciones por intención de SessionEngine: `transaction(work)`.
  *  - checkOverlap se ejecuta en el repositorio (ya no es un comentario en el
- *    modal ni la regla demo "00:00" de W Tracker).
+ *    modal ni la regla demo "00:00" del código heredado).
  *  - Rehidratación al arranque: `loadSnapshot()` produce el estado canónico.
  *
  * Solo SessionEngineService escribe sesiones y solo IntegrityLedgerService
@@ -117,7 +117,7 @@ async function configure(database: SQLite.SQLiteDatabase): Promise<void> {
   }
 }
 
-/** Migraciones aditivas (patrón addColumnIfMissing de GEOTrack). */
+/** Migraciones aditivas (patrón addColumnIfMissing del código heredado). */
 async function addColumnIfMissing(
   database: SQLite.SQLiteDatabase,
   table: string,
@@ -469,7 +469,7 @@ export const PersistenceService = {
   },
 
   /**
-   * Ejecuta `work` en una transacción BEGIN IMMEDIATE (portado de GEOTrack),
+   * Ejecuta `work` en una transacción BEGIN IMMEDIATE (portado del código heredado),
    * serializada en esta conexión. Una intención de SessionEngine = una transacción.
    */
   async transaction<T>(work: (database: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
@@ -630,7 +630,7 @@ export const PersistenceService = {
 
   /**
    * Solape real contra otras sesiones no borradas ni canceladas.
-   * Corrige la consulta de GEOTrack, que excluía status 'CLOSED' y por tanto
+   * Corrige la consulta del código heredado, que excluía status 'CLOSED' y por tanto
    * nunca detectaba solape con jornadas ya cerradas.
    */
   async checkOverlap(startMs: number, endMs: number | null, excludeId: number | null): Promise<boolean> {

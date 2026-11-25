@@ -12,8 +12,8 @@
  *    battery y timestamp canónico. Coordenadas selladas por FieldCrypto.
  *  - Retención configurable (company.traceRetentionDays).
  *
- * Es nuevo en Dual Tracker V1.0.0: GEOTrack solo tenía geocerca; el perfil de
- * muestreo proviene del startLocationUpdatesAsync del proyecto fuente anterior LEDTracker.
+ * Es nuevo en Dual Tracker V1.0.0: el código heredado solo tenía geocerca; el perfil de
+ * muestreo proviene del startLocationUpdatesAsync del código heredado.
  */
 import type {
   SessionRecord,

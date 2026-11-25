@@ -8,7 +8,7 @@ import type { EvidencePack } from "./evidence";
 /**
  * Estado canónico que refleja la UI.
  *
- * Portado del WorkTrackerCanonicalState de GEOTrack, simplificado: el store
+ * Portado del WorkTrackerCanonicalState del código heredado, simplificado: el store
  * SOLO refleja (Propuesta Técnica §4.2: "Zustand solo refleja, no decide").
  * La única autoridad que muta sesiones es SessionEngineService, que escribe en
  * SQLite + ledger y después publica aquí el registro resultante.

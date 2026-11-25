@@ -1,4 +1,4 @@
-// --- src/utils/dateUtils.ts --- (portado de GEOTrack, sin lecturas de reloj)
+// --- src/utils/dateUtils.ts --- (portado del código heredado, sin lecturas de reloj)
 /**
  * Utilidades de fecha SEGURAS PARA HERMES.
  * ============================================================================
@@ -21,7 +21,7 @@
  */
 
 /**
- * Zona por defecto de la nómina (sede del Pacífico). Heredado de GEOTrack.
+ * Zona por defecto de la nómina (sede del Pacífico). Valor heredado.
  * La empresa puede elegir otra en CompanyPolicy.timezone. El reloj de pared
  * cambia; las reglas de horas extra siguen siendo las de California.
  */
