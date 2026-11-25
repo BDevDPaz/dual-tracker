@@ -2,6 +2,8 @@
 export const cacheDirectory = "file:///tmp/dt/cache/";
 export const documentDirectory = "file:///tmp/dt/document/";
 export const __files = new Map<string, string>();
+/** Resultado del próximo File.pickFileAsync: un File, o un Error (cancelado). Vacío = cancelado. */
+export const __pickQueue: (File | Error)[] = [];
 export const __dirs = new Set<string>();
 
 type PathLike = string | { uri: string };
@@ -40,6 +42,12 @@ export class File {
   get exists(): boolean {
     return __files.has(this.uri);
   }
+  /** Selector del sistema (SAF en Android). Cerrar sin elegir lanza. */
+  static async pickFileAsync(): Promise<File> {
+    const next = __pickQueue.shift();
+    if (!next || next instanceof Error) throw next ?? new Error("The file picker was cancelled by the user");
+    return next;
+  }
   get name(): string {
     return this.uri.split("/").pop() ?? "";
   }
@@ -77,6 +85,7 @@ export async function readAsStringAsync(uri: string): Promise<string> {
   return v;
 }
 export function __reset(): void {
+  __pickQueue.length = 0;
   __files.clear();
   __dirs.clear();
 }

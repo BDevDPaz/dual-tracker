@@ -4,7 +4,9 @@
  * PermissionsHealthService, no toggle simulado), destinos, zona
  * administrativa (SecurityService, PIN real; sin '1234') y legal.
  * Footer "Guardar" solo con cambios pendientes. Intenciones: SAVE_SETTINGS,
- * UNLOCK_ADMIN, LOCK_ADMIN, SETUP_ADMIN_PIN, OPEN_OS_SETTINGS.
+ * UNLOCK_ADMIN, LOCK_ADMIN, SETUP_ADMIN_PIN, OPEN_OS_SETTINGS. La copia de
+ * seguridad (BackupSection) emite EXPORT_BACKUP, PREVIEW_BACKUP_IMPORT,
+ * IMPORT_BACKUP y CANCEL_BACKUP_IMPORT: es el único sitio con archivo restaurable.
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
@@ -14,7 +16,7 @@ import { ConfirmActionModal } from "../../src/components/modals";
 import { Button, Card, Chip, Input, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, StatusPill } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
-import { KeyValueRow } from "../../src/components/blocks";
+import { BackupSection, KeyValueRow } from "../../src/components/blocks";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
@@ -396,6 +398,12 @@ export default function SettingsScreen() {
                 <KeyValueRow key={row.periodStart} label={formatRange(row.periodStart, row.periodEnd)} value={t(`settings.retentionPhase.${row.phase}`)} />
               ))
             )}
+          </Card>
+        </Section>
+
+        <Section title={t("settings.backup.title")}>
+          <Card style={styles.card}>
+            <BackupSection />
           </Card>
         </Section>
 

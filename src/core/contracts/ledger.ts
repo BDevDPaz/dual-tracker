@@ -111,7 +111,13 @@ export type LedgerIntent =
    * El operario fijó o movió el punto de un sitio.
    * `data.previous` es el punto anterior (null si no había) y `data.next` el nuevo.
    */
-  | "SITE_LOCATED";
+  | "SITE_LOCATED"
+  /**
+   * Restauración de una copia de seguridad (Ajustes): reemplazo total de los
+   * datos. Es el primer asiento tras el libro restaurado. `data` lleva la
+   * fecha de la copia, los recuentos y la cabeza del libro restaurado.
+   */
+  | "BACKUP_RESTORED";
 
 export interface LedgerEntry {
   id: number;

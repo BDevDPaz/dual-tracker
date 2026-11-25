@@ -1078,7 +1078,7 @@ export const PersistenceService = {
   },
 };
 
-function mapLedgerRow(row: Record<string, unknown>): LedgerEntry {
+export function mapLedgerRow(row: Record<string, unknown>): LedgerEntry {
   return {
     id: Number(row.id),
     sessionId: row.session_id === null ? null : Number(row.session_id),
@@ -1095,7 +1095,7 @@ function mapLedgerRow(row: Record<string, unknown>): LedgerEntry {
   };
 }
 
-function mapPackRow(row: Record<string, unknown>): EvidencePack {
+export function mapPackRow(row: Record<string, unknown>): EvidencePack {
   return {
     id: String(row.id),
     manifest: JSON.parse(String(row.manifest_json)),

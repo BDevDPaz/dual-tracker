@@ -68,6 +68,20 @@ export const OFFLINE_QUEUE_ADDED_COLUMNS: [string, string][] = [
 /** Hechos espaciales: flag de proveedor simulado. NULL en filas anteriores. */
 export const SPATIAL_ADDED_COLUMNS: [string, string][] = [["mocked", "INTEGER"]];
 
+/**
+ * Triggers append-only del ledger. Solo la restauración de una copia (reemplazo
+ * total, dentro de UNA transacción) los quita y los vuelve a crear antes del
+ * COMMIT; si algo falla, el ROLLBACK también devuelve los triggers.
+ */
+export const LEDGER_APPEND_ONLY_TRIGGERS_SQL = `
+  CREATE TRIGGER IF NOT EXISTS trg_ledger_no_update
+    BEFORE UPDATE ON ledger_entries
+    BEGIN SELECT RAISE(ABORT, 'ledger_entries es append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS trg_ledger_no_delete
+    BEFORE DELETE ON ledger_entries
+    BEGIN SELECT RAISE(ABORT, 'ledger_entries es append-only'); END;
+`;
+
 export const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,13 +154,7 @@ export const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_ledger_session ON ledger_entries(session_id);
 
   -- Append-only: el ledger no admite UPDATE ni DELETE.
-  CREATE TRIGGER IF NOT EXISTS trg_ledger_no_update
-    BEFORE UPDATE ON ledger_entries
-    BEGIN SELECT RAISE(ABORT, 'ledger_entries es append-only'); END;
-  CREATE TRIGGER IF NOT EXISTS trg_ledger_no_delete
-    BEFORE DELETE ON ledger_entries
-    BEGIN SELECT RAISE(ABORT, 'ledger_entries es append-only'); END;
-
+${LEDGER_APPEND_ONLY_TRIGGERS_SQL}
   CREATE TABLE IF NOT EXISTS spatial_facts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE RESTRICT,
@@ -306,4 +314,6 @@ export const KV_KEYS = {
   CRYPTO_BACKFILL: "crypto.backfill.v3",
   /** FieldCrypto v1.3 §11 paso 5: barrido plain → enc completado. */
   CRYPTO_SWEEP: "crypto.sweep.v1",
+  /** Última copia de seguridad creada en este teléfono (Ajustes). No viaja en la copia. */
+  BACKUP_LAST: "backup.last_created",
 } as const;

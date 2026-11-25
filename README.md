@@ -352,8 +352,14 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 - **Respaldos** (§16):
   - Registro: compartir un expediente deja el asiento `PACK_SHARED { packId, target }` y actualiza `Store.packs.sharedIds`.
   - Selector: `selectBackupAdvice` devuelve los packs sin compartir y el periodo cerrado más reciente sin pack.
-  - Interfaz: tarjeta en Reportes y en el detalle del pack, y fila "Copia de expedientes" en Salud.
-  - Acción: "Exportar expediente" lanza `EXPORT_PACK`, que sella el periodo si falta y luego lo comparte.
+  - Interfaz: tarjeta "Copia de expedientes" en Reportes y en el detalle del pack (son documentos de nómina, no se restauran).
+  - Acción: "Exportar expediente" lanza `EXPORT_PACK`, que sella el periodo si falta y luego comparte el comprobante del empleado.
+- **Copia de seguridad de la app** (solo en Ajustes, `src/components/blocks/BackupSection.tsx`):
+  - Archivo `.dtbackup`: JSON con cabecera en claro y contenido cifrado con la contraseña de la copia (scrypt N=2^15, r=8, p=1 + AES-256-GCM, cabecera en el AAD; `src/services/persistence/backupCodec.ts`). Mínimo 8 caracteres. Sin la contraseña no se puede restaurar.
+  - Contenido (`backupStore.ts`): jornadas, destinos, libro, rastro, expedientes (datos y sellos, **sin los PDF**), perfil y empresa. Los campos cifrados viajan descifrados dentro del archivo cifrado, porque la clave del teléfono no sale de él. No viajan la cola del portal, los registros de diagnóstico, las preferencias del dispositivo (alta y aviso aceptado) ni los metadatos de cifrado.
+  - Crear (`EXPORT_BACKUP`): con la jornada cerrada. Se entrega con la hoja de compartir. Ajustes y Salud muestran la fecha de la última copia creada en el teléfono.
+  - Restaurar: `PREVIEW_BACKUP_IMPORT` elige el archivo con el selector del sistema (SAF en Android, `File.pickFileAsync` de expo-file-system) y valida formato, versión de esquema, columnas, jornadas cerradas, la cadena del libro y el sello de cada expediente, sin escribir nada. Después, `IMPORT_BACKUP` pide confirmación y hace un **reemplazo total** en una sola transacción, que termina con el asiento `BACKUP_RESTORED`. Si algo falla, ROLLBACK y los datos quedan como estaban. No se mezclan dos bases. Si hay PIN de administración, hace falta la zona desbloqueada.
+  - Salud solo enlaza a Ajustes con el estado de la copia. Reportes no crea ni lee `.dtbackup` (test `src/core/__tests__/backupPlacement.test.ts`).
 - **Fuera de alcance** (§20): SQLCipher, cifrado de los PDFs (van **sin cifrar**), rotación voluntaria de claves y recuperación tras perder la clave.
 - **Logs**: `LoggingService` redacta las claves sensibles (`note`, `alias`, `lat`/`lon`, `companyEmail`…) y un test estático impide pasarlas.
 

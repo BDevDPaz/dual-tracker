@@ -7,3 +7,4 @@ export * from "./KeyValueRow";
 export * from "./SessionListItem";
 export * from "./OrphanReviewCard";
 export * from "./BackupAdviceCard";
+export * from "./BackupSection";

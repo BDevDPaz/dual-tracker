@@ -25,7 +25,7 @@ import type {
 } from "../contracts";
 import { Store } from "../store";
 import { routeIntent } from "../../services/application/intentRouter";
-import { previewPayroll, previewPayrollRange } from "../../services/application/useCases";
+import { previewPayroll, previewPayrollRange, readBackupStatus } from "../../services/application/useCases";
 import { OfflineQueueService } from "../../services/persistence/OfflineQueueService";
 import { DualDisclosureService } from "../../services/domain/DualDisclosureService";
 import { IntegrityLedgerService } from "../../services/domain/IntegrityLedgerService";
@@ -63,6 +63,8 @@ const queries = {
   previewPeriod: (periodStart: number, periodEnd: number): Promise<PayrollStatement> => previewPayroll(periodStart, periodEnd),
   previewRange: (periodStart: number, periodEnd: number) => previewPayrollRange(periodStart, periodEnd),
   listOfflineQueue: () => OfflineQueueService.list(),
+  /** Última copia de seguridad creada en este teléfono (Ajustes y Salud). */
+  backupStatus: () => readBackupStatus(),
   sealFreshness: (periodStart: number, periodEnd: number) => EvidencePackService.describeFreshness(periodStart, periodEnd),
   /**
    * Líneas de una sesión en cada semana que toca. Una jornada que cruza el
