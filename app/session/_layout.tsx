@@ -15,6 +15,7 @@ export default function SessionLayout() {
     <Stack screenOptions={stackHeaderOptions(colors)}>
       <Stack.Screen name="[id]" options={{ title: t("session.title"), headerRight: () => <HeaderActions screen="session" /> }} />
       <Stack.Screen name="[id]/trace" options={{ title: t("trace.title"), headerRight: () => <HeaderActions screen="trace" /> }} />
+      <Stack.Screen name="[id]/audit" options={{ title: t("audit.sessionTitle"), headerRight: () => <HeaderActions screen="session" /> }} />
     </Stack>
   );
 }

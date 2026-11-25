@@ -3,6 +3,7 @@
  * Hash del manifiesto (para que empleado y empleador lo comparen), fecha de
  * sellado, archivos incluidos, sesiones incluidas y compartir PDF empleado /
  * empleador. Sin "regenerar con otras reglas": un pack sellado no muta.
+ * «Ver estado de nómina» abre la vista previa del periodo (/report/[periodId]).
  */
 import { useState } from "react";
 import { Pressable, Text, StyleSheet, View } from "react-native";
@@ -12,10 +13,10 @@ import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useTheme } from "../../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
+import { selectCalendarHistory, selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
 import { tPackFileRole } from "../../../src/i18n/labels";
-import { formatCurrency, formatDate, formatDateTime, formatRange } from "../../../src/utils/dateUtils";
+import { formatCurrency, formatDate, formatDateTime, formatRange, weekPeriodId } from "../../../src/utils/dateUtils";
 
 export default function PackScreen() {
   const { colors } = useTheme();
@@ -123,6 +124,13 @@ export default function PackScreen() {
       ) : null}
 
       {!shared ? <BackupAdviceCard /> : null}
+      <Button
+        testID="pack-view-statement"
+        label={t("reports.viewStatement")}
+        variant="ghost"
+        iconName="eye-outline"
+        onPress={() => router.push(`/report/${weekPeriodId(m.periodStart, selectCalendarHistory(state))}`)}
+      />
       <Button
         label={t("reports.shareEmployee")}
         iconName="share-outline"

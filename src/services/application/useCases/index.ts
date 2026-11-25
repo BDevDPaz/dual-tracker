@@ -6,3 +6,4 @@ export { checkLedgerIntegrity, acknowledgeLedgerBreak, exportLedgerIncident } fr
 export { requestCalendarChange, cancelCalendarChange } from "./calendarChange";
 export { exportSupportDiagnostic } from "./exportSupportDiagnostic";
 export { cancelBackupImport, exportAppBackup, importAppBackup, previewBackupImport, readBackupStatus } from "./appBackup";
+export { loadPeriodAuditInputs, loadSessionAuditInputs } from "./sessionAudit";

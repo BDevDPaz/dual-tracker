@@ -3,6 +3,9 @@
  * Rango libre (semana, quincena, mes o fechas) partido en semanas laborales.
  * Cada semana usa el mismo motor que el expediente. No se sella un rango
  * que mezcle semanas: el sello sigue siendo de una semana.
+ * Reporte de nómina (PR3): «Vista previa» abre /report/[periodId] (con
+ * varias semanas, una por semana), «Exportar expediente» = EXPORT_PACK y
+ * «Enviar por correo» = SHARE_EMPLOYER del último expediente de la semana.
  */
 import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
@@ -11,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button, Card, Chip, DocumentPreviewWidget, ExportStatusCard, Input, LoadingOverlay, PageHeader, PrimaryButton, SAFE_EDGES, ScreenScroll, Section, StatusPill, VmacSheet } from "../../src/components/ui";
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
-import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
+import { BackupAdviceCard, KeyValueRow, PayrollReportActions, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
@@ -30,7 +33,7 @@ import {
 } from "../../src/core/selectors";
 import { useToast } from "../../src/context/ToastContext";
 import { t } from "../../src/i18n";
-import { formatDate, formatRange, formatUiDecimal, getWeekEnd, shiftWeek, toDateString } from "../../src/utils/dateUtils";
+import { formatDate, formatRange, formatUiDecimal, getWeekEnd, shiftWeek, toDateString, weekPeriodId } from "../../src/utils/dateUtils";
 import {
   combineWeekStatements,
   corporateDayBounds,
@@ -129,6 +132,10 @@ export default function ReportsScreen() {
     const next = backup.next;
     return runExport(() => emit({ type: "EXPORT_PACK", periodStart: next.periodStart, periodEnd: next.periodEnd }));
   };
+
+  const openPreview = (weekStart: number) => router.push(`/report/${weekPeriodId(weekStart, calendar)}`);
+  const exportWeek = (start: number, end: number) => runExport(() => emit({ type: "EXPORT_PACK", periodStart: start, periodEnd: end }));
+  const noCompanyEmail = !settings.company.companyEmail?.trim();
 
   const seal = (start: number, end: number, allowUncertified: boolean) =>
     runSeal(async () => {
@@ -292,6 +299,22 @@ export default function ReportsScreen() {
           />
         ) : null}
 
+        {single && anchor ? (
+          <PayrollReportActions
+            onPreview={() => openPreview(anchor.start)}
+            onExport={() => void exportWeek(anchor.start, anchor.end)}
+            onSend={() => {
+              if (latestPack) void runShare(() => emit({ type: "SHARE_EMPLOYER", packId: latestPack.id }));
+            }}
+            exportDisabled={closedCount === 0 || (anchor.statement.integrityRollup.hasConflict && !latestPack)}
+            needsSeal={!latestPack}
+            noCompanyEmail={noCompanyEmail}
+            onGoSettings={() => router.push("/(tabs)/settings")}
+            exporting={exporting}
+            sending={sharing}
+          />
+        ) : null}
+
         {weeks.map((week) => {
           const weekRows = rows.filter((r) => r.weekStart === week.start);
           if (!single && weekRows.length === 0 && week.statement.sessionIds.length === 0) return null;
@@ -305,6 +328,9 @@ export default function ReportsScreen() {
                   <KeyValueRow label={t("reports.overtime")} value={`${formatUiDecimal(weekShown.overtime)} ${t("common.hours")}`} />
                   <KeyValueRow label={t("reports.total")} value={weekShown.gross} emphasis />
                 </Card>
+              ) : null}
+              {!single ? (
+                <Button testID={`week-preview-${week.start}`} label={t("reports.preview")} size="sm" variant="ghost" iconName="eye-outline" onPress={() => openPreview(week.start)} />
               ) : null}
               {weekRows.map((slice) => {
                 const item = computedById.get(slice.session.id);

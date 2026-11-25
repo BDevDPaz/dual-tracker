@@ -5,8 +5,8 @@
 ## 1. Resumen General
 - **Proyecto:** Dual Tracker V1.0.0 (repo `BDevDPaz/dual-tracker`, paquete `com.bdevdpaz.dualtracker`).
 - **Versión / Hito actual:** 1.0.0-rc.1. La versión visible es `1.0.0` (`app.json:6`, `package.json:5`, `src/constants/app.ts:2`). El perfil `preview` fija el canal `RC1` (`eas.json`, `EXPO_PUBLIC_RELEASE_CHANNEL`). Etiquetas git: `v0.1.0` (`a38db18`, 2026-10-07) y `v1.0.0-rc.1` (`ce4fc8a`, merge del #13, creada el 2026-10-19). No hay releases de GitHub.
-- **Última actualización:** 2026-11-25. Medido sobre `main` en `1329849` (merge del #51).
-- **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. PR2 (Ajustes) y PR3 (Reportes de nómina) siguen pendientes.
+- **Última actualización:** 2026-11-25. Medido sobre `main` en `1329849` (merge del #51); actualizado en la rama del PR3 (base `a9d52a5`, merge del #55).
+- **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. PR2 (Ajustes, #55) y #53 están mergeados. PR3 (Reportes de nómina y Auditoría de jornadas) está implementado y en revisión, sin mergear.
 - **Referencias:** Reglas en `AGENT.md` | Historial en `CHANGELOG.md`
 
 ### Cómo se rellenó este archivo (2026-11-25)
@@ -25,6 +25,7 @@
   - `npx eslint .`: 0 errores y 4 avisos (`scripts/check-dates.ts:22`, `test/mocks/expo-sqlite.ts:8`, `test/runtimeHarness.ts:22-23`).
   - `npx jest --runInBand --watchman=false`: 146/146 suites, 1081/1081 tests, 2/2 snapshots.
   - `npx dpdm -T` sobre `app/` y `src/`: 0 dependencias circulares.
+- Repetido el 2026-11-25 en la rama del PR3 (base `a9d52a5`): `tsc` 0 errores, `eslint` 0 errores y 4 avisos, `jest` 155/155 suites, 1145/1145 tests, 2/2 snapshots. `dpdm` no se repitió.
 
 ## 2. Estado de Diseño (UI / UX)
 
@@ -37,18 +38,17 @@ Fuente visual en el código: `src/constants/theme.ts` (paletas oscura y clara, I
 | Hoy (`app/(tabs)/index.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Vacío `EmptyState` (`index.tsx:308`). Banners de conflicto y de degradado (`:237`, `:267`). Única pantalla renderizada en un test (`app/(tabs)/__tests__/cancelDay.confirm.test.tsx`). |
 | Historial (`app/(tabs)/history.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [ ] / [x] / [ ] | Solo se ve el vacío (`history.tsx:194`). No se encontró estado de carga ni de error en el archivo. |
 | Reportes (`app/(tabs)/reports.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / parcial | Carga y vacío (`reports.tsx:143`, `:234`). Error de rango (`:230`). No se encontró un error de consulta (`preview.error` no se usa). |
-| Ajustes (`app/(tabs)/settings.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Errores de campo (`settings.tsx:312-347`). Vacíos de cola y retención (`:380`, `:392`). **Sin copia de seguridad, exportación ni importación** (ver §3). |
-| Detalle de sesión y rastro (`app/session/[id].tsx`, `trace.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / sin auditar | Carga (`[id].tsx:68`, `:177`). Sin datos (`:185`). |
-| Periodo `/report/[periodId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / [x] | Carga, error y sin datos (`[periodId].tsx:43-53`), vacío (`:74`). **No se llega desde ninguna pantalla** (ver §3). |
+| Ajustes (`app/(tabs)/settings.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Errores de campo (`settings.tsx:312-347`). Vacíos de cola y retención (`:380`, `:392`). Copia de seguridad cifrada `.dtbackup`, crear y restaurar (#55, `src/components/blocks/BackupSection.tsx`). |
+| Detalle de sesión y rastro (`app/session/[id].tsx`, `trace.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / sin auditar | Carga (`[id].tsx:68`, `:177`). Sin datos (`:185`). «Ver auditoría» lleva a `/session/[id]/audit` (`[id].tsx:204-205`, PR3). |
+| Periodo `/report/[periodId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / [x] | Carga, error y sin datos (`[periodId].tsx:43-53`), vacío (`:74`). Se llega desde «Vista previa» en Reportes (`reports.tsx:136`, `:304`, `:333`) y desde el expediente (`[packId].tsx:128`). Incluye la sección Auditoría (`[periodId].tsx:155`). PR3. |
 | Expediente `/report/pack/[packId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / sin auditar / [x] | Carga (`[packId].tsx:37-40`). No existe: `NotFoundState`. |
 | Destinos (`app/sites/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | Vacío en la lista (`app/sites/index.tsx:45`). |
-| Salud (`app/system/health.tsx`), Conflicto (`app/system/conflict.tsx`) | [x] fuera del repo | [ ] | [x] | sin auditar | Salud muestra la fila «Copia de expedientes» (`health.tsx:311-313`). |
+| Salud (`app/system/health.tsx`), Conflicto (`app/system/conflict.tsx`) | [x] fuera del repo | [ ] | [x] | sin auditar | Salud muestra el estado de la copia de seguridad y enlaza a Ajustes (`health.tsx:314`). |
 | Soporte y práctica (`app/support/*`), Legal (`app/legal/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | — |
 
 - **Sistema de diseño / Tokens:** definido en código (`src/constants/theme.ts`, #44 y #50). No hay mockup versionado con el que compararlo.
 - **Ajustes visuales abiertos:**
   - Contraste, TalkBack y aspecto en un teléfono: no verificados. Los PR #38 y #50 lo dicen.
-  - «Ver detalles» y «Ocultar detalles» del hero usan un texto fijo de respaldo porque faltan `common.showDetails` y `common.hideDetails` en i18n (`src/components/ui/OperationalHeroCard.tsx:83-86`). El PR #53 está abierto y sin mergear.
 
 ## 3. Estado de Funciones y Lógica
 
@@ -77,19 +77,16 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **Cifrado de campos:** AES-GCM, migraciones y pérdida de clave. Tests: `FieldCryptoService.test.ts`, `cryptoMigrations.test.ts`, `keyLoss.test.ts`.
 - **Idioma es/en:** paridad de claves y cambio en el acto. Tests: `src/i18n/__tests__/i18n.test.ts`, `languageSwitch.test.tsx`, `setLanguage.test.ts`, `hardcodedCopy.test.ts`.
 - **Soporte y modo práctica aislado:** tests `src/support/__tests__/support.test.ts`, `src/services/application/__tests__/practiceIsolation.test.ts`.
+- **Claves `common.showDetails` y `common.hideDetails`** (#53, `1138cfd`). Test: `OperationalHeroCard.test.tsx`.
+- **Copia de seguridad en Ajustes** (PR2, #55, `a9d52a5`): `.dtbackup` cifrado, vista previa sin escribir y reemplazo total con `BACKUP_RESTORED`. Tests: `backupCodec.test.ts`, `appBackup.test.ts`, `settings.backup.flow.test.tsx`, `backupPlacement.test.ts`.
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
-- **Copia de seguridad, exportación e importación en Ajustes (PR2):** **no existen hoy.**
-  - No hay ninguna intención `IMPORT` ni `RESTORE` en `src/core/contracts/intents.ts`, y Ajustes no tiene esa sección.
-  - Lo que hoy se llama «Copia de expedientes» es un aviso de expedientes sin compartir (`selectBackupAdvice`). Se ve en Reportes, en el expediente y en Salud (`health.tsx:311-313`).
-  - El dueño aprobó la separación: Reportes para documentos de nómina, Ajustes para la copia restaurable.
-  - *Falta:* todo el PR2.
-- **Reportes de nómina con «Vista previa», «Exportar expediente» y «Enviar por correo», y Auditoría de jornadas (PR3):**
-  - Las acciones de exportar y enviar ya existen (ver arriba).
-  - La ruta `/report/[periodId]` existe y funciona como pantalla (`app/report/[periodId].tsx`), pero **nada lleva a ella**: no hay `router.push` hacia esa ruta en `app/` ni en `src/`. Reportes solo abre `/report/pack/[packId]` (`reports.tsx:137`, `:372`).
-  - *Falta:* la entrada «Vista previa» y la sección Auditoría de jornadas.
-- **Claves i18n `common.showDetails` y `common.hideDetails`:** el PR #53 está abierto. Hoy se usa el texto de respaldo (`OperationalHeroCard.tsx:85-86`).
+- **PR3, Reportes de nómina y Auditoría de jornadas: en revisión, sin mergear.** No le falta ninguna parte pedida. Queda la revisión del dueño y la prueba en un teléfono.
+  - Bloque «Reportes de nómina» en Reportes: «Vista previa» → `/report/[periodId]`, «Exportar expediente» y «Enviar por correo» (`reports.tsx:303`).
+  - Vista previa del periodo con la sección Auditoría (`app/report/[periodId].tsx:142`, `:155`).
+  - Auditoría por jornada (`app/session/[id]/audit.tsx`, `selectSessionAudit` en `src/core/selectors/sessionAudit.ts:224`). Lo que no se guarda sale como «no registrado».
+  - Tests: `src/core/selectors/__tests__/sessionAudit.test.ts`, `src/services/application/useCases/__tests__/sessionAudit.test.ts`, `src/components/blocks/__tests__/SessionAuditView.test.tsx`, `app/report/__tests__/payrollReport.flow.test.tsx`, `src/core/__tests__/auditReadOnly.test.ts`.
 
 ### Pendiente / Planificado
 - **iOS:**
@@ -117,7 +114,7 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - `tsc --noEmit` pasa sin errores.
   - **No se generó un APK de `1329849`**: hoy no hay build de Android ni de iOS de este commit.
   - Los 14 APK previos que hay fuera del repo (versionCode 1–16) son de commits anteriores.
-- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (rama `cursor/block-overlay-overtime-off`): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos.
+- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (rama `cursor/block-overlay-overtime-off`): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos. En la rama del PR3 (base `a9d52a5`, antes del #56): 1145/1145 tests y 155/155 suites, eslint 0 errores y 4 avisos.
 - **Pruebas manuales:** el repo no tiene actas firmadas.
   - `docs/PRUEBAS_RC1.md` §Acta y las tablas de `docs/PRUEBAS_DISPOSITIVO.md` están vacías.
   - `docs/PRUEBA_CAMPO_1.md`–`8.md` son listas de pasos, sin resultados anotados.
@@ -132,20 +129,12 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - `[Severidad: Baja]` **Estados sin cubrir:** Historial no tiene estado de carga ni de error, y Reportes no muestra el error de consulta (§2). Va contra `AGENT.md` §3 («Estados obligatorios»).
 
 ## 5. Pendientes Priorizados
-1. **PR2, copia, exportación e importación en Ajustes.** Se cierra cuando:
-   - La copia se cree y se restaure solo desde Ajustes.
-   - Los tests de ida y vuelta pasen.
-   - La importación reemplace todo y no rompa la cadena del libro.
-2. **PR3, Reportes de nómina.** Se cierra cuando:
-   - «Vista previa» lleve a `/report/[periodId]`.
-   - La Auditoría de jornadas esté definida por el dueño y testeada.
-3. **Verificar en un APK de release que no lleva `SYSTEM_ALERT_WINDOW`.** El bloqueo ya está en `app.json`. Se cierra con la lista de permisos de un APK de `main` (`aapt` o `pyaxmlparser`): sin `SYSTEM_ALERT_WINDOW` y con los permisos de almacenamiento, que siguen por decisión del dueño.
-4. **Acta RC1 en un teléfono** (Android, Samsung S22+). Se cierra con la tabla de `docs/PRUEBAS_RC1.md` §Acta rellenada sobre un build identificado.
+1. **Probar en un teléfono la vista previa del periodo y la Auditoría de jornadas (PR3, #57).** Se cierra con el acta de Reportes de nómina y Auditoría rellenada sobre un build identificado.
+2. **Verificar en un APK de release que no lleva `SYSTEM_ALERT_WINDOW`.** El bloqueo ya está en `app.json`. Se cierra con la lista de permisos de un APK de `main` (`aapt` o `pyaxmlparser`): sin `SYSTEM_ALERT_WINDOW` y con los permisos de almacenamiento, que siguen por decisión del dueño.
+3. **Acta RC1 en un teléfono** (Android, Samsung S22+). Se cierra con la tabla de `docs/PRUEBAS_RC1.md` §Acta rellenada sobre un build identificado.
 
 ## 6. Bloqueos y Confirmaciones Pendientes
 - **Bloqueos:**
-  - **Auditoría de jornadas sin definir.** La respuesta del dueño llegó vacía después de «debe mostrar:», y eso bloquea el contenido del PR3.
-  - **`/report/[periodId]` sin entrada** hasta el PR3.
   - **Ninguna verificación en un APK de `main` actual.** Permisos, geocerca, servicio en primer plano, notificaciones, PDF y contraste dependen de un build y de un teléfono.
   - **Permisos amplios de almacenamiento** (`expo-file-system`) sin bloquear, por decisión del dueño («No bloquees los permisos por ahora»).
 - **Decidido por el dueño (2026-11-25):**

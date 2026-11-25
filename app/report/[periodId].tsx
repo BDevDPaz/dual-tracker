@@ -1,18 +1,31 @@
 /**
- * report/[periodId].tsx — Estado de nómina del periodo (Producto §5.13).
+ * report/[periodId].tsx — Vista previa del periodo (Producto §5.13, PR3).
  * Vista de lectura del PayrollStatement (preview de PayrollEngine): líneas,
- * policyId y advertencias. Sustituye al widget mock DocumentPreviewWidget
- * como pantalla completa. periodId = "W<YYYY-MM-DD>" (lunes ISO).
+ * policyId y advertencias, más la «Auditoría de jornadas» del periodo
+ * (selectSessionAudit por jornada) y las acciones del Reporte de nómina
+ * («Exportar expediente» = EXPORT_PACK, «Enviar por correo» = SHARE_EMPLOYER).
+ * No sella por sí sola: EXPORT_PACK sella solo si la semana no tiene expediente.
+ * Entradas: Reportes («Vista previa») y el expediente («Ver estado de nómina»).
+ * periodId = "W<YYYY-MM-DD>" (lunes ISO).
  */
 import { Text, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
-import { KeyValueRow, ScreenStatusBanner } from "../../src/components/blocks";
+import { KeyValueRow, PayrollReportActions, PeriodAuditSection, ScreenStatusBanner } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
-import { useAutoRefresh, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
-import { displayStatement, formatPayRateLine, selectCalendarHistory, selectPacks, selectPeriodSessionRows } from "../../src/core/selectors";
+import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
+import {
+  displayStatement,
+  formatPayRateLine,
+  selectCalendarHistory,
+  selectLedgerHealth,
+  selectPacks,
+  selectPeriodAuditRows,
+  selectPeriodSessionRows,
+  selectSessionAudit,
+} from "../../src/core/selectors";
 import { t, tLineKind, tWarning } from "../../src/i18n";
 import { formatCurrency, formatRange, formatUiDecimal, parseWeekPeriodId } from "../../src/utils/dateUtils";
 
@@ -20,7 +33,9 @@ export default function PeriodStatementScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { periodId } = useLocalSearchParams<{ periodId: string }>();
-  const { state, queries, now } = useWorkTracker();
+  const { state, emit, queries, now } = useWorkTracker();
+  const { busy: exporting, run: runExport } = useBusyAction();
+  const { busy: sending, run: runSend } = useBusyAction();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
   useAutoRefresh();
   const range = parseWeekPeriodId(String(periodId ?? ""), selectCalendarHistory(state));
@@ -31,6 +46,17 @@ export default function PeriodStatementScreen() {
     [range?.start, range?.end, state.sessions],
     ["sessions", "settings"],
   );
+  const seen = new Map<number, (typeof portionRows)[number]["session"]>();
+  for (const r of portionRows) if (!seen.has(r.session.id)) seen.set(r.session.id, r.session);
+  const periodSessions = [...seen.values()];
+  const auditKey = periodSessions.map((s) => `${s.id}:${s.bookkeeping.updatedAtMs}`).join(",");
+  const auditInputs = useQuery(() => queries.periodAudit(periodSessions), [auditKey], ["ledger", "trace", "packs"]);
+  const incident = selectLedgerHealth(state).broken;
+  // Pocas jornadas por semana: el selector puro se recalcula en cada render.
+  const auditMap = auditInputs.data;
+  const auditRows = auditMap
+    ? selectPeriodAuditRows(periodSessions.filter((s) => auditMap.has(s.id)).map((s) => selectSessionAudit(s, auditMap.get(s.id)!, { chainIncident: incident })))
+    : [];
 
   if (!range) {
     return (
@@ -56,7 +82,9 @@ export default function PeriodStatementScreen() {
   }
 
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === range.start);
+  const latestPack = packs.reduce<(typeof packs)[number] | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null);
   const shown = displayStatement(st);
+  const noCompanyEmail = !state.settings.company.companyEmail?.trim();
 
   return (
     <ScreenScroll edges={SAFE_EDGES.stack} refreshControl={refreshControl}>
@@ -110,6 +138,26 @@ export default function PeriodStatementScreen() {
           ))}
         </Section>
       ) : null}
+
+      <PayrollReportActions
+        onExport={() => void runExport(() => emit({ type: "EXPORT_PACK", periodStart: range.start, periodEnd: range.end }))}
+        onSend={() => {
+          if (latestPack) void runSend(() => emit({ type: "SHARE_EMPLOYER", packId: latestPack.id }));
+        }}
+        exportDisabled={st.sessionIds.length === 0 || (st.integrityRollup.hasConflict && !latestPack)}
+        needsSeal={!latestPack}
+        noCompanyEmail={noCompanyEmail}
+        onGoSettings={() => router.push("/(tabs)/settings")}
+        exporting={exporting}
+        sending={sending}
+      />
+
+      <PeriodAuditSection
+        rows={auditRows}
+        loading={auditInputs.loading}
+        error={!!auditInputs.error}
+        onOpen={(sessionId) => router.push(`/session/${sessionId}/audit`)}
+      />
 
       {packs.map((p) => (
         <Button key={p.id} label={`${t("report.packTitle")} · ${p.manifest.packHash.slice(0, 8)}`} variant="secondary" onPress={() => router.push(`/report/pack/${p.id}`)} />

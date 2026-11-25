@@ -14,7 +14,7 @@ y este proyecto adhiere a [Versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
-Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta por el #13, sigue descrita en la sección de abajo. Aquí entra lo que esa sección todavía no listaba (#13–#27), y desde el 2026-11-25 también #28–#52, excepto #37, que se cerró sin merge. Los 8 commits directos a `main` del 2026-11-09 (`21df9c6`…`9963edd`) no entran: no tienen PR ni test propio y siguen en `PROJECT_STATE.md` §3.
+Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta por el #13, sigue descrita en la sección de abajo. Aquí entra lo que esa sección todavía no listaba (#13–#27), y desde el 2026-11-25 también #28–#55, excepto #37, que se cerró sin merge. Los 8 commits directos a `main` del 2026-11-09 (`21df9c6`…`9963edd`) no entran: no tienen PR ni test propio y siguen en `PROJECT_STATE.md` §3.
 
 ### Añadido
 
@@ -34,6 +34,9 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#45** Nombre del lugar desde el pin GPS (`reverseGeocodePoint`). Si la búsqueda no da resultado, la dirección no cambia. No pide permisos nuevos. Verificación: `reverseGeocode.test.ts`, `SiteRegistryService.test.ts`.
 - **#46** Alta en 5 pasos: Bienvenida, Aviso, Permisos (hasta 3 subpasos con el estado de PermissionsHealthService), Perfil con la tarifa bloqueada y Listo (`app/(onboarding)/_layout.tsx:14`). Verificación: `flow.test.ts`, `PermissionsStep.test.tsx`, `SettingsService.test.ts`.
 
+- **#55** Copia de seguridad cifrada `.dtbackup` en Ajustes, con restauración por reemplazo total y el asiento `BACKUP_RESTORED`. Reportes no crea ni lee copias. Verificación: `backupCodec.test.ts`, `appBackup.test.ts` (cifrado, validación, reemplazo y rollback), `settings.backup.flow.test.tsx`, `backupPlacement.test.ts`.
+- **PR3 (sin mergear)** Bloque «Reportes de nómina» en Reportes (Vista previa, Exportar expediente, Enviar por correo), `/report/[periodId]` reintegrada como vista previa del periodo y Auditoría de jornadas de solo lectura (`selectSessionAudit`, `app/session/[id]/audit.tsx`, sección en la vista previa). Lo que no se guarda sale como «no registrado». Verificación: `sessionAudit.test.ts` (selector y caso de uso), `SessionAuditView.test.tsx`, `payrollReport.flow.test.tsx`, `auditReadOnly.test.ts`.
+
 ### Cambiado
 
 - **Banderas legales apagadas por defecto** (decisión del dueño, 2026-11-25). `DEFAULT_LEGAL_FLAGS.caDoubleTime` y `caSeventhDay` pasan a `false` (`src/utils/companyPolicy.ts:8-12`).
@@ -41,6 +44,8 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
   - Activadas desde Ajustes → Calendario laboral, la nómina sigue aplicando el doble tiempo (> 12 h a 2×) y el séptimo día.
   - Los expedientes ya sellados no cambian.
   - Verificación: `caRules.test.ts` (R03 por defecto y activado, R04 por defecto, y banderas guardadas) y `pr2UserFlow12_3.test.ts` (T34).
+- **PR3 (sin mergear)** La tarjeta «Copia de expedientes» de Reportes y del expediente pasa a llamarse «Expedientes por entregar», y su consejo remite a Ajustes › Copia de seguridad. El título de `/report/[periodId]` pasa a «Vista previa del reporte».
+
 - **#30** Robustez: `useBusyAction` evita el doble toque, `ConfirmActionModal` pide confirmación antes de archivar un sitio, dividir un conflicto o cambiar un chip legal, y el radio de sitio se valida. Verificación: `useBusyAction.test.tsx`, `ConfirmActionModal.test.tsx`, `SiteRadiusField.test.tsx`, `siteRadius.test.ts`.
 - **#32** Accesibilidad y textos: etiquetas de TalkBack, objetivos táctiles de 48 dp, códigos internos traducidos y un solo `NotFoundState` y `LoadingState`. Verificación: `a11yLabels.test.ts`, `NotFoundState.test.tsx`, `payrollDisplay.test.ts`. TalkBack no está probado en un teléfono.
 - **#33** Rediseño visual de la capa de presentación de Hoy, Historial y Reportes, sobre los tokens existentes. Verificación: `SessionTimeline.test.tsx`, `GpsExceptionCard.test.tsx`, `EditSessionModal.test.tsx`, `Input.test.tsx`. El aspecto visual no está verificado y sigue en `PROJECT_STATE.md`.
@@ -72,6 +77,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#23** Auditoría 3: la primera clave del PIN exige la huella fuera de banda o el ancla del build. Un pack cuya firma cuadra, sin esa ancla, no queda como identidad verificada. Si el sello no commitea, se borra el directorio del intento. Lista: `docs/AUDITORIA_3_2026-10-20.md`.
 - **#24** Fase 1: una lectura simulada no ficha sola y queda en el libro, en Salud y en el PDF. El salto descuenta la precisión de los dos fixes y usa la hora del fix. Si el servicio en primer plano se cae, el worker intenta arrancarlo y lo anota. Lista: `docs/PRUEBA_CAMPO_5.md`.
 - **#25** Fase 2: cada `MANUAL_PATCH` guarda el antes y el después. Al cerrar se añade `SESSION_SEALED` con `sessionHash`. El expurgo y `TRACE_PURGED` van en la misma transacción. Los cambios de permiso, GPS, avisos y batería quedan en el libro. La ubicación aproximada de Android 12+ avisa y no baja el pago. Lista: `docs/PRUEBA_CAMPO_6.md`.
+- **#53** Claves i18n `common.showDetails` y `common.hideDetails`; el hero ya no usa texto fijo de respaldo. Verificación: `OperationalHeroCard.test.tsx`.
 - **#52** Los 2 tests que rompió el #50: el `inset` de `DailySummaryBlock` vuelve al bloque y el test del hero expande el Nivel 2. Verificación: `layoutInset.test.tsx`, `OperationalHeroCard.test.tsx` y la suite completa en verde.
 
 ### Seguridad

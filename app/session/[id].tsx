@@ -3,7 +3,8 @@
  * Qué se declaró, qué confirmó el GPS, qué se editó y cómo se pagó:
  * alias + IntegrityBadge, totales, líneas laborales (policyId visible),
  * SessionTimeline alimentado por LedgerEntry (no hitos en duro), bloque
- * espacial → trace, notas y footer Editar | Eliminar.
+ * espacial → trace, «Ver auditoría» → /session/[id]/audit (PR3), notas y
+ * footer Editar | Eliminar.
  * Intenciones: PATCH_SESSION, DELETE_SESSION, ADD_NOTE, OPEN_TRACE.
  * Sesión eliminada → banner "Eliminada" y solo lectura.
  */
@@ -194,6 +195,14 @@ export default function SessionDetailScreen() {
           loading={ledger.loading}
           emptyText={t("common.noData")}
           events={ledgerToTimeline(ledger.data ?? [], ledgerLabel)}
+        />
+        <Button
+          label={t("audit.open")}
+          size="sm"
+          variant="secondary"
+          iconName="list-outline"
+          testID="session-audit-link"
+          onPress={() => router.push(`/session/${session.id}/audit`)}
         />
 
         <Card style={styles.card}>
