@@ -5,8 +5,8 @@
 ## 1. Resumen General
 - **Proyecto:** Dual Tracker V1.0.0 (repo `BDevDPaz/dual-tracker`, paquete `com.bdevdpaz.dualtracker`).
 - **Versión / Hito actual:** 1.0.0-rc.1. La versión visible es `1.0.0` (`app.json:6`, `package.json:5`, `src/constants/app.ts:2`). El perfil `preview` fija el canal `RC1` (`eas.json`, `EXPO_PUBLIC_RELEASE_CHANNEL`). Etiquetas git: `v0.1.0` (`a38db18`, 2026-10-07) y `v1.0.0-rc.1` (`ce4fc8a`, merge del #13, creada el 2026-10-19). No hay releases de GitHub.
-- **Última actualización:** 2026-11-25. Medido sobre `main` en `1329849` (merge del #51); actualizado en la rama del PR3 (base `a9d52a5`, merge del #55).
-- **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. PR2 (Ajustes, #55) y #53 están mergeados. PR3 (Reportes de nómina y Auditoría de jornadas) está implementado y en revisión, sin mergear.
+- **Última actualización:** 2026-11-25. Medido sobre `main` en `1329849` (merge del #51); actualizado el mismo día con #53, #55, #56 y #57 (PR3).
+- **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. #53, PR2 (Ajustes, #55), #56 (sin overlay y banderas legales apagadas) y PR3 (Reportes de nómina y Auditoría de jornadas, #57) están mergeados. Falta probarlos en un teléfono.
 - **Referencias:** Reglas en `AGENT.md` | Historial en `CHANGELOG.md`
 
 ### Cómo se rellenó este archivo (2026-11-25)
@@ -25,7 +25,7 @@
   - `npx eslint .`: 0 errores y 4 avisos (`scripts/check-dates.ts:22`, `test/mocks/expo-sqlite.ts:8`, `test/runtimeHarness.ts:22-23`).
   - `npx jest --runInBand --watchman=false`: 146/146 suites, 1081/1081 tests, 2/2 snapshots.
   - `npx dpdm -T` sobre `app/` y `src/`: 0 dependencias circulares.
-- Repetido el 2026-11-25 en la rama del PR3 (base `a9d52a5`): `tsc` 0 errores, `eslint` 0 errores y 4 avisos, `jest` 155/155 suites, 1145/1145 tests, 2/2 snapshots. `dpdm` no se repitió.
+- Repetido el 2026-11-25 en la rama del PR3 rebasada sobre el #56 (`a765959`): `tsc` 0 errores, `eslint` 0 errores y 4 avisos, `jest` 155/155 suites, 1150/1150 tests, 2/2 snapshots. `dpdm` no se repitió.
 
 ## 2. Estado de Diseño (UI / UX)
 
@@ -39,8 +39,8 @@ Fuente visual en el código: `src/constants/theme.ts` (paletas oscura y clara, I
 | Historial (`app/(tabs)/history.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [ ] / [x] / [ ] | Solo se ve el vacío (`history.tsx:194`). No se encontró estado de carga ni de error en el archivo. |
 | Reportes (`app/(tabs)/reports.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / parcial | Carga y vacío (`reports.tsx:143`, `:234`). Error de rango (`:230`). No se encontró un error de consulta (`preview.error` no se usa). |
 | Ajustes (`app/(tabs)/settings.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Errores de campo (`settings.tsx:312-347`). Vacíos de cola y retención (`:380`, `:392`). Copia de seguridad cifrada `.dtbackup`, crear y restaurar (#55, `src/components/blocks/BackupSection.tsx`). |
-| Detalle de sesión y rastro (`app/session/[id].tsx`, `trace.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / sin auditar | Carga (`[id].tsx:68`, `:177`). Sin datos (`:185`). «Ver auditoría» lleva a `/session/[id]/audit` (`[id].tsx:204-205`, PR3). |
-| Periodo `/report/[periodId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / [x] | Carga, error y sin datos (`[periodId].tsx:43-53`), vacío (`:74`). Se llega desde «Vista previa» en Reportes (`reports.tsx:136`, `:304`, `:333`) y desde el expediente (`[packId].tsx:128`). Incluye la sección Auditoría (`[periodId].tsx:155`). PR3. |
+| Detalle de sesión y rastro (`app/session/[id].tsx`, `trace.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / sin auditar | Carga (`[id].tsx:68`, `:177`). Sin datos (`:185`). «Ver auditoría» lleva a `/session/[id]/audit` (`[id].tsx:204-205`, #57). |
+| Periodo `/report/[periodId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / [x] | Carga, error y sin datos (`[periodId].tsx:43-53`), vacío (`:74`). Se llega desde «Vista previa» en Reportes (`reports.tsx:136`, `:304`, `:333`) y desde el expediente (`[packId].tsx:128`). Incluye la sección Auditoría (`[periodId].tsx:155`). #57. |
 | Expediente `/report/pack/[packId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / sin auditar / [x] | Carga (`[packId].tsx:37-40`). No existe: `NotFoundState`. |
 | Destinos (`app/sites/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | Vacío en la lista (`app/sites/index.tsx:45`). |
 | Salud (`app/system/health.tsx`), Conflicto (`app/system/conflict.tsx`) | [x] fuera del repo | [ ] | [x] | sin auditar | Salud muestra el estado de la copia de seguridad y enlaza a Ajustes (`health.tsx:314`). |
@@ -79,14 +79,15 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **Soporte y modo práctica aislado:** tests `src/support/__tests__/support.test.ts`, `src/services/application/__tests__/practiceIsolation.test.ts`.
 - **Claves `common.showDetails` y `common.hideDetails`** (#53, `1138cfd`). Test: `OperationalHeroCard.test.tsx`.
 - **Copia de seguridad en Ajustes** (PR2, #55, `a9d52a5`): `.dtbackup` cifrado, vista previa sin escribir y reemplazo total con `BACKUP_RESTORED`. Tests: `backupCodec.test.ts`, `appBackup.test.ts`, `settings.backup.flow.test.tsx`, `backupPlacement.test.ts`.
-- **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
-
-### En progreso
-- **PR3 (#57), Reportes de nómina y Auditoría de jornadas: en revisión, sin mergear.** No le falta ninguna parte pedida. Queda la revisión del dueño y la prueba en un teléfono.
+- **Reportes de nómina y Auditoría de jornadas** (PR3, #57). Falta probarlo en un teléfono (§5).
   - Bloque «Reportes de nómina» en Reportes: «Vista previa» → `/report/[periodId]`, «Exportar expediente» y «Enviar por correo» (`reports.tsx:303`).
   - Vista previa del periodo con la sección Auditoría (`app/report/[periodId].tsx:142`, `:155`).
   - Auditoría por jornada (`app/session/[id]/audit.tsx`, `selectSessionAudit` en `src/core/selectors/sessionAudit.ts:224`). Lo que no se guarda sale como «no registrado».
   - Tests: `src/core/selectors/__tests__/sessionAudit.test.ts`, `src/services/application/useCases/__tests__/sessionAudit.test.ts`, `src/components/blocks/__tests__/SessionAuditView.test.tsx`, `app/report/__tests__/payrollReport.flow.test.tsx`, `src/core/__tests__/auditReadOnly.test.ts`.
+- **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
+
+### En progreso
+- Nada en curso después del #57.
 
 ### Pendiente / Planificado
 - **iOS:**
@@ -114,7 +115,7 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - `tsc --noEmit` pasa sin errores.
   - **No se generó un APK de `1329849`**: hoy no hay build de Android ni de iOS de este commit.
   - Los 14 APK previos que hay fuera del repo (versionCode 1–16) son de commits anteriores.
-- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (rama `cursor/block-overlay-overtime-off`): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos. En la rama del PR3 (base `a9d52a5`, antes del #56): 1145/1145 tests y 155/155 suites, eslint 0 errores y 4 avisos.
+- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (#56): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos. Con #56 y #57 (PR3) juntos: 1150/1150 tests y 155/155 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos.
 - **Pruebas manuales:** el repo no tiene actas firmadas.
   - `docs/PRUEBAS_RC1.md` §Acta y las tablas de `docs/PRUEBAS_DISPOSITIVO.md` están vacías.
   - `docs/PRUEBA_CAMPO_1.md`–`8.md` son listas de pasos, sin resultados anotados.
