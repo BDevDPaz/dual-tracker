@@ -56,6 +56,8 @@ npm run build:android:dev       # development build
 
 Configuración única (`eas login`, `eas init`), instalación en Android y iPhone, variante D11 y su doble cerrojo: **[docs/BUILD.md](docs/BUILD.md)**. `app.config.ts` extiende `app.json` (versión **1.0.0**). Sin `APP_VARIANT` no cambia ids ni nombre; el perfil `preview` añade `extra.releaseChannel` = `RC1`. Historial: [CHANGELOG.md](CHANGELOG.md). Plan de teléfono de la candidata: [docs/PRUEBAS_RC1.md](docs/PRUEBAS_RC1.md).
 
+**Permisos de Android.** La lista está en `app.json` (`android.permissions`). `android.blockedPermissions` bloquea `android.permission.SYSTEM_ALERT_WINDOW` (sin overlay). Lo traen la plantilla de prebuild de Expo (`expo/template.tgz`, manifiesto `main`, `debug` y `debugOptimized`) y el manifiesto de depuración de React Native. Con el bloqueo, el prebuild escribe `tools:node="remove"` en el manifiesto `main`. Los manifiestos `debug` y `debugOptimized` de la plantilla lo siguen declarando, así que un build de depuración (dev client) puede conservarlo. Falta comprobarlo en un APK de release generado con EAS. `READ_EXTERNAL_STORAGE` y `WRITE_EXTERNAL_STORAGE` (plantilla y `expo-file-system`) **no se bloquean**, por decisión del dueño. Test: `src/core/__tests__/buildConfig.test.ts`.
+
 No hace falta `babel.config.js`: en SDK 54, `babel-preset-expo` se aplica por defecto e incluye el plugin de reanimated/worklets.
 
 ## Expediente: contentHash, idempotencia y verificación
@@ -298,8 +300,8 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 - **P5 Ruptura del ledger**: el incidente se guarda de forma persistente. El administrador lo reconoce con PIN (`LEDGER_BREAK_ACKNOWLEDGED`), la verificación pasa a hacerse por segmentos y los periodos tocados solo se pueden sellar como no certificados. El informe es exportable.
 - **P6 Reglas CA opcionales**:
   - Qué cubren: doble tiempo por encima de 12 h por jornada y la regla del séptimo día consecutivo (las primeras 8 h como OT y el exceso como doble tiempo).
-  - Dónde se definen: los umbrales están declarados en la política v2.
-  - Cuándo se aplican: **NO se aplican por defecto**. Solo entran si la empresa activa `payrollLegalFlags.caDoubleTime` o `caSeventhDay` (Ajustes → Calendario laboral). Cuando lo hace, el statement incluye `appliedRules`.
+  - Dónde se definen: los umbrales están declarados en las políticas v1 y v2 (`P6` en `src/services/domain/payrollPolicies.ts`).
+  - Cuándo se aplican: **NO se aplican por defecto**. Solo entran si la empresa activa `payrollLegalFlags.caDoubleTime` o `caSeventhDay` (Ajustes → Calendario laboral). Cuando lo hace, el statement incluye `appliedRules`. Los valores por defecto están en `DEFAULT_LEGAL_FLAGS` (`src/utils/companyPolicy.ts`). Un valor que la empresa ya guardó, `true` o `false`, se respeta: no se reescribe. Tests: `caRules.test.ts` (R03 y R04, con la configuración por defecto y con la bandera activada).
 - **Banderas legales** (`payrollLegalFlags`, todas marcadas **CONFIRMAR CON ASESORÍA LEGAL** en la spec):
 
   | Bandera | Valor por defecto | Alternativa |

@@ -5,6 +5,7 @@ import type { CompanyPolicy, SessionRecord } from "../../../core/contracts";
 import { getWeekEnd, getWeekStart } from "../../../utils/dateUtils";
 import { PayrollEngineService } from "../PayrollEngineService";
 import { CA_DAILY8_WEEKLY40_V1, CA_DAILY8_WEEKLY40_V2, PAYROLL_POLICIES } from "../payrollPolicies";
+import { DEFAULT_LEGAL_FLAGS, legalFlags } from "../../../utils/companyPolicy";
 import { COMPANY, HOUR, RATES, makeClosedSession } from "../../../../test/fixtures/session.fixture";
 
 const V2 = CA_DAILY8_WEEKLY40_V2.id;
@@ -28,8 +29,18 @@ const MON_7 = Date.UTC(2026, 8, 21, 14);
 const day = (i: number, hours: number, startHour = 0) => makeClosedSession(MON_7 + i * 24 * HOUR + startHour * HOUR, hours, { id: i + 1 });
 
 describe("P6 — doble tiempo y séptimo día", () => {
-  test("R03 13 h con la configuración por defecto: 8 regular, 4 a 1.5× y 1 a 2×", () => {
+  test("R03 13 h con la configuración por defecto (banderas apagadas): 8 regular, 5 a 1.5× y sin doble tiempo", () => {
+    expect(COMPANY.payrollLegalFlags).toBeUndefined();
     const s = st([day(0, 13)], COMPANY, CA_DAILY8_WEEKLY40_V1.id);
+    expect(s.regularHours).toBe(8);
+    expect(s.overtimeDailyHours).toBe(5);
+    expect(s.overtimeDoubleHours).toBeUndefined();
+    expect(s.lines.some((l) => l.kind === "OVERTIME_DOUBLE")).toBe(false);
+    expect(s.appliedRules ?? []).not.toContain("CA_DOUBLE_TIME_12H");
+  });
+
+  test("R03 13 h con caDoubleTime activado por la empresa (política v1): 8 regular, 4 a 1.5× y 1 a 2×", () => {
+    const s = st([day(0, 13)], { ...COMPANY, payrollLegalFlags: { caDoubleTime: true } }, CA_DAILY8_WEEKLY40_V1.id);
     expect(s.regularHours).toBe(8);
     expect(s.overtimeDailyHours).toBe(4);
     expect(s.overtimeDoubleHours).toBe(1);
@@ -86,6 +97,14 @@ describe("P6 — doble tiempo y séptimo día", () => {
     expect(off.overtimeDailyHours).toBe(2);
   });
 
+  test("R04 con la configuración por defecto (sin banderas guardadas) el séptimo día no se aplica", () => {
+    const week = [0, 1, 2, 3, 4, 5].map((i) => day(i, 6));
+    const s = st([...week, day(6, 10)], { ...COMPANY, overtimePolicyId: V2 });
+    expect(s.appliedRules ?? []).not.toContain("CA_SEVENTH_DAY");
+    expect(s.regularHours).toBe(40);
+    expect(s.overtimeDailyHours).toBe(2);
+  });
+
   test("R04 seis días no activan la regla del séptimo día", () => {
     const s = st([0, 1, 2, 3, 4, 5].map((i) => day(i, 6)), ON);
     expect(s.regularHours).toBe(36);
@@ -131,5 +150,20 @@ describe("P6 — doble tiempo y séptimo día", () => {
       const text = fs.readFileSync(file, "utf8");
       for (const re of banned) expect(text).not.toMatch(re);
     }
+  });
+});
+
+describe("Banderas legales: por defecto apagadas, lo guardado se respeta", () => {
+  test("los valores por defecto de caDoubleTime y caSeventhDay son false", () => {
+    expect(DEFAULT_LEGAL_FLAGS).toEqual({ transitionWeeklyThreshold: "FULL", caDoubleTime: false, caSeventhDay: false });
+    expect(legalFlags(null)).toEqual(DEFAULT_LEGAL_FLAGS);
+    expect(legalFlags({ payrollLegalFlags: undefined })).toEqual(DEFAULT_LEGAL_FLAGS);
+  });
+
+  test("un valor guardado explícitamente (true o false) no se altera; lo no guardado usa el defecto", () => {
+    expect(legalFlags({ payrollLegalFlags: { caDoubleTime: true, caSeventhDay: true } })).toMatchObject({ caDoubleTime: true, caSeventhDay: true });
+    expect(legalFlags({ payrollLegalFlags: { caDoubleTime: true } })).toMatchObject({ caDoubleTime: true, caSeventhDay: false });
+    expect(legalFlags({ payrollLegalFlags: { caSeventhDay: false } })).toMatchObject({ caDoubleTime: false, caSeventhDay: false });
+    expect(legalFlags({ payrollLegalFlags: { transitionWeeklyThreshold: "PRORATED" } })).toEqual({ transitionWeeklyThreshold: "PRORATED", caDoubleTime: false, caSeventhDay: false });
   });
 });
