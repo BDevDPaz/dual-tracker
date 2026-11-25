@@ -1,6 +1,6 @@
 /**
  * Identificadores de acciones y categorías de notificación.
- * Base: GEOTrack (src/constants/notifications.ts), ampliado con la tercera
+ * Base: el código heredado (src/constants/notifications.ts), ampliado con la tercera
  * acción de la Propuesta Técnica §4.4: cerrar / seguir / trasladar.
  */
 export const NOTIFICATION_ACTIONS = {

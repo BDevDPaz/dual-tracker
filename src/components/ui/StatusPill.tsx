@@ -7,7 +7,7 @@ import { ICONS } from "../../constants/icons";
 import { ArrivalMark } from "../brand/ArrivalMark";
 
 /**
- * StatusPill — portado de GEOTrack. Los tonos dejan de ser estados de dominio
+ * StatusPill — portado del código heredado. Los tonos dejan de ser estados de dominio
  * ("ACTIVE_WORK" | "CLOSED") y pasan a ser tonos visuales; el mapeo
  * estado → tono vive en getSessionStateUI (selectores).
  * Es una etiqueta secundaria, no el título principal. El título principal

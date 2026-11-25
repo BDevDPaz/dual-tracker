@@ -1,5 +1,5 @@
 /**
- * Estado inicial del store de reflejo. Portado de GEOTrack
+ * Estado inicial del store de reflejo. Portado del código heredado
  * (src/core/state/initialState.ts) y reducido a DualTrackerState.
  */
 import type { DualTrackerState, SystemHealthSnapshot } from "../contracts";

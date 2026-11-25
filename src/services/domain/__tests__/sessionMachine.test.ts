@@ -351,7 +351,7 @@ describe("sessionMachine", () => {
     expect(code(r.next, { type: "INTEGRITY_DEGRADE", cause: "CLOCK_DRIFT" })).toBe("ILLEGAL_TRANSITION");
   });
 
-  test("helpers: escalate nunca mejora; reglas de nota de W Tracker", () => {
+  test("helpers: escalate nunca mejora; reglas de nota del código heredado", () => {
     expect(escalate({ cls: "CONFLICT", reason: "CLOCK_DRIFT" }, { cls: "VALID", reason: "CLEAN" }).cls).toBe("CONFLICT");
     expect(escalate({ cls: "AUTO", reason: "AUTO_CLOSE_12H" }, { cls: "MANUAL", reason: "MANUAL_PATCH" }).cls).toBe("MANUAL");
     const s = makeClosedSession(MONDAY_8AM, 8);

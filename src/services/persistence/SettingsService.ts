@@ -6,9 +6,8 @@
  *   - política de empresa (tarifa, multiplicador, radio, correo, overtime,
  *     retención…) detrás de SecurityService,
  *   - preferencias de dispositivo (onboarding, descargo).
- * Onboarding y descargo dejan de vivir en AsyncStorage suelto (GEOTrack usaba
- * las claves wtracker_onboarding_completed / wtracker_disclaimer_accepted):
- * ahora se guardan en SQLite (app_kv).
+ * Onboarding y descargo dejan de vivir en AsyncStorage suelto (el código heredado usaba
+ * dos claves sueltas): ahora se guardan en SQLite (app_kv).
  */
 import type * as SQLite from "expo-sqlite";
 import type {
@@ -35,7 +34,7 @@ import { FieldCryptoService } from "./FieldCryptoService";
 import { PersistenceService } from "./PersistenceService";
 import { KV_KEYS } from "./schema";
 
-/** Valores por defecto. Los de perfil/tarifa/multiplicador vienen de GEOTrack. */
+/** Valores por defecto. Los de perfil/tarifa/multiplicador vienen del código heredado. */
 export const DEFAULT_PROFILE: PersonProfile = {
   employeeName: "",
   hourlyRate: 25.0,
@@ -50,7 +49,7 @@ export const DEFAULT_PROFILE: PersonProfile = {
 };
 
 export const DEFAULT_COMPANY_POLICY: CompanyPolicy = {
-  // GEOTrack traía "LEON'S ELECTRICAL DESIGN" en duro; aquí queda vacío
+  // El código heredado traía "LEON'S ELECTRICAL DESIGN" en duro; aquí queda vacío
   // hasta que la zona admin lo configure.
   employerName: "",
   companyEmail: "",

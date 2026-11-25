@@ -10,7 +10,7 @@ import { markCriticalFeedbackShown } from "../../services/runtime/criticalNotice
 
 /**
  * FeedbackBridge — puente FeedbackService → UI (sustituye useLogFeedback /
- * logBridge de GEOTrack). Toast efímero vs. diálogo persistente según el
+ * logBridge del código heredado). Toast efímero vs. diálogo persistente según el
  * `kind` que fija el diccionario MICROCOPY. No inventa texto: lo renderiza
  * FeedbackService.render.
  *

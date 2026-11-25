@@ -18,7 +18,7 @@ interface DocumentPreviewWidgetProps {
   dateRange: string;
   totalHours: string;
   totalEarnings: string;
-  /** Nombre de empresa desde CompanyPolicy (antes "GEOTrack Solutions Inc." en duro). */
+  /** Nombre de empresa desde CompanyPolicy (antes un nombre de empresa en duro). */
   companyName?: string;
   /** Sello visible cuando el periodo tiene CONFLICT. */
   certified?: boolean;

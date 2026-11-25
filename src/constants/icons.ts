@@ -1,5 +1,5 @@
 /**
- * SEMANTIC ICONOGRAPHY - Dual Tracker (heredado de GEOTrack Trial and Trace)
+ * SEMANTIC ICONOGRAPHY - Dual Tracker (heredado del código previo)
  * Mapeo de iconos basado en Ionicons.
  */
 

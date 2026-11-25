@@ -13,7 +13,7 @@ import { LoadingState } from "./LoadingState";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
- * SessionTimeline — portado de GEOTrack. Se alimenta de LedgerEntry (Producto
+ * SessionTimeline — portado del código heredado. Se alimenta de LedgerEntry (Producto
  * §5.9), no de un array hardcodeado de cuatro hitos. `ledgerToTimeline`
  * convierte asientos en nodos; el evento GPS original se conserva aunque haya
  * edición manual posterior.

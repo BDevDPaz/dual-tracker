@@ -7,12 +7,12 @@
  *   clientId, lunch, totalPausedMs, transitSegments[], integrityClass, policyId.
  *
  * Los campos adicionales viven agrupados en `bookkeeping` para no mezclar el
- * contrato mínimo con datos de soporte heredados de GEOTrack.
+ * contrato mínimo con datos de soporte heredados.
  */
 
 /**
  * Máquina de siete estados (Propuesta de Producto §5.7, tabla estado → CTAs).
- * Equivalencias con el linaje GEOTrack (ver mappers.ts → mapLegacyStatus):
+ * Equivalencias con el código heredado (ver mappers.ts → mapLegacyStatus):
  *   NO_INICIADA ↔ IDLE (sin sesión abierta; estado de vista, nunca persistido)
  *   ESPERANDO   ↔ GEOFENCE_CREATED
  *   ACTIVA      ↔ ACTIVE_WORK

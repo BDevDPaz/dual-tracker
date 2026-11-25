@@ -12,7 +12,7 @@ import { Card, CardHeader } from "./Card";
 import { useMotionPreference, REDUCED_FADE_MS } from "./motion";
 
 /**
- * SystemHealthBlock — portado de GEOTrack. Ahora lee el snapshot REAL de
+ * SystemHealthBlock — portado del código heredado. Ahora lee el snapshot REAL de
  * PermissionsHealth (vía selectSystemHealth): GPS / segundo plano / rastro.
  * Se elimina "Sincronización en tiempo real" (no hay backend).
  * Si hay degradación el bloque es tappable y no se disimula en gris (Producto §5.7).

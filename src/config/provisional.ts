@@ -25,7 +25,7 @@ const pinAttemptDelayMs = spec(
   650,
   "ms",
   "Retardo fijo antes de responder a un intento de PIN, para frenar la fuerza bruta.",
-  "GEOTrack securityAdapter (650 ms). Técnica §4.8 pide retardo sin fijar la cifra.",
+  "Valor heredado (securityAdapter, 650 ms). Técnica §4.8 pide retardo sin fijar la cifra.",
 );
 
 const pinHashIterations = spec(
@@ -160,7 +160,7 @@ const exitDecisionWindowMs = spec(
   15 * 60 * 1000,
   "ms",
   "Plazo para que la persona decida tras la primera salida (seguir, cerrar, trasladar). Al vencer, aplica la política de caducidad.",
-  "GEOTrack BackgroundTasks FAILSAFE_THRESHOLD_MS (15 min). Técnica §7.2 no fija la cifra.",
+  "Valor heredado (BackgroundTasks FAILSAFE_THRESHOLD_MS, 15 min). Técnica §7.2 no fija la cifra.",
 );
 
 const clockDriftThresholdMs = spec(

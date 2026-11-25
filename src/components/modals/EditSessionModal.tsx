@@ -15,7 +15,7 @@ import { fixedLunchExceedsSession, timePickerMaximum } from "../../services/doma
 import { formatCurrency, resolveSessionEditTimes, toHHmm } from "../../utils/dateUtils";
 
 /**
- * EditSessionModal — portado de GEOTrack (que traía horas de ejemplo en duro
+ * EditSessionModal — portado del código heredado (que traía horas de ejemplo en duro
  * "04:56 PM" y un chequeo "??" de datos corruptos simulados).
  *  - Precarga las horas reales de la sesión.
  *  - Los HH:mm prefijados no se reconstruyen: si el usuario no los cambia,
@@ -27,7 +27,7 @@ import { formatCurrency, resolveSessionEditTimes, toHHmm } from "../../utils/dat
  *    Una nota sin cambio de HH:mm no habilita Guardar: MANUAL_PATCH rechaza
  *    NO_CHANGE. La nota sola va por AddNoteModal (ADD_NOTE).
  *  - Banner de solape REAL vía PersistenceService.checkOverlap (inyectado como
- *    `checkOverlap`), no la regla demo "00:00" de W Tracker.
+ *    `checkOverlap`), no la regla demo "00:00" del código heredado.
  */
 interface EditSessionModalProps {
   visible: boolean;

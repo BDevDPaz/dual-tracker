@@ -2,7 +2,7 @@
  * Mapeo canónico SQLite ↔ contratos, ya resuelto (Propuesta Técnica §4.2:
  * "sin marcadores de conflicto de rama").
  *
- * Nota de port: sessionStoreAdapter.ts de GEOTrack contenía un conflicto de
+ * Nota de port: sessionStoreAdapter.ts del código heredado contenía un conflicto de
  * merge sin resolver (<<<<<<< HEAD … >>>>>>> origin/main) en el mapeo de
  * totalPausedMs/lastPauseStartMs. Se adoptó la rama HEAD (leer las columnas
  * reales), que es la única coherente con la migración total_paused_ms.
@@ -146,9 +146,8 @@ export function isKnownPersistedStatus(raw: string | null | undefined): boolean 
 }
 
 /**
- * Traduce estados del linaje de los proyectos fuente anteriores GEOTrack y LEDTracker
- * al vocabulario canónico de Dual Tracker V1.0.0.
- * Base para la futura migración de `ledtracker_v2.db` (archivo de ese proyecto fuente; TODO).
+ * Traduce estados del código heredado al vocabulario canónico de
+ * Dual Tracker V1.0.0. Base para una futura migración de esa base (TODO).
  */
 export function mapLegacyStatus(raw: string | null | undefined): SessionRecordStatus {
   switch (raw) {

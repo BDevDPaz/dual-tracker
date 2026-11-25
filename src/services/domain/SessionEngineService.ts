@@ -17,7 +17,7 @@
  *        temporizador de decisión de salida, notificaciones).
  *     7. Devuelve la vista previa de nómina.
  *
- * Origen: reducer + effects de GEOTrack (src/core/reducer, src/core/effects)
+ * Origen: reducer + effects del código heredado (src/core/reducer, src/core/effects)
  * y sessionStoreAdapter del motor de jornada anterior.
  * Solo este servicio muta el ciclo de vida: geocerca, notificaciones y
  * watchdog entran como intenciones con su origen.
@@ -284,7 +284,7 @@ export const SessionEngineService = {
           newId,
         };
         if (intent.type === "MANUAL_PATCH" && target) {
-          // Solape REAL (sustituye la regla demo "00:00" de W Tracker).
+          // Solape REAL (sustituye la regla demo "00:00" del código heredado).
           ctx.overlap = await PersistenceService.checkOverlap(intent.declaredStartAtMs, intent.endAtMs, target.id);
         }
         if (intent.type === "RESOLVE_SPLIT" && target && target.endAtMs !== null) {

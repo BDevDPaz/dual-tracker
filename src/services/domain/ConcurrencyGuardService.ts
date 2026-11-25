@@ -11,7 +11,7 @@
  *  1) En memoria (mismo runtime JS).
  *  2) Lease en SQLite (app_kv) con caducidad, para runtimes JS distintos
  *     (tarea headless de Android vs. app en primer plano).
- * Sustituye al `isTaskRunningMutex` suelto de BackgroundTasks.ts (GEOTrack).
+ * Sustituye al `isTaskRunningMutex` suelto de BackgroundTasks.ts (código heredado).
  */
 import type { IntentOrigin } from "../../core/contracts";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";

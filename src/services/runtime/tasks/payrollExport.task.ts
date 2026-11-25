@@ -5,7 +5,7 @@
  * Ventana derivada del calendario laboral (spec v1.3 §5.1): desde las 20:00
  * de la última jornada de la semana → semana en curso; durante las dos
  * primeras jornadas → semana anterior (con el calendario por defecto: domingo
- * ≥ 20:00, lunes y martes, como BackgroundTasks.ts de GEOTrack). Idempotente por semana
+ * ≥ 20:00, lunes y martes, como BackgroundTasks.ts del código heredado). Idempotente por semana
  * (KV LAST_PACK_WEEK) y por periodo (EvidencePackService.findForPeriod).
  * Si hay CONFLICT en el periodo NO sella en automático: avisa para revisar.
  */

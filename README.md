@@ -2,7 +2,7 @@
 
 Aplicación de evidencia laboral y nómina para trabajadores de California. El expediente es de grado forense: la jornada deja un rastro que se puede recomputar, y el comprobante sale de un periodo sellado. Stack: TypeScript, **Expo SDK 54** (`expo` ~54.0.35), **React Native 0.81.5**, **expo-router 6**. El producto se prueba y se documenta primero en **Android** (servicio en primer plano, geocerca y la guía de permisos, incluida Samsung). iOS está en el proyecto (`npm run ios` y los perfiles EAS). La candidata 1.0.0-rc.1 no tiene acta de iPhone, y el hallazgo de actualizaciones diferidas en iOS sigue sin medirse en un iPhone (`CHANGELOG.md`).
 
-Consolida código de los proyectos fuente anteriores **W Tracker**, **LEDTracker** y **GEOTrack (WTracker Trial_and_TraceT)**. Esos nombres no son el de esta app: el producto es **Dual Tracker V1.0.0**. Dos garantías:
+El producto es **Dual Tracker V1.0.0**. Dos garantías:
 
 - **Tu tiempo**: horas, almuerzo, traslados y horas extra calculados con una política visible y versionada (`CA_DAILY8_WEEKLY40_V1` por defecto).
 - **Tu rastro de jornada**: hechos espaciales (geocerca y, opcionalmente, miga de pan) registrados solo con la jornada abierta. Sirven de evidencia compartida entre empleado y empleador, con el mismo hash.
@@ -22,7 +22,7 @@ La interfaz está en español y en inglés. La estructura sigue las dos propuest
 - **Señales de riesgo, asentadas y sin recortar el pago.** Anomalías, ubicación simulada, integridad del dispositivo, cobertura y `sessionReplay` se escriben como evidencia y no cambian la nómina ni bloquean el fichaje (`anomalyEngine`: no borra hechos, no bloquea fichajes y no toca la nómina). Ubicación, servicio en primer plano y reloj sí pueden impedir VALIDADA (`src/core/healthPolicy.ts`). No reescriben minutos ya calculados. Batería, avisos y la ubicación aproximada de Android 12+ avisan y no bajan el pago.
 - **Español e inglés.** El chip aplica el idioma en el acto. `en.ts` y `supportEn.ts` tienen la misma forma que el español; `src/i18n/__tests__/i18n.test.ts` exige esa paridad.
 
-En `main`, después del README del PR #28, entraron la tarifa congelada por jornada (schema v8, PR #29) y cuatro cambios de presentación y de robustez que no tocan el cálculo, la máquina de estados, los hashes del libro ni el sello: #30, #31, #32 y #33. El detalle está en «Hecho en», más abajo.
+Este README describe el código de `main` en el commit `9963edd` (2026-11-09); después solo entraron `AGENT.md` y `PROJECT_STATE.md` (2026-11-25), sin cambios de código. Después del rediseño visual (#33) entraron en `main` los PR #38 (Inicio de jornada v1.3), #39, #40, #41 (nombre del producto), #42 (almuerzo una vez por día de nómina), #46 (alta en cinco pasos), #47 (limpieza de exports sin uso), #48 y #49 (ciclos de importación) y #50 (correcciones P1-P10 Obsidian & Porcelain), más commits directos de robustez (ErrorBoundary raíz, StatusBar por tema, +not-found al gate, foco de la hoja de salida, teclado en Fabric). Fuente: `git log --first-parent main`.
 
 ---
 
@@ -87,7 +87,7 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 - `test/setup.ts`: reloj fijo `2026-09-26T15:00:00.000Z` (`test/time.ts`: `time.set`, `time.travel`, `time.jumpWall` para simular deriva), reset de candados del ConcurrencyGuard y del anti-rebote de geocerca, SQLite en memoria recreada por caso, dobles de Expo cableados aquí.
 - `test/mocks/`: un doble por módulo. `expo-sqlite` es SQLite real en memoria (sql.js), así los triggers append-only del ledger y `checkOverlap` se prueban de verdad.
 - `test/fixtures/`: `SessionRecord`, `SpatialFact`, `PayrollStatement`, `LedgerEntry` tipados con los contratos (sin `any`).
-- `__tests__/` colocados por capa. Medido con `npm test` (`jest --runInBand --watchman=false`): **135 archivos** (`**/*.test.ts` y `**/*.test.tsx`, fuera de `node_modules`), **135 suites**, **942 tests** y **2 snapshots**, todos en verde. Los componentes cubiertos van más allá de `IntegrityBadge`, `StatusPill` y `SessionTimeline`: `src/components/ui`, `src/components/brand`, `src/components/blocks`, `src/components/feedback`, `src/components/modals`, `src/components/sites` y `src/components/trace`, más ocho flujos de `app/` (fichar, cerrar, almuerzo, sellar, ajustes, PIN, edición y cuarentena).
+- `__tests__/` colocados por capa. Medido con `npm test` (`jest --runInBand --watchman=false`): **146 suites**, **1081 tests** y **2 snapshots** (medido el 2026-11-25 sobre `77fdce2`), **todos en verde**. Los 2 tests que #50 rompió (`OperationalHeroCard.test.tsx` y `layoutInset.test.tsx`) se arreglaron en #52. Los componentes cubiertos van más allá de `IntegrityBadge`, `StatusPill` y `SessionTimeline`: `src/components/ui`, `src/components/brand`, `src/components/blocks`, `src/components/feedback`, `src/components/modals`, `src/components/sites` y `src/components/trace`, más nueve archivos de flujo en `app/(tabs)/__tests__` y `app/session/__tests__` (fichar, cerrar, cancelar jornada, almuerzo, sellar, ajustes, PIN, edición y cuarentena).
 - Correspondencia de nombres de la propuesta: `california-daily-8-weekly-40` = `CA_DAILY8_WEEKLY40_V1`; `PersistenceService.updateStatus` (no existe) = cualquier `updateSession`/`insertSession` fuera de `SessionEngineService.dispatch`; `PATCH_SESSION` (vista) = `MANUAL_PATCH` (motor); `CERRADA`, `intentRouter`, `startDay`… existen con ese nombre.
 - Ya no queda ningún `test.failing`: el de cifrado de campos pasa desde C2 (spec FieldCrypto v1.3 §17 #3).
 - Estático (`src/core/__tests__/staticGuards.test.ts`): `FieldCryptoService` solo se importa desde `src/services/persistence/**` y `src/core/boot.ts`; `LoggingService` no recibe campos sensibles; Jest resuelve los subpaths `.js` de `@noble`.
@@ -103,12 +103,12 @@ npm run gm             # typecheck && lint && test:domain && expo-doctor  (puert
 
 ```
 dual-tracker/
-├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 36 rutas, sin `__tests__` (Producto §2)
+├── app/                         ← Expo Router (raíz del proyecto, junto a src/) — 37 archivos `.tsx` de ruta (incluye `_layout`, `+html` y `+not-found`); los flujos de prueba viven en `app/(tabs)/__tests__` y `app/session/__tests__` (Producto §2)
 │   ├── _layout.tsx              fuentes Inter, Theme/Toast, FeedbackBridge, boot(), registro de tareas
 │   ├── index.tsx                gate: hidratación → onboarding → descargo → tabs
 │   ├── +not-found.tsx  +html.tsx
 │   ├── (boot)/                  _layout, hydrating
-│   ├── (onboarding)/            _layout (progreso 4 pasos), welcome, disclosure, permissions, profile
+│   ├── (onboarding)/            _layout (progreso 5 pasos), welcome, disclosure, permissions, profile, ready
 │   ├── (tabs)/                  _layout, index (Hoy), history, reports, settings
 │   ├── session/                 _layout, [id], [id]/trace
 │   ├── sites/                   _layout, index, new, [id]
@@ -124,7 +124,7 @@ dual-tracker/
 │   ├── core/
 │   │   ├── contracts/           SessionRecord, SpatialFact, LedgerEntry, PayrollStatement, evidence.ts
 │   │   │                        (PACK_MANIFEST_VERSION = 5), monitoring.ts, intents, estado… (Técnica §9)
-│   │   ├── store/               store reactivo + acciones (portado de GEOTrack)
+│   │   ├── store/               store reactivo + acciones
 │   │   ├── selectors/           derivaciones puras para las vistas (getSessionStateUI, rollups, conflicto…)
 │   │   ├── hooks/               useWorkTracker (exporta también useClock y useQuery), usePractice,
 │   │   │                        useScreenRefresh (useAutoRefresh, usePullToRefresh), useBusyAction
@@ -139,24 +139,24 @@ dual-tracker/
 │   │   ├── domain/              SessionEngine, PayrollEngine (+payrollPolicies, payrollDisplay, segmentation,
 │   │   │                        periodSlice, policyValidation), IntegrityLedger, SiteRegistry, siteMinutes, siteVisits,
 │   │   │                        TransitPolicy, transitExport, ConcurrencyGuard, DualDisclosure, sessionMachine,
-│   │   │                        sessionReplay, sessionTimeGuard, arrivalDwell
+│   │   │                        sessionReplay, sessionTimeGuard, arrivalDwell, dayLunch, caPremiums
 │   │   ├── evidence/            TimeAuthority, HashChain, TraceRecorder, Report (+reportTemplates, reportPremium, qrSvg),
-│   │   │                        EvidencePack, packSignature, sessionSeal, clockSample, deviceOffGap, retentionRules, traceGaps
+│   │   │                        EvidencePack, packSignature, sessionSeal, clockSample, deviceOffGap, retentionRules, traceGaps, pdfIntegrity, reportTypes, siteMoves
 │   │   ├── runtime/             GeofenceRuntime, TaskOrchestrator, ForegroundWork, PermissionsHealth, Notification,
 │   │   │                        Security, geofencePolicy, geofenceDiag, monitoringRecovery, monitoringSnapshot,
 │   │   │                        serviceHealth (tabla service_health), heartbeat, operationalHealthLedger,
 │   │   │                        anomalyCatalog, anomalyEngine, deviceIntegrity, deviceUptime, bootResume,
-│   │   │                        criticalNotices, mockLocationNotice, orphanSession, pinHash, pinProvision, keyFingerprint
+│   │   │                        criticalNotices, mockLocationNotice, orphanSession, pinHash, pinProvision, keyFingerprint, reverseGeocode, dayNotices
 │   │   │   └── tasks/           geofence, breadcrumb, sessionWatchdog, exitDecisionTimer, dailyReminder,
 │   │   │                        integritySweep, payrollExport, headless
 │   │   ├── persistence/         Persistence (SQLite WAL, schema, mappers), Settings, Logging, OfflineQueue, FieldCrypto,
 │   │   │                        cryptoCodec, cryptoMigrations, keyStore, employerPortal, foreignKeyMigration
 │   │   ├── application/         Feedback, intentRouter, refreshMirror, useCases/ (startDay, confirmExit,
-│   │   │                        generateWeeklyPayroll, calendarChange, policyMigration, ledgerIntegrity,
+│   │   │                        generateWeeklyPayroll, calendarChange, ledgerIntegrity,
 │   │   │                        provisionAdminPin, exportSupportDiagnostic, fieldCryptoHealth)
 │   ├── support/                 catalog, practice, tips, memory, diagnostic, contentVersion, types, buildLabel, versionLine
 │   ├── components/
-│   │   ├── ui/                  design system (portado de GEOTrack): OperationalHeroCard, SystemHealthBlock,
+│   │   ├── ui/                  design system: OperationalHeroCard, SystemHealthBlock,
 │   │   │                        SessionTimeline, IntegrityBadge, StatusPill, ModalShell, PageHeader, Button, Input,
 │   │   │                        Card, Chip, Banner, GlassSurface, VmacSheet, SealAnimation, PracticeWatermark,
 │   │   │                        DocumentPreviewWidget, EmptyState, LiveShiftPanel, DailySummaryBlock,
@@ -165,7 +165,7 @@ dual-tracker/
 │   │   ├── sites/               SiteRadiusField
 │   │   ├── support/             HelpButton, LanguageSwitch, ScreenTips, Walkthrough
 │   │   ├── trace/               TracePlane (plano local, sin teselas)
-│   │   ├── modals/              DailySetupModal, ExitDetectionModal, LunchModal, EditSessionModal,
+│   │   ├── modals/              DailySetupModal, ExitDetectionModal, LunchModal, PauseKindModal, EditSessionModal,
 │   │   │                        DeleteSessionModal, AddNoteModal (Producto §7), ConfirmActionModal
 │   │   ├── blocks/              ScreenStatusBanner, PermissionCard, PermissionGuidancePanel, PermissionsStep,
 │   │   │                        HealthRow, KeyValueRow, SessionListItem, BackupAdviceCard, OrphanReviewCard
@@ -177,7 +177,7 @@ dual-tracker/
 │   ├── context/                 ThemeContext, ToastContext
 │   └── utils/                   dateUtils (zona corporativa con Intl), geoUtils, canonicalJson, safeFileName, serializeError,
 │                                hhmm, localPlane, reportRange, companyPolicy, permissionChain,
-│                                permissionGuidance, siteRadius
+│                                permissionGuidance, siteRadius, locateReadings
 ├── assets/images/               icon, splash, adaptive-icon, favicon, notification (marca A y D)
 ├── assets/brand/                SVG fuente A y D; se regeneran con scripts/brand/build.py
 ├── docs/                        28 archivos
@@ -193,6 +193,7 @@ dual-tracker/
 ├── app.json  app.config.ts      config base + variante de build (APP_VARIANT=d11)
 ├── eas.json                     perfiles development / preview / preview-simulator / preview-d11 / production
 ├── package.json  tsconfig.json  eslint.config.js  expo-env.d.ts
+├── AGENT.md  PROJECT_STATE.md   contrato operativo y tablero de estado (plantillas creadas el 2026-11-25)
 ```
 
 ### Cómo se relacionan las capas
@@ -229,30 +230,9 @@ Reglas que se cumplen en el código:
 
 ---
 
-## Qué se portó y desde qué app
+## Servicios escritos según la Técnica §5
 
-W Tracker, LEDTracker y GEOTrack son proyectos fuente anteriores, no el nombre de esta app. El producto es Dual Tracker V1.0.0.
-
-| Origen | Portado a | Notas |
-|---|---|---|
-| **GEOTrack** | `src/components/ui/*`, `constants/theme`, `icons`, `animations` | El design system salió de GEOTrack. Los tokens vigentes son Dual Tracker V1.0.0 (`src/constants/theme.ts`): Inter 400/500/600; fondo `#0E0E0E`, tarjetas `#121212`, elevados y campos `#1E1E1E`, borde `#2A2A2A`; relleno primario `#F6C452` con texto `#1C1B19`; texto dorado en claro `#7A5D0A`; info `#4A90E2`, éxito `#5CD65C`, aviso `#F8C650`, peligro `#D9534F`, gris `#A8A9AB`. El nombre del producto es Dual Tracker V1.0.0. Se quitaron los nombres en duro ("GEOTrack Solutions Inc."). |
-| **GEOTrack** | `core/store`, `core/selectors`, `core/hooks/useWorkTracker` | Suscripción reactiva real. `dispatch(DomainEvent)` pasa a ser `emit(ViewIntent)`. |
-| **GEOTrack** | `domain/sessionMachine`, `SessionEngineService` | Transiciones de jornada, almuerzo, traslado, salida, auto-cierre de 12 h, anti-rebote. Estados en español (NO_INICIADA…CERRADA). |
-| **GEOTrack** | `persistence/PersistenceService`, `schema`, `mappers` | SQLite WAL, migraciones, `checkOverlap`, borrado lógico. |
-| **GEOTrack** | `runtime/GeofenceRuntimeService`, `tasks/geofence.task.ts` | Identificadores de región, validadores de precisión, debounce de salida pendiente en KV. |
-| **GEOTrack** | `runtime/NotificationService`, `tasks/dailyReminder.task.ts` | Categoría de salida con acciones, recordatorio diario. |
-| **GEOTrack** | `runtime/TaskOrchestratorService`, `sessionWatchdog`, `integritySweep` | Registro global de tareas, BackgroundTask, heartbeat. |
-| **GEOTrack** | `evidence/ReportService`, `reportTemplates` | HTML → PDF con expo-print, compartir y email. Ahora a partir de un `PayrollStatement` sellado, con escape-html. |
-| **GEOTrack** | `i18n`, `context/Toast*`, `ThemeContext`, `utils/dateUtils`, `geoUtils` | Zona corporativa con Intl. Sin dayjs: en Hermes su plugin de zonas no es fiable. |
-| **GEOTrack** | `app.json` | Permisos de ubicación, segundo plano y FGS con textos en español, adaptados a "Dual Tracker" y al alcance "solo con jornada abierta". |
-| **LEDTracker** (fuente anterior) | `runtime/ForegroundWorkService` | `startLocationUpdatesAsync` con `foregroundService` (notificación persistente Android). |
-| **LEDTracker** (fuente anterior) | `SiteRegistryService` (geocoder vía `GeofenceRuntimeService.geocodeAddress`) | `Location.geocodeAsync` para convertir una dirección en coordenadas objetivo. |
-| **LEDTracker** (fuente anterior) | `GeofenceRuntimeService.observeSample` | Detección de salida por "strikes" (3 muestras fuera) como respaldo de la región. |
-| **GEOTrack / LEDTracker** (fuentes anteriores) | `components/modals/*` | Los seis modales parten de GEOTrack. DailySetupModal combina además el alta rápida del proyecto fuente anterior LEDTracker. ExitDetectionModal pasa de dos acciones a cuatro (§5.7). LunchModal suma el modo supervisor. |
-| **W Tracker** | `modals/EditSessionModal`, `domain/sessionMachine` | Reglas `hasTimeChanged` / `requiresAuditNote`: la nota es obligatoria si cambian las horas. |
-| **W Tracker** | tabs Hoy/Historial/Reportes/Ajustes, `session/[id]` | La estructura de pantallas se tomó como base del rediseño (REDISEÑO en Producto §2). Los simuladores y los datos mock no se portaron. |
-
-Servicios **nuevos** sin equivalente en los dumps, escritos según la Técnica §5: TimeAuthority, PayrollEngine (políticas `CA_DAILY8_WEEKLY40_V1` y `LEGACY_DAILY8_V1`), IntegrityLedger + HashChain, TraceRecorder, SiteRegistry, TransitPolicy, PermissionsHealth, EvidencePack, DualDisclosure, ConcurrencyGuard, OfflineQueue y FieldCrypto.
+TimeAuthority, PayrollEngine (políticas `CA_DAILY8_WEEKLY40_V1` y `LEGACY_DAILY8_V1`), IntegrityLedger + HashChain, TraceRecorder, SiteRegistry, TransitPolicy, PermissionsHealth, EvidencePack, DualDisclosure, ConcurrencyGuard, OfflineQueue y FieldCrypto.
 
 ---
 
@@ -262,8 +242,8 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 
 | Atajo en los dumps | Decisión |
 |---|---|
-| `validatePIN(pin) === "1234"` (W Tracker, `securityEngine.ts`) y hash fijo `SHA-256("1234")` (GEOTrack) | **Reemplazado**, como exigen la Técnica §4.8 y §10 y el Producto §4. `SecurityService` guarda un hash scrypt con sal aleatoria por PIN en SecureStore. Un hash SHA-256 iterado que ya estuviera guardado se acepta y, si el PIN coincide, se reescribe a scrypt. El PIN tiene mínimo 6 caracteres; hay bloqueo escalonado, TTL de desbloqueo y fail-secure. Lo configura el propio usuario la primera vez, o el empleador con un código de un solo uso. |
-| Regla demo "`00:00` = solape" (W Tracker) | **Reemplazada** por un solape real: `PersistenceService.checkOverlap`, usado por `EditSessionModal` y `SessionEngine`. |
+| `validatePIN(pin) === "1234"` y hash fijo `SHA-256("1234")` | **Reemplazado**, como exigen la Técnica §4.8 y §10 y el Producto §4. `SecurityService` guarda un hash scrypt con sal aleatoria por PIN en SecureStore. Un hash SHA-256 iterado que ya estuviera guardado se acepta y, si el PIN coincide, se reescribe a scrypt. El PIN tiene mínimo 6 caracteres; hay bloqueo escalonado, TTL de desbloqueo y fail-secure. Lo configura el propio usuario la primera vez, o el empleador con un código de un solo uso. |
+| Regla demo "`00:00` = solape" | **Reemplazada** por un solape real: `PersistenceService.checkOverlap`, usado por `EditSessionModal` y `SessionEngine`. |
 | Simuladores de corrupción, "forzar fallo de memoria", "Simular SO", GPS como toggle | **No existen** (Producto §4 y §5.14). Ajustes lee el estado real de `PermissionsHealthService`. |
 | Empleador en duro ("LEON'S ELECTRICAL DESIGN") | Se toma de `CompanyPolicy.employerName`, que se edita en la zona admin. |
 
@@ -306,7 +286,7 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
   - OS_KILL se detecta con un hueco de heartbeat de más de 45 min y solo deja asiento en el ledger.
   - La exportación automática nunca sella un periodo con CONFLICT.
 - **Runtime**
-  - Se eliminó el `delay()` bloqueante de "dwell" de la tarea de geocerca de GEOTrack. Lo sustituyen el debounce persistido y los strikes.
+  - Se eliminó el `delay()` bloqueante de "dwell" de la tarea de geocerca heredada. Lo sustituyen el debounce persistido y los strikes.
   - El recordatorio diario ya no cancela todas las notificaciones: cancela por id.
 
 ### Especificación FieldCryptoService v1.3 — prerrequisitos de nómina (§5, P1–P6)
@@ -377,7 +357,7 @@ Ninguno se arrastra en silencio. `src/constants/flags.ts` define `DEMO_MODE = fa
 - **Fuera de alcance** (§20): SQLCipher, cifrado de los PDFs (van **sin cifrar**), rotación voluntaria de claves y recuperación tras perder la clave.
 - **Logs**: `LoggingService` redacta las claves sensibles (`note`, `alias`, `lat`/`lon`, `companyEmail`…) y un test estático impide pasarlas.
 
-### Bugs de los dumps corregidos al portar (GEOTrack)
+### Bugs del código heredado corregidos al portar
 
 - El borrado marcaba la sesión como CLOSED en lugar de borrado lógico.
 - `checkOverlap` ignoraba las sesiones cerradas.
@@ -464,7 +444,7 @@ Detalle: `docs/AUDITORIA_2_2026-10-20.md`. PR #21. La regresión queda en `src/s
 - Un estado desconocido se lee como `CUARENTENA` y queda fuera de la nómina. El barrido de cifrado no se da por terminado mientras quede `plain:v1:`. El correo solo cuenta como enviado con estado `sent`.
 - `app/` entra en las raíces de Jest. Hay ocho flujos: fichar, cerrar, almuerzo, editar, sellar, ajustes, PIN y aviso de cuarentena.
 - El hallazgo 17 (actualizaciones diferidas en iOS, sin el servicio en primer plano de Android) está en el código y no se ha validado en un iPhone.
-- La base heredada de los proyectos fuente anteriores W Tracker, LEDTracker y GEOTrack no se migra: esas versiones no se publicaron. El producto vigente es Dual Tracker V1.0.0.
+- No se migran bases de datos anteriores a Dual Tracker V1.0.0: esas versiones no se publicaron.
 
 ## Hecho en la auditoría 3
 
@@ -551,6 +531,16 @@ Capa de presentación, sobre los tokens que ya existían (`ModalShell`, `Operati
 - **Historial, Reportes, Ajustes y alta.** Historial filtra con chips y cada fila muestra el id (`history.sessionId` en `SessionListItem`). La vista previa de Reportes pasa `settings.profile.employeeName` a `DocumentPreviewWidget`. Ajustes valida tarifa y números en línea: Guardar no persiste `NaN`, y un campo de tarifa vacío no se guarda como 0. El pie usa `settingsFooterLine`: versión, build y, si la build lo trae, los 7 primeros caracteres del commit. La bienvenida lee `useTheme()` y deja Continuar en el `footer` de `ScreenScroll`.
 - **Comprobante.** Sigue siendo el PDF claro por defecto (v3). El QR mide 96 px y el bloque de verificación no se parte. La firma va en un recuadro visible. Si no hay commit, el pie usa `versionsBuildNoCommit` («App {version} · build {code}») y no imprime una raya en su lugar. El anexo de entrada y salida incluye «Salida manual». Los minutos de almuerzo que se leen junto al reloj impreso no sustituyen `lunchMinutes` del motor.
 
+## Hecho después del rediseño visual (PR #38 a #50)
+
+Resumen verificable en el código de `main` (`9963edd`). El detalle de cada PR está en su descripción en GitHub.
+
+- **Hoja «Salida detectada».** Tres acciones: terminar el día, otro trabajo (traslado) y sigo trabajando (`src/components/modals/ExitDetectionModal.tsx`, D-19 del blueprint Inicio de jornada v1.3, PR #38). El almuerzo no se ofrece en la hoja; se inicia desde Hoy con `PauseKindModal` (almuerzo o descanso) en ACTIVA.
+- **Almuerzo una vez por día de nómina** (PR #42, `src/services/domain/dayLunch.ts`): una pausa de almuerzo de 30 min o más, o una respuesta de 30/45/60 al cerrar, es el único almuerzo no pagado de ese día de nómina. Si ya se usó, `PauseKindModal` deshabilita «Almuerzo» y la máquina rechaza un `LUNCH_START` de almuerzo con `LUNCH_ALREADY_USED`; el descanso sigue disponible.
+- **Alta en cinco pasos** (PR #46): bienvenida, aviso, permisos (subpasos de ubicación precisa, segundo plano y notificaciones en una sola ruta), perfil y listo (`app/(onboarding)/_layout.tsx`, `src/onboarding/flow.ts`).
+- **Reportes.** Rango libre partido en semanas laborales; «Generar PDF» del rango (`EXPORT_RANGE_PDF`, no sella), «Generar expediente» de una semana (`SEAL_PACK`), compartir comprobante del empleado (`SHARE_EMPLOYEE`, hoja de compartir) y expediente del empleador (`SHARE_EMPLOYER`, compositor de correo con el PDF y el manifiesto; si no hay cliente de correo, hoja de compartir).
+- **Ruta `report/[periodId]`.** Estado de nómina de una semana (`periodId = W<YYYY-MM-DD>` o `T…`). Hoy ninguna pantalla navega a ella: el enlace «Ver estado de nómina» se quitó de Reportes en `8d2411c` al pasar a rangos.
+
 ## Límites conocidos
 
 - **Android 12+ y el servicio en primer plano.** El sistema puede negar el arranque desde segundo plano (`ForegroundServiceStartNotAllowedException`), salvo exenciones; la que importa aquí es tener Dual Tracker fuera de la optimización de batería. La app lo anota como `SERVICE_RECOVERY_FAILED` y pide abrir Dual Tracker. No hay forma de forzarlo desde el worker. Android 14 exige además el tipo `location`. Ver `src/services/runtime/monitoringRecovery.ts`, `src/services/runtime/bootResume.ts` y `docs/PRUEBA_CAMPO_5.md`.
@@ -572,7 +562,7 @@ Se marcan en el código como `TODO(propuesta)`:
 
 ## No aplica
 
-- Migración de las bases de datos heredadas de los proyectos fuente anteriores (W Tracker, LEDTracker y GEOTrack) al esquema canónico de Dual Tracker V1.0.0. No aplica: esas versiones anteriores nunca se publicaron.
+- Migración de bases de datos anteriores a Dual Tracker V1.0.0 al esquema canónico. No aplica: esas versiones nunca se publicaron.
 
 ## Licencia
 

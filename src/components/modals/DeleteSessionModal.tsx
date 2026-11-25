@@ -4,7 +4,7 @@ import { ICONS } from "../../constants/icons";
 import { t, useLanguage } from "../../i18n";
 
 /**
- * DeleteSessionModal — portado de GEOTrack. El copy original prometía un
+ * DeleteSessionModal — portado del código heredado. El copy original prometía un
  * borrado "permanente" que no se correspondía con el soft-delete; ahora dice
  * la verdad: borrado LÓGICO (isDeleted), la sesión se conserva en el expediente.
  */

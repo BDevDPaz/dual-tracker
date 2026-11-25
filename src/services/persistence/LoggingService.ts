@@ -1,13 +1,13 @@
 /**
  * LoggingService — Persistencia (Propuesta Técnica §4.9)
  * ============================================================================
- * Fusiona logger.ts, loggingAdapter y audit_logs de GEOTrack.
+ * Fusiona logger.ts, loggingAdapter y audit_logs del código heredado.
  * Dos streams explícitos:
  *  - SYSTEM: diagnóstico operativo (tabla system_logs).
  *  - AUDIT: hechos con efecto de nómina o integridad (tabla audit_logs).
  *    Ojo: el AUDIT stream es operativo; la evidencia legal es el
  *    IntegrityLedger (append-only con hash encadenado).
- * Cola de arranque si SQLite aún no está lista (portado de GEOTrack).
+ * Cola de arranque si SQLite aún no está lista (portado del código heredado).
  */
 import type * as SQLite from "expo-sqlite";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
@@ -187,7 +187,7 @@ export const LoggingService = {
     else auditQueue.push(full);
   },
 
-  /** Atajo compatible con la firma `log(color, categoria, severidad, mensaje, metadata)` de GEOTrack. */
+  /** Atajo compatible con la firma `log(color, categoria, severidad, mensaje, metadata)` del código heredado. */
   log(color: LogColor, category: string, severity: LogSeverity, message: string, metadata?: unknown): void {
     LoggingService.system({ color, category, severity, message, metadata });
   },

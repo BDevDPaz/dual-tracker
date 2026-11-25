@@ -10,7 +10,7 @@ import type { IntegrityClass } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
 
 /**
- * IntegrityBadge — portado de GEOTrack, ahora alimentado por IntegrityClass
+ * IntegrityBadge — portado del código heredado, ahora alimentado por IntegrityClass
  * del ledger (VALID / MANUAL / AUTO / CONFLICT → Validada / Ajuste / Auto /
  * Revisar). Deja de ser "de adorno".
  */

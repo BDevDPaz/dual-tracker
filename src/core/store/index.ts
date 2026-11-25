@@ -3,7 +3,7 @@
  * ============================================================================
  * "La UI refleja el store; no decide transiciones de dominio."
  *
- * A diferencia del WorkTrackerEngine de GEOTrack (reducer + effects que
+ * A diferencia del WorkTrackerEngine del código heredado (reducer + effects que
  * decidían transiciones), este store solo refleja lo que los servicios ya
  * persistieron: SessionEngineService escribe SQLite + ledger y DESPUÉS publica
  * aquí. Se conserva la mecánica subscribe/getState/notify del engine original.

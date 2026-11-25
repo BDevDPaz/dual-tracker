@@ -1,6 +1,6 @@
 /**
  * MICROCOPY versionado (FeedbackService, Propuesta Técnica §5.14).
- * Sustituye a los títulos por categoría de logBridge (GEOTrack) y a los
+ * Sustituye a los títulos por categoría de logBridge (código heredado) y a los
  * toast_* de utils/i18n.ts. Nunca contiene jerga técnica ("mutex", "WAL"…).
  */
 import type { FeedbackCode, FeedbackPayload, FeedbackTone } from "../core/contracts";

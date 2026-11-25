@@ -1,7 +1,7 @@
 /**
  * Constantes de geolocalización.
  *
- * Portado de GEOTrack (src/constants/geolocation.ts). Los validadores
+ * Portado del código heredado (src/constants/geolocation.ts). Los validadores
  * anti-spoof originales se conservan, pero en Dual Tracker ya NO rechazan
  * el hecho espacial: lo marcan como no fiable (reliable = false), según
  * la Propuesta Técnica §4.3 ("el hecho se marca UNRELIABLE").
@@ -13,7 +13,7 @@
  * de 50 m con facilidad y eso no puede impedir el check-in.
  */
 export const MAX_ACCEPTABLE_ACCURACY_METERS = 50;
-/** Ventana anti-rebote entre eventos nativos idénticos (GEOTrack). */
+/** Ventana anti-rebote entre eventos nativos idénticos (código heredado). */
 export const GEOFENCE_ANTI_REBOUNCE_MS = 5_000;
 /**
  * Un ENTER de la misma región dentro de esta ventana no se vuelve a anotar.
@@ -29,7 +29,7 @@ export const GEOFENCE_ENTER_COALESCE_MS = 150_000;
  * prueba del 20 oct. Un ENTER fiable sí se anota: la evidencia mejora.
  */
 export const GEOFENCE_ENTER_AFTER_EXIT_MS = 5_000;
-/** Velocidad físicamente imposible para un operario (GEOTrack). El único veto de velocidad. */
+/** Velocidad físicamente imposible para un operario (código heredado). El único veto de velocidad. */
 export const IMPOSSIBLE_SPEED_KMH = 200;
 
 /**
@@ -37,7 +37,7 @@ export const IMPOSSIBLE_SPEED_KMH = 200;
  */
 export { DEFAULT_EXIT_DEBOUNCE_MS } from "../config/provisional";
 
-/** Radio por defecto si el sitio no declara el suyo (GEOTrack: 200 m). */
+/** Radio por defecto si el sitio no declara el suyo (código heredado: 200 m). */
 export const DEFAULT_SITE_RADIUS_METERS = 200;
 
 /** Nombres de tareas nativas de ubicación. */

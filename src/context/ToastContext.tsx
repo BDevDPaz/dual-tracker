@@ -1,5 +1,5 @@
 /**
- * ToastContext — portado de GEOTrack. El reloj sale de TimeAuthorityService.
+ * ToastContext — portado del código heredado. El reloj sale de TimeAuthorityService.
  * Lo alimenta FeedbackBridge a partir de FeedbackService (store.feedback).
  *  - Posición: top = inset seguro superior + 8.
  *  - Dos nodos de texto: título (FONT.bodyStrong) + leyenda opcional.

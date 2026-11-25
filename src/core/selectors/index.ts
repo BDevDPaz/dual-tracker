@@ -1,7 +1,7 @@
 /**
  * Selectores — única forma en que las vistas derivan datos del store.
  * ============================================================================
- * Portados de GEOTrack (src/core/selectors) y adaptados a DualTrackerState.
+ * Portados del código heredado (src/core/selectors) y adaptados a DualTrackerState.
  * Son funciones PURAS: el tiempo llega como parámetro (nowMs) desde el hook.
  * Los cálculos de nómina se delegan a PayrollEngineService (funciones puras),
  * así la vista "no calcula horas: muestra selectores" (Producto §5.7).

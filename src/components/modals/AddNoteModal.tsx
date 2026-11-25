@@ -9,7 +9,7 @@ import { TOKENS } from "../../constants/theme";
 import { t, useLanguage } from "../../i18n";
 
 /**
- * AddNoteModal — portado de GEOTrack. Se abre desde Detalle o Conflicto para
+ * AddNoteModal — portado del código heredado. Se abre desde Detalle o Conflicto para
  * justificación de auditoría (la nota queda en el ledger vía ADD_NOTE).
  */
 interface AddNoteModalProps {

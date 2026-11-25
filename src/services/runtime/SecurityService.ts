@@ -5,14 +5,14 @@
  *  - PIN/clave de administración con HASH EN DISPOSITIVO (scrypt con sal
  *    aleatoria, guardado en SecureStore/Keystore). Un hash legado SHA-256
  *    iterado se acepta una vez y se reescribe a scrypt.
- *  - Retardo anti-fuerza bruta (650 ms heredados de GEOTrack) y bloqueo
+ *  - Retardo anti-fuerza bruta (650 ms heredados) y bloqueo
  *    progresivo (PIN_LOCKOUT_STEPS).
  *  - Fail-secure: cualquier error criptográfico o de almacenamiento DENIEGA.
  *  - El estado "desbloqueado" es de sesión de UI (store.admin), con caducidad;
  *    no vive en el servicio.
  *
- * NO se portan: validatePIN() === "1234" (W Tracker, securityEngine.ts) ni el
- * hash fijo DEMO_ADMIN_PIN_SHA256 (= SHA-256("1234")) de GEOTrack. Tampoco se
+ * NO se portan: validatePIN() === "1234" (código heredado, securityEngine.ts) ni el
+ * hash fijo DEMO_ADMIN_PIN_SHA256 (= SHA-256("1234")) del código heredado. Tampoco se
  * dejan detrás de un flag: la propuesta los reemplaza explícitamente.
  *
  * El primer PIN lo fija quien configura el dispositivo (SETUP_ADMIN_PIN),
