@@ -141,6 +141,14 @@ async function verifySegments(entries: LedgerEntry[], anchor = GENESIS_HASH, las
   };
 }
 
+/**
+ * Verifica una lista de asientos que no está en la base (p. ej. el libro de
+ * una copia de seguridad antes de restaurarla). Misma regla que verify().
+ */
+export function verifyLedgerEntries(entries: LedgerEntry[]): Promise<LedgerVerification> {
+  return verifySegments(entries);
+}
+
 /** Informe de incidente exportable (spec v1.3 §5.5 "Evidencia"). */
 export interface LedgerIncidentReport {
   kind: "DT_LEDGER_INCIDENT_REPORT";

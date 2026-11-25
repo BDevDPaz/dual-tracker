@@ -21,8 +21,8 @@ import { useTheme } from "../../src/context/ThemeContext";
 import type { DeviceIntegritySnapshot, HealthSensor, PermissionKey, PermissionState, ViewIntent } from "../../src/core/contracts";
 import { foregroundLocationHealth, readingLooksOk, sensorBlocksValid } from "../../src/core/healthPolicy";
 import { SERVICE_COMPONENTS } from "../../src/core/contracts";
-import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
-import { selectActiveSession, selectAdmin, selectBackupAdvice, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
+import { selectActiveSession, selectAdmin, selectCryptoHealth, selectHealth, selectLedgerHealth, selectReviewSessions, selectSystemHealth } from "../../src/core/selectors";
 import { t, tHealthValue } from "../../src/i18n";
 import { tReviewReason } from "../../src/i18n/labels";
 import { formatDateTime, formatTime } from "../../src/utils/dateUtils";
@@ -48,7 +48,7 @@ function deviceValue(device: DeviceIntegritySnapshot | null): string {
 export default function HealthScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { state, emit } = useWorkTracker();
+  const { state, emit, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
   useAutoRefresh();
   const h = selectHealth(state);
@@ -57,7 +57,9 @@ export default function HealthScreen() {
   const ledger = selectLedgerHealth(state);
   const crypto = selectCryptoHealth(state);
   const nowMs = useClock(60_000);
-  const backup = selectBackupAdvice(state, nowMs);
+  // Copia de seguridad: Salud solo muestra el estado; crear y restaurar viven en Ajustes.
+  const backup = useQuery(() => queries.backupStatus(), [], ["settings"]);
+  const lastBackup = backup.data?.lastCreatedAtMs ?? null;
   const admin = selectAdmin(state);
   const [pin, setPin] = useState("");
   const { busy, run } = useBusyAction();
@@ -307,12 +309,22 @@ export default function HealthScreen() {
           {crypto.status === "KEY_MISSING" ? (
             <ScreenStatusBanner status="degraded" message={`${t("fieldCrypto.keyMissingTitle")} — ${t("fieldCrypto.keyMissingBody")}`} />
           ) : null}
-          <HealthRow
-            label={t("backup.title")}
-            value={backup.pendingPeriods > 0 ? t("backup.healthRow", { n: backup.pendingPeriods }) : t("backup.healthOk")}
-            ok={backup.pendingPeriods === 0}
-            blocksValid={false}
-          />
+        </Card>
+      </Section>
+      <Section title={t("settings.backup.title")}>
+        <Card style={styles.card}>
+          <Pressable
+            onPress={() => router.push("/(tabs)/settings")}
+            accessibilityRole="link"
+            accessibilityLabel={t("settings.backup.title")}
+            accessibilityHint={t("a11y.linkHint")}
+            style={styles.reviewHit}
+            testID="health-backup-link"
+          >
+            <Text style={[styles.hint, { color: lastBackup ? colors.text.secondary : colors.statusText.warning }]}>
+              {lastBackup ? t("health.backupLast", { date: formatDateTime(lastBackup) }) : t("health.backupNever")}
+            </Text>
+          </Pressable>
         </Card>
       </Section>
       {h.checkedAtMs ? (

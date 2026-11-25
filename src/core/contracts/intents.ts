@@ -217,6 +217,13 @@ export type ViewIntent =
   | { type: "CANCEL_CALENDAR_CHANGE" }
   | { type: "LOCK_ADMIN" }
   | { type: "SETUP_ADMIN_PIN"; pin: string }
+  /** Copia de seguridad (solo Ajustes): archivo .dtbackup cifrado con contraseña y hoja de compartir. */
+  | { type: "EXPORT_BACKUP"; passphrase: string }
+  /** Elige el archivo (selector del sistema), lo descifra y lo valida. No escribe. Devuelve token y resumen. */
+  | { type: "PREVIEW_BACKUP_IMPORT"; passphrase: string }
+  /** Reemplazo total con la copia ya validada (token de PREVIEW_BACKUP_IMPORT). */
+  | { type: "IMPORT_BACKUP"; token: string }
+  | { type: "CANCEL_BACKUP_IMPORT" }
   /**
    * Código de un solo uso del empleador (hash salado, no el PIN en claro).
    * `fingerprint` es la huella que el empleador dio por otro canal. Obligatoria

@@ -33,6 +33,8 @@ export type FeedbackCode =
   | "PACK_SEALED"
   | "PACK_REUSED"
   | "RANGE_PDF_SHARED"
+  | "BACKUP_CREATED"
+  | "BACKUP_RESTORED"
   | "SETTINGS_SAVED"
   | "ADMIN_UNLOCKED"
   | "ADMIN_LOCKED"

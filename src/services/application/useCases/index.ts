@@ -5,3 +5,4 @@ export { provisionAdminPin } from "./provisionAdminPin";
 export { checkLedgerIntegrity, acknowledgeLedgerBreak, exportLedgerIncident } from "./ledgerIntegrity";
 export { requestCalendarChange, cancelCalendarChange } from "./calendarChange";
 export { exportSupportDiagnostic } from "./exportSupportDiagnostic";
+export { cancelBackupImport, exportAppBackup, importAppBackup, previewBackupImport, readBackupStatus } from "./appBackup";

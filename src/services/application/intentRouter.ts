@@ -10,6 +10,7 @@
  *  - Reportes → EvidencePackService / ReportService.
  *  - Ajustes → SettingsService + SecurityService + DualDisclosureService.
  *  - Salud → PermissionsHealthService.
+ *  - Copia de seguridad (solo Ajustes) → useCases/appBackup.
  * Todo rechazo produce un FeedbackPayload (FeedbackService), nunca texto en la vista.
  */
 import type { IntentResult, SessionIntent, SettingsSnapshot, Site, ViewIntent } from "../../core/contracts";
@@ -40,10 +41,14 @@ import { MICROCOPY_REJECTIONS } from "../../i18n/microcopy";
 import { FeedbackService } from "./FeedbackService";
 import {
   acknowledgeLedgerBreak,
+  cancelBackupImport,
   cancelCalendarChange,
   confirmExit,
+  exportAppBackup,
   exportLedgerIncident,
   exportSupportDiagnostic,
+  importAppBackup,
+  previewBackupImport,
   exportRangePdf,
   generateWeeklyPayroll,
   provisionAdminPin,
@@ -379,6 +384,27 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         FeedbackService.emit("DISCLOSURE_ACCEPTED");
         return { ok: true };
       }
+
+      // ---- Copia de seguridad (solo Ajustes) ----
+      case "EXPORT_BACKUP": {
+        const r = await exportAppBackup(intent.passphrase);
+        if (r.ok) FeedbackService.emit("BACKUP_CREATED");
+        return report(r);
+      }
+      case "PREVIEW_BACKUP_IMPORT": {
+        const r = await previewBackupImport(intent.passphrase);
+        // Cerrar el selector sin elegir no es un error que haya que avisar.
+        if (!r.ok && r.code === "BACKUP_PICK_CANCELLED") return r;
+        return report(r);
+      }
+      case "IMPORT_BACKUP": {
+        const r = await importAppBackup(intent.token);
+        if (r.ok) FeedbackService.emit("BACKUP_RESTORED");
+        return report(r);
+      }
+      case "CANCEL_BACKUP_IMPORT":
+        cancelBackupImport();
+        return { ok: true };
 
       // ---- Salud ----
       case "REQUEST_PERMISSION":
