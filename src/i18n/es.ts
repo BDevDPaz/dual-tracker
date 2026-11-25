@@ -32,6 +32,8 @@ export const es = {
     ok: "Entendido",
     reconnecting: "Reconectando…",
     invalidTime: "Hora no válida: usa HH:mm de 24 h, por ejemplo 12:30.",
+    showDetails: "Ver detalles",
+    hideDetails: "Ocultar detalles",
   },
   a11y: {
     closeModal: "Cerrar",
