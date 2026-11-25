@@ -60,7 +60,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - `app/(tabs)/__tests__/` (checkInOut, closeDay, lunch, cancelDay).
   - `src/services/domain/__tests__/sessionMachine.test.ts`, `pr2UserFlow12_3.test.ts`, `inicioJornada.blueprint.test.ts`.
   - `src/services/application/useCases/__tests__/startDay.test.ts`, `confirmExit.test.ts`.
-- **Nómina de California:** OT diaria y semanal, doble tiempo y séptimo día (activos por defecto, `src/utils/companyPolicy.ts:8-12`), primas de comida y descanso, un almuerzo por día de nómina y tarifa congelada por jornada (`sessions.hourly_rate_snapshot`). Tests: `PayrollEngineService.test.ts`, `caRules.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `dayLunch.test.ts`, `hourlyRateSnapshot.test.ts`, `policyV2.test.ts`.
+- **Nómina de California:** OT diaria y semanal, doble tiempo y séptimo día (**apagados por defecto**, `src/utils/companyPolicy.ts:8-12`; se activan en Ajustes → Calendario laboral y un valor guardado se respeta), primas de comida y descanso, un almuerzo por día de nómina y tarifa congelada por jornada (`sessions.hourly_rate_snapshot`). Tests: `PayrollEngineService.test.ts`, `caRules.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `dayLunch.test.ts`, `hourlyRateSnapshot.test.ts`, `policyV2.test.ts`.
 - **Libro append-only y sello:**
   - Cadena SHA-256, manifiesto v5 (`src/core/contracts/evidence.ts:140`), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
   - Esquema SQLite v9 (`src/services/persistence/schema.ts:24`).
@@ -117,22 +117,17 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - `tsc --noEmit` pasa sin errores.
   - **No se generó un APK de `1329849`**: hoy no hay build de Android ni de iOS de este commit.
   - Los 14 APK previos que hay fuera del repo (versionCode 1–16) son de commits anteriores.
-- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos.
+- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (rama `cursor/block-overlay-overtime-off`): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos.
 - **Pruebas manuales:** el repo no tiene actas firmadas.
   - `docs/PRUEBAS_RC1.md` §Acta y las tablas de `docs/PRUEBAS_DISPOSITIVO.md` están vacías.
   - `docs/PRUEBA_CAMPO_1.md`–`8.md` son listas de pasos, sin resultados anotados.
 - **Errores abiertos:**
-  - `[Severidad: Alta]` **Permisos fuera de las reglas del dueño en los APK.**
-    - Los 14 APK revisados declaran `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` y `WRITE_EXTERNAL_STORAGE`. Se leyó su `AndroidManifest.xml` con `pyaxmlparser`.
-    - El último tiene versionCode 16 y salió del commit `61371eb`, de la rama del PR #37, que está cerrado.
-    - `app.json` no tiene `android.blockedPermissions` (`app.json:35-46`). `expo-file-system` declara los dos de almacenamiento (`node_modules/expo-file-system/android/src/main/AndroidManifest.xml`).
-    - **No verificado en un build de `main` actual.**
-    - El dueño pidió no bloquear por ahora los permisos de almacenamiento. Sobre `SYSTEM_ALERT_WINDOW` no hay decisión.
-  - `[Severidad: Media]` **Documentación que contradice al código sobre doble tiempo y séptimo día.** El código los aplica por defecto: `DEFAULT_LEGAL_FLAGS` (`src/utils/companyPolicy.ts:8-12`), con el test R03 en `caRules.test.ts:31`, desde el #35. Dicen lo contrario:
-    - `README.md:302`, `:308-309`.
-    - `docs/PRUEBAS_RC1.md:64`.
-    - `docs/AUDITORIA_CALCULOS_Y_OPERACION.md:102`.
-    - La limitación conocida del RC1 en `CHANGELOG.md`.
+  - `[Severidad: Alta → corregido en código, pendiente de APK]` **`SYSTEM_ALERT_WINDOW` en los APK.**
+    - Los 14 APK previos (versionCode 1–16) lo declaraban. El análisis se hizo con `pyaxmlparser`.
+    - Origen: la plantilla de prebuild de Expo (`node_modules/expo/template.tgz`, manifiestos `main`, `debug` y `debugOptimized`) y el manifiesto de depuración de React Native (`node_modules/react-native/ReactAndroid/src/debug/AndroidManifest.xml`).
+    - Corrección (2026-11-25, decisión del dueño): `android.blockedPermissions` en `app.json`. `npx expo prebuild --no-install --platform android`, en un directorio temporal, escribe `tools:node="remove"` en el manifiesto `main`, y `npx expo config --type introspect` lo confirma. Test: `src/core/__tests__/buildConfig.test.ts`, en la app real y en d11.
+    - **No verificado:** un APK de release de EAS sin el permiso. Los manifiestos `debug` y `debugOptimized` de la plantilla lo siguen declarando para los builds de depuración.
+    - `READ_EXTERNAL_STORAGE` y `WRITE_EXTERNAL_STORAGE` (plantilla y `expo-file-system`) **se mantienen** por decisión del dueño (ver §6).
   - `[Severidad: Baja]` **Comentario de `app.config.ts`** («El último preview fue versionCode 3»): existe un APK con versionCode 16.
   - `[Severidad: Baja]` **Estados sin cubrir:** Historial no tiene estado de carga ni de error, y Reportes no muestra el error de consulta (§2). Va contra `AGENT.md` §3 («Estados obligatorios»).
 
@@ -144,9 +139,8 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
 2. **PR3, Reportes de nómina.** Se cierra cuando:
    - «Vista previa» lleve a `/report/[periodId]`.
    - La Auditoría de jornadas esté definida por el dueño y testeada.
-3. **Decidir `SYSTEM_ALERT_WINDOW` y los permisos de almacenamiento, y verificarlo en un build.** Se cierra con la lista de permisos de un APK de `main` (`aapt` o `pyaxmlparser`) que coincida con la decisión.
-4. **Alinear la documentación sobre doble tiempo y séptimo día con el código, o el código con la decisión legal.** Se cierra cuando README, `docs/` y `CHANGELOG.md` coincidan con `DEFAULT_LEGAL_FLAGS`.
-5. **Acta RC1 en un teléfono** (Android, Samsung S22+). Se cierra con la tabla de `docs/PRUEBAS_RC1.md` §Acta rellenada sobre un build identificado.
+3. **Verificar en un APK de release que no lleva `SYSTEM_ALERT_WINDOW`.** El bloqueo ya está en `app.json`. Se cierra con la lista de permisos de un APK de `main` (`aapt` o `pyaxmlparser`): sin `SYSTEM_ALERT_WINDOW` y con los permisos de almacenamiento, que siguen por decisión del dueño.
+4. **Acta RC1 en un teléfono** (Android, Samsung S22+). Se cierra con la tabla de `docs/PRUEBAS_RC1.md` §Acta rellenada sobre un build identificado.
 
 ## 6. Bloqueos y Confirmaciones Pendientes
 - **Bloqueos:**
@@ -154,9 +148,12 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - **`/report/[periodId]` sin entrada** hasta el PR3.
   - **Ninguna verificación en un APK de `main` actual.** Permisos, geocerca, servicio en primer plano, notificaciones, PDF y contraste dependen de un build y de un teléfono.
   - **Permisos amplios de almacenamiento** (`expo-file-system`) sin bloquear, por decisión del dueño («No bloquees los permisos por ahora»).
+- **Decidido por el dueño (2026-11-25):**
+  - La bitácora oficial es `CHANGELOG.md`; no se crea `CHANGE-LOGS.md`.
+  - `SYSTEM_ALERT_WINDOW` se bloquea (ver §4).
+  - Doble tiempo y séptimo día vienen **apagados** por defecto (`DEFAULT_LEGAL_FLAGS`). Hecho en código y con tests (`caRules.test.ts`, R03 y R04, por defecto y activados). Un valor que la empresa ya guardó no se altera.
+  - Los permisos de almacenamiento no se bloquean.
 - **Por confirmar:**
-  - Qué hacer con `SYSTEM_ALERT_WINDOW` en el manifiesto (ver §4).
-  - Si doble tiempo y séptimo día deben estar activos por defecto. El código lo hace desde el #35 y los documentos legales dicen «apagados hasta asesoría legal».
-  - Nombre del archivo de bitácora: la regla 5 del dueño cita `CHANGE-LOGS.md`, pero `AGENT.md` §5 y el repo usan `CHANGELOG.md`. No se creó `CHANGE-LOGS.md`.
+  - **Empresas que ya guardaron las banderas.** Si el operario cambió antes cualquier chip legal de Ajustes, `settings.tsx:451` guardó las tres banderas, incluidos los `true` que entonces venían por defecto. Esos valores se respetan y no se reescriben. Para apagarlas hay que hacerlo en Ajustes → Calendario laboral, o borrar la base de prueba. Los expedientes ya sellados no cambian. Los periodos sin sellar de una empresa sin banderas guardadas se recalculan sin doble tiempo ni séptimo día.
   - `AGENT.md` §1–§3 siguen como plantilla, con los campos entre corchetes sin rellenar.
   - Si la etiqueta `v0.1.0` cuenta como versión entregada (ver §3).

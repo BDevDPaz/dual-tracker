@@ -203,6 +203,19 @@ describe("app.config.ts — variantes", () => {
     }
   });
 
+  test("sin overlay: SYSTEM_ALERT_WINDOW bloqueado en la app real y en d11; almacenamiento sin bloquear (decisión del dueño)", () => {
+    const OVERLAY = "android.permission.SYSTEM_ALERT_WINDOW";
+    expect(base.android?.permissions ?? []).not.toContain(OVERLAY);
+    expect(base.android?.blockedPermissions).toEqual([OVERLAY]);
+    const real = applyVariant(clone(base), {});
+    const d11 = applyVariant(clone(base), { APP_VARIANT: "d11", [D11_FLAG]: "1" });
+    for (const cfg of [real, d11]) {
+      expect(cfg.android?.blockedPermissions).toContain(OVERLAY);
+      expect(cfg.android?.blockedPermissions).not.toContain("android.permission.READ_EXTERNAL_STORAGE");
+      expect(cfg.android?.blockedPermissions).not.toContain("android.permission.WRITE_EXTERNAL_STORAGE");
+    }
+  });
+
   test("app.json conserva los ids de la app real y no declara la variante", () => {
     expect(base.android?.package).toBe("com.bdevdpaz.dualtracker");
     expect(base.ios?.bundleIdentifier).toBe("com.bdevdpaz.dualtracker");

@@ -26,7 +26,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#27** Fase 4: cobertura de monitoreo, auditoría de avisos críticos, reconstrucción de minutos (`sessionReplay`), índice único `idx_ledger_prev_hash`, espera de llegada y `BOOT_RESUME` (`modules/device-uptime`). Lista: `docs/PRUEBA_CAMPO_8.md`.
 - **#29** Cada jornada guarda la tarifa por hora vigente (`sessions.hourly_rate_snapshot`, esquema v8; hoy `SCHEMA_VERSION = 9`). Cambiar la tarifa con PIN queda en el libro (`HOURLY_RATE_CHANGED`). Verificación: `hourlyRateSnapshot.test.ts`, `warningLabels.test.ts`.
 - **#31** Guía de permisos de Android en el alta, en Salud y en Soporte: batería, «Permitir todo el tiempo» y el paso de Samsung. Verificación: `PermissionCard.test.tsx`, `PermissionGuidancePanel.test.tsx`, `PermissionsStep.test.tsx`, `permissionGuidance.test.ts`. No está probada en un Samsung.
-- **#35** Nómina de California: doble tiempo, séptimo día y primas de comida y descanso. `caDoubleTime` y `caSeventhDay` quedan **activas por defecto** (`src/utils/companyPolicy.ts:8-12`), y se elimina `LEGACY_DAILY8`. Verificación: `caRules.test.ts` (R03 «configuración por defecto», `:31`), `PayrollEngineService.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `policyV2.test.ts`.
+- **#35** Nómina de California: doble tiempo, séptimo día y primas de comida y descanso. `caDoubleTime` y `caSeventhDay` quedan **activas por defecto** (`src/utils/companyPolicy.ts:8-12`), y se elimina `LEGACY_DAILY8`. *Nota 2026-11-25: los valores por defecto vuelven a estar apagados (ver «Cambiado», banderas legales).* Verificación: `caRules.test.ts`, `PayrollEngineService.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `policyV2.test.ts`.
 - **#36** Máquina de estados USER_FLOW v1.2 §12.3. La época de instalación `pr2-12.3` (`src/services/persistence/schema.ts`) borra una base de prueba anterior. Verificación: `pr2UserFlow12_3.test.ts`, `sessionMachine.test.ts`, `cancelDay.confirm.test.tsx`.
 - **#38** Inicio de jornada v1.3 (D-01…D-29): fichaje con una lectura fiable y la hoja «Salida detectada» sin almuerzo (D-19, `src/components/modals/ExitDetectionModal.tsx:10`). Verificación: `inicioJornada.blueprint.test.ts`, `geofence.task.test.ts`, `exitDecisionTimer.task.test.ts`, `geofencePolicy.test.ts`.
 - **#39** Avisos de llegada y salida con tres acciones (Terminar jornada, Otro trabajo, Sigo trabajando). La espera de llegada por defecto queda en 0. Verificación: `pr3Notifications.test.ts`, `sessionWatchdog.task.test.ts`, `pin.flow.test.ts`. La notificación real no está probada en un teléfono.
@@ -36,6 +36,11 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 
 ### Cambiado
 
+- **Banderas legales apagadas por defecto** (decisión del dueño, 2026-11-25). `DEFAULT_LEGAL_FLAGS.caDoubleTime` y `caSeventhDay` pasan a `false` (`src/utils/companyPolicy.ts:8-12`).
+  - Un valor que la empresa ya guardó se respeta y no se reescribe.
+  - Activadas desde Ajustes → Calendario laboral, la nómina sigue aplicando el doble tiempo (> 12 h a 2×) y el séptimo día.
+  - Los expedientes ya sellados no cambian.
+  - Verificación: `caRules.test.ts` (R03 por defecto y activado, R04 por defecto, y banderas guardadas) y `pr2UserFlow12_3.test.ts` (T34).
 - **#30** Robustez: `useBusyAction` evita el doble toque, `ConfirmActionModal` pide confirmación antes de archivar un sitio, dividir un conflicto o cambiar un chip legal, y el radio de sitio se valida. Verificación: `useBusyAction.test.tsx`, `ConfirmActionModal.test.tsx`, `SiteRadiusField.test.tsx`, `siteRadius.test.ts`.
 - **#32** Accesibilidad y textos: etiquetas de TalkBack, objetivos táctiles de 48 dp, códigos internos traducidos y un solo `NotFoundState` y `LoadingState`. Verificación: `a11yLabels.test.ts`, `NotFoundState.test.tsx`, `payrollDisplay.test.ts`. TalkBack no está probado en un teléfono.
 - **#33** Rediseño visual de la capa de presentación de Hoy, Historial y Reportes, sobre los tokens existentes. Verificación: `SessionTimeline.test.tsx`, `GpsExceptionCard.test.tsx`, `EditSessionModal.test.tsx`, `Input.test.tsx`. El aspecto visual no está verificado y sigue en `PROJECT_STATE.md`.
@@ -71,6 +76,11 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 
 ### Seguridad
 
+- **Sin overlay.** `android.blockedPermissions` bloquea `android.permission.SYSTEM_ALERT_WINDOW` (`app.json`), que traían la plantilla de prebuild de Expo y el manifiesto de depuración de React Native.
+  - El prebuild escribe `tools:node="remove"` en el manifiesto `main`.
+  - Los permisos de almacenamiento no se bloquean, por decisión del dueño.
+  - Verificación: `buildConfig.test.ts`, `expo prebuild` en un directorio temporal y `expo config --type introspect`.
+  - Un APK de release sin el permiso no está verificado todavía (`PROJECT_STATE.md` §4).
 - **#20** Un manifiesto v4 que nació firmado y llega sin firma falla con `SIGNATURE_MISSING`. Otra clave falla con `SIGNATURE_KEY`. `PACK_UNSIGNED` sigue siendo el sello sin llavero. La clave que se compara es la del llavero de firma del pack, no la del código de aprovisionamiento del PIN.
 - **#21** Si el asiento del PIN no se escribe, SecureStore vuelve al estado anterior y el código se puede repetir. `--pin` en la CLI avisa: el secreto puede ir en archivo, `DT_PIN`, prompt o stdin.
 - **#23** La primera fijación de la clave del empleador ya no es de confianza al primer uso. Hace falta la huella tecleada o `src/config/employerKeyAnchor.ts`. Sin ancla, `verify` devuelve `identity: unverified`.
@@ -127,6 +137,6 @@ La versión visible es **1.0.0** (`app.json`, `package.json`, `APP_VERSION`). El
 
 - **Android Doze y Samsung.** Con la app en suspensión profunda, o con la batería restringida, la geocerca puede tardar o no fichar con la pantalla apagada. «Solo mientras se usa» no ficha en segundo plano. Con el servicio en primer plano visible y la batería sin restricciones, las muestras cubren el hueco del aviso del sistema, pero el aviso puede llegar minutos tarde. Si la precisión es peor que el radio del sitio, no hay fichaje automático.
 - **El viaje de casa al primer sitio no se paga.** El traslado pagado es el tramo entre dos destinos de la misma jornada. Soporte lo dice en la pregunta correspondiente.
-- **Doble tiempo (por encima de 12 h) y séptimo día** están en la política v2 y siguen apagados (`caDoubleTime`, `caSeventhDay`) hasta que asesoría legal lo confirme. No se encienden en esta candidata. *Nota 2026-11-25: ya no es así en el código. Desde el #35 las dos están activas por defecto (`src/utils/companyPolicy.ts:8-12`; test R03 en `caRules.test.ts:31`). README y `docs/` aún dicen «apagados». Queda por confirmar en `PROJECT_STATE.md` §6.*
+- **Doble tiempo (por encima de 12 h) y séptimo día** están en la política v2 y siguen apagados (`caDoubleTime`, `caSeventhDay`) hasta que asesoría legal lo confirme. No se encienden en esta candidata. *Nota 2026-11-25: ya no es así en el código. Desde el #35 las dos están activas por defecto (`src/utils/companyPolicy.ts:8-12`; test R03 en `caRules.test.ts:31`). README y `docs/` aún dicen «apagados». Queda por confirmar en `PROJECT_STATE.md` §6.* *Nota posterior (2026-11-25): por decisión del dueño, vuelven a estar apagados por defecto (ver «Cambiado» en [Sin publicar]).*
 - **iOS no está probado.** No hay acta de iPhone para esta candidata. El respaldo por cambio significativo de ubicación queda para después de la 1.0.0.
 - **Migración de bases de datos anteriores a Dual Tracker V1.0.0.** No aplica: esas versiones anteriores nunca se publicaron. El producto es Dual Tracker V1.0.0.

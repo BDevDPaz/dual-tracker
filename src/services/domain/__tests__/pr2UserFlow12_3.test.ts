@@ -522,7 +522,7 @@ describe("PR2 §12.3", () => {
     expect(second.bookkeeping.dateString).toBe(first.bookkeeping.dateString);
   });
 
-  test("T34 N16 E27 extender a las 11 h 30 evita el cierre y el tramo > 12 h va a 2×", async () => {
+  test("T34 N16 E27 extender a las 11 h 30 evita el cierre; el tramo > 12 h va a 2× solo con caDoubleTime activado", async () => {
     const { siteA } = await seedWorld();
     const s = await startAndArrive(siteA);
     time.travel(11 * HOUR);
@@ -541,7 +541,13 @@ describe("PR2 §12.3", () => {
     expect((await PersistenceService.getSession(s.id))?.domainStatus).toBe("ACTIVA");
     expect((await IntegrityLedgerService.listForSession(s.id)).some((e) => e.reason === "SHIFT_EXTENDED")).toBe(true);
 
-    const long = statementOf({ ...(await PersistenceService.getSession(s.id))!, domainStatus: "CERRADA", endAtMs: (s.actualStartAtMs ?? s.declaredStartAtMs) + 13 * HOUR });
+    const closed = { ...(await PersistenceService.getSession(s.id))!, domainStatus: "CERRADA" as const, endAtMs: (s.actualStartAtMs ?? s.declaredStartAtMs) + 13 * HOUR };
+    // Por defecto el doble tiempo está apagado: el tramo > 12 h sigue a 1.5×.
+    const byDefault = statementOf(closed);
+    expect(byDefault.overtimeDoubleHours).toBeUndefined();
+    expect(byDefault.lines.some((l) => l.kind === "OVERTIME_DOUBLE")).toBe(false);
+    // Con caDoubleTime activado por la empresa, el tramo > 12 h va a 2×.
+    const long = statementOf(closed, { ...COMPANY, payrollLegalFlags: { caDoubleTime: true } });
     expect(long.overtimeDoubleHours).toBe(1);
     expect(long.lines.some((l) => l.kind === "OVERTIME_DOUBLE" && l.rate === RATES.hourlyRate * 2)).toBe(true);
   });

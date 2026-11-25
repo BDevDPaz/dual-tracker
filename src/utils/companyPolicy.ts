@@ -7,8 +7,8 @@ import { CORPORATE_TIMEZONE, DEFAULT_CALENDAR_HISTORY, isPayrollTimezone, type C
 
 export const DEFAULT_LEGAL_FLAGS: PayrollLegalFlags = Object.freeze({
   transitionWeeklyThreshold: "FULL",
-  caDoubleTime: true,
-  caSeventhDay: true,
+  caDoubleTime: false,
+  caSeventhDay: false,
 });
 
 /** Zona de pared de la empresa. Un id desconocido o ausente es Los Ángeles. */

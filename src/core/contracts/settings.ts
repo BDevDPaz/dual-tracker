@@ -51,9 +51,9 @@ export interface PayrollLegalFlags {
    * FULL (por defecto de la spec) = 40 h completas; PRORATED = proporcional a su duración.
    */
   transitionWeeklyThreshold: "FULL" | "PRORATED";
-  /** §5.6 P6: doble tiempo > 12 h por día/jornada (CA). Por defecto true. */
+  /** §5.6 P6: doble tiempo > 12 h por día/jornada (CA). Por defecto false (apagado hasta confirmar con asesoría legal); un valor guardado por la empresa se respeta. */
   caDoubleTime: boolean;
-  /** §5.6 P6: séptimo día consecutivo de la semana laboral (CA). Por defecto true. */
+  /** §5.6 P6: séptimo día consecutivo de la semana laboral (CA). Por defecto false (apagado hasta confirmar con asesoría legal); un valor guardado por la empresa se respeta. */
   caSeventhDay: boolean;
 }
 
