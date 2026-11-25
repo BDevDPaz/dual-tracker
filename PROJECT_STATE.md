@@ -82,7 +82,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
-- **PR3, Reportes de nómina y Auditoría de jornadas: en revisión, sin mergear.** No le falta ninguna parte pedida. Queda la revisión del dueño y la prueba en un teléfono.
+- **PR3 (#57), Reportes de nómina y Auditoría de jornadas: en revisión, sin mergear.** No le falta ninguna parte pedida. Queda la revisión del dueño y la prueba en un teléfono.
   - Bloque «Reportes de nómina» en Reportes: «Vista previa» → `/report/[periodId]`, «Exportar expediente» y «Enviar por correo» (`reports.tsx:303`).
   - Vista previa del periodo con la sección Auditoría (`app/report/[periodId].tsx:142`, `:155`).
   - Auditoría por jornada (`app/session/[id]/audit.tsx`, `selectSessionAudit` en `src/core/selectors/sessionAudit.ts:224`). Lo que no se guarda sale como «no registrado».

@@ -35,7 +35,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#46** Alta en 5 pasos: Bienvenida, Aviso, Permisos (hasta 3 subpasos con el estado de PermissionsHealthService), Perfil con la tarifa bloqueada y Listo (`app/(onboarding)/_layout.tsx:14`). Verificación: `flow.test.ts`, `PermissionsStep.test.tsx`, `SettingsService.test.ts`.
 
 - **#55** Copia de seguridad cifrada `.dtbackup` en Ajustes, con restauración por reemplazo total y el asiento `BACKUP_RESTORED`. Reportes no crea ni lee copias. Verificación: `backupCodec.test.ts`, `appBackup.test.ts` (cifrado, validación, reemplazo y rollback), `settings.backup.flow.test.tsx`, `backupPlacement.test.ts`.
-- **PR3 (sin mergear)** Bloque «Reportes de nómina» en Reportes (Vista previa, Exportar expediente, Enviar por correo), `/report/[periodId]` reintegrada como vista previa del periodo y Auditoría de jornadas de solo lectura (`selectSessionAudit`, `app/session/[id]/audit.tsx`, sección en la vista previa). Lo que no se guarda sale como «no registrado». Verificación: `sessionAudit.test.ts` (selector y caso de uso), `SessionAuditView.test.tsx`, `payrollReport.flow.test.tsx`, `auditReadOnly.test.ts`.
+- **#57 (PR3, sin mergear)** Bloque «Reportes de nómina» en Reportes (Vista previa, Exportar expediente, Enviar por correo), `/report/[periodId]` reintegrada como vista previa del periodo y Auditoría de jornadas de solo lectura (`selectSessionAudit`, `app/session/[id]/audit.tsx`, sección en la vista previa). Lo que no se guarda sale como «no registrado». Verificación: `sessionAudit.test.ts` (selector y caso de uso), `SessionAuditView.test.tsx`, `payrollReport.flow.test.tsx`, `auditReadOnly.test.ts`.
 
 ### Cambiado
 
