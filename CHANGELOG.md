@@ -67,6 +67,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#51** Se quitan los nombres de proyectos anteriores, se corrige el comentario de `LUNCH_START` en `sessionMachine.ts` y se actualiza el README. Los 4 tests de guarda de los PDF se mantienen.
 - **#54** `PROJECT_STATE.md` con el estado verificado y `CHANGELOG.md` respaldado por evidencia (squash `3cf14e2`, 2026-11-25).
 - **#58** README y CHANGELOG al día con `main` en `fac761c` (`9198eb1`, 2026-11-26).
+- **#63** `README.md:297` (P2 Política v2): el asiento `PAYROLL_POLICY_CHANGED` lo escribe Ajustes al cambiar la política, el multiplicador o las banderas (`src/services/application/intentRouter.ts:213`), no la migración, que nunca lo escribió. Solo documentación, sin cambios de código.
 
 ### Corregido
 
