@@ -72,7 +72,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:268-279`), como confirmó el dueño.
   - «Compartir expediente empleador», `SHARE_EMPLOYER` (`reports.tsx:371`, `app/report/pack/[packId].tsx:138`): usa el correo si hay cliente y si no, la hoja de compartir.
   - Tests: `ReportService.test.ts`, `previewPayrollRange.test.ts`, `generateWeeklyPayroll.test.ts`, `reportPremium.test.ts`, `reportRange.test.ts`.
-- **Ajustes:** perfil, monitoreo, destinos, zona admin con PIN, calendario, retención, soporte y legal (`app/(tabs)/settings.tsx`). Tests: `app/(tabs)/__tests__/settings.flow.test.ts`, `pin.flow.test.ts`, `src/services/runtime/__tests__/pinHash.test.ts`, `pinProvision.test.ts`, `SettingsService.test.ts`.
+- **Ajustes:** perfil, monitoreo, destinos, zona admin con PIN, calendario, retención, soporte y legal (`app/(tabs)/settings.tsx`). Validación en línea de la zona admin y aviso si la zona se cierra con cambios sin guardar (#63). Tests: `settings.admin.flow.test.tsx`, `settingsPolicy.test.ts`, `app/(tabs)/__tests__/settings.flow.test.ts`, `pin.flow.test.ts`, `src/services/runtime/__tests__/pinHash.test.ts`, `pinProvision.test.ts`, `SettingsService.test.ts`.
 - **Destinos:** alta, ficha, radio válido y nombre del lugar desde el GPS (`reverseGeocodePoint`, `src/services/runtime/reverseGeocode.ts`). Tests: `SiteRegistryService.test.ts`, `reverseGeocode.test.ts`, `SiteRadiusField.test.tsx`, `siteRadius.test.ts`. Si la geocodificación falla, el sitio se guarda sin coordenadas y el modal y Hoy avisan (`sites.coordsMissing`, #59, #60; `DailySetupModal.tsx:225`, `app/(tabs)/index.tsx:308-309`).
 - **Cifrado de campos:** AES-GCM, migraciones y pérdida de clave. Tests: `FieldCryptoService.test.ts`, `cryptoMigrations.test.ts`, `keyLoss.test.ts`.
 - **Idioma es/en:** paridad de claves y cambio en el acto. Tests: `src/i18n/__tests__/i18n.test.ts`, `languageSwitch.test.tsx`, `setLanguage.test.ts`, `hardcodedCopy.test.ts`.
@@ -88,7 +88,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
-- Nada en curso después del #60.
+- **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Abierto, sin fusionar. Falta probarlo en un teléfono.
 
 ### Pendiente / Planificado
 - **iOS:**
@@ -146,6 +146,8 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - Doble tiempo y séptimo día vienen **apagados** por defecto (`DEFAULT_LEGAL_FLAGS`). Hecho en código y con tests (`caRules.test.ts`, R03 y R04, por defecto y activados). Un valor que la empresa ya guardó no se altera.
   - Los permisos de almacenamiento no se bloquean.
 - **Por confirmar:**
-  - **Empresas que ya guardaron las banderas.** Si el operario cambió antes cualquier chip legal de Ajustes, `settings.tsx:451` guardó las tres banderas, incluidos los `true` que entonces venían por defecto. Esos valores se respetan y no se reescriben. Para apagarlas hay que hacerlo en Ajustes → Calendario laboral, o borrar la base de prueba. Los expedientes ya sellados no cambian. Los periodos sin sellar de una empresa sin banderas guardadas se recalculan sin doble tiempo ni séptimo día.
+  - **Empresas que ya guardaron las banderas.** Si el operario cambió antes cualquier chip legal de Ajustes, `applyFlag` (`app/(tabs)/settings.tsx:459` en `a975910`; esta línea citaba `:451`, que es `askFlag`) guardó las tres banderas, incluidos los `true` que entonces venían por defecto. Esos valores se respetan y no se reescriben. Para apagarlas hay que hacerlo en Ajustes → Calendario laboral, o borrar la base de prueba. Los expedientes ya sellados no cambian. Los periodos sin sellar de una empresa sin banderas guardadas se recalculan sin doble tiempo ni séptimo día. Desde el #63 se guarda solo la bandera tocada (SS-3).
+  - **Cambio de política de nómina (SS-1, #63).** Comportamiento documentado y que se mantiene: las semanas sin sellar se recalculan con la política vigente y los expedientes sellados conservan la suya (spec v1.3 §5.2 N3 citada en `EvidencePackService.ts:447-448` y `PayrollEngineService.ts:381-395`; `README.md:297`). El #63 solo añade el asiento `PAYROLL_POLICY_CHANGED`. Queda para Byron: al resellar o reemitir un periodo ya sellado se conserva su `policyId`, pero el multiplicador y las banderas son los vigentes (`PayrollEngineService.ts:330`, «Los multiplicadores siguen siendo los de la empresa»). La documentación no dice si eso debe congelarse; no se congela sin esa decisión.
+  - **`README.md:297` dice que «la migración deja el asiento `PAYROLL_POLICY_CHANGED`».** En `a975910` ningún código lo escribía (solo el tipo y las etiquetas). Desde el #63 lo escribe Ajustes; la migración sigue sin escribirlo.
   - `AGENT.md` §1–§3 siguen como plantilla, con los campos entre corchetes sin rellenar.
   - Si la etiqueta `v0.1.0` cuenta como versión entregada (ver §3).
