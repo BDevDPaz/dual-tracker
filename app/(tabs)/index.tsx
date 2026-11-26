@@ -83,6 +83,8 @@ export default function TodayScreen() {
   const lunchPrompt = selectLunchPrompt(state, nowMs);
   const lastToday = selectLastSessionToday(state, nowMs);
   const target = selectCurrentTargetSite(state);
+
+  const targetNeedsCoordsWarning = !!active && !!target && (target.targetLat == null || target.targetLon == null);
   const sites = selectSites(state);
   const health = selectSystemHealth(state);
   const healthRaw = selectHealth(state);
@@ -303,6 +305,9 @@ export default function TodayScreen() {
           </Pressable>
         ) : null}
         {active?.bookkeeping.compliance?.manualArrival ? <Banner tone="info" message={t("today.manualArrival")} /> : null}
+        {targetNeedsCoordsWarning ? (
+          <Banner tone="warning" message={t("sites.coordsMissing")} onPress={() => (target ? router.push(`/sites/${target.id}`) : router.push("/sites"))} />
+        ) : null}
 
         {noSitesNoSession ? (
           <EmptyState
