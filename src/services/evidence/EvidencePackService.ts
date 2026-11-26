@@ -13,7 +13,7 @@
  *    el policyId vigente del periodo.
  */
 import * as Crypto from "expo-crypto";
-import type { EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, SealWarning, SessionRecord } from "../../core/contracts";
+import type { CompanyPolicy, EvidencePack, EvidenceSummary, IntentResult, PackManifest, PayrollStatement, PayrollTerms, SealWarning, SessionRecord } from "../../core/contracts";
 import type { ReportAnnexOptions } from "./reportTemplates";
 import { APP_VERSION } from "../../constants/app";
 import { DOCUMENT_VERSION, PACK_MANIFEST_VERSION } from "../../core/contracts";
@@ -28,6 +28,7 @@ import { coverageForSession } from "../../core/monitoringCoverage";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { compareSessionsToLedger } from "../domain/sessionReplay";
 import { PayrollEngineService } from "../domain/PayrollEngineService";
+import { companyWithTerms, isPayrollTerms, termsFromPack } from "../domain/payrollTerms";
 import { exportSessionTransits } from "../domain/transitExport";
 import { LoggingService } from "../persistence/LoggingService";
 import { OfflineQueueService } from "../persistence/OfflineQueueService";
@@ -182,7 +183,8 @@ export async function computeContentHash(statement: PayrollStatement, evidence: 
 /**
  * Cuerpo que entra en packHash. La firma y `files` quedan fuera: packHash no
  * cambia de significado al firmar. v1 sin versión ni contentHash; v2 añade
- * ambos; v3+ añade sealWarnings. `documentVersion`, `documentTheme` y
+ * ambos; v3+ añade sealWarnings; v5 la identidad del build y las zonas; v6
+ * `payrollTerms`. `documentVersion`, `documentTheme` y
  * `documentLocale` no entran: son la plantilla del PDF, no el sello.
  */
 export function packHashBody(m: Omit<PackManifest, "packHash" | "files" | "signature">): Record<string, unknown> {
@@ -202,13 +204,17 @@ export function packHashBody(m: Omit<PackManifest, "packHash" | "files" | "signa
   if ((m.manifestVersion ?? 0) < 3) return v2;
   const v3 = { ...v2, sealWarnings: m.sealWarnings ?? [] };
   if ((m.manifestVersion ?? 0) < 5) return v3;
-  return {
+  const v5 = {
     ...v3,
     appVersion: m.appVersion ?? null,
     versionCode: m.versionCode ?? null,
     gitCommit: m.gitCommit ?? null,
     sessionTimeZones: m.sessionTimeZones ?? [],
   };
+  if ((m.manifestVersion ?? 0) < 6) return v5;
+  // v6: los términos determinan los importes, así que el sello los cubre.
+  // Quitarlos o alterarlos cambia el cuerpo y packHash deja de cuadrar.
+  return { ...v5, payrollTerms: m.payrollTerms ?? null };
 }
 
 /** packHash = SHA-256 del cuerpo canónico. */
@@ -263,21 +269,36 @@ async function latestPackForPeriod(periodStart: number, periodEnd: number): Prom
 /** Contenido que sellaría el periodo ahora, sin escribir ni generar PDF. */
 async function assemblePeriod(input: { periodStart: number; periodEnd: number }): Promise<
   | { ok: false; code: SealRejection | string; detail?: string }
-  | { ok: true; statement: PayrollStatement; evidence: EvidenceSummary; contentHash: string; included: SessionRecord[] }
+  | {
+      ok: true;
+      statement: PayrollStatement;
+      evidence: EvidenceSummary;
+      contentHash: string;
+      included: SessionRecord[];
+      /** Términos con los que se calculó (v6): heredados del pack previo o vigentes. */
+      payrollTerms: PayrollTerms;
+      /** Empresa vigente con esos términos aplicados (la que lee el PDF). */
+      company: CompanyPolicy;
+    }
 > {
   const settings = await SettingsService.load();
   const nowMs = TimeAuthorityService.now();
   const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
   const sessions = await PersistenceService.listSessions({ from: input.periodStart, to: input.periodEnd, overlapping: true });
-  const policyId = (await PersistenceService.packPolicyForPeriod(input.periodStart, input.periodEnd)) ?? settings.company.overtimePolicyId;
+  // Pack previo = el más reciente del periodo (policyForPeriod). Conserva su
+  // política y, si es v6, su multiplicador y sus banderas (decisión 2026-11-26).
+  const previous = await PersistenceService.packBasisForPeriod(input.periodStart, input.periodEnd);
+  const policyId = previous?.policyId ?? settings.company.overtimePolicyId;
+  const { terms } = termsFromPack(previous, settings.company);
+  const company = companyWithTerms(settings.company, terms);
   const statement = PayrollEngineService.buildStatement({
     segmentedLedgerTimestamps,
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
     sessions,
     // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
-    rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
-    company: settings.company,
+    rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: terms.overtimeMultiplier },
+    company,
     policyId,
     nowMs,
   });
@@ -318,7 +339,7 @@ async function assemblePeriod(input: { periodStart: number; periodEnd: number })
     ledger: finding.ledger,
   }));
   const contentHash = await computeContentHash(statement, evidence);
-  return { ok: true, statement, evidence, contentHash, included };
+  return { ok: true, statement, evidence, contentHash, included, payrollTerms: terms, company };
 }
 
 export interface SealFreshness {
@@ -382,7 +403,8 @@ async function exportPdf(pack: EvidencePack, role: "EMPLOYEE_RECEIPT" | "EMPLOYE
       sessions,
       sites,
       profile: settings.profile,
-      company: settings.company,
+      // v6: el PDF con anexos pinta las banderas del sello; v1–v5, las vigentes.
+      company: isPayrollTerms(pack.manifest.payrollTerms) ? companyWithTerms(settings.company, pack.manifest.payrollTerms) : settings.company,
       annex,
       ledger,
       ...(powerOffs.length ? { powerOffs } : {}),
@@ -445,10 +467,11 @@ export const EvidencePackService = {
       if (!chain.valid) await IntegrityLedgerService.recordIncident(chain, nowMs);
       const ledgerIncident = await IntegrityLedgerService.getIncident();
       // Política por periodo (spec v1.3 §5.2 N3): un resello/reemisión de un periodo
-      // sellado con v1 recalcula con v1; los no sellados usan la vigente.
+      // sellado con v1 recalcula con v1; los no sellados usan la vigente. Igual con
+      // el multiplicador y las banderas si el pack previo es v6 (payrollTerms).
       const assembled = await assemblePeriod(input);
       if (!assembled.ok) return assembled;
-      const { statement, evidence, contentHash, included } = assembled;
+      const { statement, evidence, contentHash, included, payrollTerms } = assembled;
       // No sellar tiempo que todavía no ha pasado. El techo es el mismo que
       // el de la escritura (hora de confianza + tolerancia), así que un cierre
       // en el minuto actual sigue pudiendo sellarse. No cambia el hash.
@@ -503,6 +526,7 @@ export const EvidencePackService = {
         versionCode,
         gitCommit,
         sessionTimeZones,
+        payrollTerms,
       };
       const body = packHashBody(unsigned);
       const packHash = await computePackHash(unsigned);
@@ -530,6 +554,7 @@ export const EvidencePackService = {
         versionCode,
         gitCommit,
         sessionTimeZones,
+        payrollTerms,
         files: [],
       };
       const sealedStatement = { ...statement, packHash };
@@ -543,7 +568,8 @@ export const EvidencePackService = {
         sessions: included,
         sites: await PersistenceService.listSites({ includeArchived: true }),
         profile: settings.profile,
-        company: settings.company,
+        // Las banderas que pinta el PDF son las del sello (v6), no las vigentes.
+        company: assembled.company,
         ...(powerOffs.length ? { powerOffs } : {}),
         ...(siteMoves.length ? { siteMoves } : {}),
       };

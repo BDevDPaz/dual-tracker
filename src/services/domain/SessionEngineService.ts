@@ -56,6 +56,7 @@ import { ConcurrencyGuardService, MutexBusyError } from "./ConcurrencyGuardServi
 import { DualDisclosureService } from "./DualDisclosureService";
 import { IntegrityLedgerService } from "./IntegrityLedgerService";
 import { PayrollEngineService, policyForPeriod } from "./PayrollEngineService";
+import { companyWithTerms, termsFromPack } from "./payrollTerms";
 import { FixedLunchError, FutureTimestampError } from "./sessionTimeGuard";
 import type { EngineEffect, TransitionContext } from "./sessionMachine";
 import { transition } from "./sessionMachine";
@@ -440,11 +441,14 @@ export const SessionEngineService = {
         const sStart = saved.actualStartAtMs ?? saved.declaredStartAtMs;
         const pStart = workweekStartAt(sStart, history);
         const pEnd = workweekEndAt(sStart, history);
-        const periodPolicy = (await PersistenceService.packPolicyForPeriod(pStart, pEnd)) ?? settings.company.overtimePolicyId;
+        // Y los términos del periodo: los del pack previo si es v6 (payrollTerms.ts).
+        const previous = await PersistenceService.packBasisForPeriod(pStart, pEnd);
+        const periodPolicy = previous?.policyId ?? settings.company.overtimePolicyId;
+        const { terms: periodTerms } = termsFromPack(previous, settings.company);
         const preview = PayrollEngineService.previewSession(
           saved,
-          { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
-          settings.company,
+          { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: periodTerms.overtimeMultiplier },
+          companyWithTerms(settings.company, periodTerms),
           nowMs,
           periodPolicy,
         );

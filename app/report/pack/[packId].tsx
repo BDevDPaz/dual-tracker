@@ -13,7 +13,7 @@ import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useTheme } from "../../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectCalendarHistory, selectPackById, selectPackShared, selectSessionPortion } from "../../../src/core/selectors";
+import { selectCalendarHistory, selectPackById, selectPackShared, selectPackTermsFrozen, selectSessionPortion } from "../../../src/core/selectors";
 import { t } from "../../../src/i18n";
 import { tPackFileRole } from "../../../src/i18n/labels";
 import { formatCurrency, formatDate, formatDateTime, formatRange, weekPeriodId } from "../../../src/utils/dateUtils";
@@ -61,6 +61,7 @@ export default function PackScreen() {
       {!m.certified ? <ScreenStatusBanner status="conflict" message={t("report.uncertified")} /> : null}
       {m.sealedAtMs <= m.periodEnd ? <ScreenStatusBanner status="degraded" message={t("reports.packEarly")} /> : null}
       {m.sealWarnings?.length ? <ScreenStatusBanner status="degraded" message={t("fieldCrypto.sealWarning")} /> : null}
+      {!selectPackTermsFrozen(pack) ? <ScreenStatusBanner status="degraded" message={t("report.termsNotFrozen")} /> : null}
       <Card style={styles.card}>
         <Text style={[styles.label, { color: colors.text.secondary }]}>{t("report.hash")}</Text>
         <Text selectable style={[styles.hash, { color: colors.primary }]}>

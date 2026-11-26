@@ -33,6 +33,7 @@ import { type DayLunch, lunchOnDay, lunchPromptForClose, payrollDayKey } from ".
 import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
 import { restoreClippedTransits } from "../../services/domain/sessionMachine";
 import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
+import { companyWithTerms, isPayrollTerms, termsForPeriod, type PeriodTerms } from "../../services/domain/payrollTerms";
 import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
 import { computeSegmentMinutes } from "../../services/domain/segmentation";
 import { checkedInSiteIds, lastVisitAtMs } from "../../services/domain/siteVisits";
@@ -191,13 +192,9 @@ export function sessionSiteLabel(session: SessionRecord, sitesById: Record<strin
 }
 
 export const selectComputedSessions = (s: DualTrackerState, nowMs: number, list?: SessionRecord[]): ComputedSession[] => {
-  // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
-  const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
   return (list ?? selectVisibleSessions(s)).map((session) => ({
     session,
-    preview: session.bookkeeping.cancelled
-      ? null
-      : PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, selectPolicyForSession(s, session)),
+    preview: session.bookkeeping.cancelled ? null : previewWithPeriodTerms(s, session, session, nowMs),
     site: session.siteId !== null ? s.sites.byId[String(session.siteId)] ?? null : null,
     siteLabel: sessionSiteLabel(session, s.sites.byId),
   }));
@@ -397,15 +394,17 @@ export function selectPeriodSessionRows(s: DualTrackerState, periodStart: number
   }));
   const policyId = policyForPeriod(packs, periodStart, periodEnd, s.settings.company.overtimePolicyId);
   const split = getPayrollPolicy(policyId).segmentation === "WORKDAY";
+  // Mismos términos que el sello: los del pack previo si es v6 (payrollTerms.ts).
+  const { terms } = selectPeriodTerms(s, periodStart, periodEnd);
   // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
-  const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
+  const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: terms.overtimeMultiplier };
   const visible = selectVisibleSessions(s);
   const statement = PayrollEngineService.buildStatement({
     periodStart,
     periodEnd,
     sessions: visible,
     rates,
-    company: s.settings.company,
+    company: companyWithTerms(s.settings.company, terms),
     policyId,
     nowMs,
   });
@@ -543,8 +542,6 @@ export interface ConflictView {
 }
 
 export const selectConflictViews = (s: DualTrackerState, nowMs: number): ConflictView[] => {
-  // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
-  const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: s.settings.company.overtimeMultiplier };
   return selectConflictSessions(s).map((session) => {
     const o = session.bookkeeping.original;
     const factB = { startAtMs: session.actualStartAtMs ?? session.declaredStartAtMs, endAtMs: session.endAtMs };
@@ -552,8 +549,7 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
     let diffMinutes: number | null = null;
     let payrollImpact: number | null = null;
     if (factA) {
-      const pol = selectPolicyForSession(s, session);
-      const b = PayrollEngineService.previewSession(session, rates, s.settings.company, nowMs, pol);
+      const b = previewWithPeriodTerms(s, session, session, nowMs);
       const asA: SessionRecord = {
         ...session,
         declaredStartAtMs: o!.declaredStartAtMs,
@@ -561,7 +557,7 @@ export const selectConflictViews = (s: DualTrackerState, nowMs: number): Conflic
         endAtMs: o!.endAtMs,
         transitSegments: restoreClippedTransits(session.transitSegments),
       };
-      const a = PayrollEngineService.previewSession(asA, rates, s.settings.company, nowMs, pol);
+      const a = previewWithPeriodTerms(s, session, asA, nowMs);
       if (a && b) {
         diffMinutes = b.netMinutes - a.netMinutes;
         payrollImpact = Math.round((b.grossEstimate - a.grossEstimate) * 100) / 100;
@@ -634,6 +630,42 @@ export function selectPolicyForSession(s: DualTrackerState, session: SessionReco
   const start = session.actualStartAtMs ?? session.declaredStartAtMs;
   const packs = selectPacks(s).map((p) => ({ periodStart: p.manifest.periodStart, periodEnd: p.manifest.periodEnd, policyId: p.statement.policyId, createdAtMs: p.createdAtMs }));
   return policyForPeriod(packs, workweekStartAt(start, history), workweekEndAt(start, history), s.settings.company.overtimePolicyId);
+}
+
+/**
+ * Términos de nómina del periodo (multiplicador y banderas): los del pack más
+ * reciente del periodo si es v6; si no hay pack, los vigentes (`CURRENT`); si
+ * el pack es v1–v5, los vigentes con `UNFROZEN_PACK` (aviso «términos no
+ * congelados»). Mismo criterio de pack que policyForPeriod.
+ */
+export function selectPeriodTerms(s: DualTrackerState, periodStart: number, periodEnd: number): PeriodTerms {
+  const packs = selectPacks(s).map((p) => ({
+    periodStart: p.manifest.periodStart,
+    periodEnd: p.manifest.periodEnd,
+    createdAtMs: p.createdAtMs,
+    payrollTerms: p.manifest.payrollTerms,
+  }));
+  return termsForPeriod(packs, periodStart, periodEnd, s.settings.company);
+}
+
+/** true si el pack congela sus términos de nómina (v6). false en v1–v5: aviso «términos no congelados». */
+export function selectPackTermsFrozen(pack: Pick<EvidencePack, "manifest">): boolean {
+  return isPayrollTerms(pack.manifest.payrollTerms);
+}
+
+/** Términos del periodo que contiene la sesión (semana de su inicio, como selectPolicyForSession). */
+export function selectTermsForSession(s: DualTrackerState, session: SessionRecord): PeriodTerms {
+  const history = companyCalendar(s.settings.company);
+  const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+  return selectPeriodTerms(s, workweekStartAt(start, history), workweekEndAt(start, history));
+}
+
+/** previewSession con la política y los términos del periodo de `anchor`. */
+function previewWithPeriodTerms(s: DualTrackerState, anchor: SessionRecord, session: SessionRecord, nowMs: number) {
+  const { terms } = selectTermsForSession(s, anchor);
+  // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
+  const rates = { hourlyRate: s.settings.profile.hourlyRate, overtimeMultiplier: terms.overtimeMultiplier };
+  return PayrollEngineService.previewSession(session, rates, companyWithTerms(s.settings.company, terms), nowMs, selectPolicyForSession(s, anchor));
 }
 
 // [STRIPPED 75 bytes]

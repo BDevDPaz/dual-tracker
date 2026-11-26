@@ -24,6 +24,7 @@ import {
   selectPacks,
   selectPeriodAuditRows,
   selectPeriodSessionRows,
+  selectPeriodTerms,
   selectSessionAudit,
 } from "../../src/core/selectors";
 import { t, tLineKind, tWarning } from "../../src/i18n";
@@ -109,6 +110,9 @@ export default function PeriodStatementScreen() {
       ) : null}
       {st.integrityRollup.hasConflict ? (
         <ScreenStatusBanner status="conflict" message={t("reports.conflictGate")} onPress={() => router.push("/system/conflict")} />
+      ) : null}
+      {selectPeriodTerms(state, range.start, range.end).source === "UNFROZEN_PACK" ? (
+        <ScreenStatusBanner status="degraded" message={t("report.termsNotFrozen")} />
       ) : null}
 
       <Card style={styles.card}>

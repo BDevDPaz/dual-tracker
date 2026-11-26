@@ -607,6 +607,7 @@ export const en: Dictionary = {
     name: "Name",
     period: "Period",
     totalHours: "Total hours: {hours}",
+    termsNotFrozen: "Terms not frozen: this pack was sealed before the overtime multiplier and legal flags were stored. A new seal for this week uses the current values from Settings.",
     copyHashA11y: "Copy verification code ending in {hash}",
     hashCopied: "Code copied · …{hash}",
     annexTitle: "Annexes when sharing",
