@@ -4,7 +4,7 @@
  */
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { CREATE_TABLES_SQL } from "../../../persistence/schema";
+import { CREATE_TABLES_SQL, SCHEMA_VERSION } from "../../../persistence/schema";
 import { getWeekEnd, getWeekStart } from "../../../../utils/dateUtils";
 import { IntegrityLedgerService } from "../../../domain/IntegrityLedgerService";
 import { FieldCryptoService } from "../../../persistence/FieldCryptoService";
@@ -18,6 +18,7 @@ import { generateWeeklyPayroll } from "../generateWeeklyPayroll";
 import {
   BackupPayload,
   __resetBackupImportForTests,
+  confirmBackupSaved,
   exportAppBackup,
   importAppBackup,
   previewBackupImport,
@@ -87,7 +88,7 @@ async function payloadOf(): Promise<BackupPayload> {
 beforeEach(() => __resetBackupImportForTests());
 
 describe("copia de seguridad: exportar", () => {
-  test("crea un .dtbackup cifrado, abre compartir y guarda la fecha de la última copia", async () => {
+  test("crea un .dtbackup cifrado, abre compartir y la fecha de la última copia espera a la confirmación (TP-8)", async () => {
     await seedPhone();
     expect((await readBackupStatus()).lastCreatedAtMs).toBeNull();
     const uri = await exportFile();
@@ -97,7 +98,44 @@ describe("copia de seguridad: exportar", () => {
     expect(text).not.toContain("maceta");
     expect(text).not.toContain("Sitio A");
     expect(text).not.toContain("rrhh@");
-    expect((await readBackupStatus()).lastCreatedAtMs).toBe(time.now());
+    // Compartir no dice si el archivo se guardó: todavía no hay «Última copia».
+    expect((await readBackupStatus()).lastCreatedAtMs).toBeNull();
+  });
+
+  test("TP-8: «Última copia» solo se anota cuando la persona confirma que la guardó", async () => {
+    await seedPhone();
+    const at = time.now();
+    const r = await exportAppBackup(PASS);
+    expect(r.ok).toBe(true);
+    const token = (r.ok && r.data!.token) as string;
+    expect(await confirmBackupSaved("otro-token")).toEqual({ ok: false, code: "BACKUP_SAVE_EXPIRED" });
+    expect((await readBackupStatus()).lastCreatedAtMs).toBeNull();
+    time.travel(60_000);
+    expect(await confirmBackupSaved(token)).toEqual({ ok: true });
+    expect((await readBackupStatus()).lastCreatedAtMs).toBe(at);
+    // El token es de un solo uso.
+    expect(await confirmBackupSaved(token)).toEqual({ ok: false, code: "BACKUP_SAVE_EXPIRED" });
+  });
+
+  test("TP-8: si dice que no la guardó, o la hoja no se puede abrir, no se anota nada", async () => {
+    await seedPhone();
+    const r = await exportAppBackup(PASS);
+    expect(r.ok).toBe(true);
+    expect(await routeIntent({ type: "DISCARD_BACKUP_EXPORT" })).toEqual({ ok: true });
+    expect(await confirmBackupSaved((r.ok && r.data!.token) as string)).toEqual({ ok: false, code: "BACKUP_SAVE_EXPIRED" });
+    expect((await readBackupStatus()).lastCreatedAtMs).toBeNull();
+    const unavailable = jest.spyOn(Sharing, "isAvailableAsync").mockResolvedValueOnce(false);
+    expect(await exportAppBackup(PASS)).toEqual({ ok: false, code: "SHARE_UNAVAILABLE" });
+    unavailable.mockRestore();
+    expect((await readBackupStatus()).lastCreatedAtMs).toBeNull();
+  });
+
+  test("TP-8: la confirmación caduca a los 10 minutos", async () => {
+    await seedPhone();
+    const r = await exportAppBackup(PASS);
+    time.travel(11 * 60_000);
+    expect(await confirmBackupSaved((r.ok && r.data!.token) as string)).toEqual({ ok: false, code: "BACKUP_SAVE_EXPIRED" });
+    expect((await readBackupStatus()).lastCreatedAtMs).toBeNull();
   });
 
   test("con jornada abierta no se crea la copia", async () => {
@@ -208,6 +246,7 @@ describe("copia de seguridad: validación (no escribe nada)", () => {
     await seedPhone();
     const p = await payloadOf();
     expect(await validateBackupPayload({ ...p, data: { ...p.data, schemaVersion: 99 } })).toEqual({ ok: false, code: "BACKUP_NEWER_SCHEMA" });
+    expect(await validateBackupPayload({ ...p, data: { ...p.data, schemaVersion: SCHEMA_VERSION - 1 } })).toEqual({ ok: false, code: "BACKUP_OLDER_SCHEMA" });
     const extra = { ...p.data, tables: { ...p.data.tables, sessions: p.data.tables.sessions.map((s) => ({ ...s, "x; DROP TABLE sessions": 1 })) } };
     expect(await validateBackupPayload({ ...p, data: extra })).toEqual({ ok: false, code: "BACKUP_INVALID" });
     const open = { ...p.data, tables: { ...p.data.tables, sessions: p.data.tables.sessions.map((s) => ({ ...s, domain_status: "ACTIVA" })) } };
@@ -237,6 +276,21 @@ describe("copia de seguridad: validación (no escribe nada)", () => {
     fs.__files.set("file:///tmp/dt/cache/manual.dtbackup", text);
     pick("file:///tmp/dt/cache/manual.dtbackup");
     expect((await previewBackupImport(PASS)).ok).toBe(true);
+  });
+
+  test("TP-9: una copia de un esquema anterior se rechaza con mensaje claro y no se escribe nada", async () => {
+    await seedPhone();
+    const p = await payloadOf();
+    const old = { ...p, data: { ...p.data, schemaVersion: SCHEMA_VERSION - 1 } };
+    const text = await encryptBackup(JSON.stringify(old), PASS, { scrypt: { N: 2 ** 10, r: 8, p: 1 } });
+    fs.__files.set("file:///tmp/dt/cache/old.dtbackup", text);
+    pick("file:///tmp/dt/cache/old.dtbackup");
+    const ledgerBefore = (await PersistenceService.listLedger()).length;
+    expect(await previewBackupImport(PASS)).toEqual({ ok: false, code: "BACKUP_OLDER_SCHEMA" });
+    expect((await PersistenceService.listLedger()).length).toBe(ledgerBefore);
+    const { MICROCOPY_REJECTIONS } = require("../../../../i18n/microcopy") as typeof import("../../../../i18n/microcopy");
+    expect(MICROCOPY_REJECTIONS.es.BACKUP_OLDER_SCHEMA).toMatch(/No se restauró nada/);
+    expect(MICROCOPY_REJECTIONS.en.BACKUP_OLDER_SCHEMA).toMatch(/Nothing was restored/);
   });
 
   test("con PIN de administrador y zona bloqueada → ADMIN_LOCKED", async () => {

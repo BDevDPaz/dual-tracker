@@ -5,7 +5,9 @@
  *
  *  - Estado real: fecha de la última copia creada en este teléfono y lo que
  *    hay ahora (jornadas, destinos, expedientes).
- *  - Crear: contraseña ×2 → EXPORT_BACKUP (hoja de compartir).
+ *  - Crear: contraseña ×2 → EXPORT_BACKUP (hoja de compartir) → «¿Guardaste
+ *    la copia?». Compartir no informa del destino (expo-sharing): «Última
+ *    copia» solo cambia con CONFIRM_BACKUP_SAVED.
  *  - Restaurar: contraseña → PREVIEW_BACKUP_IMPORT (selector del sistema,
  *    descifra y valida; no escribe) → resumen → confirmación destructiva →
  *    IMPORT_BACKUP. Con PIN de administración, exige la zona desbloqueada.
@@ -43,12 +45,15 @@ export function BackupSection() {
   const { busy: working, run } = useBusyAction();
   // Restaurar tiene su propio anti-doble toque: confirmar justo después de revisar no queda bloqueado.
   const { busy: restoring, run: runRestore } = useBusyAction();
-  const busy = working || restoring;
+  // Confirmar que la copia se guardó tampoco espera al anti-doble toque de «Crear».
+  const { busy: confirmingSave, run: runConfirm } = useBusyAction();
+  const busy = working || restoring || confirmingSave;
   const [pass, setPass] = useState("");
   const [repeat, setRepeat] = useState("");
   const [restorePass, setRestorePass] = useState("");
   const [preview, setPreview] = useState<{ token: string; summary: Summary } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [savedToken, setSavedToken] = useState<string | null>(null);
 
   const open = selectActiveSession(state) !== null;
   const admin = selectAdmin(state);
@@ -69,10 +74,27 @@ export function BackupSection() {
       if (res.ok) {
         setPass("");
         setRepeat("");
-        status.reload();
+        const token = (res.data as { token?: unknown } | undefined)?.token;
+        if (typeof token === "string") setSavedToken(token);
       }
       return res;
     });
+
+  const confirmSaved = () => {
+    const token = savedToken;
+    if (!token) return;
+    void runConfirm(async () => {
+      const res = await emit({ type: "CONFIRM_BACKUP_SAVED", token });
+      setSavedToken(null);
+      if (res.ok) status.reload();
+      return res;
+    });
+  };
+
+  const notSaved = () => {
+    setSavedToken(null);
+    void emit({ type: "DISCARD_BACKUP_EXPORT" });
+  };
 
   const pick = () =>
     void run(async () => {
@@ -188,6 +210,17 @@ export function BackupSection() {
           <Button label={t("settings.backup.pick")} variant="secondary" size="sm" iconName="folder-open-outline" disabled={!canPick} isLoading={busy} onPress={pick} testID="backup-pick" />
         </>
       )}
+      <ConfirmActionModal
+        visible={savedToken !== null}
+        title={t("settings.backup.savedTitle")}
+        description={t("settings.backup.savedBody")}
+        confirmLabel={t("settings.backup.savedYes")}
+        cancelLabel={t("settings.backup.savedNo")}
+        tone="info"
+        busy={busy}
+        onCancel={notSaved}
+        onConfirm={confirmSaved}
+      />
       <ConfirmActionModal
         visible={confirming}
         title={t("settings.backup.confirmTitle")}

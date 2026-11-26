@@ -61,8 +61,35 @@ describe("Ajustes · copia de seguridad", () => {
     await act(async () => {
       fireEvent.press(screen.getByTestId("backup-create"));
     });
+    // TP-8: compartir no confirma el destino; se pregunta antes de anotar la copia.
+    expect(await screen.findByText(t("settings.backup.savedTitle"))).toBeTruthy();
+    expect(screen.getByTestId("backup-last").props.children).toBe(t("settings.backup.never"));
+    await act(async () => {
+      fireEvent.press(screen.getByText(t("settings.backup.savedYes")));
+    });
     await waitFor(() => expect(screen.getByTestId("backup-last").props.children).toMatch(/^Última copia creada: /));
     expect((await PersistenceService.getKv<{ atMs: number }>("backup.last_created"))?.atMs).toBe(time.now());
+    expect(Store.getState().feedback.pending.some((f) => f.code === "BACKUP_CREATED")).toBe(true);
+  });
+
+  test("TP-8: si la copia no se guardó, «Última copia» no cambia", async () => {
+    await closedDay();
+    await hydrate();
+    renderSection();
+    expect(await screen.findByText(t("settings.backup.never"))).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId("backup-pass"), PASS);
+    fireEvent.changeText(screen.getByTestId("backup-pass-repeat"), PASS);
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("backup-create"));
+    });
+    expect(await screen.findByText(t("settings.backup.savedTitle"))).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByText(t("settings.backup.savedNo")));
+    });
+    await waitFor(() => expect(screen.queryByText(t("settings.backup.savedTitle"))).toBeNull());
+    expect(screen.getByTestId("backup-last").props.children).toBe(t("settings.backup.never"));
+    expect(await PersistenceService.getKv("backup.last_created")).toBeNull();
+    expect(Store.getState().feedback.pending.some((f) => f.code === "BACKUP_CREATED")).toBe(false);
   });
 
   test("con jornada abierta se explica por qué no se puede y no se crea", async () => {
