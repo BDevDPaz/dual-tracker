@@ -3,9 +3,10 @@
  * Reportes y la vista previa del periodo (/report/[periodId]):
  *  - «Vista previa» abre /report/[periodId] (solo en Reportes).
  *  - «Exportar expediente» = EXPORT_PACK: comparte el comprobante del
- *    empleado y sella antes si la semana no tiene expediente (como hoy).
- *  - «Enviar por correo» = SHARE_EMPLOYER del último expediente sellado
- *    (expediente del empleador + manifiesto, como hoy). Sin expediente, se
+ *    empleado del pack vigente; sella antes si la semana no tiene expediente
+ *    o el último está desactualizado, y lo reemite si le faltan los PDF.
+ *  - «Enviar por correo» = SHARE_EMPLOYER con `ensureFresh` (expediente del
+ *    empleador + manifiesto del pack vigente, con el mismo criterio). Sin expediente, se
  *    explica que hay que sellar; sin correo de empresa, se avisa.
  * Solo presenta: la vista decide qué emitir. No lee ni escribe .dtbackup.
  */
