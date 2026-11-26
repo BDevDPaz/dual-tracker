@@ -127,6 +127,8 @@ export type IntentRejection =
   | "SITE_REQUIRED"
   | "SITE_NOT_FOUND"
   | "NOTE_REQUIRED"
+  /** COMPLETE_ONBOARDING sin nombre (mínimo 2 caracteres, como Perfil). */
+  | "NAME_REQUIRED"
   | "INVALID_TIMES"
   /** Inicio, fin, almuerzo o traslado posterior a la hora de confianza. */
   | "FUTURE_TIME"

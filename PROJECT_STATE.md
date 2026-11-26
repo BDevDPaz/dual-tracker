@@ -33,7 +33,7 @@ Fuente visual en el código: `src/constants/theme.ts` (paletas oscura y clara, I
 
 | Pantalla / Flujo | Wireframe | Mockup | UI en Código | Estados (Normal / Carga / Vacío / Error) | Notas |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| Arranque y gate (`app/index.tsx`, `app/(boot)/hydrating.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / n.a. / [x] | Gate `initialHref` (`app/index.tsx:14`, `src/core/initialRoute.ts:12`). Error de arranque con «Reintentar». |
+| Arranque y gate (`app/index.tsx`, `app/(boot)/hydrating.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / n.a. / [x] | Gate `initialHref` (`app/index.tsx:14`, `src/core/initialRoute.ts:21`). Las rutas operativas (`(tabs)`, `session`, `sites`, `report`, `system`) van en `Stack.Protected` con `canEnterApp` (`src/navigation/RootStack.tsx`, #65): un deep link sin alta o sin aviso vuelve al gate. Error de arranque con «Reintentar». |
 | Alta, 5 pasos (`app/(onboarding)/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | `STEPS` = welcome, disclosure, permissions, profile, ready (`app/(onboarding)/_layout.tsx:14`). Estado de permisos desde PermissionsHealthService. |
 | Hoy (`app/(tabs)/index.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Vacío `EmptyState` (`index.tsx:308`). Banners de conflicto y de degradado (`:237`, `:267`). Banner de aviso si el destino no tiene coordenadas (`index.tsx:308-309`, #60). Única pantalla renderizada en un test (`app/(tabs)/__tests__/cancelDay.confirm.test.tsx`). |
 | Historial (`app/(tabs)/history.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [ ] / [x] / [ ] | Solo se ve el vacío (`history.tsx:194`). No se encontró estado de carga ni de error en el archivo. |
@@ -54,7 +54,7 @@ Fuente visual en el código: `src/constants/theme.ts` (paletas oscura y clara, I
 
 ### Completado y verificado
 Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista está probado en un teléfono.**
-- **Arranque y gate:** hidratación, alta, aviso, conflicto y pestañas, en ese orden (`src/core/initialRoute.ts:12-24`). Test de `initialHref`: `src/services/domain/__tests__/pr2UserFlow12_3.test.ts`.
+- **Arranque y gate:** hidratación, alta, aviso, conflicto y pestañas, en ese orden (`src/core/initialRoute.ts:21-33`). Tests de `initialHref`: `src/core/__tests__/initialRoute.test.ts` (las cinco ramas, #65) y T30 en `src/services/domain/__tests__/pr2UserFlow12_3.test.ts` (conflicto). Deep links frente al gate: `src/navigation/__tests__/deepLinkGate.test.tsx` y `deepLinkGate.conflict.test.tsx` (#65).
 - **Alta y permisos (PHS):** 5 pasos. La ubicación precisa es obligatoria, y el segundo plano, la batería y las notificaciones se pueden omitir con aviso. Tests: `src/onboarding/__tests__/flow.test.ts`, `src/components/blocks/__tests__/PermissionsStep.test.tsx`, `src/services/runtime/__tests__/PermissionsHealthService.test.ts`, `src/utils/__tests__/permissionChain.test.ts`.
 - **Jornada, máquina de estados e intenciones:** iniciar, llegar, pausa, almuerzo, salida, traslado y cierre, por `intentRouter` (`src/services/application/intentRouter.ts`) y `sessionMachine` (`src/services/domain/sessionMachine.ts`). Tests:
   - `app/(tabs)/__tests__/` (checkInOut, closeDay, lunch, cancelDay).
@@ -88,7 +88,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
-- Nada en curso después del #60.
+- **#65 Onboarding** (rama `fix/onboarding-h13-h14`, sin fusionar). H-13: un deep link a las rutas operativas sin alta o sin aviso vuelve al gate (`Stack.Protected` + `canEnterApp`). H-14: `COMPLETE_ONBOARDING` rechaza un nombre de menos de 2 caracteres (`NAME_REQUIRED`) y el aviso vigente sin aceptar (`DISCLOSURE_NOT_ACCEPTED`); Listo vuelve al paso que falta. H-2: un solo botón en los subpasos de segundo plano y notificaciones. H-12: tests de las ramas G2 y G3 del gate. H-10: README. B1–B3, H-1, H-5 y H-7 del onboarding siguen fuera.
 
 ### Pendiente / Planificado
 - **iOS:**

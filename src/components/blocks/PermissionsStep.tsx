@@ -188,16 +188,13 @@ export function PermissionsStep({
           }}
         />
       ) : (
+        // H-2: «Ahora no» y «Continuar» hacían lo mismo. Un solo botón: «Continuar»
+        // si el subpaso ya está activado; si no, «Ahora no», que abre la hoja que
+        // explica qué se pierde (skip / later) antes de seguir.
         <View style={styles.actions}>
           <Button
-            label={t("onboarding.permNotNow")}
-            variant="ghost"
-            disabled={busy}
-            onPress={step === "background" ? leaveBackground : leaveNotifications}
-          />
-          <Button
             testID="onboarding-continue"
-            label={t("common.continue")}
+            label={(step === "background" ? bundleOn : notifGranted) ? t("common.continue") : t("onboarding.permNotNow")}
             disabled={busy}
             onPress={step === "background" ? leaveBackground : leaveNotifications}
           />

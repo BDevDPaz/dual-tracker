@@ -65,6 +65,9 @@ export default function ReadyScreen() {
         },
       });
       if (res.ok) router.replace("/");
+      // H-14: entrada directa (deep link) sin nombre o sin aviso: vuelve al paso que falta.
+      else if (res.code === "NAME_REQUIRED") router.replace("/(onboarding)/profile");
+      else if (res.code === "DISCLOSURE_NOT_ACCEPTED") router.replace("/(onboarding)/disclosure");
       return res;
     });
 

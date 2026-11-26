@@ -70,6 +70,13 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 
 ### Corregido
 
+- **#65** Onboarding (H-13, H-14, H-2, H-12, H-10).
+  - H-13: un deep link (`dualtracker://history`, `/session/1`…) ya no entra sin alta ni aviso. La pila raíz pasa a `src/navigation/RootStack.tsx` y protege `(tabs)`, `session`, `sites`, `report` y `system` con `Stack.Protected` y `canEnterApp` (`src/core/initialRoute.ts`), la misma regla del gate; sin alta o sin aviso, expo-router vuelve al gate. `legal` y `support` siguen abiertos (solo lectura).
+  - H-14: `COMPLETE_ONBOARDING` rechaza un nombre de menos de 2 caracteres (`NAME_REQUIRED`, es y en) y el aviso vigente sin aceptar (`DISCLOSURE_NOT_ACCEPTED`). Listo, abierto sin parámetros, vuelve a Perfil o al aviso.
+  - H-2: en los subpasos de segundo plano y notificaciones, «Ahora no» y «Continuar» hacían lo mismo; queda un solo botón: «Continuar» si ya está activado, «Ahora no» (con la hoja que explica qué se pierde) si no.
+  - H-12: tests de las cinco ramas de `initialHref`, incluidas `needsOnboarding → welcome` y `needsDisclaimer → disclosure`.
+  - H-10: README ya no dice que el tema claro está oculto.
+  - Tests: `src/core/__tests__/initialRoute.test.ts`, `src/navigation/__tests__/deepLinkGate.test.tsx`, `src/navigation/__tests__/deepLinkGate.conflict.test.tsx`.
 - **#60** Aviso sin bloqueo cuando el destino queda sin coordenadas (corrige el silencio documentado en el #59, no el guardado sin coordenadas: la jornada sigue pudiendo abrirse y la llegada se confirma a mano). `routeIntent` expone `geofenceReady` en `START_DAY` (`src/services/application/intentRouter.ts:193-194`) y `geocoded` en `UPSERT_SITE` (`:240`); el modal muestra `sites.coordsMissing` al confirmar (`src/components/modals/DailySetupModal.tsx:225`) y Hoy muestra un `Banner` de aviso derivado del destino objetivo (`app/(tabs)/index.tsx:308-309`). Verificación (Termux, 2026-11-26, rama `fix/sin-destino-aviso` en `14059ba`, merge `e15e530`): `npm run test:domain` 61/61 suites, 500/500 tests; `npm test -- DailySetupModal` 5/5; `npm run typecheck` limpio. La geocodificación real en Android y el ENTER/SALIDA del SO no están probados en un teléfono.
 - **#16** La hora de red ruidosa no quita VALIDADA: hacen falta muestras coherentes y, con ubicación buena, la deriva solo avisa. También el ENTER duplicado, la salida en histéresis y el sello «SELLADO» partido. Lista: `docs/PRUEBA_CAMPO_1.md`.
 - **#17** Corte, almuerzo, rastro, reglas y ENTER de borde. El servicio de ubicación sigue en el almuerzo. Una regla sale como aplicada solo si produjo minutos. Lista: `docs/PRUEBA_CAMPO_2.md`.
