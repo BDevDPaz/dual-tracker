@@ -3,9 +3,10 @@
  * Una sola familia California: > 8 h por día y > 40 h por semana.
  *
  * Doble tiempo > 12 h y séptimo día consecutivo usan los umbrales de esta
- * ficha. El motor los aplica cuando la empresa tiene caDoubleTime /
- * caSeventhDay (por defecto sí). allocate() no se reescribe: solo lee estos
- * campos. v1 atribuye la sesión al día de inicio; v2 la parte por jornada.
+ * ficha. El motor solo los aplica cuando la empresa activa caDoubleTime /
+ * caSeventhDay (por defecto no: DEFAULT_LEGAL_FLAGS en utils/companyPolicy.ts).
+ * allocate() no se reescribe: solo lee estos campos. v1 atribuye la sesión
+ * al día de inicio; v2 la parte por jornada.
  */
 import type { PayrollPolicy } from "../../core/contracts";
 

@@ -5,7 +5,9 @@
  * que mezcle semanas: el sello sigue siendo de una semana.
  * Reporte de nómina (PR3): «Vista previa» abre /report/[periodId] (con
  * varias semanas, una por semana), «Exportar expediente» = EXPORT_PACK y
- * «Enviar por correo» = SHARE_EMPLOYER del último expediente de la semana.
+ * «Enviar por correo» = SHARE_EMPLOYER (ensureFresh) del expediente vigente de
+ * la semana: nunca el pack desactualizado ni uno sin PDF (RR-1, RR-2). Una
+ * semana no certificable sin CONFLICT ofrece «Exportar no certificado» (RR-3).
  */
 import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
@@ -137,13 +139,17 @@ export default function ReportsScreen() {
   const exportWeek = (start: number, end: number) => runExport(() => emit({ type: "EXPORT_PACK", periodStart: start, periodEnd: end }));
   const noCompanyEmail = !settings.company.companyEmail?.trim();
 
-  const seal = (start: number, end: number, allowUncertified: boolean) =>
+  const seal = (start: number, end: number, allowUncertified: boolean, reissue = false) =>
     runSeal(async () => {
-      const res = await emit({ type: "SEAL_PACK", periodStart: start, periodEnd: end, allowUncertified });
+      const res = await emit({ type: "SEAL_PACK", periodStart: start, periodEnd: end, allowUncertified, ...(reissue ? { reissue: true } : {}) });
       const pack = res.ok ? (res.data as EvidencePack | undefined) : undefined;
       if (pack) router.push({ pathname: "/report/pack/[packId]", params: { packId: pack.id, sealed: "1" } });
       return res;
     });
+
+  // RR-2: reemisión de un pack sin PDF (copia restaurada en otro teléfono). Mismo criterio de certificación que el original.
+  const reissue = (p: EvidencePack) =>
+    seal(p.manifest.periodStart, p.manifest.periodEnd, !p.manifest.certified, true);
 
   const closedCount = combined?.sessionIds.length ?? 0;
   const openCount = rows.filter((c) => c.session.domainStatus !== "CERRADA" && c.session.domainStatus !== "CUARENTENA" && !c.session.bookkeeping.cancelled).length;
@@ -304,7 +310,7 @@ export default function ReportsScreen() {
             onPreview={() => openPreview(anchor.start)}
             onExport={() => void exportWeek(anchor.start, anchor.end)}
             onSend={() => {
-              if (latestPack) void runShare(() => emit({ type: "SHARE_EMPLOYER", packId: latestPack.id }));
+              if (latestPack) void runShare(() => emit({ type: "SHARE_EMPLOYER", packId: latestPack.id, ensureFresh: true }));
             }}
             exportDisabled={closedCount === 0 || (anchor.statement.integrityRollup.hasConflict && !latestPack)}
             needsSeal={!latestPack}
@@ -320,6 +326,8 @@ export default function ReportsScreen() {
           if (!single && weekRows.length === 0 && week.statement.sessionIds.length === 0) return null;
           const weekShown = displayStatement(week.statement);
           const weekConflict = week.statement.integrityRollup.hasConflict;
+          // RR-3: no certificable sin CONFLICT (bloqueos de certificación o ruptura del registro).
+          const weekNotCertifiable = !weekConflict && !week.statement.integrityRollup.certified && week.statement.sessionIds.length > 0;
           return (
             <Section key={week.start} title={t("reports.weekOf", { range: formatRange(week.start, week.end) })}>
               {!single ? (
@@ -349,6 +357,19 @@ export default function ReportsScreen() {
                 <View style={styles.gate}>
                   <Button label={t("reports.goToConflict")} variant="secondary" onPress={() => router.push("/system/conflict")} />
                   <Button label={t("reports.exportUncertified")} variant="ghost" disabled={!canSealWeek(week.statement)} onPress={() => void seal(week.start, week.end, true)} />
+                </View>
+              ) : weekNotCertifiable ? (
+                <View style={styles.gate}>
+                  <Text testID={`week-not-certifiable-${week.start}`} style={[styles.hint, { color: colors.text.secondary }]}>
+                    {t("reports.notCertifiableGate")}
+                  </Text>
+                  <Button
+                    testID={`week-export-uncertified-${week.start}`}
+                    label={t("reports.exportUncertified")}
+                    variant="secondary"
+                    disabled={!canSealWeek(week.statement)}
+                    onPress={() => void seal(week.start, week.end, true)}
+                  />
                 </View>
               ) : single ? null : (
                 <Button
@@ -392,11 +413,28 @@ export default function ReportsScreen() {
                 <KeyValueRow label={t("report.sealedAt")} value={formatDate(p.manifest.sealedAtMs)} />
                 <KeyValueRow label={t("report.hash")} value={`${p.manifest.packHash.slice(0, 16)}…`} mono />
                 <KeyValueRow label="" value={t(p.manifest.certified ? "report.certified" : "report.uncertified")} />
+                {!p.employeePdfUri || !p.employerPdfUri ? (
+                  <View style={styles.actions}>
+                    <Text testID={`pack-pdf-missing-${p.id}`} style={[styles.hint, { color: colors.text.secondary }]}>
+                      {t("report.pdfMissing")}
+                    </Text>
+                    <Button
+                      testID={`pack-reissue-${p.id}`}
+                      label={t("report.reissue")}
+                      size="sm"
+                      variant="secondary"
+                      disabled={sealing}
+                      onPress={() => void reissue(p)}
+                    />
+                    <Button label={t("reports.viewManifest")} size="sm" variant="ghost" onPress={() => router.push(`/report/pack/${p.id}`)} />
+                  </View>
+                ) : (
                 <View style={styles.actions}>
                   <Button label={t("reports.shareEmployee")} size="sm" variant="secondary" disabled={sharing} onPress={() => void runShare(() => emit({ type: "SHARE_EMPLOYEE", packId: p.id }))} />
                   <Button label={t("reports.shareEmployer")} size="sm" variant="secondary" disabled={sharing} onPress={() => void runShare(() => emit({ type: "SHARE_EMPLOYER", packId: p.id }))} />
                   <Button label={t("reports.viewManifest")} size="sm" variant="ghost" onPress={() => router.push(`/report/pack/${p.id}`)} />
                 </View>
+                )}
               </Card>
             ))}
           </Section>
