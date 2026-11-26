@@ -22,7 +22,7 @@ La interfaz está en español y en inglés. La estructura sigue las dos propuest
 - **Señales de riesgo, asentadas y sin recortar el pago.** Anomalías, ubicación simulada, integridad del dispositivo, cobertura y `sessionReplay` se escriben como evidencia y no cambian la nómina ni bloquean el fichaje (`anomalyEngine`: no borra hechos, no bloquea fichajes y no toca la nómina). Ubicación, servicio en primer plano y reloj sí pueden impedir VALIDADA (`src/core/healthPolicy.ts`). No reescriben minutos ya calculados. Batería, avisos y la ubicación aproximada de Android 12+ avisan y no bajan el pago.
 - **Español e inglés.** El chip aplica el idioma en el acto. `en.ts` y `supportEn.ts` tienen la misma forma que el español; `src/i18n/__tests__/i18n.test.ts` exige esa paridad.
 
-Este README describe el código de `main` en el commit `9963edd` (2026-11-09); después solo entraron `AGENT.md` y `PROJECT_STATE.md` (2026-11-25), sin cambios de código. Después del rediseño visual (#33) entraron en `main` los PR #38 (Inicio de jornada v1.3), #39, #40, #41 (nombre del producto), #42 (almuerzo una vez por día de nómina), #46 (alta en cinco pasos), #47 (limpieza de exports sin uso), #48 y #49 (ciclos de importación) y #50 (correcciones P1-P10 Obsidian & Porcelain), más commits directos de robustez (ErrorBoundary raíz, StatusBar por tema, +not-found al gate, foco de la hoja de salida, teclado en Fabric). Fuente: `git log --first-parent main`.
+Este README describe el código de `main` en el commit `fac761c` (2026-11-25), con los PR #51–#57 ya mergeados. Después del rediseño visual (#33) entraron en `main` los PR #38 (Inicio de jornada v1.3), #39, #40, #41 (nombre del producto), #42 (almuerzo una vez por día de nómina), #46 (alta en cinco pasos), #47 (limpieza de exports sin uso), #48 y #49 (ciclos de importación) y #50 (correcciones P1-P10 Obsidian & Porcelain), más commits directos de robustez (ErrorBoundary raíz, StatusBar por tema, +not-found al gate, foco de la hoja de salida, teclado en Fabric). Fuente: `git log --first-parent main`.
 
 ---
 
@@ -541,7 +541,7 @@ Capa de presentación, sobre los tokens que ya existían (`ModalShell`, `Operati
 
 ## Hecho después del rediseño visual (PR #38 a #50)
 
-Resumen verificable en el código de `main` (`9963edd`). El detalle de cada PR está en su descripción en GitHub.
+Resumen verificable en el código de `main` (`fac761c`, con #51–#57 mergeados). El detalle de cada PR está en su descripción en GitHub.
 
 - **Hoja «Salida detectada».** Tres acciones: terminar el día, otro trabajo (traslado) y sigo trabajando (`src/components/modals/ExitDetectionModal.tsx`, D-19 del blueprint Inicio de jornada v1.3, PR #38). El almuerzo no se ofrece en la hoja; se inicia desde Hoy con `PauseKindModal` (almuerzo o descanso) en ACTIVA.
 - **Almuerzo una vez por día de nómina** (PR #42, `src/services/domain/dayLunch.ts`): una pausa de almuerzo de 30 min o más, o una respuesta de 30/45/60 al cerrar, es el único almuerzo no pagado de ese día de nómina. Si ya se usó, `PauseKindModal` deshabilita «Almuerzo» y la máquina rechaza un `LUNCH_START` de almuerzo con `LUNCH_ALREADY_USED`; el descanso sigue disponible.
