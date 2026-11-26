@@ -286,5 +286,5 @@ export const VIEW_TO_SESSION_INTENT: Partial<Record<ViewIntentType, SessionInten
 
 /** Resultado uniforme de emitir una intención. */
 export type IntentResult<T = unknown> =
-  | { ok: true; data?: T }
+  | { ok: true; data?: T; geofenceReady?: boolean; geocoded?: boolean }
   | { ok: false; code: IntentRejection | string; detail?: string };
