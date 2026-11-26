@@ -37,11 +37,11 @@ Fuente visual en el código: `src/constants/theme.ts` (paletas oscura y clara, I
 | Alta, 5 pasos (`app/(onboarding)/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | `STEPS` = welcome, disclosure, permissions, profile, ready (`app/(onboarding)/_layout.tsx:14`). Estado de permisos desde PermissionsHealthService. |
 | Hoy (`app/(tabs)/index.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Vacío `EmptyState` (`index.tsx:308`). Banners de conflicto y de degradado (`:237`, `:267`). Banner de aviso si el destino no tiene coordenadas (`index.tsx:308-309`, #60). Única pantalla renderizada en un test (`app/(tabs)/__tests__/cancelDay.confirm.test.tsx`). |
 | Historial (`app/(tabs)/history.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [ ] / [x] / [ ] | Solo se ve el vacío (`history.tsx:194`). No se encontró estado de carga ni de error en el archivo. |
-| Reportes (`app/(tabs)/reports.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / parcial | Carga y vacío (`reports.tsx:143`, `:234`). Error de rango (`:230`). No se encontró un error de consulta (`preview.error` no se usa). |
+| Reportes (`app/(tabs)/reports.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / parcial | Carga y vacío (`reports.tsx:143`, `:234`). Error de rango (`:230`). No se encontró un error de consulta (`preview.error` no se usa). Semana no certificable sin CONFLICT: motivo y «Exportar no certificado» (`reports.tsx:361`). Pack sin PDF: «Volver a emitir» en la lista (`:416-431`). |
 | Ajustes (`app/(tabs)/settings.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Errores de campo (`settings.tsx:312-347`). Vacíos de cola y retención (`:380`, `:392`). Copia de seguridad cifrada `.dtbackup`, crear y restaurar (#55, `src/components/blocks/BackupSection.tsx`). |
 | Detalle de sesión y rastro (`app/session/[id].tsx`, `trace.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / sin auditar | Carga (`[id].tsx:68`, `:177`). Sin datos (`:185`). «Ver auditoría» lleva a `/session/[id]/audit` (`[id].tsx:204-205`, #57). |
 | Periodo `/report/[periodId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / [x] | Carga, error y sin datos (`[periodId].tsx:43-53`), vacío (`:74`). Se llega desde «Vista previa» en Reportes (`reports.tsx:136`, `:304`, `:333`) y desde el expediente (`[packId].tsx:128`). Incluye la sección Auditoría (`[periodId].tsx:155`). #57. |
-| Expediente `/report/pack/[packId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / sin auditar / [x] | Carga (`[packId].tsx:37-40`). No existe: `NotFoundState`. |
+| Expediente `/report/pack/[packId]` | [x] fuera del repo | [ ] | [x] | [x] / [x] / sin auditar / [x] | Carga (`[packId].tsx:37-40`). No existe: `NotFoundState`. Sin PDF en este teléfono: aviso `report.pdfMissing`, compartir deshabilitado y «Volver a emitir» (`[packId].tsx:62`, `:147-159`). |
 | Destinos (`app/sites/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | Vacío en la lista (`app/sites/index.tsx:45`). |
 | Salud (`app/system/health.tsx`), Conflicto (`app/system/conflict.tsx`) | [x] fuera del repo | [ ] | [x] | sin auditar | Salud muestra el estado de la copia de seguridad y enlaza a Ajustes (`health.tsx:314`). |
 | Soporte y práctica (`app/support/*`), Legal (`app/legal/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | — |
@@ -89,6 +89,12 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 
 ### En progreso
 - **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Abierto, sin fusionar. Falta probarlo en un teléfono.
+- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): abierto, pendiente de revisión y merge (Byron fusiona).**
+  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:168`).
+  - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
+  - **RR-3:** «Exportar no certificado» también sin CONFLICT.
+  - **RR-11:** cabecera de `payrollPolicies.ts` corregida.
+  - Tests: `reportsPackCurrent.test.ts` y `reportsGates.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluida la restauración real en otro teléfono seguida de «Volver a emitir».
 
 ### Pendiente / Planificado
 - **iOS:**

@@ -203,7 +203,18 @@ export type ViewIntent =
       reissue?: boolean;
     }
   | { type: "SHARE_EMPLOYEE"; packId: string; annexLedger?: boolean; annexEnterExit?: boolean }
-  | { type: "SHARE_EMPLOYER"; packId: string; annexLedger?: boolean; annexEnterExit?: boolean }
+  | {
+      type: "SHARE_EMPLOYER";
+      packId: string;
+      annexLedger?: boolean;
+      annexEnterExit?: boolean;
+      /**
+       * «Enviar por correo» de Reportes: envía el pack vigente del periodo de
+       * `packId`. Si está desactualizado se vuelve a sellar y, si le faltan los
+       * PDF, se reemite antes de enviar. Sin la marca se envía `packId` tal cual.
+       */
+      ensureFresh?: boolean;
+    }
   /** FieldCrypto v1.3 §16: "Exportar expediente" → SEAL_PACK si falta y luego compartir (empleado). */
   | { type: "EXPORT_PACK"; periodStart: number; periodEnd: number }
   /** PDF del rango en pantalla. No sella la semana ni escribe un expediente. */

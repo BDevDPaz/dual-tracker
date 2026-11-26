@@ -2,7 +2,8 @@
  * report/pack/[packId].tsx — Paquete de evidencia (Producto §5.13). NUEVO.
  * Hash del manifiesto (para que empleado y empleador lo comparen), fecha de
  * sellado, archivos incluidos, sesiones incluidas y compartir PDF empleado /
- * empleador. Sin "regenerar con otras reglas": un pack sellado no muta.
+ * empleador. Sin "regenerar con otras reglas": un pack sellado no muta. Si al
+ * pack le faltan los PDF (copia restaurada), «Volver a emitir» crea uno nuevo.
  * «Ver estado de nómina» abre la vista previa del periodo (/report/[periodId]).
  */
 import { useState } from "react";
@@ -26,6 +27,7 @@ export default function PackScreen() {
   const [annexLedger, setAnnexLedger] = useState(false);
   const [annexEnterExit, setAnnexEnterExit] = useState(false);
   const { busy: sharing, run: share } = useBusyAction();
+  const { busy: reissuing, run: runReissue } = useBusyAction();
   const id = String(packId ?? "");
   const { state, emit, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
@@ -53,6 +55,17 @@ export default function PackScreen() {
   const shared = selectPackShared(state, pack.id);
   const premium = (m.documentVersion ?? 1) >= 2;
   const annex = premium ? { annexLedger, annexEnterExit } : {};
+  // RR-2: tras restaurar una copia en otro teléfono el pack no trae sus PDF.
+  // La salida es la reemisión (pack nuevo, asiento PACK_REISSUED), con el mismo
+  // criterio de certificación que este pack.
+  const pdfMissing = !pack.employeePdfUri || !pack.employerPdfUri;
+  const reissue = () =>
+    runReissue(async () => {
+      const res = await emit({ type: "SEAL_PACK", periodStart: m.periodStart, periodEnd: m.periodEnd, allowUncertified: !m.certified, reissue: true });
+      const next = res.ok ? (res.data as { id?: unknown } | undefined) : undefined;
+      if (next && typeof next.id === "string") router.replace({ pathname: "/report/pack/[packId]", params: { packId: next.id, sealed: "1" } });
+      return res;
+    });
 
   return (
     <View style={styles.root}>
@@ -131,10 +144,24 @@ export default function PackScreen() {
         iconName="eye-outline"
         onPress={() => router.push(`/report/${weekPeriodId(m.periodStart, selectCalendarHistory(state))}`)}
       />
+      {pdfMissing ? (
+        <>
+          <ScreenStatusBanner status="degraded" message={t("report.pdfMissing")} />
+          <Button
+            testID="pack-reissue"
+            label={t("report.reissue")}
+            iconName="refresh-outline"
+            disabled={reissuing}
+            isLoading={reissuing}
+            onPress={() => void reissue()}
+          />
+        </>
+      ) : null}
       <Button
+        testID="pack-share-employee"
         label={t("reports.shareEmployee")}
         iconName="share-outline"
-        disabled={sharing}
+        disabled={sharing || pdfMissing}
         isLoading={sharing}
         onPress={() => void share(() => emit({ type: "SHARE_EMPLOYEE", packId: pack.id, ...annex }))}
       />
@@ -142,7 +169,7 @@ export default function PackScreen() {
         label={t("reports.shareEmployer")}
         variant="secondary"
         iconName="briefcase-outline"
-        disabled={sharing}
+        disabled={sharing || pdfMissing}
         onPress={() => void share(() => emit({ type: "SHARE_EMPLOYER", packId: pack.id, ...annex }))}
       />
     </ScreenScroll>

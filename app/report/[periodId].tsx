@@ -4,7 +4,8 @@
  * policyId y advertencias, más la «Auditoría de jornadas» del periodo
  * (selectSessionAudit por jornada) y las acciones del Reporte de nómina
  * («Exportar expediente» = EXPORT_PACK, «Enviar por correo» = SHARE_EMPLOYER).
- * No sella por sí sola: EXPORT_PACK sella solo si la semana no tiene expediente.
+ * No sella por sí sola: EXPORT_PACK y «Enviar por correo» sellan (o reemiten) solo si
+ * la semana no tiene expediente vigente con sus PDF (RR-1, RR-2).
  * Entradas: Reportes («Vista previa») y el expediente («Ver estado de nómina»).
  * periodId = "W<YYYY-MM-DD>" (lunes ISO).
  */
@@ -142,7 +143,7 @@ export default function PeriodStatementScreen() {
       <PayrollReportActions
         onExport={() => void runExport(() => emit({ type: "EXPORT_PACK", periodStart: range.start, periodEnd: range.end }))}
         onSend={() => {
-          if (latestPack) void runSend(() => emit({ type: "SHARE_EMPLOYER", packId: latestPack.id }));
+          if (latestPack) void runSend(() => emit({ type: "SHARE_EMPLOYER", packId: latestPack.id, ensureFresh: true }));
         }}
         exportDisabled={st.sessionIds.length === 0 || (st.integrityRollup.hasConflict && !latestPack)}
         needsSeal={!latestPack}
