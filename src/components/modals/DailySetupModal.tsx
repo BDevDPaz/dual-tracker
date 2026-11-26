@@ -1,55 +1,101 @@
 import React, { useState, useEffect, useRef } from "react";
+
 import { View, Text, Pressable, StyleSheet } from "react-native";
+
 import { ModalShell } from "../ui/ModalShell";
+
 import { SelectableCard } from "../ui/SelectableCard";
+
 import { Input } from "../ui/Input";
+
 import { useFormFocusChain } from "../ui/formChain";
+
 import { FORM_FIELDS } from "../ui/formFields";
+
 import { ICONS } from "../../constants/icons";
+
 import { TOKENS, FONT } from "../../constants/theme";
+
 import { useTheme } from "../../context/ThemeContext";
+
 import type { Site, SiteDraft } from "../../core/contracts";
+
 import { t, useLanguage } from "../../i18n";
 
 /**
  * DailySetupModal — portado del código heredado (Producto §5.11 y §7).
+ *
  * La dirección deja de ser un string efímero: el modal ofrece un PICKER de
  * sitios existentes (SiteRegistry) además del ALTA RÁPIDA. Devuelve siempre
  * un siteId. Modos: "start" (NO_INICIADA) y "transit" (iniciar traslado).
  * La geocodificación y el límite de destinos los aplica SiteRegistry, no el modal.
+ *
+ * Aviso sin bloqueo: si el sitio elegido o creado no tiene coordenadas, el
+ * modal muestra `sites.coordsMissing` y confirma igual. La jornada puede
+ * abrirse sin coordenadas (la llegada se confirma a mano); el aviso persiste
+ * después en Hoy, donde el destino objetivo tampoco tiene coordenadas.
  */
+
 interface DailySetupModalProps {
   visible: boolean;
+
   mode: "start" | "transit";
+
   sites: Site[];
+
   excludeSiteId?: number | null;
+
   busy?: boolean;
+
   onCancel: () => void;
+
   onConfirm: (siteId: number) => void;
+
   /** Alta rápida: la pantalla emite UPSERT_SITE y devuelve el sitio creado. */
   onQuickCreate: (draft: SiteDraft) => Promise<Site | null>;
 }
 
+const siteHasNoCoords = (site: Site | null | undefined): boolean =>
+  !!site && (site.targetLat == null || site.targetLon == null);
+
 export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, busy = false, onCancel, onConfirm, onQuickCreate }: DailySetupModalProps) {
   useLanguage();
+
   const { colors } = useTheme();
+
   const [selected, setSelected] = useState<number | null>(null);
+
   const [quick, setQuick] = useState(false);
+
   const [alias, setAlias] = useState("");
+
   const [address, setAddress] = useState("");
+
   const [client, setClient] = useState("");
+
   const [creating, setCreating] = useState(false);
+
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const [coordsWarning, setCoordsWarning] = useState<string | null>(null);
+
   const creatingRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setSelected(null);
+
       setQuick(sites.length === 0);
+
       setAlias("");
+
       setAddress("");
+
       setClient("");
+
       setCreateError(null);
+
+      setCoordsWarning(null);
     }
   }, [visible, sites.length]);
 
@@ -57,28 +103,45 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
 
   const confirm = async () => {
     if (creatingRef.current) return;
+
     if (!quick) {
-      if (selected !== null) onConfirm(selected);
+      if (selected !== null) {
+        if (siteHasNoCoords(options.find((s) => s.id === selected))) setCoordsWarning(t("sites.coordsMissing"));
+
+        onConfirm(selected);
+      }
+
       return;
     }
+
     creatingRef.current = true;
+
     setCreating(true);
+
     setCreateError(null);
+
     try {
       const site = await onQuickCreate({ alias: alias.trim() || address.trim(), address, clientName: client || null });
-      if (site) onConfirm(site.id);
-      else setCreateError(t("modals.quickCreateFailed"));
+
+      if (site) {
+        if (siteHasNoCoords(site)) setCoordsWarning(t("sites.coordsMissing"));
+
+        onConfirm(site.id);
+      } else setCreateError(t("modals.quickCreateFailed"));
     } catch {
       setCreateError(t("modals.quickCreateFailed"));
     } finally {
       creatingRef.current = false;
+
       setCreating(false);
     }
   };
 
   const canConfirm = quick ? address.trim().length > 0 : selected !== null;
+
   const chain = useFormFocusChain(FORM_FIELDS.dailySetup, {
     canSubmit: canConfirm && !busy && !creating,
+
     onSubmit: () => {
       confirm().catch(() => setCreating(false));
     },
@@ -94,10 +157,13 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
       scrollable
       primaryAction={{
         label: t(mode === "start" ? "modals.activateGeofence" : "modals.startTransit"),
+
         onPress: () => {
           confirm().catch(() => setCreating(false));
         },
+
         disabled: !canConfirm || creating,
+
         loading: busy || creating,
       }}
       secondaryAction={{ label: t("common.cancel"), onPress: onCancel }}
@@ -105,8 +171,19 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
       <View style={styles.tabs}>
         {(["pick", "quick"] as const).map((k) => {
           const active = (k === "quick") === quick;
+
           return (
-            <Pressable key={k} onPress={() => setQuick(k === "quick")} style={[styles.tab, { borderColor: active ? colors.goldText : colors.border }]} accessibilityRole="tab" accessibilityState={{ selected: active }}>
+            <Pressable
+              key={k}
+              onPress={() => {
+                setQuick(k === "quick");
+
+                setCoordsWarning(null);
+              }}
+              style={[styles.tab, { borderColor: active ? colors.goldText : colors.border }]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+            >
               <Text style={[styles.tabText, { color: active ? colors.goldText : colors.text.secondary }]}>
                 {t(k === "pick" ? "modals.pickSite" : "modals.quickCreate")}
               </Text>
@@ -123,27 +200,41 @@ export function DailySetupModal({ visible, mode, sites, excludeSiteId = null, bu
               label={s.alias}
               description={`${s.clientName ? `${s.clientName} · ` : ""}${s.address}`}
               selected={selected === s.id}
-              onPress={() => setSelected(s.id)}
+              onPress={() => {
+                setSelected(s.id);
+
+                setCoordsWarning(null);
+              }}
             />
           ))}
+
           {options.length === 0 ? <Text style={[styles.siteAddr, { color: colors.text.muted }]}>{t("sites.empty")}</Text> : null}
         </View>
       ) : (
         <View>
           <Input {...chain.props("address")} label={t("sites.address")} icon="map-outline" value={address} onChangeText={setAddress} autoFocus />
+
           <Input {...chain.props("alias")} label={t("sites.alias")} icon={ICONS.domain.location} value={alias} onChangeText={setAlias} />
+
           <Input {...chain.props("client")} label={t("sites.client")} icon="business-outline" value={client} onChangeText={setClient} />
+
           {createError ? <Text style={[styles.siteAddr, { color: colors.statusText.danger }]}>{createError}</Text> : null}
         </View>
       )}
+
+      {coordsWarning ? <Text style={[styles.siteAddr, { color: colors.statusText.warning }]}>{coordsWarning}</Text> : null}
     </ModalShell>
   );
 }
 
 const styles = StyleSheet.create({
   tabs: { flexDirection: "row", gap: TOKENS.spacing.sm, marginBottom: TOKENS.spacing.md },
+
   tab: { flex: 1, minHeight: TOKENS.layout.minTouchTarget, paddingVertical: TOKENS.spacing.sm, borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, alignItems: "center", justifyContent: "center" },
+
   tabText: { ...FONT.label },
+
   list: { gap: TOKENS.spacing.sm },
+
   siteAddr: { ...FONT.caption, marginTop: TOKENS.spacing.xxs },
 });
