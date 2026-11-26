@@ -8,20 +8,16 @@
  * Bug "sin destino" — Dual Tracker, main en 9198eb1, PR #59.
  * Pruebas UI del modal con @testing-library/react-native, sin APK.
  *
- * Lo que verifica lo nuevo (3 tests):
+ * Lo que verifica lo nuevo (3 tests), tras el arreglo de la rama
+ * fix/sin-destino-aviso:
  *  1. Alta rápida devuelve un sitio sin coordenadas: el modal confirma
- *     con ese siteId y no muestra ni error ni aviso. Hoy pasa, y
- *     documenta el silencio en la UI.
+ *     con ese siteId, sin error, y muestra el aviso
+ *     `sites.coordsMissing` ("Sin coordenadas: la geocerca no podrá
+ *     iniciarse"). Avisa sin bloquear.
  *  2. Elegir de la lista un sitio existente sin coordenadas: mismo
- *     resultado. El picker tampoco avisa.
+ *     resultado. El picker también avisa.
  *  3. Alta rápida devuelve un sitio con coordenadas (control): también
- *     confirma sin aviso. La UI hoy no distingue los dos casos.
- *
- * Lo que NO verifica: el aviso `sites.coordsMissing`
- * ("Sin coordenadas: la geocerca no podrá iniciarse") no existe en el
- * modal hoy, solo en app/sites/new.tsx. Un test que lo exigiera
- * fallaría hasta que se exponga `geocoded` / `geofenceReady` hasta
- * el modal, que hoy routeIntent pierde.
+ *     confirma, sin aviso. La UI ahora sí distingue los dos casos.
  *
  * Cómo correrlo (en el repo, sin APK):
  *   npm test -- DailySetupModal
@@ -52,7 +48,7 @@ function makeSite(overrides: Partial<Site> = {}): Site {
 }
 
 describe("DailySetupModal", () => {
-  test("alta rápida devuelve un sitio sin coordenadas: confirma sin error ni aviso", async () => {
+  test("alta rápida devuelve un sitio sin coordenadas: confirma sin error y muestra el aviso", async () => {
     const site = makeSite();
     const onConfirm = jest.fn();
     const onQuickCreate = jest.fn().mockResolvedValue(site);
@@ -69,11 +65,11 @@ describe("DailySetupModal", () => {
       clientName: null,
     });
     expect(screen.queryByText(t("modals.quickCreateFailed"))).toBeNull();
-    // Hoy el modal no avisa que el destino quedó sin coordenadas.
-    expect(screen.queryByText(t("sites.coordsMissing"))).toBeNull();
+    // Avisa sin bloquear: confirma igual y muestra coordsMissing.
+    expect(screen.getByText(t("sites.coordsMissing"))).toBeTruthy();
   });
 
-  test("elegir de la lista un sitio sin coordenadas confirma sin aviso", async () => {
+  test("elegir de la lista un sitio sin coordenadas confirma y muestra el aviso", async () => {
     const site = makeSite();
     const onConfirm = jest.fn();
     render(
@@ -83,7 +79,7 @@ describe("DailySetupModal", () => {
     fireEvent.press(screen.getByRole("radio", { name: "Obra Manual" }));
     fireEvent.press(screen.getByRole("button", { name: t("modals.activateGeofence") }));
     expect(onConfirm).toHaveBeenCalledWith(7);
-    expect(screen.queryByText(t("sites.coordsMissing"))).toBeNull();
+    expect(screen.getByText(t("sites.coordsMissing"))).toBeTruthy();
   });
 
   test("alta rápida devuelve un sitio con coordenadas: confirma igual, sin aviso (control)", async () => {

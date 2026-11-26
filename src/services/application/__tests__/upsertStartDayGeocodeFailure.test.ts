@@ -6,12 +6,10 @@
  * Flujo completo por routeIntent, sin APK y sin UI:
  *   UPSERT_SITE (dirección manual) -> START_DAY -> intento de geocerca.
  *
- * Hallazgo que documenta (verificado en el código, no inventado):
- *  - routeIntent UPSERT_SITE devuelve { ok: true, data: site } sin el
- *    flag `geocoded`. La UI no puede saber desde ahí si se geocodificó.
- *  - routeIntent START_DAY descarta `geofenceReady`:
- *      const { result } = await startDay(...); return report(result);
- *    Solo el caso de uso directo startDay() devuelve geofenceReady.
+ * Tras el arreglo de la rama fix/sin-destino-aviso, routeIntent ya
+ * expone la señal que antes perdía:
+ *  - UPSERT_SITE devuelve { ok: true, data: site, geocoded: boolean }.
+ *  - START_DAY devuelve { ok: true, data: {...}, geofenceReady: boolean }.
  *  - startDay() con un sitio sin coordenadas abre la jornada en
  *    ESPERANDO (eso ya lo cubre startDay.test.ts) y
  *    GeofenceRuntimeService.startMonitoring() devuelve false sin
@@ -68,8 +66,8 @@ describe("UPSERT_SITE + START_DAY con dirección manual sin geocodificar", () =>
     expect((await PersistenceService.getSite(site.id))?.address).toBe(
       "Calle 1, Los Angeles, CA",
     );
-    // El router no expone si se geocodificó: el flag `geocoded` de
-    // SiteRegistryService.upsert se pierde en routeIntent.
+    // El sitio en sí no lleva el flag; va en el resultado de routeIntent
+    // (ver el test "routeIntent UPSERT_SITE expone geocoded: false").
     expect(site).not.toHaveProperty("geocoded");
   });
 
@@ -78,8 +76,8 @@ describe("UPSERT_SITE + START_DAY con dirección manual sin geocodificar", () =>
 
     const started = await routeIntent({ type: "START_DAY", siteId: site.id });
     expect(started.ok).toBe(true);
-    // routeIntent descarta geofenceReady: la UI no lo recibe por aquí.
-    expect(started).not.toHaveProperty("geofenceReady");
+    // routeIntent ya expone geofenceReady (antes se descartaba aquí).
+    expect((started as { geofenceReady?: boolean }).geofenceReady).toBe(false);
 
     const session = await PersistenceService.getOpenSession();
     expect(session?.siteId).toBe(site.id);
@@ -98,6 +96,33 @@ describe("UPSERT_SITE + START_DAY con dirección manual sin geocodificar", () =>
     expect(geofenceReady).toBe(false);
     expect(result.ok && result.data?.session.domainStatus).toBe("ESPERANDO");
     expect(result.ok && result.data?.session.siteId).toBe(site.id);
+  });
+
+  test("routeIntent UPSERT_SITE expone geocoded: false cuando el geocoder falla", async () => {
+    const created = await routeIntent({
+      type: "UPSERT_SITE",
+      site: { alias: "Obra Manual", address: "Calle 1, Los Angeles, CA", clientName: null },
+    });
+    expect(created.ok).toBe(true);
+    expect((created as { geocoded?: boolean }).geocoded).toBe(false);
+    if (!created.ok) throw new Error("UPSERT_SITE rechazado");
+    const site = created.data as Site;
+    expect(site.targetLat).toBeNull();
+    expect(site.targetLon).toBeNull();
+  });
+
+  test("routeIntent START_DAY expone geofenceReady: true cuando el sitio tiene coordenadas (control)", async () => {
+    locationState.geocode = [{ latitude: 34.05, longitude: -118.24 }];
+    const site = await createManualSite();
+    expect(SiteRegistryService.isGeofenceReady(site)).toBe(true);
+
+    const started = await routeIntent({ type: "START_DAY", siteId: site.id });
+    expect(started.ok).toBe(true);
+    expect((started as { geofenceReady?: boolean }).geofenceReady).toBe(true);
+
+    const session = await PersistenceService.getOpenSession();
+    expect(await GeofenceRuntimeService.startMonitoring(session!.id, site.id)).toBe(true);
+    expect(LocationMock.__state.geofences.has(GEOFENCE_TASK_NAME)).toBe(true);
   });
 
   test("con geocoder que resuelve, UPSERT + START_DAY dejan la geocerca armable (control)", async () => {
