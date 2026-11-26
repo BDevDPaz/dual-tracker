@@ -5,8 +5,8 @@
 ## 1. Resumen General
 - **Proyecto:** Dual Tracker V1.0.0 (repo `BDevDPaz/dual-tracker`, paquete `com.bdevdpaz.dualtracker`).
 - **Versión / Hito actual:** 1.0.0-rc.1. La versión visible es `1.0.0` (`app.json:6`, `package.json:5`, `src/constants/app.ts:2`). El perfil `preview` fija el canal `RC1` (`eas.json`, `EXPO_PUBLIC_RELEASE_CHANNEL`). Etiquetas git: `v0.1.0` (`a38db18`, 2026-10-07) y `v1.0.0-rc.1` (`ce4fc8a`, merge del #13, creada el 2026-10-19). No hay releases de GitHub.
-- **Última actualización:** 2026-11-25. Medido sobre `main` en `1329849` (merge del #51); actualizado el mismo día con #53, #55, #56 y #57 (PR3).
-- **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. #53, PR2 (Ajustes, #55), #56 (sin overlay y banderas legales apagadas) y PR3 (Reportes de nómina y Auditoría de jornadas, #57) están mergeados. Falta probarlos en un teléfono.
+- **Última actualización:** 2026-11-26. Medido sobre `main` en `e15e530` (merge del #60); actualizado el mismo día con #58 (docs), #59 (tests del fallo «sin destino») y #60 (aviso sin bloqueo). La suite completa no se volvió a correr sobre este `main`: lo verificado en Termux el 2026-11-26 fue `test:domain` 61/61 suites, 500/500 tests, `npm test -- DailySetupModal` 5/5 y `tsc` 0 errores.
+- **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. #53, PR2 (Ajustes, #55), #56 (sin overlay y banderas legales apagadas) y PR3 (Reportes de nómina y Auditoría de jornadas, #57) están mergeados, y también #59 y #60. Falta probarlos en un teléfono.
 - **Referencias:** Reglas en `AGENT.md` | Historial en `CHANGELOG.md`
 
 ### Cómo se rellenó este archivo (2026-11-25)
@@ -35,7 +35,7 @@ Fuente visual en el código: `src/constants/theme.ts` (paletas oscura y clara, I
 | :--- | :---: | :---: | :---: | :---: | :--- |
 | Arranque y gate (`app/index.tsx`, `app/(boot)/hydrating.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / n.a. / [x] | Gate `initialHref` (`app/index.tsx:14`, `src/core/initialRoute.ts:12`). Error de arranque con «Reintentar». |
 | Alta, 5 pasos (`app/(onboarding)/*`) | [x] fuera del repo | [ ] | [x] | sin auditar | `STEPS` = welcome, disclosure, permissions, profile, ready (`app/(onboarding)/_layout.tsx:14`). Estado de permisos desde PermissionsHealthService. |
-| Hoy (`app/(tabs)/index.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Vacío `EmptyState` (`index.tsx:308`). Banners de conflicto y de degradado (`:237`, `:267`). Única pantalla renderizada en un test (`app/(tabs)/__tests__/cancelDay.confirm.test.tsx`). |
+| Hoy (`app/(tabs)/index.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Vacío `EmptyState` (`index.tsx:308`). Banners de conflicto y de degradado (`:237`, `:267`). Banner de aviso si el destino no tiene coordenadas (`index.tsx:308-309`, #60). Única pantalla renderizada en un test (`app/(tabs)/__tests__/cancelDay.confirm.test.tsx`). |
 | Historial (`app/(tabs)/history.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [ ] / [x] / [ ] | Solo se ve el vacío (`history.tsx:194`). No se encontró estado de carga ni de error en el archivo. |
 | Reportes (`app/(tabs)/reports.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / [x] / [x] / parcial | Carga y vacío (`reports.tsx:143`, `:234`). Error de rango (`:230`). No se encontró un error de consulta (`preview.error` no se usa). |
 | Ajustes (`app/(tabs)/settings.tsx`) | [x] fuera del repo | [ ] | [x] | [x] / botones `busy` / [x] / [x] | Errores de campo (`settings.tsx:312-347`). Vacíos de cola y retención (`:380`, `:392`). Copia de seguridad cifrada `.dtbackup`, crear y restaurar (#55, `src/components/blocks/BackupSection.tsx`). |
@@ -73,7 +73,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - «Compartir expediente empleador», `SHARE_EMPLOYER` (`reports.tsx:371`, `app/report/pack/[packId].tsx:138`): usa el correo si hay cliente y si no, la hoja de compartir.
   - Tests: `ReportService.test.ts`, `previewPayrollRange.test.ts`, `generateWeeklyPayroll.test.ts`, `reportPremium.test.ts`, `reportRange.test.ts`.
 - **Ajustes:** perfil, monitoreo, destinos, zona admin con PIN, calendario, retención, soporte y legal (`app/(tabs)/settings.tsx`). Tests: `app/(tabs)/__tests__/settings.flow.test.ts`, `pin.flow.test.ts`, `src/services/runtime/__tests__/pinHash.test.ts`, `pinProvision.test.ts`, `SettingsService.test.ts`.
-- **Destinos:** alta, ficha, radio válido y nombre del lugar desde el GPS (`reverseGeocodePoint`, `src/services/runtime/reverseGeocode.ts`). Tests: `SiteRegistryService.test.ts`, `reverseGeocode.test.ts`, `SiteRadiusField.test.tsx`, `siteRadius.test.ts`.
+- **Destinos:** alta, ficha, radio válido y nombre del lugar desde el GPS (`reverseGeocodePoint`, `src/services/runtime/reverseGeocode.ts`). Tests: `SiteRegistryService.test.ts`, `reverseGeocode.test.ts`, `SiteRadiusField.test.tsx`, `siteRadius.test.ts`. Si la geocodificación falla, el sitio se guarda sin coordenadas y el modal y Hoy avisan (`sites.coordsMissing`, #59, #60; `DailySetupModal.tsx:225`, `app/(tabs)/index.tsx:308-309`).
 - **Cifrado de campos:** AES-GCM, migraciones y pérdida de clave. Tests: `FieldCryptoService.test.ts`, `cryptoMigrations.test.ts`, `keyLoss.test.ts`.
 - **Idioma es/en:** paridad de claves y cambio en el acto. Tests: `src/i18n/__tests__/i18n.test.ts`, `languageSwitch.test.tsx`, `setLanguage.test.ts`, `hardcodedCopy.test.ts`.
 - **Soporte y modo práctica aislado:** tests `src/support/__tests__/support.test.ts`, `src/services/application/__tests__/practiceIsolation.test.ts`.
@@ -84,10 +84,11 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - Vista previa del periodo con la sección Auditoría (`app/report/[periodId].tsx:142`, `:155`).
   - Auditoría por jornada (`app/session/[id]/audit.tsx`, `selectSessionAudit` en `src/core/selectors/sessionAudit.ts:224`). Lo que no se guarda sale como «no registrado».
   - Tests: `src/core/selectors/__tests__/sessionAudit.test.ts`, `src/services/application/useCases/__tests__/sessionAudit.test.ts`, `src/components/blocks/__tests__/SessionAuditView.test.tsx`, `app/report/__tests__/payrollReport.flow.test.tsx`, `src/core/__tests__/auditReadOnly.test.ts`.
+- **Destino sin coordenadas: aviso sin bloqueo** (#59, #60, `e15e530`). Si la geocodificación falla, el sitio se guarda sin coordenadas y la jornada abre en ESPERANDO, pero ya no en silencio: `routeIntent` expone `geofenceReady` en `START_DAY` y `geocoded` en `UPSERT_SITE` (`src/services/application/intentRouter.ts:193-194`, `:240`; `IntentResult` en `src/core/contracts/intents.ts:289`), el modal muestra `sites.coordsMissing` al confirmar (`src/components/modals/DailySetupModal.tsx:225`) y Hoy muestra un `Banner` de aviso derivado del destino objetivo (`app/(tabs)/index.tsx:308-309`). Tests: `siteGeocodeFailure.test.ts`, `upsertStartDayGeocodeFailure.test.ts`, `DailySetupModal.test.tsx`, `targetCoordsWarning.test.ts`.
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
-- Nada en curso después del #57.
+- Nada en curso después del #60.
 
 ### Pendiente / Planificado
 - **iOS:**
@@ -113,9 +114,9 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
 ## 4. Estado de Pruebas y Calidad
 - **Build / Compilación:**
   - `tsc --noEmit` pasa sin errores.
-  - **No se generó un APK de `1329849`**: hoy no hay build de Android ni de iOS de este commit.
+  - **No hay evidencia en el repo de un APK de `e15e530`**: hoy no hay build de Android ni de iOS de este commit.
   - Los 14 APK previos que hay fuera del repo (versionCode 1–16) son de commits anteriores.
-- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (#56): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos. Con #56 y #57 (PR3) juntos: 1150/1150 tests y 155/155 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos.
+- **Pruebas automatizadas:** 1081/1081 tests y 146/146 suites en verde, 2/2 snapshots (jest 29.7, 2026-11-25, `1329849`). Eslint: 0 errores y 4 avisos. `dpdm -T`: 0 ciclos. Con el bloqueo del overlay y las banderas apagadas (#56): 1086/1086 tests y 146/146 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos. Con #56 y #57 (PR3) juntos: 1150/1150 tests y 155/155 suites, 2/2 snapshots, `tsc` sin errores y eslint con 0 errores y 4 avisos. Verificación del 2026-11-26 sobre `e15e530` (Termux, en las ramas de #59 y #60 antes de fusionar): `test:domain` 61/61 suites, 500/500 tests; `npm test -- DailySetupModal` 5/5; `tsc --noEmit` 0 errores. La corrida completa (155/155 suites, 1150/1150 tests) es del 2026-11-25 y no se repitió sobre este `main`, así que su total ya no es el actual.
 - **Pruebas manuales:** el repo no tiene actas firmadas.
   - `docs/PRUEBAS_RC1.md` §Acta y las tablas de `docs/PRUEBAS_DISPOSITIVO.md` están vacías.
   - `docs/PRUEBA_CAMPO_1.md`–`8.md` son listas de pasos, sin resultados anotados.
@@ -133,6 +134,7 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
 1. **Probar en un teléfono la vista previa del periodo y la Auditoría de jornadas (PR3, #57).** Se cierra con el acta de Reportes de nómina y Auditoría rellenada sobre un build identificado.
 2. **Verificar en un APK de release que no lleva `SYSTEM_ALERT_WINDOW`.** El bloqueo ya está en `app.json`. Se cierra con la lista de permisos de un APK de `main` (`aapt` o `pyaxmlparser`): sin `SYSTEM_ALERT_WINDOW` y con los permisos de almacenamiento, que siguen por decisión del dueño.
 3. **Acta RC1 en un teléfono** (Android, Samsung S22+). Se cierra con la tabla de `docs/PRUEBAS_RC1.md` §Acta rellenada sobre un build identificado.
+4. **Probar en un teléfono la geocodificación real y el ENTER/SALIDA del SO con un destino sin coordenadas (#59, #60).** Se cierra con el acta de geocerca rellenada sobre un build identificado, con un destino creado con una dirección que el geocoder del teléfono no resuelve.
 
 ## 6. Bloqueos y Confirmaciones Pendientes
 - **Bloqueos:**

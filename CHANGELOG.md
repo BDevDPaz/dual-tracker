@@ -14,7 +14,7 @@ y este proyecto adhiere a [Versionado semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
-Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta por el #13, sigue descrita en la sección de abajo. Aquí entra lo que esa sección todavía no listaba (#13–#27), y desde el 2026-11-25 también #28–#57, excepto #37, que se cerró sin merge. Los 8 commits directos a `main` del 2026-11-09 (`21df9c6`…`9963edd`) no entran: no tienen PR ni test propio y siguen en `PROJECT_STATE.md` §3.
+Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta por el #13, sigue descrita en la sección de abajo. Aquí entra lo que esa sección todavía no listaba (#13–#27), y desde el 2026-11-25 también #28–#57, excepto #37, que se cerró sin merge. Desde el 2026-11-26 también #58–#60. Los 8 commits directos a `main` del 2026-11-09 (`21df9c6`…`9963edd`) no entran: no tienen PR ni test propio y siguen en `PROJECT_STATE.md` §3.
 
 ### Añadido
 
@@ -36,6 +36,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 
 - **#55** Copia de seguridad cifrada `.dtbackup` en Ajustes, con restauración por reemplazo total y el asiento `BACKUP_RESTORED`. Reportes no crea ni lee copias. Verificación: `backupCodec.test.ts`, `appBackup.test.ts` (cifrado, validación, reemplazo y rollback), `settings.backup.flow.test.tsx`, `backupPlacement.test.ts`.
 - **#57** (PR3) Bloque «Reportes de nómina» en Reportes (Vista previa, Exportar expediente, Enviar por correo), `/report/[periodId]` reintegrada como vista previa del periodo y Auditoría de jornadas de solo lectura (`selectSessionAudit`, `app/session/[id]/audit.tsx`, sección en la vista previa). Lo que no se guarda sale como «no registrado». Verificación: `sessionAudit.test.ts` (selector y caso de uso), `SessionAuditView.test.tsx`, `payrollReport.flow.test.tsx`, `auditReadOnly.test.ts`.
+- **#59** Tests que documentan el fallo «sin destino»: si la geocodificación falla al crear un destino manual, el sitio se guarda sin coordenadas, la jornada abre en ESPERANDO y la geocerca no se arma, sin aviso en el modal ni en Hoy. 7 tests nuevos de dominio y flujo (`siteGeocodeFailure.test.ts`, `upsertStartDayGeocodeFailure.test.ts`) y 3 tests UI del modal (`DailySetupModal.test.tsx`). Verificación (Termux, 2026-11-26, rama `test/sin-destino-geocode-failure`, merge `33408c9`): `npm run test:domain` 60/60 suites, 496/496 tests; `npm test -- DailySetupModal` 5/5; `npm run typecheck` limpio.
 
 ### Cambiado
 
@@ -65,9 +66,11 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#34** Licencia propietaria (`LICENSE`) y `"license": "UNLICENSED"` en `package.json`.
 - **#51** Se quitan los nombres de proyectos anteriores, se corrige el comentario de `LUNCH_START` en `sessionMachine.ts` y se actualiza el README. Los 4 tests de guarda de los PDF se mantienen.
 - **#54** `PROJECT_STATE.md` con el estado verificado y `CHANGELOG.md` respaldado por evidencia (squash `3cf14e2`, 2026-11-25).
+- **#58** README y CHANGELOG al día con `main` en `fac761c` (`9198eb1`, 2026-11-26).
 
 ### Corregido
 
+- **#60** Aviso sin bloqueo cuando el destino queda sin coordenadas (corrige el silencio documentado en el #59, no el guardado sin coordenadas: la jornada sigue pudiendo abrirse y la llegada se confirma a mano). `routeIntent` expone `geofenceReady` en `START_DAY` (`src/services/application/intentRouter.ts:193-194`) y `geocoded` en `UPSERT_SITE` (`:240`); el modal muestra `sites.coordsMissing` al confirmar (`src/components/modals/DailySetupModal.tsx:225`) y Hoy muestra un `Banner` de aviso derivado del destino objetivo (`app/(tabs)/index.tsx:308-309`). Verificación (Termux, 2026-11-26, rama `fix/sin-destino-aviso` en `14059ba`, merge `e15e530`): `npm run test:domain` 61/61 suites, 500/500 tests; `npm test -- DailySetupModal` 5/5; `npm run typecheck` limpio. La geocodificación real en Android y el ENTER/SALIDA del SO no están probados en un teléfono.
 - **#16** La hora de red ruidosa no quita VALIDADA: hacen falta muestras coherentes y, con ubicación buena, la deriva solo avisa. También el ENTER duplicado, la salida en histéresis y el sello «SELLADO» partido. Lista: `docs/PRUEBA_CAMPO_1.md`.
 - **#17** Corte, almuerzo, rastro, reglas y ENTER de borde. El servicio de ubicación sigue en el almuerzo. Una regla sale como aplicada solo si produjo minutos. Lista: `docs/PRUEBA_CAMPO_2.md`.
 - **#18** Se rechazan horas de jornada que todavía no han pasado. Ese fin no se guarda, el sello se niega y la nómina de esos minutos no cambia.
