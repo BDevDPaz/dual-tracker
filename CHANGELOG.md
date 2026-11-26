@@ -5,10 +5,10 @@ Todos los cambios notables de Dual Tracker V1.0.0 se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 y este proyecto adhiere a [Versionado semántico](https://semver.org/lang/es/).
 
-> **Verificación del 2026-11-25.** Revisión hecha sobre `main` en `1329849`. Una entrada se considera constatada si cumple las tres condiciones:
+> **Verificación del 2026-11-25.** Revisión actualizada sobre `main` en `fac761c` (25 nov 2026, 18:07 PST, America/Los_Angeles): `tsc` 0 errores; `eslint` 0 errores y 4 avisos; `jest` 155/155 suites, 1150/1150 tests, 2/2 snapshots. Una entrada se considera constatada si cumple las tres condiciones:
 > 1. El PR está mergeado y su commit es ancestro de `main`.
 > 2. Sus archivos siguen en el repo.
-> 3. Sus tests están presentes y pasan en la corrida completa del día (`jest`: 146/146 suites, 1081/1081 tests; `tsc` y `eslint` sin errores). En los PRs que solo tocan documentación o refactors, basta con el archivo o con la comprobación estática.
+> 3. Sus tests están presentes y pasan en la corrida completa del día (`jest`: 155/155 suites, 1150/1150 tests, 2/2 snapshots; `tsc` 0 errores; `eslint` 0 errores y 4 avisos). En los PRs que solo tocan documentación o refactors, basta con el archivo o con la comprobación estática.
 >
 > Ninguna entrada está probada en un teléfono por esta revisión: el acta RC1 sigue vacía. Las entradas antiguas no se borran. Cuando el código actual ya no hace lo que una entrada dice, se marca con *Nota 2026-11-25*. Lo que no se pudo constatar está en `PROJECT_STATE.md` §3 («Pendiente de validar»).
 
@@ -64,6 +64,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#28** README y CHANGELOG al día con `3a632ba`.
 - **#34** Licencia propietaria (`LICENSE`) y `"license": "UNLICENSED"` en `package.json`.
 - **#51** Se quitan los nombres de proyectos anteriores, se corrige el comentario de `LUNCH_START` en `sessionMachine.ts` y se actualiza el README. Los 4 tests de guarda de los PDF se mantienen.
+- **#54** `PROJECT_STATE.md` con el estado verificado y `CHANGELOG.md` respaldado por evidencia (squash `3cf14e2`, 2026-11-25).
 
 ### Corregido
 
