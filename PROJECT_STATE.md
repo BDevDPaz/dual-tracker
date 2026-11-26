@@ -88,7 +88,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
-- **PR fix/reportes-rr1-rr2-rr3 (Solicitud 1 — Reportes): abierto, pendiente de revisión y merge (Byron fusiona).**
+- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): abierto, pendiente de revisión y merge (Byron fusiona).**
   - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:168`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
