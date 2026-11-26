@@ -190,8 +190,8 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
   try {
     // ---- Jornada ----
     if (intent.type === "START_DAY") {
-      const { result } = await startDay({ siteId: intent.siteId, clientId: intent.clientId, note: intent.note });
-      return report(result);
+      const { result, geofenceReady } = await startDay({ siteId: intent.siteId, clientId: intent.clientId, note: intent.note });
+      return report(result.ok ? { ...result, geofenceReady } : result);
     }
     if (intent.type === "CONFIRM_ARRIVAL") {
       const open = selectActiveSession(Store.getState());
@@ -237,7 +237,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         StoreActions.siteUpserted(r.site);
         await resyncGeofenceIfTarget(r.site);
         FeedbackService.emit("SITE_SAVED");
-        return { ok: true, data: r.site };
+        return { ok: true, data: r.site, geocoded: r.geocoded };
       }
       case "LOCATE_SITE": {
         const r = await SiteRegistryService.locate(intent.siteId, intent.readings);
