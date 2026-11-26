@@ -711,7 +711,9 @@ export const EvidencePackService = {
 
   async shareEmployee(packId: string, annex?: ReportAnnexOptions): Promise<IntentResult> {
     const pack = await PersistenceService.getPack(packId);
-    if (!pack?.employeePdfUri) return { ok: false, code: "PACK_NOT_FOUND" };
+    if (!pack) return { ok: false, code: "PACK_NOT_FOUND" };
+    // Sin PDF en este teléfono (copia restaurada): la salida es la reemisión, no "no encontrado".
+    if (!pack.employeePdfUri) return { ok: false, code: "PACK_PDF_MISSING" };
     const uri = await exportPdf(pack, "EMPLOYEE_RECEIPT", annex);
     if (!uri || !(await ReportService.share(uri))) return { ok: false, code: "SHARE_UNAVAILABLE" };
     await recordShared(packId, "EMPLOYEE");
@@ -720,7 +722,9 @@ export const EvidencePackService = {
 
   async shareEmployer(packId: string, annex?: ReportAnnexOptions): Promise<IntentResult> {
     const pack = await PersistenceService.getPack(packId);
-    if (!pack?.employerPdfUri) return { ok: false, code: "PACK_NOT_FOUND" };
+    if (!pack) return { ok: false, code: "PACK_NOT_FOUND" };
+    // Sin PDF en este teléfono (copia restaurada): la salida es la reemisión, no "no encontrado".
+    if (!pack.employerPdfUri) return { ok: false, code: "PACK_PDF_MISSING" };
     const settings = await SettingsService.load();
     const pdf = await exportPdf(pack, "EMPLOYER_DOSSIER", annex);
     if (!pdf) return { ok: false, code: "SHARE_UNAVAILABLE" };

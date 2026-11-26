@@ -13,7 +13,7 @@
  *  - Copia de seguridad (solo Ajustes) → useCases/appBackup.
  * Todo rechazo produce un FeedbackPayload (FeedbackService), nunca texto en la vista.
  */
-import type { IntentResult, SessionIntent, SettingsSnapshot, Site, ViewIntent } from "../../core/contracts";
+import type { EvidencePack, IntentResult, SessionIntent, SettingsSnapshot, Site, ViewIntent } from "../../core/contracts";
 import { selectActiveSession } from "../../core/selectors";
 import type { Language } from "../../i18n";
 import { Store, StoreActions } from "../../core/store";
@@ -24,7 +24,7 @@ import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { SessionEngineService } from "../domain/SessionEngineService";
 import { SiteRegistryService } from "../domain/SiteRegistryService";
 import { monitoredSiteId } from "../domain/siteVisits";
-import { EvidencePackService, latestPackFor } from "../evidence/EvidencePackService";
+import { EvidencePackService, latestPackFor, type SealResult } from "../evidence/EvidencePackService";
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
@@ -151,6 +151,37 @@ function report<T>(r: IntentResult<T>): IntentResult<T> {
   return r;
 }
 
+/** ¿El pack tiene en este teléfono los dos PDF? Tras restaurar una copia en otro teléfono quedan en null. */
+function packHasPdfs(pack: EvidencePack): boolean {
+  return !!pack.employeePdfUri && !!pack.employerPdfUri;
+}
+
+/**
+ * Pack vigente del periodo, listo para compartir («Exportar expediente» y
+ * «Enviar por correo»). Nunca devuelve en silencio un pack desactualizado:
+ *  - sin pack → sella (certificado);
+ *  - pack que ya no coincide con el cálculo de ahora (describeFreshness) →
+ *    vuelve a sellar (certificado). Si el periodo ya no se puede certificar,
+ *    el sello falla con su motivo y no se comparte el pack viejo;
+ *  - pack al día pero sin PDF en este teléfono → reemisión (`reissue`) con el
+ *    mismo criterio de certificación que el pack original, que regenera los PDF.
+ */
+async function currentPackFor(periodStart: number, periodEnd: number): Promise<SealResult> {
+  const latest = await latestPackFor(periodStart, periodEnd);
+  let sealed: SealResult;
+  if (!latest) {
+    sealed = await generateWeeklyPayroll(periodStart, periodEnd, false, false);
+  } else if (!(await EvidencePackService.describeFreshness(periodStart, periodEnd)).matches) {
+    sealed = await generateWeeklyPayroll(periodStart, periodEnd, false, false);
+  } else if (!packHasPdfs(latest)) {
+    sealed = await generateWeeklyPayroll(periodStart, periodEnd, !latest.manifest.certified, true);
+  } else {
+    return { ok: true, data: latest, reused: true };
+  }
+  if (sealed.ok) FeedbackService.emit(sealed.reused ? "PACK_REUSED" : "PACK_SEALED", { hash: sealed.data.manifest.packHash.slice(0, 12) });
+  return sealed;
+}
+
 /** Si el sitio editado es el que vigila la jornada abierta, la geocerca usa el radio y las coordenadas nuevos. */
 async function resyncGeofenceIfTarget(site: Site): Promise<void> {
   const open = selectActiveSession(Store.getState());
@@ -264,25 +295,30 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
       }
       case "SHARE_EMPLOYEE":
         return report(await EvidencePackService.shareEmployee(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
-      case "SHARE_EMPLOYER":
-        return report(await EvidencePackService.shareEmployer(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
+      case "SHARE_EMPLOYER": {
+        const annex = { ledger: intent.annexLedger, enterExit: intent.annexEnterExit };
+        if (!intent.ensureFresh) return report(await EvidencePackService.shareEmployer(intent.packId, annex));
+        // «Enviar por correo» de Reportes: el pack vigente del periodo, no uno desactualizado.
+        const chosen = await EvidencePackService.get(intent.packId);
+        if (!chosen) return report({ ok: false, code: "PACK_NOT_FOUND" });
+        const current = await currentPackFor(chosen.manifest.periodStart, chosen.manifest.periodEnd);
+        if (!current.ok) return report(current);
+        const sent = await EvidencePackService.shareEmployer(current.data.id, annex);
+        return sent.ok ? { ok: true, data: current.data } : report(sent);
+      }
       case "EXPORT_RANGE_PDF": {
         const r = await exportRangePdf(intent.periodStart, intent.periodEnd);
         if (r.ok) FeedbackService.emit("RANGE_PDF_SHARED");
         return r.ok ? { ok: true, data: { uri: r.uri, name: r.name } } : report(r);
       }
       case "EXPORT_PACK": {
-        // §16: reutiliza el pack más reciente del periodo; si no hay, sella
-        // (certificado; un periodo no certificable se remite al flujo de Reportes).
-        let pack = await latestPackFor(intent.periodStart, intent.periodEnd);
-        if (!pack) {
-          const sealed = await generateWeeklyPayroll(intent.periodStart, intent.periodEnd, false, false);
-          if (!sealed.ok) return report(sealed);
-          FeedbackService.emit(sealed.reused ? "PACK_REUSED" : "PACK_SEALED", { hash: sealed.data.manifest.packHash.slice(0, 12) });
-          pack = sealed.data;
-        }
-        const shared = await EvidencePackService.shareEmployee(pack.id);
-        return shared.ok ? { ok: true, data: pack } : report(shared);
+        // §16: el pack vigente del periodo; si falta, está desactualizado o no
+        // tiene PDF, se sella o se reemite antes (currentPackFor). Un periodo no
+        // certificable se remite al flujo de Reportes («Exportar no certificado»).
+        const current = await currentPackFor(intent.periodStart, intent.periodEnd);
+        if (!current.ok) return report(current);
+        const shared = await EvidencePackService.shareEmployee(current.data.id);
+        return shared.ok ? { ok: true, data: current.data } : report(shared);
       }
 
       // ---- Ajustes ----
