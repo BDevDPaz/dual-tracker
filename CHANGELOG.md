@@ -70,6 +70,16 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 
 ### Corregido
 
+- **#64** Hoy e Historial (H-2b, H-4, H-5, H-6, H-17, HH-1, HH-2, HH-4, HH-5, HH-6, HH-7, HH-20).
+  - Hoy: la hoja «¿Sigues trabajando?» solo promete pago doble si `caDoubleTime` está activado (`today.extendBody` / `today.extendBodyDoubleTime`, es y en).
+  - Hoy: el supervisor de almuerzo cuenta desde `lunch.startAtMs`; el cronómetro del hero se para durante el almuerzo y descuenta el ya terminado con la regla de nómina (`selectLunchElapsedMs`, `selectActiveElapsedMs`).
+  - Hoy: en una jornada huérfana el pie ya no ofrece un cierre que `CLOSE_DAY` rechaza (`ORPHAN_REVIEW`); lleva a la tarjeta de revisión.
+  - Hoy: la clave KV `AUTO_CLOSE_BANNER` se borra al mostrar el banner (intent `AUTO_CLOSE_BANNER_SEEN`); tocarlo lo descarta.
+  - Hoy: la hoja de salida muestra el plazo real guardado (`EXIT_DECISION.deadlineMs`, o `firstExit + exitDecisionWindowMs`) y «Cómo funciona» cita esa ventana, no «15 minutos».
+  - Historial: «Todo» usa la misma fila de periodo que «Esta semana» (statement), no `previewSession`. Estado de carga antes de hidratar. Enlace al reporte de la semana elegida. Fila y detalle de jornada cancelada dicen «Jornada cancelada».
+  - Detalle: aviso antes de sustituir la nota (Añadir nota y Editar); en jornada abierta «Editar» solo corrige la entrada; aviso (sin bloqueo) al editar o eliminar en un periodo con expediente sellado.
+  - Tests: `app/(tabs)/__tests__/today.hoyFixes.test.tsx` (T-2, T-3, T-6, T-7, T-8), `app/(tabs)/__tests__/history.screen.test.tsx` (HT-1, HT-2, HT-8, HT-9), `app/session/__tests__/sessionDetail.hhFixes.test.tsx` (HT-4, HT-5, HT-6, HT-9).
+  - Documentación: líneas del detalle en `PROJECT_STATE.md` §2 corregidas.
 - **#60** Aviso sin bloqueo cuando el destino queda sin coordenadas (corrige el silencio documentado en el #59, no el guardado sin coordenadas: la jornada sigue pudiendo abrirse y la llegada se confirma a mano). `routeIntent` expone `geofenceReady` en `START_DAY` (`src/services/application/intentRouter.ts:193-194`) y `geocoded` en `UPSERT_SITE` (`:240`); el modal muestra `sites.coordsMissing` al confirmar (`src/components/modals/DailySetupModal.tsx:225`) y Hoy muestra un `Banner` de aviso derivado del destino objetivo (`app/(tabs)/index.tsx:308-309`). Verificación (Termux, 2026-11-26, rama `fix/sin-destino-aviso` en `14059ba`, merge `e15e530`): `npm run test:domain` 61/61 suites, 500/500 tests; `npm test -- DailySetupModal` 5/5; `npm run typecheck` limpio. La geocodificación real en Android y el ENTER/SALIDA del SO no están probados en un teléfono.
 - **#16** La hora de red ruidosa no quita VALIDADA: hacen falta muestras coherentes y, con ubicación buena, la deriva solo avisa. También el ENTER duplicado, la salida en histéresis y el sello «SELLADO» partido. Lista: `docs/PRUEBA_CAMPO_1.md`.
 - **#17** Corte, almuerzo, rastro, reglas y ENTER de borde. El servicio de ubicación sigue en el almuerzo. Una regla sale como aplicada solo si produjo minutos. Lista: `docs/PRUEBA_CAMPO_2.md`.

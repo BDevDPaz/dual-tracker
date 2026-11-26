@@ -31,6 +31,7 @@ import {
   selectCertification,
   selectComputedSessions,
   selectIsHydrated,
+  selectSealedPacksForSession,
   selectSessionById,
   selectSettings,
   trimDisplayNote,
@@ -91,6 +92,12 @@ export default function SessionDetailScreen() {
   const facts = trace.data ?? [];
   const hasTrace = facts.some((f) => f.type === "BREADCRUMB");
   const hasEnter = facts.some((f) => f.type === "ENTER" && f.reliable);
+  // HH-5: ADD_NOTE y MANUAL_PATCH sustituyen la nota; los modales lo avisan.
+  const currentNote = session.bookkeeping.manualNote ? (cert.unreadable.includes("note") ? t("fieldCrypto.unreadableNote") : note) : undefined;
+  // HH-7: periodo ya exportado → aviso (no bloqueo); Reportes permite volver a sellar.
+  const sealedWarning = selectSealedPacksForSession(state, session, nowMs).length > 0 ? t("modals.sealedPeriodWarning") : undefined;
+  // HH-20: una jornada cancelada no es una «Jornada cerrada».
+  const stateLabel = session.bookkeeping.cancelled ? t("history.cancelled") : t(`states.${session.domainStatus}.label`);
 
   const run = (intent: Parameters<typeof emit>[0]) =>
     guard(async () => {
@@ -150,7 +157,7 @@ export default function SessionDetailScreen() {
         <View style={styles.stateLine}>
           {session.domainStatus === "ACTIVA" ? <ArrivalMark size={ICON.lg} decorative /> : null}
           <Text style={[styles.caption, styles.stateCaption, FONT.tabularNums, { color: colors.text.secondary }]}>
-            {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {t(`states.${session.domainStatus}.label`)}
+            {formatTime(start)} – {session.endAtMs ? formatTime(session.endAtMs) : "…"} · {stateLabel}
           </Text>
         </View>
         {zeroDuration ? <Text style={[styles.caption, { color: colors.statusText.warning }]}>{t("history.zeroDuration")}</Text> : null}
@@ -229,14 +236,23 @@ export default function SessionDetailScreen() {
         nowMs={nowMs}
         onCancel={() => setModal(null)}
         checkOverlap={queries.checkOverlap}
+        currentNote={currentNote}
+        sealedWarning={sealedWarning}
         onSave={(p) => void run({ type: "PATCH_SESSION", sessionId: session.id, declaredStartAtMs: p.declaredStartAtMs, endAtMs: p.endAtMs, note: p.note })}
       />
-      <DeleteSessionModal visible={modal === "DELETE"} busy={busy} onCancel={() => setModal(null)} onConfirm={() => void run({ type: "DELETE_SESSION", sessionId: session.id })} />
+      <DeleteSessionModal
+        visible={modal === "DELETE"}
+        busy={busy}
+        sealedWarning={sealedWarning}
+        onCancel={() => setModal(null)}
+        onConfirm={() => void run({ type: "DELETE_SESSION", sessionId: session.id })}
+      />
       <VmacSheet visible={vmac} onClose={() => setVmac(false)} />
       <AddNoteModal
         visible={modal === "NOTE"}
         title={t("modals.noteTitle")}
         busy={busy}
+        currentNote={currentNote}
         onCancel={() => setModal(null)}
         onSave={(note) => void run({ type: "ADD_NOTE", sessionId: session.id, note })}
       />

@@ -34,10 +34,10 @@ import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../serv
 import { restoreClippedTransits } from "../../services/domain/sessionMachine";
 import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
 import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
-import { computeSegmentMinutes } from "../../services/domain/segmentation";
+import { computeSegmentMinutes, deductibleLunchMinutes } from "../../services/domain/segmentation";
 import { checkedInSiteIds, lastVisitAtMs } from "../../services/domain/siteVisits";
 import { retentionPhase, type RetentionPhase } from "../../services/evidence/retentionRules";
-import { nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
+import { getWeekEnd, getWeekStart, nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
 /** Presentación de nómina para las pantallas (las rutas no importan services/). */
 export { allocateDisplayHundredths, displayStatement, formatCents, formatHundredths, formatPayRateLine, minutesToHundredths, moneyCents, trimDisplayNote };
@@ -136,7 +136,9 @@ export type HeroAction =
   | "STAY_WORKING"
   | "REVIEW_SESSION"
   | "NEW_DAY"
-  | "CONFIRM_ARRIVAL";
+  | "CONFIRM_ARRIVAL"
+  /** Jornada huérfana: lleva a la tarjeta de revisión en vez de a un cierre que se rechaza. */
+  | "REVIEW_ORPHAN";
 
 export interface SessionStateUI {
   state: SessionState;
@@ -497,6 +499,42 @@ export function selectPeriodSessionRows(s: DualTrackerState, periodStart: number
 
 export const selectPacks = (s: DualTrackerState): EvidencePack[] =>
   s.packs.order.map((id) => s.packs.byId[id]).filter((p): p is EvidencePack => !!p);
+
+/**
+ * Historial «Todo» (HH-4): cada jornada con la fila del periodo semanal donde
+ * empieza (selectPeriodSessionRows, la misma que «Esta semana» y que el
+ * statement del periodo). Así las dos vistas dan las mismas horas e importe
+ * para la misma jornada. No cambia el statement. Orden: el de la lista
+ * visible (más reciente primero).
+ */
+export function selectHistoryAllRows(s: DualTrackerState, nowMs: number): PeriodSessionRow[] {
+  const history = companyCalendar(s.settings.company);
+  const byWeek = new Map<number, Map<number, PeriodSessionRow>>();
+  const rows: PeriodSessionRow[] = [];
+  for (const session of selectVisibleSessions(s)) {
+    const weekStart = getWeekStart(session.actualStartAtMs ?? session.declaredStartAtMs, history);
+    let week = byWeek.get(weekStart);
+    if (!week) {
+      week = new Map(selectPeriodSessionRows(s, weekStart, getWeekEnd(weekStart, history), nowMs).map((r) => [r.session.id, r]));
+      byWeek.set(weekStart, week);
+    }
+    const row = week.get(session.id);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
+/**
+ * Expedientes sellados cuyo periodo contiene la jornada (HH-7). Editarla o
+ * eliminarla deja ese expediente desactualizado (Reportes lo marca después
+ * como `packStale`); la UI avisa antes. No bloquea: el libro deja rastro y el
+ * periodo se puede volver a sellar.
+ */
+export function selectSealedPacksForSession(s: DualTrackerState, session: SessionRecord, nowMs: number): EvidencePack[] {
+  const start = session.actualStartAtMs ?? session.declaredStartAtMs;
+  const end = session.endAtMs ?? nowMs;
+  return selectPacks(s).filter((p) => p.manifest.periodStart <= end && p.manifest.periodEnd >= start);
+}
 export const selectPackById = (s: DualTrackerState, id: string): EvidencePack | null => s.packs.byId[id] ?? null;
 export const selectPendingFeedback = (s: DualTrackerState) => s.feedback.pending;
 export const selectAdmin = (s: DualTrackerState) => s.admin;
@@ -507,22 +545,44 @@ export const selectSettings = (s: DualTrackerState) => s.settings;
 export const selectHealth = (s: DualTrackerState) => s.health;
 
 /**
+ * Inicio del almuerzo en curso. Un almuerzo real (LUNCH_START) solo rellena
+ * `lunch.startAtMs` (sessionMachine, LUNCH_STARTED); la pausa que no califica
+ * como almuerzo usa `lastPauseStartMs`.
+ */
+function openLunchStartMs(a: SessionRecord): number | null {
+  return a.domainStatus === "PAUSADA" && a.lunch.startAtMs != null && a.lunch.endAtMs == null ? a.lunch.startAtMs : null;
+}
+
+/**
  * Tiempo transcurrido de la jornada abierta (temporizador del hero), neto de
- * pausas cerradas y de la pausa en curso. Presentación, no nómina: la nómina
- * sale de PayrollEngineService.previewSession.
+ * pausas cerradas, de la pausa en curso y del almuerzo: el almuerzo en curso
+ * se descuenta entero (el reloj se para) y uno ya terminado, con la regla de
+ * nómina (deductibleLunchMinutes: 30 min o más; uno más corto se paga).
+ * Presentación, no nómina: la nómina sale de PayrollEngineService.previewSession.
  */
 export const selectActiveElapsedMs = (s: DualTrackerState, nowMs: number): number => {
   const a = selectActiveSession(s);
   if (!a) return 0;
   const start = a.actualStartAtMs ?? a.declaredStartAtMs;
   const ongoingPause = a.bookkeeping.lastPauseStartMs ? Math.max(0, nowMs - a.bookkeeping.lastPauseStartMs) : 0;
-  return Math.max(0, nowMs - start - a.totalPausedMs - ongoingPause);
+  const lunchStart = openLunchStartMs(a);
+  let lunchMs = 0;
+  if (lunchStart != null) lunchMs = Math.max(0, nowMs - lunchStart);
+  else if (a.lunch.startAtMs != null && a.lunch.endAtMs != null) {
+    const spanMinutes = Math.max(0, Math.round((nowMs - start) / 60_000));
+    const pauseMinutes = Math.round((a.totalPausedMs + ongoingPause) / 60_000);
+    const interrupted = Boolean(a.lunch.interrupted || a.bookkeeping.compliance?.mealInterrupted);
+    lunchMs = deductibleLunchMinutes({ ...a.lunch, interrupted }, spanMinutes, pauseMinutes, nowMs, false).minutes * 60_000;
+  }
+  return Math.max(0, nowMs - start - a.totalPausedMs - ongoingPause - lunchMs);
 };
 
 /** Tiempo transcurrido del almuerzo en curso (LunchModal modo supervisor). */
 export const selectLunchElapsedMs = (s: DualTrackerState, nowMs: number): number => {
   const a = selectActiveSession(s);
-  return a?.bookkeeping.lastPauseStartMs ? Math.max(0, nowMs - a.bookkeeping.lastPauseStartMs) : 0;
+  if (!a) return 0;
+  const from = openLunchStartMs(a) ?? a.bookkeeping.lastPauseStartMs;
+  return from ? Math.max(0, nowMs - from) : 0;
 };
 
 // [STRIPPED 75 bytes]

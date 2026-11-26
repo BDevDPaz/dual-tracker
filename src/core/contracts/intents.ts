@@ -251,7 +251,13 @@ export type ViewIntent =
   | { type: "EXPORT_SUPPORT_DIAGNOSTIC" }
   // Feedback
   | { type: "DISMISS_FEEDBACK"; feedbackId: string }
-  | { type: "CONSUME_UI_REQUEST" };
+  | { type: "CONSUME_UI_REQUEST" }
+  /**
+   * Hoy ya mostró el banner de cierre automático: se borra la clave KV
+   * AUTO_CLOSE_BANNER para que no vuelva en cada arranque en frío. Con
+   * `dismiss`, además se quita de la pantalla.
+   */
+  | { type: "AUTO_CLOSE_BANNER_SEEN"; dismiss?: boolean };
 
 export type ViewIntentType = ViewIntent["type"];
 

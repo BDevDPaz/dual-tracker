@@ -16,6 +16,8 @@ interface ScreenScrollProps {
   testID?: string;
   /** false en pantallas sin campos (el teclado igual no estorba si queda en true). */
   keyboard?: boolean;
+  /** Ref externa al ScrollView (p. ej. Hoy sube a la tarjeta de revisión). */
+  scrollRef?: React.MutableRefObject<ScrollView | null>;
 }
 
 /**
@@ -31,11 +33,13 @@ export function ScreenScroll({
   contentContainerStyle,
   testID,
   keyboard = true,
+  scrollRef: externalRef,
 }: ScreenScrollProps) {
   const { colors } = useTheme();
   const { screenPadding, contentMaxWidth } = useResponsive();
   const keyboardInset = useKeyboardInset();
-  const scrollRef = useRef<ScrollView>(null);
+  const internalRef = useRef<ScrollView>(null);
+  const scrollRef = externalRef ?? internalRef;
   // iOS: el ScrollView ajusta el inset. Android con edge-to-edge: el gancho mide el solape real.
   const androidLift = keyboard && Platform.OS !== "ios" ? keyboardInset : 0;
 

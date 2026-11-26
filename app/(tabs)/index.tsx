@@ -5,8 +5,8 @@
  * DailySetupModal, LunchModal y ExitDetectionModal. No calcula horas: todo
  * sale de selectores; toda mutación es una ViewIntent.
  */
-import { useEffect, useState } from "react";
-import { Platform, View, Text, StyleSheet, Pressable } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Platform, View, Text, StyleSheet, Pressable, type ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import {
   Banner,
@@ -32,7 +32,7 @@ import { useTheme } from "../../src/context/ThemeContext";
 import { useToast } from "../../src/context/ToastContext";
 import { gpsNoticeState } from "../../src/core/monitoringState";
 import type { SiteDraft, ViewIntent } from "../../src/core/contracts";
-import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
+import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useQuery, useWorkTracker } from "../../src/core/hooks";
 import {
   getSessionStateUI,
   selectActiveSession,
@@ -47,6 +47,7 @@ import {
   selectCryptoHealth,
   selectLunchElapsedMs,
   selectSessionState,
+  selectSettings,
   selectSiteById,
   selectSites,
   selectSystemHealth,
@@ -56,6 +57,7 @@ import {
   type HeroAction,
 } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
+import { legalFlags } from "../../src/utils/companyPolicy";
 import { homeBannerSettingsTarget, homeOptionalBanners } from "../../src/onboarding/flow";
 import { formatDate, formatDuration, formatTime, wallMinutesOnOrAfter } from "../../src/utils/dateUtils";
 
@@ -64,8 +66,9 @@ type OpenModal = null | "SETUP_START" | "SETUP_TRANSIT" | "LUNCH_CLOSE_DAY" | "L
 export default function TodayScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { state, emit } = useWorkTracker();
+  const { state, emit, queries } = useWorkTracker();
   const nowMs = useClock(60_000);
+  const scrollRef = useRef<ScrollView | null>(null);
   const { showToast } = useToast();
   const [dismissedGps, setDismissedGps] = useState<GpsExceptionKind | null>(null);
   const { refreshControl } = usePullToRefresh();
@@ -76,8 +79,12 @@ export default function TodayScreen() {
   const { busy, run: guard } = useBusyAction();
 
   const sessionState = selectSessionState(state, nowMs);
-  const ui = getSessionStateUI(sessionState);
   const active = selectActiveSession(state);
+  // H-6: en una jornada huérfana CLOSE_DAY se rechaza (ORPHAN_REVIEW). Las CTA
+  // de cierre llevan a la tarjeta de revisión (CONFIRM_ORPHAN_END) de esta pantalla.
+  const orphan = active?.bookkeeping.integrityReason === "ORPHAN_SESSION";
+  const ui = orphanUi(getSessionStateUI(sessionState), orphan);
+  const company = selectSettings(state).company;
   const dayLunch = selectDayLunch(state, nowMs);
   const lunchUsedToday = dayLunch != null;
   const lunchPrompt = selectLunchPrompt(state, nowMs);
@@ -93,6 +100,13 @@ export default function TodayScreen() {
   const uiRequests = selectUiRequests(state);
   const ledger = selectLedgerHealth(state);
   const crypto = selectCryptoHealth(state);
+  const exitDeadline = useQuery(() => queries.exitDecisionDeadline(), [modal === "EXIT", active?.id ?? null, active?.bookkeeping.firstExitAtMs ?? null]);
+
+  // H-5: el banner de cierre automático ya se vio: la clave KV se borra para que
+  // no vuelva en el siguiente arranque en frío. Tocarlo lo descarta.
+  useEffect(() => {
+    if (uiRequests.autoCloseBanner) void emit({ type: "AUTO_CLOSE_BANNER_SEEN" });
+  }, [uiRequests.autoCloseBanner, emit]);
 
   // Peticiones de UI originadas fuera de la vista (notificación de salida, boot en SALIDA).
   useEffect(() => {
@@ -156,6 +170,8 @@ export default function TodayScreen() {
         return lastToday ? router.push(`/session/${lastToday.id}`) : router.push("/(tabs)/history");
       case "CONFIRM_ARRIVAL":
         return void run({ type: "CONFIRM_ARRIVAL" });
+      case "REVIEW_ORPHAN":
+        return scrollRef.current?.scrollTo({ y: 0, animated: true });
     }
   };
 
@@ -215,6 +231,7 @@ export default function TodayScreen() {
     <ScreenScroll
       edges={SAFE_EDGES.tab}
       refreshControl={refreshControl}
+      scrollRef={scrollRef}
       footer={
         <PrimaryButton
           label={t(ui.primary.labelKey)}
@@ -297,7 +314,9 @@ export default function TodayScreen() {
           onSecondaryAction={ui.secondary ? () => onHeroAction(ui.secondary!.action) : undefined}
         />
 
-        {uiRequests.autoCloseBanner ? <Banner tone="warning" message={uiRequests.autoCloseBanner} /> : null}
+        {uiRequests.autoCloseBanner ? (
+          <Banner tone="warning" message={uiRequests.autoCloseBanner} onPress={() => void emit({ type: "AUTO_CLOSE_BANNER_SEEN", dismiss: true })} />
+        ) : null}
         {!active ? (
           <Pressable onPress={() => setModal("TRUST")} accessibilityRole="button" style={styles.footerLink}>
             <Text style={[styles.link, { color: colors.text.secondary }]}>{t("today.trustShort")}</Text>
@@ -485,7 +504,7 @@ export default function TodayScreen() {
       <ConfirmActionModal
         visible={modal === "EXTEND"}
         title={t("today.extendTitle")}
-        description={t("today.extendBody")}
+        description={t(legalFlags(company).caDoubleTime ? "today.extendBodyDoubleTime" : "today.extendBody")}
         confirmLabel={t("today.keepWorking")}
         cancelLabel={t("common.back")}
         tone="warning"
@@ -508,13 +527,18 @@ export default function TodayScreen() {
         onClose={() => setModal(null)}
         primaryAction={{ label: t("common.ok"), onPress: () => setModal(null) }}
       >
-        <Text style={{ color: colors.text.primary }}>{t("today.trustFull")}</Text>
+        <Text style={{ color: colors.text.primary }}>{t("today.trustFull", { minutes: Math.round(company.exitDecisionWindowMs / 60_000) })}</Text>
       </ModalShell>
       <ExitDetectionModal
         visible={modal === "EXIT"}
         firstExitTime={formatTime(active?.bookkeeping.firstExitAtMs ?? null)}
         siteName={target?.alias ?? ""}
-        recheckTime={formatTime((active?.bookkeeping.firstExitAtMs ?? nowMs) + 15 * 60_000)}
+        recheckTime={formatTime(
+          // H-17: el plazo real es el que guardó TaskOrchestrator (ahora + exitDecisionWindowMs).
+          exitDeadline.data != null && exitDeadline.data.sessionId === active?.id
+            ? exitDeadline.data.deadlineMs
+            : (active?.bookkeeping.firstExitAtMs ?? nowMs) + company.exitDecisionWindowMs,
+        )}
         reopened={exitReopened}
         busy={busy}
         onStay={() => void run({ type: "STAY_WORKING" }, () => setModal(null))}
@@ -533,3 +557,15 @@ const styles = StyleSheet.create({
   footerLink: { alignSelf: "center", padding: TOKENS.spacing.md, minHeight: TOKENS.layout.minTouchTarget, justifyContent: "center" },
   link: { ...FONT.bodyStrong },
 });
+
+const CLOSING_ACTIONS: readonly HeroAction[] = ["OPEN_LUNCH_CLOSE", "OPEN_LUNCH_FINISH", "OPEN_EXIT_MODAL"];
+
+/** H-6: en jornada huérfana, ni el pie ni el hero ofrecen un cierre que la máquina rechaza. */
+function orphanUi(ui: ReturnType<typeof getSessionStateUI>, orphan: boolean): ReturnType<typeof getSessionStateUI> {
+  if (!orphan) return ui;
+  return {
+    ...ui,
+    primary: CLOSING_ACTIONS.includes(ui.primary.action) ? { labelKey: "today.orphanReviewCta", action: "REVIEW_ORPHAN" } : ui.primary,
+    secondary: ui.secondary && CLOSING_ACTIONS.includes(ui.secondary.action) ? null : ui.secondary,
+  };
+}
