@@ -1,7 +1,10 @@
 /**
  * (onboarding)/disclosure.tsx — Aviso de ubicación laboral.
- * Los tres bloques muestran el texto de legal.ts (misma versión). «No acepto»
- * no cierra el camino: se vuelve al aviso o a la bienvenida.
+ * B2: tres bloques cortos (`summary` de legal.ts, misma versión) y «Leer aviso
+ * completo», que abre el aviso completo de solo lectura (legal/disclosure.tsx,
+ * sin ruta nueva). «No acepto» no cierra el camino: se vuelve al aviso o a la
+ * bienvenida.
+ * TODO(legal): el texto de B2 está pendiente de revisión por la asesoría legal.
  * H-15: con la versión vigente ya aceptada, la casilla sale marcada y
  * Continuar no vuelve a emitir ACCEPT_DISCLOSURE (no reescribe la fecha).
  * H-1: dentro del alta, Continuar guarda el progreso (SAVE_ONBOARDING_PROGRESS).
@@ -18,7 +21,6 @@ import { useResponsive } from "../../src/components/ui/responsive";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectNeedsDisclaimer, selectNeedsOnboarding } from "../../src/core/selectors";
 import { getLanguage, t } from "../../src/i18n";
-import { disclosureSections } from "../../src/onboarding/flow";
 
 export default function OnboardingDisclosureScreen() {
   const router = useRouter();
@@ -29,7 +31,6 @@ export default function OnboardingDisclosureScreen() {
   const { colors } = useTheme();
   const { busy, run } = useBusyAction();
   const content = queries.disclosure(getLanguage());
-  const sections = disclosureSections(content.blocks);
   const { screenPadding } = useResponsive();
 
   const onContinue = () =>
@@ -55,17 +56,13 @@ export default function OnboardingDisclosureScreen() {
           <Text style={[styles.title, styles.titleFlex, { color: colors.text.primary }]}>{t("onboarding.avisoTitle")}</Text>
           <HelpButton screen="onboardingDisclosure" />
         </View>
-        {sections.map((section) => (
-          <View key={section.id} style={[styles.block, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Text style={[styles.blockTitle, { color: colors.primary }]}>{t(section.headingKey)}</Text>
-            {section.items.map((item) => (
-              <View key={item.key} style={styles.item}>
-                <Text style={[styles.itemTitle, { color: colors.text.primary }]}>{item.title}</Text>
-                <Text style={[styles.body, { color: colors.text.secondary }]}>{item.body}</Text>
-              </View>
-            ))}
+        {content.summary.map((block) => (
+          <View key={block.key} style={[styles.block, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.blockTitle, { color: colors.primary }]}>{block.title}</Text>
+            <Text style={[styles.body, { color: colors.text.secondary }]}>{block.body}</Text>
           </View>
         ))}
+        <Button label={t("onboarding.avisoReadFull")} variant="ghost" disabled={busy} onPress={() => router.push("/legal/disclosure")} testID="disclosure-read-full" />
         <Text style={[styles.version, { color: colors.text.muted }]}>v{content.version}</Text>
       </ScrollView>
       <View style={[styles.footer, { borderColor: colors.border, padding: screenPadding }]}>
@@ -104,10 +101,8 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", gap: TOKENS.spacing.sm },
   title: { ...FONT.h2, marginBottom: TOKENS.spacing.lg },
   titleFlex: { flex: 1 },
-  block: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md, gap: TOKENS.spacing.md },
+  block: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.lg, marginBottom: TOKENS.spacing.md, gap: TOKENS.spacing.xs },
   blockTitle: { ...FONT.label },
-  item: { gap: TOKENS.spacing.xs },
-  itemTitle: { ...FONT.bodyStrong },
   body: { ...FONT.bodySmall },
   version: { ...FONT.caption, textAlign: "right", marginTop: TOKENS.spacing.sm },
   footer: { borderTopWidth: TOKENS.layout.hairline, gap: TOKENS.spacing.md },

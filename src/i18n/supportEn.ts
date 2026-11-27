@@ -330,7 +330,7 @@ export const supportEn: typeof supportEs = {
     onboardingDisclosure: {
       title: "Disclosure",
       intro: "The disclosure explains what location is stored and who it can be shared with. You have to accept it to continue.",
-      s0: { title: "Read it", body: "The text is the same one you will later see under Legal. Accepting marks the current version." },
+      s0: { title: "Read it", body: "Here you see a three-block summary. “Read full notice” opens the whole text, the same one you will later see under Legal. Accepting marks the current version." },
       s1: { title: "Without accepting", body: "Without the disclosure accepted, the shift does not start." },
     },
     permissions: {
