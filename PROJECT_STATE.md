@@ -69,7 +69,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - Rango semana actual, semana anterior, quincena, mes y fechas (`src/utils/reportRange.ts:9`).
   - PDF del rango sin sellar, `EXPORT_RANGE_PDF` (`reports.tsx:280`).
   - Sellar la semana, `SEAL_PACK`.
-  - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:386-394`), como confirmó el dueño.
+  - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:387-395`), como confirmó el dueño.
   - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:387-395`), como confirmó el dueño.
   - «Compartir expediente empleador», `SHARE_EMPLOYER` (`reports.tsx:371`, `app/report/pack/[packId].tsx:138`): usa el correo si hay cliente y si no, la hoja de compartir.
   - Tests: `ReportService.test.ts`, `previewPayrollRange.test.ts`, `generateWeeklyPayroll.test.ts`, `reportPremium.test.ts`, `reportRange.test.ts`.
@@ -94,7 +94,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 - **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Fusionado en `main` (`9aa49bd`, 2026-11-26). Falta probarlo en un teléfono.
 - **#64 Hoy e Historial** (rama `fix/hoy-historial`, sin fusionar). Hoy: el texto de «¿Sigues trabajando?» solo promete doble tiempo con `caDoubleTime` (H-2b); el supervisor de almuerzo cuenta desde `lunch.startAtMs` y el cronómetro del hero descuenta el almuerzo (H-4); en jornada huérfana el pie lleva a la tarjeta de revisión (H-6); la clave KV `AUTO_CLOSE_BANNER` se borra al mostrar el banner (H-5); la hoja de salida y «Cómo funciona» usan el plazo real `exitDecisionWindowMs` (H-17). Historial: «Todo» usa la misma fila de periodo que «Esta semana» (HH-4); aviso antes de sustituir la nota (HH-5); en jornada abierta «Editar» solo corrige la entrada (HH-6); aviso al editar o eliminar en un periodo con expediente sellado (HH-7); estado de carga (HH-2); enlace al reporte de la semana (HH-1); «cancelada» en la fila y el detalle (HH-20). Tests: `today.hoyFixes.test.tsx`, `history.screen.test.tsx`, `sessionDetail.hhFixes.test.tsx`.
 - **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` (`eb969d7`, 2026-11-26).**
-  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:171`).
+  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:172`).
   - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:172`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
