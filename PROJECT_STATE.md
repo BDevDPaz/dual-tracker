@@ -89,7 +89,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 
 ### En progreso
 - **#65 Onboarding** (rama `fix/onboarding-h13-h14`, sin fusionar). H-13: un deep link a las rutas operativas sin alta o sin aviso vuelve al gate (`Stack.Protected` + `canEnterApp`). H-14: `COMPLETE_ONBOARDING` rechaza un nombre de menos de 2 caracteres (`NAME_REQUIRED`) y el aviso vigente sin aceptar (`DISCLOSURE_NOT_ACCEPTED`); Listo vuelve al paso que falta. H-2: un solo botón en los subpasos de segundo plano y notificaciones. H-12: tests de las ramas G2 y G3 del gate. H-10: README. B1–B3, H-1, H-5 y H-7 del onboarding siguen fuera.
-- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): abierto, pendiente de revisión y merge (Byron fusiona).**
+- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` en `eb969d7` (2026-11-26).**
   - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:168`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.

@@ -77,7 +77,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
   - H-12: tests de las cinco ramas de `initialHref`, incluidas `needsOnboarding → welcome` y `needsDisclaimer → disclosure`.
   - H-10: README ya no dice que el tema claro está oculto.
   - Tests: `src/core/__tests__/initialRoute.test.ts`, `src/navigation/__tests__/deepLinkGate.test.tsx`, `src/navigation/__tests__/deepLinkGate.conflict.test.tsx`.
-- **#62** (Solicitud 1 — Reportes; pendiente de merge). Hallazgos RR-1, RR-2, RR-3 y RR-11 de los wireframes de Reportes.
+- **#62** (Solicitud 1 — Reportes; fusionado en `main` en `eb969d7`, 2026-11-26). Hallazgos RR-1, RR-2, RR-3 y RR-11 de los wireframes de Reportes.
   - **RR-1:** «Exportar expediente» (`EXPORT_PACK`) y «Enviar por correo» (`SHARE_EMPLOYER` con `ensureFresh`) ya no comparten un pack desactualizado. Si el último pack del periodo no coincide con el cálculo de ahora (`describeFreshness`), se vuelve a sellar antes de compartir. Si el periodo ya no se puede sellar como certificado, se muestra el motivo y no se comparte el pack viejo (`currentPackFor`, `src/services/application/intentRouter.ts:168`, `:297`, `:313`; `app/(tabs)/reports.tsx:313`, `app/report/[periodId].tsx:146`).
   - **RR-2:** un pack sin PDF en este teléfono (copia restaurada) tiene salida.
     - Compartirlo devuelve `PACK_PDF_MISSING` con un mensaje que remite a «Volver a emitir», en vez de `PACK_NOT_FOUND` (`src/services/evidence/EvidencePackService.ts:716`, `:727`).
