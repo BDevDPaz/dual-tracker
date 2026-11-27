@@ -14,6 +14,7 @@
     "lint": "expo lint",
     "doctor": "npx expo-doctor",
     "check:dates": "npx -y tsx scripts/check-dates.ts",
+    "audit:theme": "npx -y tsx scripts/audit-theme.ts",
     "test": "jest --runInBand --watchman=false",
     "test:watch": "jest --watch --watchman=false",
     "test:domain": "jest --runInBand --watchman=false src/services/domain src/services/application src/services/evidence",
