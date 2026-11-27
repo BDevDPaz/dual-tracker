@@ -110,7 +110,9 @@ export const en: Dictionary = {
     permFgTitle: "Location while in use",
     permFgBody: "We use it to know when you arrive at the site.",
     permBgTitle: "Background location",
-    permBgBody: "Needed for the VALIDATED seal and the shift watchdog.",
+    permBgBody: "Lets the app record when you arrive at and leave the site, even when it is closed.",
+    permBgDisclosure:
+      "Dual Tracker collects location data to record your shift, confirm your hours and alert you if you leave the site, even when the app is closed or not in use.",
     permNotifTitle: "Notifications",
     permNotifBody: "Daily reminder and exit decision.",
     permRequest: "Grant",

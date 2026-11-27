@@ -107,7 +107,9 @@ export const es = {
     permFgTitle: "Ubicación en uso",
     permFgBody: "La usamos para saber cuándo llegas al sitio.",
     permBgTitle: "Ubicación en segundo plano",
-    permBgBody: "Necesaria para el sello VALIDADA y el vigilante de jornada.",
+    permBgBody: "Sirve para registrar tu llegada y tu salida del sitio aunque la app esté cerrada.",
+    permBgDisclosure:
+      "Dual Tracker recopila tu ubicación para registrar tu jornada, confirmar tus horas y avisarte si sales del sitio, incluso cuando la app está cerrada o no la estás usando.",
     permNotifTitle: "Notificaciones",
     permNotifBody: "Recordatorio diario y decisión de salida.",
     permRequest: "Conceder",
