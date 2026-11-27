@@ -11,6 +11,7 @@ import { FieldCryptoService } from "../../../persistence/FieldCryptoService";
 import { PersistenceService } from "../../../persistence/PersistenceService";
 import { SettingsService } from "../../../persistence/SettingsService";
 import { encryptBackup } from "../../../persistence/backupCodec";
+import { EvidencePackService } from "../../../evidence/EvidencePackService";
 import { dumpForBackup } from "../../../persistence/backupStore";
 import { SecurityService } from "../../../runtime/SecurityService";
 import { routeIntent } from "../../intentRouter";
@@ -196,6 +197,31 @@ describe("copia de seguridad: restaurar en otro teléfono", () => {
     const [pack] = await PersistenceService.listPacks();
     expect(pack.employeePdfUri).toBeNull(); // el PDF no viaja
     expect(pack.manifest.packHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test("el manifiesto v6 viaja con sus términos congelados y verifica tras restaurar en otro teléfono", async () => {
+    await seedPhone();
+    const [before] = await PersistenceService.listPacks();
+    expect(before.manifest.manifestVersion).toBe(6);
+    expect(before.manifest.payrollTerms).toEqual({
+      overtimeMultiplier: 1.5,
+      payrollLegalFlags: { transitionWeeklyThreshold: "FULL", caDoubleTime: false, caSeventhDay: false },
+    });
+    const publicKey = before.manifest.signature!.publicKey;
+    const uri = await exportFile();
+    await newPhone();
+    await acceptDisclosure(true);
+    pick(uri);
+    const preview = await previewBackupImport(PASS);
+    expect(preview.ok).toBe(true);
+    expect((await importAppBackup((preview.ok && preview.data!.token) as string)).ok).toBe(true);
+    const [after] = await PersistenceService.listPacks();
+    expect(after.manifest).toEqual(before.manifest);
+    // El teléfono nuevo no tiene la clave: se verifica con la clave pública del original como ancla.
+    expect(await EvidencePackService.verify(after, { publicKey })).toMatchObject({ valid: true, failures: [], identity: "anchor" });
+    // Y un resello del periodo restaurado hereda esos términos.
+    const basis = await PersistenceService.packBasisForPeriod(after.manifest.periodStart, after.manifest.periodEnd);
+    expect(basis?.payrollTerms).toEqual(before.manifest.payrollTerms);
   });
 
   test("restaurar en el mismo teléfono conserva los PDF que siguen existiendo", async () => {
