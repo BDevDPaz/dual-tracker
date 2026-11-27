@@ -30,3 +30,22 @@ describe("canEnterApp", () => {
     expect(canEnterApp({ needsOnboarding: true, needsDisclaimer: true })).toBe(false);
   });
 });
+
+describe("initialHref · reanudación por marcador (H-1)", () => {
+  const mid = { ...ready, needsOnboarding: true };
+  test("con el aviso aceptado reanuda en el paso guardado", () => {
+    expect(initialHref({ ...mid, onboardingStep: "permissions" })).toBe("/(onboarding)/permissions");
+    expect(initialHref({ ...mid, onboardingStep: "profile" })).toBe("/(onboarding)/profile");
+    expect(initialHref({ ...mid, onboardingStep: "ready" })).toBe("/(onboarding)/ready");
+  });
+  test("sin marcador → bienvenida (no se deduce de los datos)", () => {
+    expect(initialHref({ ...mid, onboardingStep: null })).toBe("/(onboarding)/welcome");
+    expect(initialHref(mid)).toBe("/(onboarding)/welcome");
+  });
+  test("con marcador pero sin el aviso vigente → aviso; nunca se salta el aviso", () => {
+    expect(initialHref({ ...mid, needsDisclaimer: true, onboardingStep: "ready" })).toBe("/(onboarding)/disclosure");
+  });
+  test("con el alta completa el marcador no cuenta", () => {
+    expect(initialHref({ ...ready, onboardingStep: "profile" })).toBe("/(tabs)");
+  });
+});

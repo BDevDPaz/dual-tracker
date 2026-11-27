@@ -948,6 +948,16 @@ export const en: Dictionary = {
   },
   legal: {
     title: "Legal",
+    withdraw: "Withdraw consent",
+    withdrawTitle: "Withdraw your consent?",
+    withdrawBody:
+      "You won't be able to use the app until you accept the notice again and finish setup. The daily reminder is canceled. Your shifts, evidence packs and settings are kept.",
+    withdrawConfirm: "Withdraw",
+    repeat: "Repeat setup",
+    repeatTitle: "Repeat setup?",
+    repeatBody:
+      "You go back to the welcome screen to review the notice, permissions and your profile. Your acceptance of the notice is kept. The daily reminder is scheduled again when you finish. Your shifts, evidence packs and settings are kept.",
+    repeatConfirm: "Repeat",
   },
   integrity: {
     VALID: "Intact",
@@ -1168,6 +1178,7 @@ export const en: Dictionary = {
     CALENDAR_CHANGE_CANCELLED: "Calendar change cancelled",
     PAYROLL_POLICY_CHANGED: "Payroll policy updated",
     HOURLY_RATE_CHANGED: "Hourly rate changed",
+    CONSENT_WITHDRAWN: "Consent withdrawn",
     MARK_ORPHAN: "Shift flagged for review",
     CONTINUE_ORPHAN: "Shift continued",
     CONFIRM_ORPHAN_END: "End confirmed by the worker",

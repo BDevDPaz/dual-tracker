@@ -8,7 +8,7 @@ import { PersistenceService } from "../../persistence/PersistenceService";
 import { SettingsService } from "../../persistence/SettingsService";
 import { t } from "../../../i18n";
 import { HOUR, MIN } from "../../../../test/fixtures/session.fixture";
-import { mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
+import { acceptDisclosure, mustDispatch, seedWorld, startAndArrive } from "../../../../test/helpers";
 import { time } from "../../../../test/time";
 import { NotificationService } from "../NotificationService";
 import { runDailyReminder } from "../tasks/dailyReminder.task";
@@ -107,6 +107,8 @@ describe("PR3 notificaciones", () => {
 
   test("N01/T35: silencio de hoy no cambia la hora y mañana sigue programado", async () => {
     await PersistenceService.init();
+    // H-1/H-5: sin el alta completa no hay recordatorio diario.
+    await acceptDisclosure();
     expect(await NotificationService.scheduleDailyReminder("07:00", { force: true })).toBe(true);
     expect(notes().at(-1)?.trigger.type).toBe(Notifications.SchedulableTriggerInputTypes.DAILY);
     await NotificationService.silenceToday();

@@ -42,6 +42,11 @@ export type LedgerIntent =
   | "PAYROLL_POLICY_CHANGED"
   /** Tarifa por hora cambiada en la zona admin. `data`: { from, to }. Solo afecta a jornadas nuevas. */
   | "HOURLY_RATE_CHANGED"
+  /**
+   * H-5: la persona retiró su consentimiento al aviso de ubicación laboral.
+   * `data`: { version, acceptedAtMs } de la aceptación retirada. No borra nada.
+   */
+  | "CONSENT_WITHDRAWN"
   // FieldCrypto v1.3 §12 y §16.
   | "CERT_BLOCKER_ADDED"
   | "PACK_SHARED"

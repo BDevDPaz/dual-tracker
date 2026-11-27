@@ -1,10 +1,13 @@
 /**
  * legal/disclosure.tsx — Texto vigente del descargo (Producto §5.17).
  * Solo lectura. Misma fuente que el wizard (DualDisclosureService vía
- * queries); no es un duplicado en duro.
+ * queries); no es un duplicado en duro. H-5: debajo, retirar el
+ * consentimiento o repetir el alta (ConsentActions, con confirmación); el
+ * texto sigue siendo de solo lectura.
  */
 import { StyleSheet, Text } from "react-native";
 import { SAFE_EDGES, ScreenScroll } from "../../src/components/ui";
+import { ConsentActions } from "../../src/components/legal/ConsentActions";
 import { DisclosureContent } from "../../src/components/legal/DisclosureContent";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
@@ -24,6 +27,7 @@ export default function LegalDisclosureScreen() {
           ✓ {state.settings.device.disclosureAcceptedVersion} · {formatDate(acceptedAt)}
         </Text>
       ) : null}
+      <ConsentActions />
     </ScreenScroll>
   );
 }

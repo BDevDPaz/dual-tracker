@@ -13,7 +13,7 @@
  *  - Copia de seguridad (solo Ajustes) → useCases/appBackup.
  * Todo rechazo produce un FeedbackPayload (FeedbackService), nunca texto en la vista.
  */
-import type { EvidencePack, IntentResult, SessionIntent, SettingsSnapshot, Site, ViewIntent } from "../../core/contracts";
+import type { EvidencePack, IntentResult, OnboardingStep, SessionIntent, SettingsSnapshot, Site, ViewIntent } from "../../core/contracts";
 import { selectActiveSession } from "../../core/selectors";
 import type { Language } from "../../i18n";
 import { Store, StoreActions } from "../../core/store";
@@ -144,6 +144,14 @@ async function acknowledgeExitChoice(before: string | undefined, sessionId: numb
   }).catch((error) => {
     LoggingService.log("NARANJA", "NOTIFICACION", "WARN", "No se pudo anotar la respuesta a la salida", serializeError(error));
   });
+}
+
+const ONBOARDING_STEP_ORDER: readonly OnboardingStep[] = ["permissions", "profile", "ready"];
+
+/** H-1: el marcador solo avanza; el gate reanuda en el paso más avanzado guardado. */
+function furthestOnboardingStep(current: OnboardingStep | null | undefined, next: OnboardingStep): OnboardingStep {
+  if (!current) return next;
+  return ONBOARDING_STEP_ORDER.indexOf(next) > ONBOARDING_STEP_ORDER.indexOf(current) ? next : current;
 }
 
 function report<T>(r: IntentResult<T>): IntentResult<T> {
@@ -494,7 +502,7 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         // H-14: sin nombre (mínimo de Perfil, nameNeedsError) o sin el aviso vigente aceptado no se completa el alta.
         if (profile.employeeName.trim().length < 2) return report({ ok: false, code: "NAME_REQUIRED" });
         if (!DualDisclosureService.isAccepted(state.settings.device)) return report({ ok: false, code: "DISCLOSURE_NOT_ACCEPTED" });
-        const device = { ...state.settings.device, onboardingCompleted: true };
+        const device = { ...state.settings.device, onboardingCompleted: true, onboardingStep: null };
         await SettingsService.saveProfile(profile);
         await SettingsService.saveDevice(device);
         StoreActions.settingsReplaced({ ...state.settings, profile, device });
@@ -507,6 +515,62 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         if (!device) return report({ ok: false, code: "INVALID_VALUE" });
         StoreActions.settingsReplaced({ ...state.settings, device });
         FeedbackService.emit("DISCLOSURE_ACCEPTED");
+        return { ok: true };
+      }
+      case "SAVE_ONBOARDING_PROGRESS": {
+        // H-1: el alta ya completa no tiene progreso que guardar.
+        if (state.settings.device.onboardingCompleted) return { ok: true };
+        // Los pasos que se guardan van después del aviso: sin el vigente aceptado, no hay progreso.
+        if (!DualDisclosureService.isAccepted(state.settings.device)) return report({ ok: false, code: "DISCLOSURE_NOT_ACCEPTED" });
+        let profile = state.settings.profile;
+        if (intent.profile) {
+          const employeeName = intent.profile.employeeName.trim();
+          if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(intent.profile.dailyReminderTime)) return report({ ok: false, code: "INVALID_VALUE" });
+          if (employeeName.length < 2) return report({ ok: false, code: "NAME_REQUIRED" });
+          profile = { ...profile, employeeName, dailyReminderTime: intent.profile.dailyReminderTime };
+          // Sin programar el recordatorio: solo Listo (COMPLETE_ONBOARDING) lo hace.
+          await SettingsService.saveProfile(profile);
+        }
+        const device = { ...state.settings.device, onboardingStep: furthestOnboardingStep(state.settings.device.onboardingStep, intent.step) };
+        await SettingsService.saveDevice(device);
+        StoreActions.settingsReplaced({ ...state.settings, profile, device });
+        return { ok: true };
+      }
+      case "WITHDRAW_CONSENT":
+      case "REPEAT_ONBOARDING": {
+        // H-5: con jornada abierta no se retira ni se repite: las rutas operativas
+        // quedarían bloqueadas (Stack.Protected) con la jornada en marcha.
+        if ((await PersistenceService.countOpenSessions()) > 0) {
+          return report({ ok: false, code: "BACKUP_OPEN_SESSION", detail: "CONSENT_OPEN_SESSION" });
+        }
+        let device = state.settings.device;
+        if (intent.type === "WITHDRAW_CONSENT") {
+          // El libro va antes que el cambio: sin asiento, la retirada no se aplica.
+          try {
+            await IntegrityLedgerService.append({
+              sessionId: null,
+              actor: "USER",
+              intent: "CONSENT_WITHDRAWN",
+              fromState: null,
+              toState: null,
+              reason: "USER_WITHDRAWAL",
+              timestampMs: TimeAuthorityService.now(),
+              integrityClass: null,
+              data: { version: device.disclosureAcceptedVersion, acceptedAtMs: device.disclosureAcceptedAtMs },
+            });
+          } catch (error) {
+            LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo asentar la retirada del consentimiento", serializeError(error));
+            return report({ ok: false, code: "PERSISTENCE_ERROR" });
+          }
+          device = await DualDisclosureService.withdraw(device);
+        } else {
+          // Repetir conserva la aceptación del aviso (versión y fecha).
+          device = { ...device, onboardingCompleted: false, onboardingStep: null };
+          await SettingsService.saveDevice(device);
+        }
+        // El recordatorio vuelve a programarse solo en Listo (COMPLETE_ONBOARDING).
+        await NotificationService.cancelDailyReminder();
+        StoreActions.settingsReplaced({ ...state.settings, device });
         return { ok: true };
       }
 

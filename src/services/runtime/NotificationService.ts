@@ -13,7 +13,7 @@
  */
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { PermissionState, SessionIntent, SessionPayrollPreview, SessionRecord, SpatialFact } from "../../core/contracts";
+import type { DevicePreferences, PermissionState, SessionIntent, SessionPayrollPreview, SessionRecord, SpatialFact } from "../../core/contracts";
 import { NOTIFICATION_ACTIONS, NOTIFICATION_CATEGORIES, NOTIFICATION_CHANNELS } from "../../constants/notifications";
 import { t } from "../../i18n";
 import { reminderTitleForHour } from "../../i18n/labels";
@@ -35,6 +35,12 @@ const exitReminderId = (sessionId: number) => `dualtracker-exit-remind-${session
 export const EXIT_REMINDER_AFTER_MS = 10 * 60_000;
 const DEDUPE_THRESHOLD_MS = 3000;
 const lastScheduled = new Map<string, number>();
+
+/** H-1/H-5: ¿el alta está completa según las preferencias guardadas (KV DEVICE)? */
+async function onboardingCompleteOnDisk(): Promise<boolean> {
+  const device = await PersistenceService.getKv<DevicePreferences>(KV_KEYS.DEVICE).catch(() => null);
+  return device?.onboardingCompleted === true;
+}
 
 interface SilenceMark {
   date: string;
@@ -445,6 +451,14 @@ export const NotificationService = {
     const minute = Number(m);
     if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
       LoggingService.log("NARANJA", "ADVERTENCIA", "WARN", `Hora de recordatorio inválida: "${timeString}"`);
+      return false;
+    }
+    // H-1/H-5: sin el alta completa no hay recordatorio diario (se programa en
+    // Listo). Cubre la tarea diaria del arranque, el cambio de idioma en la
+    // bienvenida y cualquier otro camino tras retirar el consentimiento o
+    // repetir el alta. Se lee lo guardado, no el store.
+    if (!(await onboardingCompleteOnDisk())) {
+      await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
       return false;
     }
     if ((await NotificationService.getPermission()) !== "granted") return false;

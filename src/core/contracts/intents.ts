@@ -249,6 +249,24 @@ export type ViewIntent =
   | { type: "PROVISION_ADMIN_PIN"; code: string; fingerprint?: string }
   | { type: "COMPLETE_ONBOARDING"; profile: { employeeName: string; hourlyRate: number; language: "es" | "en"; dailyReminderTime: string } }
   | { type: "ACCEPT_DISCLOSURE"; version: string }
+  /**
+   * H-1: guarda el paso del alta recién completado (marcador `onboardingStep`)
+   * y, desde Perfil, el nombre y la hora del recordatorio. No marca el alta ni
+   * programa el recordatorio: eso solo lo hace COMPLETE_ONBOARDING (Listo).
+   */
+  | {
+      type: "SAVE_ONBOARDING_PROGRESS";
+      step: import("./settings").OnboardingStep;
+      profile?: { employeeName: string; dailyReminderTime: string };
+    }
+  /**
+   * H-5: retira la aceptación del aviso (versión y fecha a null) y deja el alta
+   * sin completar. No borra jornadas, expedientes ni ajustes. Con jornada
+   * abierta se rechaza (BACKUP_OPEN_SESSION). Queda en el libro (CONSENT_WITHDRAWN).
+   */
+  | { type: "WITHDRAW_CONSENT" }
+  /** H-5: vuelve a pedir el alta completa conservando la aceptación del aviso. Con jornada abierta se rechaza. */
+  | { type: "REPEAT_ONBOARDING" }
   // Health
   | { type: "REQUEST_PERMISSION"; permission: import("./permissions").PermissionKey }
   | { type: "OPEN_OS_SETTINGS"; target: import("./permissions").OsSettingsTarget }

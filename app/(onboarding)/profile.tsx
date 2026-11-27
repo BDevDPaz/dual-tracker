@@ -3,6 +3,8 @@
  * Continuar solo exige un nombre de al menos 2 caracteres. La tarifa no se
  * edita aquí: el cambio posterior ya pasa por el PIN de la zona admin
  * (SAVE_SETTINGS). El alta se marca en Listo, no en esta pantalla.
+ * H-1: Continuar guarda el nombre y la hora (SAVE_ONBOARDING_PROGRESS) sin
+ * marcar el alta ni programar el recordatorio; al reentrar salen rellenos.
  */
 import { useState } from "react";
 import { Text, StyleSheet, View } from "react-native";
@@ -12,7 +14,7 @@ import { Button, Input, SAFE_EDGES, ScreenScroll } from "../../src/components/ui
 import { HelpButton } from "../../src/components/support/HelpButton";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
-import { useWorkTracker } from "../../src/core/hooks";
+import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
 import { selectSettings } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import {
@@ -26,7 +28,8 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { state } = useWorkTracker();
+  const { state, emit } = useWorkTracker();
+  const { busy, run } = useBusyAction();
   const profile = selectSettings(state).profile;
   const [name, setName] = useState(profile.employeeName);
   const [reminder, setReminder] = useState(profile.dailyReminderTime || "07:00");
@@ -39,7 +42,12 @@ export default function ProfileScreen() {
       setShowNameError(true);
       return;
     }
-    router.push({ pathname: "/(onboarding)/ready", params: { name: name.trim(), reminder } });
+    void run(async () => {
+      const res = await emit({ type: "SAVE_ONBOARDING_PROGRESS", step: "ready", profile: { employeeName: name.trim(), dailyReminderTime: reminder } });
+      if (!res.ok) return res;
+      router.push({ pathname: "/(onboarding)/ready", params: { name: name.trim(), reminder } });
+      return res;
+    });
   };
 
   return (
@@ -89,7 +97,7 @@ export default function ProfileScreen() {
         </View>
         <Text style={[styles.help, { color: colors.text.secondary }]}>{t("onboarding.reminderHelp")}</Text>
       </View>
-      <Button label={t("common.continue")} onPress={onContinue} />
+      <Button label={t("common.continue")} isLoading={busy} onPress={onContinue} />
     </ScreenScroll>
   );
 }
