@@ -996,7 +996,7 @@ export const es = {
     exitTransferSub: "Vas a otro sitio. El traslado cuenta.",
     exitClose: "Terminar jornada",
     exitCloseSub: "Se cierra a las {time}, cuando saliste.",
-    exitTimeoutNote: "Si no respondes, volvemos a revisar a las {time}. Si sigues fuera, la cerramos a las {exit} y te avisamos.",
+    exitTimeoutNote: "Si no respondes, volvemos a revisar a las {time}. Si la ubicación confirma que sigues fuera, la cerramos a las {exit} y te avisamos. Si no lo puede confirmar, sigue abierta hasta que elijas.",
     exitReopenNote: "Tu jornada sigue abierta hasta que elijas. No la cerramos por ti.",
     pauseTitle: "¿Qué tipo de pausa?",
     pauseSub: "Elige una opción.",

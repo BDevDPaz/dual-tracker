@@ -40,5 +40,9 @@ export async function runGeofenceTask(body: TaskManagerTaskBody<GeofenceTaskData
     await GeofenceRuntimeService.handleGeofenceEvent(data.eventType, data.region);
   } catch (error) {
     LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "fallo en tarea de geocerca", serializeError(error));
+    // Hito 5 (G-6): el SO no reentrega el evento. El fallo queda también en el
+    // diagnóstico de Salud, con la región que lo causó (TASK_ERROR sin región
+    // = error que trae el propio SO; con región = fallo al procesarlo).
+    await appendGeofenceDiag({ kind: "ERROR", region: data.region.identifier, siteId: null, accuracyM: null, accepted: false, reason: "TASK_ERROR" });
   }
 }

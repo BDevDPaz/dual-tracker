@@ -995,7 +995,7 @@ export const en: Dictionary = {
     exitTransferSub: "You're heading to another site. Travel time is paid.",
     exitClose: "End shift",
     exitCloseSub: "We'll use {time}, when you left.",
-    exitTimeoutNote: "If you don't answer, we'll check again at {time}. If you're still away, we'll close it at {exit} and let you know.",
+    exitTimeoutNote: "If you don't answer, we'll check again at {time}. If your location confirms you're still away, we'll close it at {exit} and let you know. If it can't confirm that, the shift stays open until you choose.",
     exitReopenNote: "Your shift stays open until you choose. We won't close it for you.",
     pauseTitle: "What kind of break?",
     pauseSub: "Choose one option.",

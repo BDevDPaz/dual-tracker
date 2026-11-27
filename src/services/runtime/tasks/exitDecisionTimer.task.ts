@@ -1,11 +1,26 @@
 /**
  * EXIT_DECISION_TIMER (Propuesta Técnica §7.2 y §7.3).
- * Tras SALIDA, si el usuario no decide dentro de company.exitDecisionWindowMs:
- *  - política "CONFLICT": cierre a la hora de la PRIMERA salida, clase CONFLICT.
- *  - política "AUTO_IF_CONFIRMED_OUTSIDE": AUTO solo si un fix fiable confirma
- *    que sigue fuera; si no, CONFLICT.
- * El plazo se guarda en app_kv para sobrevivir a la muerte del proceso; lo
- * revisa el worker de fondo y, en primer plano, un temporizador.
+ * Tras SALIDA, si el usuario no decide dentro de company.exitDecisionWindowMs,
+ * al vencer el plazo se pregunta a isCurrentlyOutside() ANTES de borrar el plazo:
+ *  - estancia corta (rebote de Android) y sin fix claramente fuera → STAY_WORKING;
+ *  - fix fiable fuera (true) → AUTO_CLOSE a la hora de la PRIMERA salida. La
+ *    política solo decide la clase: "AUTO_IF_CONFIRMED_OUTSIDE" → AUTO (si la
+ *    primera salida fue fiable); "CONFLICT" → CONFLICT (sessionMachine);
+ *  - fix fiable dentro (false) → STAY_WORKING;
+ *  - sin fix fiable (null) → no cierra ni reprograma: la jornada sigue en SALIDA
+ *    con la hoja, hasta que el usuario decida, una muestra la vea dentro
+ *    (STAY_WORKING) o el watchdog la cierre por el tope de 12 h (no si se
+ *    amplió la jornada ni si está en revisión por abandono).
+ * Ninguna política cierra sin un fix fiable fuera.
+ *
+ * El plazo vive en app_kv (EXIT_DECISION), pero el cierre solo lo ejecuta el
+ * proceso que armó la hoja (failsafeArmedInProcess, D-17): el worker de fondo y
+ * el temporizador en primer plano lo revisan solo si ese flag sigue en memoria.
+ * Si el proceso muere, el plazo NO sobrevive: al arrancar, boot() borra
+ * EXIT_DECISION, anota EXIT_REOPEN y reabre la hoja (exitReopened) sin cierre
+ * automático. Si la app sigue viva en segundo plano, expo-task-manager ejecuta
+ * las tareas en ese mismo runtime JS: el flag se comparte y el plazo sí puede
+ * cerrar la jornada.
  */
 import { SessionEngineService } from "../../domain/SessionEngineService";
 import { TimeAuthorityService } from "../../evidence/TimeAuthorityService";
