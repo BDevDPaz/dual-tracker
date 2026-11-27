@@ -89,8 +89,8 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 
 ### En progreso
 - **#64 Hoy e Historial** (rama `fix/hoy-historial`, sin fusionar). Hoy: el texto de «¿Sigues trabajando?» solo promete doble tiempo con `caDoubleTime` (H-2b); el supervisor de almuerzo cuenta desde `lunch.startAtMs` y el cronómetro del hero descuenta el almuerzo (H-4); en jornada huérfana el pie lleva a la tarjeta de revisión (H-6); la clave KV `AUTO_CLOSE_BANNER` se borra al mostrar el banner (H-5); la hoja de salida y «Cómo funciona» usan el plazo real `exitDecisionWindowMs` (H-17). Historial: «Todo» usa la misma fila de periodo que «Esta semana» (HH-4); aviso antes de sustituir la nota (HH-5); en jornada abierta «Editar» solo corrige la entrada (HH-6); aviso al editar o eliminar en un periodo con expediente sellado (HH-7); estado de carga (HH-2); enlace al reporte de la semana (HH-1); «cancelada» en la fila y el detalle (HH-20). Tests: `today.hoyFixes.test.tsx`, `history.screen.test.tsx`, `sessionDetail.hhFixes.test.tsx`.
-- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): abierto, pendiente de revisión y merge (Byron fusiona).**
-  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:168`).
+- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` en `eb969d7` (2026-11-26).**
+  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:169`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
   - **RR-11:** cabecera de `payrollPolicies.ts` corregida.
