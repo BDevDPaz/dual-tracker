@@ -117,12 +117,21 @@ export interface CompanyPolicy {
   dailyTargetMinutes?: number;
 }
 
+/**
+ * Paso del alta en el que se reanuda (H-1). Marcador guardado, no deducido de
+ * los datos: lo escribe SAVE_ONBOARDING_PROGRESS al completar cada paso y lo
+ * limpian COMPLETE_ONBOARDING, WITHDRAW_CONSENT y REPEAT_ONBOARDING.
+ */
+export type OnboardingStep = "permissions" | "profile" | "ready";
+
 /** Preferencias de dispositivo (no sensibles). */
 export interface DevicePreferences {
   onboardingCompleted: boolean;
   /** Versión del descargo aceptada (DualDisclosureService). */
   disclosureAcceptedVersion: string | null;
   disclosureAcceptedAtMs: number | null;
+  /** H-1: paso del alta en curso; null sin alta empezada o con el alta completa. Ausente en datos antiguos = null. */
+  onboardingStep?: OnboardingStep | null;
 }
 
 export interface SettingsSnapshot {

@@ -3,7 +3,8 @@
  * 1 ubicación precisa (obligatoria). 2 segundo plano + batería (opcional).
  * 3 notificaciones (opcional; Android 12 y anteriores no tienen este paso).
  * El estado sale de PermissionsHealthService. Continuar del paso 2 no
- * vuelve a pedir la ubicación precisa.
+ * vuelve a pedir la ubicación precisa. H-1: al salir del último subpaso se
+ * guarda el progreso (SAVE_ONBOARDING_PROGRESS → perfil).
  */
 import { useState } from "react";
 import { Platform, ScrollView, StyleSheet } from "react-native";
@@ -14,7 +15,7 @@ import { TOKENS } from "../../src/constants/theme";
 import { useResponsive } from "../../src/components/ui/responsive";
 import type { OsSettingsTarget, PermissionKey } from "../../src/core/contracts";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
-import { selectHealth, selectSettings } from "../../src/core/selectors";
+import { selectHealth, selectNeedsOnboarding, selectSettings } from "../../src/core/selectors";
 import { formatReminderClock, permissionSubsteps, readDeviceHour24, substepIndex } from "../../src/onboarding/flow";
 import { androidApiLevel } from "../../src/utils/permissionGuidance";
 
@@ -43,8 +44,18 @@ export default function PermissionsScreen() {
   const openSettings = (target: OsSettingsTarget) => run(() => emit({ type: "OPEN_OS_SETTINGS", target }));
 
   const onAdvance = () => {
-    if (index < steps.length - 1) setIndex(index + 1);
-    else router.push("/(onboarding)/profile");
+    if (index < steps.length - 1) {
+      setIndex(index + 1);
+      return;
+    }
+    void run(async () => {
+      if (selectNeedsOnboarding(state)) {
+        const res = await emit({ type: "SAVE_ONBOARDING_PROGRESS", step: "profile" });
+        if (!res.ok) return res;
+      }
+      router.push("/(onboarding)/profile");
+      return { ok: true as const };
+    });
   };
 
   return (

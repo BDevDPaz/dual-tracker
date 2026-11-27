@@ -2,10 +2,15 @@
  * Ruta del gate de arranque. Un CONFLICT sin resolver va antes de Hoy (T30).
  * El banner de Hoy queda para «Más tarde»; el siguiente arranque en frío vuelve aquí.
  */
+import type { OnboardingStep } from "./contracts";
+
 export type GateHref =
   | "/(boot)/hydrating"
   | "/(onboarding)/welcome"
   | "/(onboarding)/disclosure"
+  | "/(onboarding)/permissions"
+  | "/(onboarding)/profile"
+  | "/(onboarding)/ready"
   | "/system/conflict"
   | "/(tabs)";
 
@@ -24,9 +29,19 @@ export function initialHref(input: {
   needsOnboarding: boolean;
   needsDisclaimer: boolean;
   hasConflict: boolean;
+  /** H-1: marcador guardado del alta (DevicePreferences.onboardingStep). */
+  onboardingStep?: OnboardingStep | null;
 }): GateHref {
   if (!input.hydrated || input.bootError != null) return "/(boot)/hydrating";
-  if (input.needsOnboarding) return "/(onboarding)/welcome";
+  if (input.needsOnboarding) {
+    // H-1: se reanuda en el paso guardado, nunca saltándose el aviso: sin el
+    // vigente aceptado, un alta empezada vuelve al aviso y una sin empezar a la
+    // bienvenida. Las rutas del alta están fuera de Stack.Protected.
+    const step = input.onboardingStep ?? null;
+    if (step === null) return "/(onboarding)/welcome";
+    if (input.needsDisclaimer) return "/(onboarding)/disclosure";
+    return `/(onboarding)/${step}`;
+  }
   if (input.needsDisclaimer) return "/(onboarding)/disclosure";
   if (input.hasConflict) return "/system/conflict";
   return "/(tabs)";

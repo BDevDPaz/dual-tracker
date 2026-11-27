@@ -946,6 +946,16 @@ export const es = {
   },
   legal: {
     title: "Legal",
+    withdraw: "Retirar consentimiento",
+    withdrawTitle: "¿Retirar tu consentimiento?",
+    withdrawBody:
+      "No podrás usar la app hasta que vuelvas a aceptar el aviso y completes el alta. Se cancela el recordatorio diario. Tus jornadas, expedientes y ajustes se conservan.",
+    withdrawConfirm: "Retirar",
+    repeat: "Repetir el alta",
+    repeatTitle: "¿Repetir el alta?",
+    repeatBody:
+      "Vuelves a la bienvenida para revisar el aviso, los permisos y tu perfil. Tu aceptación del aviso se conserva. El recordatorio diario se programa de nuevo al terminar. Tus jornadas, expedientes y ajustes se conservan.",
+    repeatConfirm: "Repetir",
   },
   integrity: {
     VALID: "Intacta",
@@ -1169,6 +1179,7 @@ export const es = {
     CALENDAR_CHANGE_CANCELLED: "Cambio de calendario anulado",
     PAYROLL_POLICY_CHANGED: "Política de nómina actualizada",
     HOURLY_RATE_CHANGED: "Tarifa por hora modificada",
+    CONSENT_WITHDRAWN: "Consentimiento retirado",
     MARK_ORPHAN: "Jornada marcada para revisar",
     CONTINUE_ORPHAN: "Se continúa la jornada",
     CONFIRM_ORPHAN_END: "Fin confirmado por el operario",

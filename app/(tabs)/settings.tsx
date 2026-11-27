@@ -17,6 +17,7 @@ import { Button, Card, Chip, Input, PageHeader, PrimaryButton, SAFE_EDGES, Scree
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { BackupSection, KeyValueRow } from "../../src/components/blocks";
+import { ConsentActions } from "../../src/components/legal/ConsentActions";
 import { LanguageSwitch } from "../../src/components/support/LanguageSwitch";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
@@ -447,6 +448,7 @@ export default function SettingsScreen() {
           <Card style={styles.card}>
             <LinkRow label={t("settings.disclosure")} onPress={() => router.push("/legal/disclosure")} />
             <LinkRow label={t("settings.retentionPolicy")} onPress={() => router.push("/legal/retention")} />
+            <ConsentActions />
           </Card>
         </Section>
     </ScreenScroll>

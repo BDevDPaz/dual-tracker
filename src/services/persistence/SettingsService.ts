@@ -77,6 +77,7 @@ export const DEFAULT_DEVICE_PREFS: DevicePreferences = {
   onboardingCompleted: false,
   disclosureAcceptedVersion: null,
   disclosureAcceptedAtMs: null,
+  onboardingStep: null,
 };
 
 type StoredCompany = Omit<CompanyPolicy, "companyEmail"> & { companyEmailSealed: string | null };

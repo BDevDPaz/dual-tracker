@@ -17,6 +17,7 @@ export default function Gate() {
         needsOnboarding: selectNeedsOnboarding(state),
         needsDisclaimer: selectNeedsDisclaimer(state),
         hasConflict: selectHasConflict(state),
+        onboardingStep: state.settings.device.onboardingStep ?? null,
       })}
     />
   );

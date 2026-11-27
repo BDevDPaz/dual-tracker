@@ -2,6 +2,9 @@
  * (onboarding)/disclosure.tsx — Aviso de ubicación laboral.
  * Los tres bloques muestran el texto de legal.ts (misma versión). «No acepto»
  * no cierra el camino: se vuelve al aviso o a la bienvenida.
+ * H-15: con la versión vigente ya aceptada, la casilla sale marcada y
+ * Continuar no vuelve a emitir ACCEPT_DISCLOSURE (no reescribe la fecha).
+ * H-1: dentro del alta, Continuar guarda el progreso (SAVE_ONBOARDING_PROGRESS).
  */
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
@@ -13,14 +16,15 @@ import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import { useResponsive } from "../../src/components/ui/responsive";
 import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
-import { selectNeedsOnboarding } from "../../src/core/selectors";
+import { selectNeedsDisclaimer, selectNeedsOnboarding } from "../../src/core/selectors";
 import { getLanguage, t } from "../../src/i18n";
 import { disclosureSections } from "../../src/onboarding/flow";
 
 export default function OnboardingDisclosureScreen() {
   const router = useRouter();
   const { state, emit, queries } = useWorkTracker();
-  const [accepted, setAccepted] = useState(false);
+  const alreadyAccepted = !selectNeedsDisclaimer(state);
+  const [accepted, setAccepted] = useState(alreadyAccepted);
   const [declined, setDeclined] = useState(false);
   const { colors } = useTheme();
   const { busy, run } = useBusyAction();
@@ -30,11 +34,18 @@ export default function OnboardingDisclosureScreen() {
 
   const onContinue = () =>
     run(async () => {
-      const res = await emit({ type: "ACCEPT_DISCLOSURE", version: queries.disclosureVersion() });
-      if (!res.ok) return res;
-      if (selectNeedsOnboarding(state)) router.push("/(onboarding)/permissions");
-      else router.replace("/");
-      return res;
+      if (!alreadyAccepted) {
+        const res = await emit({ type: "ACCEPT_DISCLOSURE", version: queries.disclosureVersion() });
+        if (!res.ok) return res;
+      }
+      if (!selectNeedsOnboarding(state)) {
+        router.replace("/");
+        return { ok: true as const };
+      }
+      const progress = await emit({ type: "SAVE_ONBOARDING_PROGRESS", step: "permissions" });
+      if (!progress.ok) return progress;
+      router.push("/(onboarding)/permissions");
+      return progress;
     });
 
   return (

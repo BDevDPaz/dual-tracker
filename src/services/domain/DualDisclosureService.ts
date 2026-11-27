@@ -54,6 +54,24 @@ export const DualDisclosureService = {
   },
 
   /**
+   * H-5: retira la aceptación (intención WITHDRAW_CONSENT). Versión y fecha a
+   * null y el alta sin completar, para que el gate vuelva a pedir el aviso y el
+   * alta. Solo toca las preferencias del dispositivo (KV DEVICE): jornadas,
+   * expedientes, perfil y política de empresa no cambian.
+   */
+  async withdraw(device: DevicePreferences): Promise<DevicePreferences> {
+    const next: DevicePreferences = {
+      ...device,
+      disclosureAcceptedVersion: null,
+      disclosureAcceptedAtMs: null,
+      onboardingCompleted: false,
+      onboardingStep: null,
+    };
+    await SettingsService.saveDevice(next);
+    return next;
+  },
+
+  /**
    * Modo visible de rastro. Nunca hay rastro fuera de jornada: con la sesión
    * en CERRADA / NO_INICIADA el modo es SIN_UBICACION (§12).
    */
