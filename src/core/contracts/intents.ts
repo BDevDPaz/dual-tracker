@@ -230,6 +230,10 @@ export type ViewIntent =
   | { type: "SETUP_ADMIN_PIN"; pin: string }
   /** Copia de seguridad (solo Ajustes): archivo .dtbackup cifrado con contraseña y hoja de compartir. */
   | { type: "EXPORT_BACKUP"; passphrase: string }
+  /** La persona confirma que guardó la copia compartida (token de EXPORT_BACKUP). */
+  | { type: "CONFIRM_BACKUP_SAVED"; token: string }
+  /** La persona dice que no guardó la copia: no se anota «Última copia». */
+  | { type: "DISCARD_BACKUP_EXPORT" }
   /** Elige el archivo (selector del sistema), lo descifra y lo valida. No escribe. Devuelve token y resumen. */
   | { type: "PREVIEW_BACKUP_IMPORT"; passphrase: string }
   /** Reemplazo total con la copia ya validada (token de PREVIEW_BACKUP_IMPORT). */

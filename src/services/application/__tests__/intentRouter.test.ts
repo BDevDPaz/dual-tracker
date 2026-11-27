@@ -240,6 +240,9 @@ describe("intentRouter", () => {
     expect((await PersistenceService.getSite(id))?.address).toBe("123 Main St, Oakland");
 
     SiteRegistryService.setReverseGeocoder(async () => null);
+    // Mover un punto ya fijado es de zona admin (TP-5).
+    expect(await routeIntent({ type: "SETUP_ADMIN_PIN", pin: "654321" })).toMatchObject({ ok: true });
+    expect((await SecurityService.unlock("654321")).ok).toBe(true);
     const missed = await routeIntent({
       type: "LOCATE_SITE",
       siteId: id,
