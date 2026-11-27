@@ -5,7 +5,7 @@
 ## 1. Resumen General
 - **Proyecto:** Dual Tracker V1.0.0 (repo `BDevDPaz/dual-tracker`, paquete `com.bdevdpaz.dualtracker`).
 - **Versión / Hito actual:** 1.0.0-rc.1. La versión visible es `1.0.0` (`app.json:6`, `package.json:5`, `src/constants/app.ts:2`). El perfil `preview` fija el canal `RC1` (`eas.json`, `EXPO_PUBLIC_RELEASE_CHANNEL`). Etiquetas git: `v0.1.0` (`a38db18`, 2026-10-07) y `v1.0.0-rc.1` (`ce4fc8a`, merge del #13, creada el 2026-10-19). No hay releases de GitHub.
-- **Última actualización:** 2026-11-27. Medido sobre `main` en `14afd70` (squash del #65); actualizado el mismo día con #58 (docs), #59 (tests del fallo «sin destino») y #60 (aviso sin bloqueo). Lo verificado sobre `14afd70`: en Termux el 2026-11-26 sobre `6f96a6b` (cabeza de la rama del #65, fusionada como `14afd70`): `test:domain` 63/63 suites, 526/526 tests; suite completa 171/171 suites, 1240/1240 tests, 2/2 snapshots; `tsc` 0 errores.
+- **Última actualización:** 2026-11-27. Medido sobre `main` en `14afd70` (squash del #65). Lo verificado sobre `14afd70`: en Termux el 2026-11-26 sobre `6f96a6b` (cabeza de la rama del #65, fusionada como `14afd70`): `test:domain` 63/63 suites, 526/526 tests; suite completa 171/171 suites, 1240/1240 tests, 2/2 snapshots; `tsc` 0 errores.
 - **Estado general:** En desarrollo. La candidata RC1 está abierta y su acta de teléfono (`docs/PRUEBAS_RC1.md` §Acta) está vacía. #53, PR2 (Ajustes, #55), #56 (sin overlay y banderas legales apagadas) y PR3 (Reportes de nómina y Auditoría de jornadas, #57) están mergeados, y también #59 y #60. Falta probarlos en un teléfono.
 - **Referencias:** Reglas en `AGENT.md` | Historial en `CHANGELOG.md`
 
