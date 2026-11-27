@@ -62,7 +62,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - `src/services/application/useCases/__tests__/startDay.test.ts`, `confirmExit.test.ts`.
 - **Nómina de California:** OT diaria y semanal, doble tiempo y séptimo día (**apagados por defecto**, `src/utils/companyPolicy.ts:8-12`; se activan en Ajustes → Calendario laboral y un valor guardado se respeta), primas de comida y descanso, un almuerzo por día de nómina y tarifa congelada por jornada (`sessions.hourly_rate_snapshot`). Tests: `PayrollEngineService.test.ts`, `caRules.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `dayLunch.test.ts`, `hourlyRateSnapshot.test.ts`, `policyV2.test.ts`.
 - **Libro append-only y sello:**
-  - Cadena SHA-256, manifiesto v5 (`src/core/contracts/evidence.ts:140`), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
+  - Cadena SHA-256, manifiesto v6 (`src/core/contracts/evidence.ts:145`; v6 desde #66, sin fusionar), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
   - Esquema SQLite v9 (`src/services/persistence/schema.ts:24`).
   - Tests: `IntegrityLedgerService.test.ts`, `HashChain.test.ts`, `EvidencePackService.test.ts`, `packSignature.test.ts`, `app/(tabs)/__tests__/sealVerify.flow.test.ts`, `ledgerIntegrity.test.ts`.
 - **Reportes (lo que hay hoy):**
@@ -95,6 +95,8 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
   - **RR-11:** cabecera de `payrollPolicies.ts` corregida.
   - Tests: `reportsPackCurrent.test.ts` y `reportsGates.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluida la restauración real en otro teléfono seguida de «Volver a emitir».
+
+- **#66 Congelado de términos (manifiesto v6, rama `feat/freeze-v6-terms`):** abierto, sin fusionar (Byron fusiona). Tests: `payrollTermsFreeze.test.ts`, `appBackup.test.ts`, `termsNotFrozen.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluido un resello tras cambiar el multiplicador o las banderas.
 
 ### Pendiente / Planificado
 - **iOS:**
@@ -153,6 +155,6 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - Los permisos de almacenamiento no se bloquean.
 - **Por confirmar:**
   - **Empresas que ya guardaron las banderas.** Si el operario cambió antes cualquier chip legal de Ajustes, `applyFlag` (`app/(tabs)/settings.tsx:459` en `a975910`; esta línea citaba `:451`, que es `askFlag`) guardó las tres banderas, incluidos los `true` que entonces venían por defecto. Esos valores se respetan y no se reescriben. Para apagarlas hay que hacerlo en Ajustes → Calendario laboral, o borrar la base de prueba. Los expedientes ya sellados no cambian. Los periodos sin sellar de una empresa sin banderas guardadas se recalculan sin doble tiempo ni séptimo día. Desde el #63 se guarda solo la bandera tocada (SS-3).
-  - **Cambio de política de nómina (SS-1, #63).** Comportamiento documentado y que se mantiene: las semanas sin sellar se recalculan con la política vigente y los expedientes sellados conservan la suya (spec v1.3 §5.2 N3 citada en `EvidencePackService.ts:447-448` y `PayrollEngineService.ts:381-395`; `README.md:297`). El #63 solo añade el asiento `PAYROLL_POLICY_CHANGED`. Resello y reemisión: decidido por Byron 2026-11-26: congelar multiplicador y banderas al resellar/reemitir; implementación pendiente porque el pack no guarda esos valores; opciones en estudio. Hoy se conserva el `policyId` del pack (`EvidencePackService.ts:272`), pero el multiplicador y las banderas salen de los ajustes vigentes (`EvidencePackService.ts:279-280`; `PayrollEngineService.ts:330`, «Los multiplicadores siguen siendo los de la empresa»), y ni el manifiesto, ni el statement, ni el asiento `PAYROLL_SEALED` los guardan.
+  - **Cambio de política de nómina (SS-1, #63).** Comportamiento documentado y que se mantiene: las semanas sin sellar se recalculan con la política vigente y los expedientes sellados conservan la suya (spec v1.3 §5.2 N3 citada en `EvidencePackService.ts:447-448` y `PayrollEngineService.ts:381-395`; `README.md:297`). El #63 solo añade el asiento `PAYROLL_POLICY_CHANGED`. Resello y reemisión: decidido por Byron 2026-11-26 congelar multiplicador y banderas al resellar/reemitir; implementado en #66 (manifiesto v6, `payrollTerms` dentro de `packHash`; `src/services/domain/payrollTerms.ts`, `EvidencePackService.ts:290-292`). Los packs v1–v5 no guardan esos valores: se calculan con los vigentes y muestran «términos no congelados». Abierto, sin fusionar.
   - `AGENT.md` §1–§3 siguen como plantilla, con los campos entre corchetes sin rellenar.
   - Si la etiqueta `v0.1.0` cuenta como versión entregada (ver §3).
