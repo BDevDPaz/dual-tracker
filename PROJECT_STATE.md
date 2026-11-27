@@ -69,7 +69,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - Rango semana actual, semana anterior, quincena, mes y fechas (`src/utils/reportRange.ts:9`).
   - PDF del rango sin sellar, `EXPORT_RANGE_PDF` (`reports.tsx:280`).
   - Sellar la semana, `SEAL_PACK`.
-  - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:268-279`), como confirmó el dueño.
+  - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:387-395`), como confirmó el dueño.
   - «Compartir expediente empleador», `SHARE_EMPLOYER` (`reports.tsx:371`, `app/report/pack/[packId].tsx:138`): usa el correo si hay cliente y si no, la hoja de compartir.
   - Tests: `ReportService.test.ts`, `previewPayrollRange.test.ts`, `generateWeeklyPayroll.test.ts`, `reportPremium.test.ts`, `reportRange.test.ts`.
 - **Ajustes:** perfil, monitoreo, destinos, zona admin con PIN, calendario, retención, soporte y legal (`app/(tabs)/settings.tsx`). Validación en línea de la zona admin y aviso si la zona se cierra con cambios sin guardar (#63). Tests: `settings.admin.flow.test.tsx`, `settingsPolicy.test.ts`, `app/(tabs)/__tests__/settings.flow.test.ts`, `pin.flow.test.ts`, `src/services/runtime/__tests__/pinHash.test.ts`, `pinProvision.test.ts`, `SettingsService.test.ts`.
@@ -84,21 +84,20 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - Vista previa del periodo con la sección Auditoría (`app/report/[periodId].tsx:142`, `:155`).
   - Auditoría por jornada (`app/session/[id]/audit.tsx`, `selectSessionAudit` en `src/core/selectors/sessionAudit.ts:224`). Lo que no se guarda sale como «no registrado».
   - Tests: `src/core/selectors/__tests__/sessionAudit.test.ts`, `src/services/application/useCases/__tests__/sessionAudit.test.ts`, `src/components/blocks/__tests__/SessionAuditView.test.tsx`, `app/report/__tests__/payrollReport.flow.test.tsx`, `src/core/__tests__/auditReadOnly.test.ts`.
-- **Destino sin coordenadas: aviso sin bloqueo** (#59, #60, `e15e530`). Si la geocodificación falla, el sitio se guarda sin coordenadas y la jornada abre en ESPERANDO, pero ya no en silencio: `routeIntent` expone `geofenceReady` en `START_DAY` y `geocoded` en `UPSERT_SITE` (`src/services/application/intentRouter.ts:194-195`, `:241`; `IntentResult` en `src/core/contracts/intents.ts:294`), el modal muestra `sites.coordsMissing` al confirmar (`src/components/modals/DailySetupModal.tsx:225`) y Hoy muestra un `Banner` de aviso derivado del destino objetivo (`app/(tabs)/index.tsx:327-328`). Tests: `siteGeocodeFailure.test.ts`, `upsertStartDayGeocodeFailure.test.ts`, `DailySetupModal.test.tsx`, `targetCoordsWarning.test.ts`.
+- **Destino sin coordenadas: aviso sin bloqueo** (#59, #60, `e15e530`). Si la geocodificación falla, el sitio se guarda sin coordenadas y la jornada abre en ESPERANDO, pero ya no en silencio: `routeIntent` expone `geofenceReady` en `START_DAY` y `geocoded` en `UPSERT_SITE` (`src/services/application/intentRouter.ts:287-288`, `:340`; `IntentResult` en `src/core/contracts/intents.ts:294`), el modal muestra `sites.coordsMissing` al confirmar (`src/components/modals/DailySetupModal.tsx:225`) y Hoy muestra un `Banner` de aviso derivado del destino objetivo (`app/(tabs)/index.tsx:327-328`). Tests: `siteGeocodeFailure.test.ts`, `upsertStartDayGeocodeFailure.test.ts`, `DailySetupModal.test.tsx`, `targetCoordsWarning.test.ts`.
 - **Calidad estática:** `tsc` sin errores, eslint sin errores, 0 ciclos de importación (`dpdm -T`).
 
 ### En progreso
 - **#64 Hoy e Historial** (rama `fix/hoy-historial`, sin fusionar). Hoy: el texto de «¿Sigues trabajando?» solo promete doble tiempo con `caDoubleTime` (H-2b); el supervisor de almuerzo cuenta desde `lunch.startAtMs` y el cronómetro del hero descuenta el almuerzo (H-4); en jornada huérfana el pie lleva a la tarjeta de revisión (H-6); la clave KV `AUTO_CLOSE_BANNER` se borra al mostrar el banner (H-5); la hoja de salida y «Cómo funciona» usan el plazo real `exitDecisionWindowMs` (H-17). Historial: «Todo» usa la misma fila de periodo que «Esta semana» (HH-4); aviso antes de sustituir la nota (HH-5); en jornada abierta «Editar» solo corrige la entrada (HH-6); aviso al editar o eliminar en un periodo con expediente sellado (HH-7); estado de carga (HH-2); enlace al reporte de la semana (HH-1); «cancelada» en la fila y el detalle (HH-20). Tests: `today.hoyFixes.test.tsx`, `history.screen.test.tsx`, `sessionDetail.hhFixes.test.tsx`.
-- **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Abierto, sin fusionar. Falta probarlo en un teléfono.
-- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` en `eb969d7` (2026-11-26).**
+- **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Fusionado en `main` (`9aa49bd`, 2026-11-26). Falta probarlo en un teléfono.
 - **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` (`eb969d7`, 2026-11-26).**
-  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:169`).
+  - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:172`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
   - **RR-11:** cabecera de `payrollPolicies.ts` corregida.
   - Tests: `reportsPackCurrent.test.ts` y `reportsGates.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluida la restauración real en otro teléfono seguida de «Volver a emitir».
 
-- **#66 Congelado de términos (manifiesto v6, rama `feat/freeze-v6-terms`):** abierto, sin fusionar (Byron fusiona). Tests: `payrollTermsFreeze.test.ts`, `appBackup.test.ts`, `termsNotFrozen.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluido un resello tras cambiar el multiplicador o las banderas.
+- **#66 Congelado de términos (manifiesto v6, rama `feat/freeze-v6-terms`):** fusionado en `main` (`0fb1623`, 2026-11-26). Tests: `payrollTermsFreeze.test.ts`, `appBackup.test.ts`, `termsNotFrozen.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluido un resello tras cambiar el multiplicador o las banderas.
 
 ### Pendiente / Planificado
 - **iOS:**
