@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Card, Chip, PageHeader, SAFE_EDGES, ScreenContainer, SummaryCard, VmacSheet } from "../../src/components/ui";
+import { Button, Card, Chip, PageHeader, SAFE_EDGES, ScreenContainer, SummaryCard, VmacSheet } from "../../src/components/ui";
 import { AlertCenter } from "../../src/components/ui/AlertCenter";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
@@ -23,14 +23,15 @@ import {
   selectCalendarHistory,
   selectComputedSessions,
   selectHasConflict,
+  selectHistoryAllRows,
+  selectIsHydrated,
   selectPeriodSessionRows,
   selectReviewSessions,
-  selectVisibleSessions,
   type ComputedSession,
   type PeriodSessionRow,
 } from "../../src/core/selectors";
 import { t, useLanguage } from "../../src/i18n";
-import { formatRange, formatUiDecimal, getWeekEnd, getWeekStart, shiftWeek } from "../../src/utils/dateUtils";
+import { formatRange, formatUiDecimal, getWeekEnd, getWeekStart, shiftWeek, weekPeriodId } from "../../src/utils/dateUtils";
 
 type Filter = "ALL" | "WEEK" | "MANUAL" | "AUTO" | "CONFLICT";
 const FILTERS: Filter[] = ["ALL", "WEEK", "MANUAL", "AUTO", "CONFLICT"];
@@ -77,10 +78,12 @@ export default function HistoryScreen() {
     const hoursFor = (minutes: number) => `${formatHundredths(minutesToHundredths(minutes))} ${hoursUnit}`;
     const hoursById = new Map(weekRows.map((r) => [r.session.id, hoursFor(r.netMinutes ?? 0)]));
     if (filter === "ALL") {
-      return selectComputedSessions(state, nowMs, selectVisibleSessions(state)).map((item) => ({
-        key: String(item.session.id),
-        item,
-      }));
+      // HH-4: la misma fila de periodo que «Esta semana» (statement del periodo), no previewSession.
+      return selectHistoryAllRows(state, nowMs).flatMap((slice) => {
+        const item = computedById.get(slice.session.id);
+        if (!item) return [];
+        return [{ key: String(slice.session.id), item, slice, hoursText: slice.netMinutes == null ? undefined : hoursFor(slice.netMinutes) }];
+      });
     }
     const pool = filter === "WEEK" ? weekRows : weekRows.filter((c) => c.session.integrityClass === filter);
     return pool.flatMap((slice) => {
@@ -106,6 +109,16 @@ export default function HistoryScreen() {
   }
   if (orphan) {
     historyAlerts.push({ key: "orphan", message: t("today.orphanTitle"), tone: "danger", onPress: () => router.push(`/session/${orphan.id}`) });
+  }
+
+  // HH-2: antes de hidratar no se dice «vacío» (igual que el detalle).
+  if (!selectIsHydrated(state)) {
+    return (
+      <ScreenContainer edges={SAFE_EDGES.tab}>
+        <PageHeader title={t("history.title")} helpScreen="history" showHealth />
+        <ScreenStatusBanner status="loading" message={t("common.loading")} />
+      </ScreenContainer>
+    );
   }
 
   return (
@@ -167,6 +180,15 @@ export default function HistoryScreen() {
         <Text style={[styles.label, { color: colors.text.secondary }]}>{t("history.weeklyRollup")}</Text>
         <KeyValueRow label={t("history.manualCount")} value={String(counts.MANUAL)} />
         <KeyValueRow label={t("history.conflictCount")} value={String(counts.CONFLICT)} />
+        {/* HH-1: la semana elegida se lleva al reporte del periodo. */}
+        <Button
+          label={t("history.periodReport")}
+          size="sm"
+          variant="secondary"
+          iconName="document-text-outline"
+          testID="history-period-report"
+          onPress={() => router.push(`/report/${weekPeriodId(weekStart, calendar)}`)}
+        />
       </Card>
 
       <View>

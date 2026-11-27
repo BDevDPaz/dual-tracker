@@ -63,6 +63,11 @@ function SessionListItemInner({
         {slice?.continuesUntilMs != null ? (
           <Text style={[styles.range, { color: colors.text.muted }]}>{t("history.continuesUntil", { date: formatDate(slice.continuesUntilMs) })}</Text>
         ) : null}
+        {s.bookkeeping.cancelled ? (
+          <Text testID={`session-cancelled-${s.id}`} style={[styles.range, { color: colors.statusText.warning }]}>
+            {t("history.cancelled")}
+          </Text>
+        ) : null}
         {zero ? <Text style={[styles.range, { color: colors.statusText.warning }]}>{t("history.zeroDuration")}</Text> : null}
         {s.domainStatus === "CUARENTENA" ? <Text style={[styles.range, { color: colors.statusText.warning }]}>{t("session.quarantineNotice")}</Text> : null}
         {reason ? <Text style={[styles.range, { color: colors.statusText.warning }]}>{reason}</Text> : null}

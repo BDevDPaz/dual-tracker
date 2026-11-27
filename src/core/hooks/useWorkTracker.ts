@@ -38,6 +38,8 @@ import { TraceRecorderService } from "../../services/evidence/TraceRecorderServi
 import { classifyBreadcrumbGaps } from "../../services/evidence/traceGaps";
 import { FeedbackService } from "../../services/application/FeedbackService";
 import { PersistenceService } from "../../services/persistence/PersistenceService";
+import { KV_KEYS } from "../../services/persistence/schema";
+import type { ExitDecisionDeadline } from "../../services/runtime/tasks/exitDecisionTimer.task";
 import { employerKeyAnchorConfigured } from "../../config/employerKeyAnchor";
 import { decodeProvisionCode } from "../../services/runtime/pinProvision";
 import { fingerprintFromB64url, fingerprintsMatch } from "../../services/runtime/keyFingerprint";
@@ -67,6 +69,8 @@ const queries = {
   previewPeriod: (periodStart: number, periodEnd: number): Promise<PayrollStatement> => previewPayroll(periodStart, periodEnd),
   previewRange: (periodStart: number, periodEnd: number) => previewPayrollRange(periodStart, periodEnd),
   listOfflineQueue: () => OfflineQueueService.list(),
+  /** Plazo real de la decisión de salida (TaskOrchestrator: programación + exitDecisionWindowMs). */
+  exitDecisionDeadline: () => PersistenceService.getKv<ExitDecisionDeadline>(KV_KEYS.EXIT_DECISION).catch(() => null),
   /** Última copia de seguridad creada en este teléfono (Ajustes y Salud). */
   backupStatus: () => readBackupStatus(),
   sealFreshness: (periodStart: number, periodEnd: number) => EvidencePackService.describeFreshness(periodStart, periodEnd),

@@ -29,6 +29,7 @@ import { EvidencePackService, latestPackFor, type SealResult } from "../evidence
 import { TimeAuthorityService } from "../evidence/TimeAuthorityService";
 import { LoggingService } from "../persistence/LoggingService";
 import { PersistenceService } from "../persistence/PersistenceService";
+import { KV_KEYS } from "../persistence/schema";
 import { SettingsService } from "../persistence/SettingsService";
 import { getDistanceFromLatLonInMeters } from "../../utils/geoUtils";
 import { ForegroundWorkService } from "../runtime/ForegroundWorkService";
@@ -557,6 +558,10 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         return { ok: true };
       case "CONSUME_UI_REQUEST":
         StoreActions.uiRequestsConsumed();
+        return { ok: true };
+      case "AUTO_CLOSE_BANNER_SEEN":
+        await PersistenceService.deleteKv(KV_KEYS.AUTO_CLOSE_BANNER).catch(() => {});
+        if (intent.dismiss) StoreActions.uiRequest({ autoCloseBanner: null });
         return { ok: true };
     }
     return { ok: false, code: "ILLEGAL_TRANSITION" };
