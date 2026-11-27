@@ -608,6 +608,7 @@ export const es = {
     name: "Nombre",
     period: "Periodo",
     totalHours: "Total horas: {hours}",
+    termsNotFrozen: "Términos no congelados: este expediente se selló antes de guardar el multiplicador de horas extra y las banderas legales. Un nuevo sello de esta semana usa los valores vigentes de Ajustes.",
     copyHashA11y: "Copiar código de verificación que termina en {hash}",
     hashCopied: "Código copiado · …{hash}",
     annexTitle: "Anexos al compartir",

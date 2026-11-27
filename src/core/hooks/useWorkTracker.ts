@@ -31,6 +31,7 @@ import { DualDisclosureService } from "../../services/domain/DualDisclosureServi
 import { IntegrityLedgerService } from "../../services/domain/IntegrityLedgerService";
 import { PayrollEngineService } from "../../services/domain/PayrollEngineService";
 import { PAYROLL_POLICIES, getPayrollPolicy } from "../../services/domain/payrollPolicies";
+import { companyWithTerms, termsFromPack } from "../../services/domain/payrollTerms";
 import { EvidencePackService } from "../../services/evidence/EvidencePackService";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
 import { TraceRecorderService } from "../../services/evidence/TraceRecorderService";
@@ -83,12 +84,14 @@ const queries = {
     for (const periodStart of weekStarts) {
       const periodEnd = getWeekEnd(periodStart, history);
       const week = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
-      const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? state.settings.company.overtimePolicyId;
+      const previous = await PersistenceService.packBasisForPeriod(periodStart, periodEnd);
+      const policyId = previous?.policyId ?? state.settings.company.overtimePolicyId;
+      const { terms } = termsFromPack(previous, state.settings.company);
       lines.push(
         ...PayrollEngineService.linesForSession(session.id, week, {
           // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
-          rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: state.settings.company.overtimeMultiplier },
-          company: state.settings.company,
+          rates: { hourlyRate: state.settings.profile.hourlyRate, overtimeMultiplier: terms.overtimeMultiplier },
+          company: companyWithTerms(state.settings.company, terms),
           policyId,
           nowMs: TimeAuthorityService.now(),
           periodStart,
