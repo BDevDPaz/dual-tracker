@@ -33,7 +33,7 @@ import { type DayLunch, lunchOnDay, lunchPromptForClose, payrollDayKey } from ".
 import { PayrollEngineService, isCertifiable, policyForPeriod } from "../../services/domain/PayrollEngineService";
 import { restoreClippedTransits } from "../../services/domain/sessionMachine";
 import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
-import { companyWithTerms, isPayrollTerms, termsForPeriod, type PeriodTerms } from "../../services/domain/payrollTerms";
+import { compareNewestPackFirst, companyWithTerms, isPayrollTerms, termsForPeriod, type PeriodTerms } from "../../services/domain/payrollTerms";
 import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
 import { computeSegmentMinutes, deductibleLunchMinutes } from "../../services/domain/segmentation";
 import { checkedInSiteIds, lastVisitAtMs, monitoredSiteId } from "../../services/domain/siteVisits";
@@ -398,6 +398,7 @@ export function selectSessionPortion(
 export function selectPeriodSessionRows(s: DualTrackerState, periodStart: number, periodEnd: number, nowMs: number): PeriodSessionRow[] {
   const history = companyCalendar(s.settings.company);
   const packs = selectPacks(s).map((p) => ({
+    id: p.id,
     periodStart: p.manifest.periodStart,
     periodEnd: p.manifest.periodEnd,
     policyId: p.statement.policyId,
@@ -544,6 +545,20 @@ export function selectSealedPacksForSession(s: DualTrackerState, session: Sessio
   return selectPacks(s).filter((p) => p.manifest.periodStart <= end && p.manifest.periodEnd >= start);
 }
 export const selectPackById = (s: DualTrackerState, id: string): EvidencePack | null => s.packs.byId[id] ?? null;
+
+/**
+ * Último pack del periodo exacto con el criterio del servicio
+ * (EvidencePackService.latestPackFor: createdAtMs descendente, id ascendente
+ * si empatan; compareNewestPackFirst). Reportes, la vista previa y el aviso de
+ * compartir (D4) usan este, no un cálculo por sealedAtMs.
+ */
+export function selectLatestPackForPeriod(s: DualTrackerState, periodStart: number, periodEnd: number): EvidencePack | null {
+  return (
+    selectPacks(s)
+      .filter((p) => p.manifest.periodStart === periodStart && p.manifest.periodEnd === periodEnd)
+      .sort(compareNewestPackFirst)[0] ?? null
+  );
+}
 export const selectPendingFeedback = (s: DualTrackerState) => s.feedback.pending;
 export const selectAdmin = (s: DualTrackerState) => s.admin;
 export const selectIsAdminUnlocked = (s: DualTrackerState, nowMs: number): boolean =>
@@ -697,7 +712,7 @@ export function selectActiveCrossesWorkday(s: DualTrackerState, nowMs: number): 
 export function selectPolicyForSession(s: DualTrackerState, session: SessionRecord): string {
   const history = companyCalendar(s.settings.company);
   const start = session.actualStartAtMs ?? session.declaredStartAtMs;
-  const packs = selectPacks(s).map((p) => ({ periodStart: p.manifest.periodStart, periodEnd: p.manifest.periodEnd, policyId: p.statement.policyId, createdAtMs: p.createdAtMs }));
+  const packs = selectPacks(s).map((p) => ({ id: p.id, periodStart: p.manifest.periodStart, periodEnd: p.manifest.periodEnd, policyId: p.statement.policyId, createdAtMs: p.createdAtMs }));
   return policyForPeriod(packs, workweekStartAt(start, history), workweekEndAt(start, history), s.settings.company.overtimePolicyId);
 }
 
@@ -709,6 +724,7 @@ export function selectPolicyForSession(s: DualTrackerState, session: SessionReco
  */
 export function selectPeriodTerms(s: DualTrackerState, periodStart: number, periodEnd: number): PeriodTerms {
   const packs = selectPacks(s).map((p) => ({
+    id: p.id,
     periodStart: p.manifest.periodStart,
     periodEnd: p.manifest.periodEnd,
     createdAtMs: p.createdAtMs,

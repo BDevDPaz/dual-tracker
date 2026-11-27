@@ -382,11 +382,18 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         if (r.ok) FeedbackService.emit(r.reused ? "PACK_REUSED" : "PACK_SEALED", { hash: r.data.manifest.packHash.slice(0, 12) });
         return r.ok ? r : report(r);
       }
-      case "SHARE_EMPLOYEE":
+      case "SHARE_EMPLOYEE": {
+        const notLatest = await notLatestUnconfirmed(intent.packId, intent.confirmNotLatest);
+        if (notLatest) return report(notLatest);
         return report(await EvidencePackService.shareEmployee(intent.packId, { ledger: intent.annexLedger, enterExit: intent.annexEnterExit }));
+      }
       case "SHARE_EMPLOYER": {
         const annex = { ledger: intent.annexLedger, enterExit: intent.annexEnterExit };
-        if (!intent.ensureFresh) return report(await EvidencePackService.shareEmployer(intent.packId, annex));
+        if (!intent.ensureFresh) {
+          const notLatest = await notLatestUnconfirmed(intent.packId, intent.confirmNotLatest);
+          if (notLatest) return report(notLatest);
+          return report(await EvidencePackService.shareEmployer(intent.packId, annex));
+        }
         // «Enviar por correo» de Reportes: el pack vigente del periodo, no uno desactualizado.
         const chosen = await EvidencePackService.get(intent.packId);
         if (!chosen) return report({ ok: false, code: "PACK_NOT_FOUND" });
@@ -645,4 +652,19 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
     FeedbackService.emit("GENERIC_ERROR");
     return { ok: false, code: "ERROR", detail: serializeError(error) };
   }
+}
+
+/**
+ * D4: compartir un pack concreto que no es el último de su periodo (criterio
+ * de latestPackFor) exige `confirmNotLatest`. La pantalla avisa antes; esto
+ * cubre cualquier otro camino. Un pack que no existe sigue al servicio
+ * (PACK_NOT_FOUND).
+ */
+async function notLatestUnconfirmed(packId: string, confirmed: boolean | undefined): Promise<IntentResult<never> | null> {
+  if (confirmed) return null;
+  const chosen = await EvidencePackService.get(packId);
+  if (!chosen) return null;
+  const latest = await latestPackFor(chosen.manifest.periodStart, chosen.manifest.periodEnd);
+  if (!latest || latest.id === chosen.id) return null;
+  return { ok: false, code: "NOT_LATEST_UNCONFIRMED", detail: latest.id };
 }

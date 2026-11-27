@@ -3,6 +3,8 @@
  *  - RT-1: tras sellar y editar, «Exportar expediente» comparte un pack nuevo.
  *  - RT-2: un pack sin PDF ofrece «Volver a emitir» en Reportes y en el expediente.
  *  - RT-3: semana no certificable sin CONFLICT → «Exportar no certificado».
+ *  - D4 (Solicitud 8): compartir un pack que no es el último pide confirmación,
+ *    en la lista de Reportes y en el expediente; el último se comparte directo.
  */
 import React from "react";
 import * as Sharing from "expo-sharing";
@@ -195,5 +197,115 @@ describe("RT-3 · semana no certificable sin CONFLICT", () => {
     wrap(<ReportsScreen />);
     expect(await screen.findByTestId("payroll-report")).toBeTruthy();
     expect(screen.queryByTestId(`week-not-certifiable-${week().start}`)).toBeNull();
+  });
+});
+
+/** Dos packs de la misma semana: `older` sellado un minuto antes que `latest` (reemisión). */
+async function twoPacks() {
+  await closedDay();
+  const older = await sealWeek();
+  time.travel(MIN);
+  const { start, end } = week();
+  const r = await routeIntent({ type: "SEAL_PACK", periodStart: start, periodEnd: end, reissue: true });
+  if (!r.ok) throw new Error(`reemisión fallida: ${r.code}`);
+  const latest = (await PersistenceService.listPacks()).find((p) => p.id !== older.id)!;
+  return { older, latest };
+}
+
+async function sharedPackIds(): Promise<string[]> {
+  return (await PersistenceService.listLedger({ intent: "PACK_SHARED" })).map((e) => (JSON.parse(e.payloadJson) as { data: { packId: string } }).data.packId);
+}
+
+describe("D4 · aviso «no es el último» en Reportes", () => {
+  test("un pack anterior muestra el aviso con fecha y hash de ambos y no comparte hasta confirmar; «Compartir este» envía el elegido", async () => {
+    const { older, latest } = await twoPacks();
+    await hydrate();
+    wrap(<ReportsScreen />);
+
+    fireEvent.press(await screen.findByTestId(`pack-share-employer-${older.id}`));
+    expect(await screen.findByTestId("share-not-latest")).toBeTruthy();
+    const chosenText = screen.getByTestId("share-not-latest-chosen").props.children as string;
+    const newestText = screen.getByTestId("share-not-latest-newest").props.children as string;
+    expect(chosenText).toContain(older.manifest.packHash.slice(0, 8));
+    expect(newestText).toContain(latest.manifest.packHash.slice(0, 8));
+    expect(chosenText).not.toContain(older.manifest.packHash.slice(0, 9));
+    expect(await sharedPackIds()).toEqual([]);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("share-not-latest-this"));
+    });
+    await waitFor(async () => expect(await sharedPackIds()).toEqual([older.id]));
+    await waitFor(() => expect(screen.queryByTestId("share-not-latest")).toBeNull());
+  });
+
+  test("«Compartir el último» envía el pack más nuevo (empleado)", async () => {
+    const { older, latest } = await twoPacks();
+    await hydrate();
+    wrap(<ReportsScreen />);
+
+    fireEvent.press(await screen.findByTestId(`pack-share-employee-${older.id}`));
+    expect(await screen.findByTestId("share-not-latest")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByText(t("reports.shareLatest")));
+    });
+    await waitFor(() => expect(sharing.__shared).toEqual([latest.employeePdfUri]));
+    expect(await sharedPackIds()).toEqual([latest.id]);
+  });
+
+  test("«Cancelar» cierra el aviso sin compartir", async () => {
+    const { older } = await twoPacks();
+    await hydrate();
+    wrap(<ReportsScreen />);
+
+    fireEvent.press(await screen.findByTestId(`pack-share-employee-${older.id}`));
+    expect(await screen.findByTestId("share-not-latest")).toBeTruthy();
+    fireEvent.press(screen.getByText(t("common.cancel")));
+    await waitFor(() => expect(screen.queryByTestId("share-not-latest")).toBeNull());
+    expect(sharing.__shared).toEqual([]);
+    expect(await sharedPackIds()).toEqual([]);
+  });
+
+  test("el último pack se comparte directo, sin aviso", async () => {
+    const { latest } = await twoPacks();
+    await hydrate();
+    wrap(<ReportsScreen />);
+
+    const button = await screen.findByTestId(`pack-share-employee-${latest.id}`);
+    await act(async () => {
+      fireEvent.press(button);
+    });
+    await waitFor(() => expect(sharing.__shared).toEqual([latest.employeePdfUri]));
+    expect(screen.queryByTestId("share-not-latest")).toBeNull();
+  });
+});
+
+describe("D4 · aviso «no es el último» en el expediente", () => {
+  test("el expediente de un pack anterior pide confirmación y «Compartir este» lo envía", async () => {
+    const { older } = await twoPacks();
+    await hydrate();
+    mockParams.packId = older.id;
+    wrap(<PackScreen />);
+
+    fireEvent.press(await screen.findByTestId("pack-share-employee"));
+    expect(await screen.findByTestId("share-not-latest")).toBeTruthy();
+    expect(sharing.__shared).toEqual([]);
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("share-not-latest-this"));
+    });
+    await waitFor(() => expect(sharing.__shared).toEqual([older.employeePdfUri]));
+  });
+
+  test("el expediente del último pack comparte con el empleador sin aviso", async () => {
+    const { latest } = await twoPacks();
+    await hydrate();
+    mockParams.packId = latest.id;
+    wrap(<PackScreen />);
+
+    const button = await screen.findByTestId("pack-share-employer");
+    await act(async () => {
+      fireEvent.press(button);
+    });
+    await waitFor(async () => expect(await sharedPackIds()).toEqual([latest.id]));
+    expect(screen.queryByTestId("share-not-latest")).toBeNull();
   });
 });

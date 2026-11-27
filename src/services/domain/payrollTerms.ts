@@ -7,7 +7,10 @@
  * vigentes y la pantalla avisa («términos no congelados»).
  *
  * Puro: sin E/S. El pack previo es el más reciente del periodo exacto
- * (mismo criterio que policyForPeriod y PersistenceService.packPolicyForPeriod).
+ * (mismo criterio que policyForPeriod, EvidencePackService.latestPackFor y
+ * PersistenceService.packBasisForPeriod: createdAtMs descendente y, si empatan,
+ * id ascendente). PersistenceService.packPolicyForPeriod no tiene llamadores y
+ * no desempata por id.
  */
 import type { CompanyPolicy, PayrollLegalFlags, PayrollTerms } from "../../core/contracts";
 import { legalFlags } from "../../utils/companyPolicy";
@@ -54,13 +57,27 @@ export function isPayrollTerms(v: unknown): v is PayrollTerms {
   );
 }
 
-/** Pack más reciente del periodo exacto (createdAtMs descendente), o null. */
-export function latestPeriodPack<T extends { periodStart: number; periodEnd: number; createdAtMs: number }>(
+/**
+ * Orden de «último pack» (D6): createdAtMs descendente y, si empatan (dos
+ * sellos en el mismo milisegundo), id ascendente. El id lleva un sufijo
+ * aleatorio (EvidencePackService, `${periodId}-${uuid.slice(0, 8)}`): el
+ * desempate no significa «más reciente», solo que el ganador sea siempre el
+ * mismo, sea cual sea el orden de entrada. Es el mismo criterio que el SQL de
+ * PersistenceService.packBasisForPeriod (ORDER BY created_at_ms DESC, id ASC).
+ * Limitación conocida: createdAtMs es Date.now(); si el reloj del teléfono
+ * retrocede, un sello posterior puede tener createdAtMs menor y esto no lo cubre.
+ */
+export function compareNewestPackFirst(a: { createdAtMs: number; id: string }, b: { createdAtMs: number; id: string }): number {
+  return b.createdAtMs - a.createdAtMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/** Pack más reciente del periodo exacto (compareNewestPackFirst), o null. */
+export function latestPeriodPack<T extends { id: string; periodStart: number; periodEnd: number; createdAtMs: number }>(
   packs: readonly T[],
   periodStart: number,
   periodEnd: number,
 ): T | null {
-  return packs.filter((p) => p.periodStart === periodStart && p.periodEnd === periodEnd).sort((a, b) => b.createdAtMs - a.createdAtMs)[0] ?? null;
+  return packs.filter((p) => p.periodStart === periodStart && p.periodEnd === periodEnd).sort(compareNewestPackFirst)[0] ?? null;
 }
 
 /**
@@ -91,7 +108,7 @@ export function termsFromPack(
 
 /** Términos del periodo desde una lista de packs (mismo criterio que policyForPeriod). */
 export function termsForPeriod(
-  packs: readonly { periodStart: number; periodEnd: number; createdAtMs: number; payrollTerms?: unknown }[],
+  packs: readonly { id: string; periodStart: number; periodEnd: number; createdAtMs: number; payrollTerms?: unknown }[],
   periodStart: number,
   periodEnd: number,
   company: Pick<CompanyPolicy, "overtimeMultiplier" | "payrollLegalFlags">,

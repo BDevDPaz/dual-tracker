@@ -999,7 +999,10 @@ export const PersistenceService = {
     return r.changes ?? 0;
   },
 
-  /** policy_id del pack más reciente del periodo exacto (policyForPeriod, spec v1.3 §5.2 N3). */
+  /**
+   * policy_id del pack más reciente del periodo exacto (policyForPeriod, spec v1.3 §5.2 N3).
+   * Sin llamadores (código muerto, se deja): no desempata por id como packBasisForPeriod.
+   */
   async packPolicyForPeriod(periodStart: number, periodEnd: number): Promise<string | null> {
     const d = await ensureReady();
     const row = await d.getFirstAsync<{ policy_id: string }>(
@@ -1010,14 +1013,15 @@ export const PersistenceService = {
   },
 
   /**
-   * Pack previo del periodo exacto (el mismo de packPolicyForPeriod): su
+   * Pack previo del periodo exacto (createdAtMs descendente y, si empatan, id
+   * ascendente: el mismo criterio que compareNewestPackFirst): su
    * política y sus términos de nómina (manifiesto v6; `undefined` en v1–v5).
    * null si el periodo no tiene pack. Solo lee.
    */
   async packBasisForPeriod(periodStart: number, periodEnd: number): Promise<{ policyId: string; payrollTerms?: unknown } | null> {
     const d = await ensureReady();
     const row = await d.getFirstAsync<{ policy_id: string; manifest_json: string }>(
-      `SELECT policy_id, manifest_json FROM evidence_packs WHERE period_start = ? AND period_end = ? ORDER BY created_at_ms DESC LIMIT 1`,
+      `SELECT policy_id, manifest_json FROM evidence_packs WHERE period_start = ? AND period_end = ? ORDER BY created_at_ms DESC, id ASC LIMIT 1`,
       [periodStart, periodEnd],
     );
     if (!row) return null;

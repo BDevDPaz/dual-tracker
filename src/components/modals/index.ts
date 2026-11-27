@@ -6,3 +6,4 @@ export * from "./EditSessionModal";
 export * from "./DeleteSessionModal";
 export * from "./ConfirmActionModal";
 export * from "./AddNoteModal";
+export * from "./ShareNotLatestModal";

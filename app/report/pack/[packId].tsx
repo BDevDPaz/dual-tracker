@@ -5,6 +5,8 @@
  * empleador. Sin "regenerar con otras reglas": un pack sellado no muta. Si al
  * pack le faltan los PDF (copia restaurada), «Volver a emitir» crea uno nuevo.
  * «Ver estado de nómina» abre la vista previa del periodo (/report/[periodId]).
+ * D4 (Solicitud 8): si este pack no es el último de su periodo, compartir pide
+ * confirmación (ShareNotLatestModal); si lo es, se comparte directo.
  */
 import { useState } from "react";
 import { Pressable, Text, StyleSheet, View } from "react-native";
@@ -14,7 +16,9 @@ import { BackupAdviceCard, KeyValueRow, ScreenStatusBanner } from "../../../src/
 import { TOKENS, FONT } from "../../../src/constants/theme";
 import { useTheme } from "../../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, usePullToRefresh, useQuery, useWorkTracker } from "../../../src/core/hooks";
-import { selectCalendarHistory, selectPackById, selectPackShared, selectPackTermsFrozen, selectSessionPortion } from "../../../src/core/selectors";
+import { selectCalendarHistory, selectLatestPackForPeriod, selectPackById, selectPackShared, selectPackTermsFrozen, selectSessionPortion } from "../../../src/core/selectors";
+import { ShareNotLatestModal, type PendingNotLatestShare, type ShareTarget } from "../../../src/components/modals/ShareNotLatestModal";
+import type { EvidencePack } from "../../../src/core/contracts";
 import { t } from "../../../src/i18n";
 import { tPackFileRole } from "../../../src/i18n/labels";
 import { formatCurrency, formatDate, formatDateTime, formatRange, weekPeriodId } from "../../../src/utils/dateUtils";
@@ -28,6 +32,7 @@ export default function PackScreen() {
   const [annexEnterExit, setAnnexEnterExit] = useState(false);
   const { busy: sharing, run: share } = useBusyAction();
   const { busy: reissuing, run: runReissue } = useBusyAction();
+  const [pendingShare, setPendingShare] = useState<PendingNotLatestShare | null>(null);
   const id = String(packId ?? "");
   const { state, emit, queries } = useWorkTracker();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
@@ -54,11 +59,26 @@ export default function PackScreen() {
   const m = pack.manifest;
   const shared = selectPackShared(state, pack.id);
   const premium = (m.documentVersion ?? 1) >= 2;
-  const annex = premium ? { annexLedger, annexEnterExit } : {};
   // RR-2: tras restaurar una copia en otro teléfono el pack no trae sus PDF.
   // La salida es la reemisión (pack nuevo, asiento PACK_REISSUED), con el mismo
   // criterio de certificación que este pack.
   const pdfMissing = !pack.employeePdfUri || !pack.employerPdfUri;
+  /** Anexos del pack que se comparte (solo documento v2+). */
+  const annexFor = (p: EvidencePack) => ((p.manifest.documentVersion ?? 1) >= 2 ? { annexLedger, annexEnterExit } : {});
+  const emitShare = (target: ShareTarget, p: EvidencePack, confirmNotLatest: boolean) =>
+    emit({ type: target === "employee" ? "SHARE_EMPLOYEE" : "SHARE_EMPLOYER", packId: p.id, ...annexFor(p), ...(confirmNotLatest ? { confirmNotLatest: true } : {}) });
+  /** D4: el último del periodo se comparte directo; si hay uno más nuevo, aviso. */
+  const requestShare = (target: ShareTarget) => {
+    const newest = selectLatestPackForPeriod(state, m.periodStart, m.periodEnd);
+    if (!newest || newest.id === pack.id) return void share(() => emitShare(target, pack, false));
+    setPendingShare({ target, chosen: pack, latest: newest });
+  };
+  const shareFromNotice = (pending: PendingNotLatestShare, which: "chosen" | "latest") =>
+    void share(async () => {
+      const res = which === "chosen" ? await emitShare(pending.target, pending.chosen, true) : await emitShare(pending.target, pending.latest, false);
+      setPendingShare(null);
+      return res;
+    });
   const reissue = () =>
     runReissue(async () => {
       const res = await emit({ type: "SEAL_PACK", periodStart: m.periodStart, periodEnd: m.periodEnd, allowUncertified: !m.certified, reissue: true });
@@ -164,16 +184,24 @@ export default function PackScreen() {
         iconName="share-outline"
         disabled={sharing || pdfMissing}
         isLoading={sharing}
-        onPress={() => void share(() => emit({ type: "SHARE_EMPLOYEE", packId: pack.id, ...annex }))}
+        onPress={() => requestShare("employee")}
       />
       <Button
+        testID="pack-share-employer"
         label={t("reports.shareEmployer")}
         variant="secondary"
         iconName="briefcase-outline"
         disabled={sharing || pdfMissing}
-        onPress={() => void share(() => emit({ type: "SHARE_EMPLOYER", packId: pack.id, ...annex }))}
+        onPress={() => requestShare("employer")}
       />
     </ScreenScroll>
+    <ShareNotLatestModal
+      pending={pendingShare}
+      busy={sharing}
+      onShareThis={(pending) => shareFromNotice(pending, "chosen")}
+      onShareLatest={(pending) => shareFromNotice(pending, "latest")}
+      onCancel={() => setPendingShare(null)}
+    />
     </View>
   );
 }

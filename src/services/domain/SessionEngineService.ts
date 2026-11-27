@@ -218,6 +218,7 @@ async function dayAlreadyHadLunch(open: SessionRecord, company: CompanyPolicy, n
   const start = open.actualStartAtMs ?? open.declaredStartAtMs;
   const policyId = policyForPeriod(
     packs.map((p) => ({
+      id: p.id,
       periodStart: p.manifest.periodStart,
       periodEnd: p.manifest.periodEnd,
       policyId: p.statement.policyId,

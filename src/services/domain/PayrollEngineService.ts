@@ -386,7 +386,7 @@ function buildLines(
  * v1); si no, la vigente de la empresa.
  */
 export function policyForPeriod(
-  packs: readonly { periodStart: number; periodEnd: number; policyId: string; createdAtMs: number }[],
+  packs: readonly { id: string; periodStart: number; periodEnd: number; policyId: string; createdAtMs: number }[],
   periodStart: number,
   periodEnd: number,
   companyPolicyId: string,
