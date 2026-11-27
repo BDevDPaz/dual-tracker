@@ -1009,6 +1009,27 @@ export const PersistenceService = {
     return row?.policy_id ?? null;
   },
 
+  /**
+   * Pack previo del periodo exacto (el mismo de packPolicyForPeriod): su
+   * política y sus términos de nómina (manifiesto v6; `undefined` en v1–v5).
+   * null si el periodo no tiene pack. Solo lee.
+   */
+  async packBasisForPeriod(periodStart: number, periodEnd: number): Promise<{ policyId: string; payrollTerms?: unknown } | null> {
+    const d = await ensureReady();
+    const row = await d.getFirstAsync<{ policy_id: string; manifest_json: string }>(
+      `SELECT policy_id, manifest_json FROM evidence_packs WHERE period_start = ? AND period_end = ? ORDER BY created_at_ms DESC LIMIT 1`,
+      [periodStart, periodEnd],
+    );
+    if (!row) return null;
+    let payrollTerms: unknown;
+    try {
+      payrollTerms = (JSON.parse(String(row.manifest_json)) as { payrollTerms?: unknown }).payrollTerms;
+    } catch {
+      payrollTerms = undefined;
+    }
+    return { policyId: row.policy_id, payrollTerms };
+  },
+
   async listPacks(): Promise<EvidencePack[]> {
     const d = await ensureReady();
     const rows = await d.getAllAsync<Record<string, unknown>>(`SELECT * FROM evidence_packs ORDER BY created_at_ms DESC`);

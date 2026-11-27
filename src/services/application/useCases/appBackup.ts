@@ -3,7 +3,10 @@
  * ============================================================================
  *  - exportAppBackup: vuelca los datos (backupStore), los cifra con la
  *    contraseña (backupCodec), escribe `.dtbackup` en la caché y abre la hoja
- *    de compartir. No pide permisos de almacenamiento.
+ *    de compartir. No pide permisos de almacenamiento. expo-sharing no dice
+ *    si el archivo llegó a un destino (shareAsync resuelve sin resultado, y en
+ *    Android también al cerrar la hoja sin elegir): «Última copia» solo se
+ *    anota cuando la persona confirma que la guardó (confirmBackupSaved).
  *  - previewBackupImport: elige el archivo con el selector del sistema (SAF en
  *    Android, `File.pickFileAsync`), lo descifra y lo valida entero: formato y
  *    versión, versión de esquema, columnas, jornadas cerradas, cadena del libro
@@ -75,6 +78,8 @@ type Scrypt = { N: number; r: number; p: number };
 
 const PREVIEW_TTL_MS = 10 * 60_000;
 let pending: { token: string; payload: BackupPayload; summary: BackupSummary; expiresAtMs: number } | null = null;
+/** Copia compartida a la espera de que la persona confirme que la guardó. */
+let pendingExport: { token: string; atMs: number; sessions: number; packs: number; expiresAtMs: number } | null = null;
 
 function summarize(payload: BackupPayload): BackupSummary {
   const sessions = payload.data.tables.sessions.filter((s) => !Number(s.is_deleted));
@@ -106,7 +111,7 @@ export async function readBackupStatus(): Promise<BackupStatus> {
   return { lastCreatedAtMs: typeof last?.atMs === "number" ? last.atMs : null };
 }
 
-export async function exportAppBackup(passphrase: string, opts: { scrypt?: Scrypt } = {}): Promise<IntentResult<{ uri: string; name: string }>> {
+export async function exportAppBackup(passphrase: string, opts: { scrypt?: Scrypt } = {}): Promise<IntentResult<{ uri: string; name: string; token: string }>> {
   if (!passphraseLongEnough(passphrase)) return { ok: false, code: "BACKUP_PASSPHRASE_SHORT" };
   if ((await PersistenceService.countOpenSessions()) > 0) return { ok: false, code: "BACKUP_OPEN_SESSION" };
   const nowMs = TimeAuthorityService.now();
@@ -136,10 +141,27 @@ export async function exportAppBackup(passphrase: string, opts: { scrypt?: Scryp
   }
   if (!shared) return { ok: false, code: "SHARE_UNAVAILABLE" };
   const summary = summarize(payload);
-  await PersistenceService.setKv(KV_KEYS.BACKUP_LAST, { atMs: nowMs, sessions: summary.sessions, packs: summary.packs });
+  const token = Crypto.randomUUID();
+  pendingExport = { token, atMs: nowMs, sessions: summary.sessions, packs: summary.packs, expiresAtMs: TimeAuthorityService.now() + PREVIEW_TTL_MS };
+  LoggingService.log("VERDE", "OPERACION_EXITOSA", "INFO", "Copia de seguridad compartida; falta confirmar que se guardó", { sessions: summary.sessions, packs: summary.packs });
+  return { ok: true, data: { uri: file.uri, name, token } };
+}
+
+/** La persona confirma que guardó la copia: solo entonces se anota «Última copia». */
+export async function confirmBackupSaved(token: string): Promise<IntentResult> {
+  const p = pendingExport;
+  if (!p || p.token !== token) return { ok: false, code: "BACKUP_SAVE_EXPIRED" };
+  pendingExport = null;
+  if (p.expiresAtMs < TimeAuthorityService.now()) return { ok: false, code: "BACKUP_SAVE_EXPIRED" };
+  await PersistenceService.setKv(KV_KEYS.BACKUP_LAST, { atMs: p.atMs, sessions: p.sessions, packs: p.packs });
   markPersisted("settings");
-  LoggingService.log("VERDE", "OPERACION_EXITOSA", "INFO", "Copia de seguridad creada", { sessions: summary.sessions, packs: summary.packs });
-  return { ok: true, data: { uri: file.uri, name } };
+  LoggingService.log("VERDE", "OPERACION_EXITOSA", "INFO", "Copia de seguridad guardada (confirmado)", { sessions: p.sessions, packs: p.packs });
+  return { ok: true };
+}
+
+/** La persona dice que no la guardó: no se anota nada. */
+export function discardBackupExport(): void {
+  pendingExport = null;
 }
 
 function isRowArray(v: unknown): v is BackupRow[] {
@@ -173,6 +195,10 @@ export async function validateBackupPayload(raw: unknown): Promise<IntentResult<
   if (!data || typeof data.schemaVersion !== "number" || !data.tables || !data.kv || !Array.isArray(data.unreadable)) return { ok: false, code: "BACKUP_INVALID" };
   if (data.schemaVersion > SCHEMA_VERSION) return { ok: false, code: "BACKUP_NEWER_SCHEMA" };
   if (!Number.isInteger(data.schemaVersion) || data.schemaVersion < 1) return { ok: false, code: "BACKUP_INVALID" };
+  // Esquema anterior: no hay migración de copias (las de schema.ts y
+  // cryptoMigrations trabajan sobre la base viva), y meter filas viejas en
+  // tablas nuevas dejaría columnas sin rellenar. Se rechaza sin escribir.
+  if (data.schemaVersion < SCHEMA_VERSION) return { ok: false, code: "BACKUP_OLDER_SCHEMA" };
   for (const table of BACKUP_TABLES) if (!isRowArray(data.tables[table])) return { ok: false, code: "BACKUP_INVALID" };
   const full = data as BackupData;
   if ((await unknownBackupColumns(full)).length) return { ok: false, code: "BACKUP_INVALID" };
@@ -323,4 +349,5 @@ export async function importAppBackup(token: string): Promise<IntentResult<Backu
 /** Solo tests. */
 export function __resetBackupImportForTests(): void {
   pending = null;
+  pendingExport = null;
 }

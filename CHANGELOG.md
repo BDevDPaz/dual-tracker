@@ -37,6 +37,12 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#55** Copia de seguridad cifrada `.dtbackup` en Ajustes, con restauración por reemplazo total y el asiento `BACKUP_RESTORED`. Reportes no crea ni lee copias. Verificación: `backupCodec.test.ts`, `appBackup.test.ts` (cifrado, validación, reemplazo y rollback), `settings.backup.flow.test.tsx`, `backupPlacement.test.ts`.
 - **#57** (PR3) Bloque «Reportes de nómina» en Reportes (Vista previa, Exportar expediente, Enviar por correo), `/report/[periodId]` reintegrada como vista previa del periodo y Auditoría de jornadas de solo lectura (`selectSessionAudit`, `app/session/[id]/audit.tsx`, sección en la vista previa). Lo que no se guarda sale como «no registrado». Verificación: `sessionAudit.test.ts` (selector y caso de uso), `SessionAuditView.test.tsx`, `payrollReport.flow.test.tsx`, `auditReadOnly.test.ts`.
 - **#59** Tests que documentan el fallo «sin destino»: si la geocodificación falla al crear un destino manual, el sitio se guarda sin coordenadas, la jornada abre en ESPERANDO y la geocerca no se arma, sin aviso en el modal ni en Hoy. 7 tests nuevos de dominio y flujo (`siteGeocodeFailure.test.ts`, `upsertStartDayGeocodeFailure.test.ts`) y 3 tests UI del modal (`DailySetupModal.test.tsx`). Verificación (Termux, 2026-11-26, rama `test/sin-destino-geocode-failure`, merge `33408c9`): `npm run test:domain` 60/60 suites, 496/496 tests; `npm test -- DailySetupModal` 5/5; `npm run typecheck` limpio.
+- **#66** Manifiesto v6: el sello congela los términos de nómina (`payrollTerms`: multiplicador OT y las banderas `transitionWeeklyThreshold`, `caDoubleTime`, `caSeventhDay`) y los cubre con `packHash` (`src/core/contracts/evidence.ts:145`, `src/services/evidence/EvidencePackService.ts:217`). Decisiones de Byron del 2026-11-26.
+  - Resellar o reemitir un periodo con pack previo (el más reciente del periodo, como `policyForPeriod`) usa sus términos; el pack nuevo los vuelve a guardar. El primer sello guarda los vigentes y las semanas sin sellar usan los vigentes (spec v1.3 §5.2 N3). Lo resuelve `src/services/domain/payrollTerms.ts` con `PersistenceService.packBasisForPeriod`.
+  - `describeFreshness` (y con él `currentPackFor`, RR-1), la vista previa del periodo, el efecto de nómina de la jornada y los selectores usan los mismos términos: cambiar Ajustes no deja un pack recién sellado como desactualizado.
+  - Packs v1–v5: su cuerpo de `packHash` no cambia y siguen verificando. Se calculan con los términos vigentes y muestran «términos no congelados» (`report.termsNotFrozen`) en el expediente, la vista previa del periodo y la lista de Reportes.
+  - Traslado y almuerzo no se congelan. No se reescriben asientos ni packs.
+  - Verificación: `payrollTermsFreeze.test.ts` (8), `appBackup.test.ts` (+1, copia y restauración), `termsNotFrozen.flow.test.tsx` (3), `futureTime.test.ts`. No probado en un teléfono.
 
 ### Cambiado
 
@@ -67,6 +73,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 - **#51** Se quitan los nombres de proyectos anteriores, se corrige el comentario de `LUNCH_START` en `sessionMachine.ts` y se actualiza el README. Los 4 tests de guarda de los PDF se mantienen.
 - **#54** `PROJECT_STATE.md` con el estado verificado y `CHANGELOG.md` respaldado por evidencia (squash `3cf14e2`, 2026-11-25).
 - **#58** README y CHANGELOG al día con `main` en `fac761c` (`9198eb1`, 2026-11-26).
+- **#63** `README.md:297` (P2 Política v2): el asiento `PAYROLL_POLICY_CHANGED` lo escribe Ajustes al cambiar la política, el multiplicador o las banderas (`src/services/application/intentRouter.ts:213`), no la migración, que nunca lo escribió. Solo documentación, sin cambios de código.
 
 ### Corregido
 
@@ -77,7 +84,17 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
   - H-12: tests de las cinco ramas de `initialHref`, incluidas `needsOnboarding → welcome` y `needsDisclaimer → disclosure`.
   - H-10: README ya no dice que el tema claro está oculto.
   - Tests: `src/core/__tests__/initialRoute.test.ts`, `src/navigation/__tests__/deepLinkGate.test.tsx`, `src/navigation/__tests__/deepLinkGate.conflict.test.tsx`.
+- **#63** Ajustes (Solicitud 2, SS-1…SS-5, SS-8…SS-10). Verificación: `settingsPolicy.test.ts` (TP-1, TP-5, TP-7), `settings.admin.flow.test.tsx` (TP-2, TP-3, TP-4), `adminDraftValidation.test.ts`, `appBackup.test.ts` y `settings.backup.flow.test.tsx` (TP-8, TP-9), `pin.flow.test.ts`, `intentRouter.test.ts`. No probado en un teléfono.
+  - **SS-1** Cambiar la política de horas extra, el multiplicador o una bandera legal deja el asiento `PAYROLL_POLICY_CHANGED` (`reason: ADMIN_POLICY_CHANGE`, `data.changes` con `{ from, to }` por campo) en la cadena del libro. No se congela nada: las semanas sin sellar se recalculan con la política vigente y los expedientes sellados conservan la suya, como ya decía la spec (§5.2 N3).
+  - **SS-3** Cambiar una bandera legal guarda solo esa bandera; las demás no se escriben con su valor por defecto.
+  - **SS-2** La zona admin valida cada campo en línea con los rangos del repositorio (multiplicador 1–10, retención entera 1–3650, radio 1–10000 m, espera de llegada entera 0–30 min) y el formato del correo de empresa. La espera ya no se recorta en silencio a 0–30.
+  - **SS-4** Si la zona admin se cerró (10 min) con cambios sin guardar, Guardar avisa («no se guardaron») en vez de «Ajustes guardados» y el borrador sigue en pantalla para guardarlo tras el PIN.
+  - **SS-5** Crear un destino con radio o espera propios y mover un punto ya fijado (`LOCATE_SITE`) piden la zona admin. El alta con el radio de la empresa, el alta rápida de Hoy y el primer «Estoy aquí» de un destino sin ubicar no la piden. El alta no crea destinos.
+  - **SS-8** Con una jornada abierta, cambiar el radio por defecto rehace la geocerca del destino vigilado y cambiar el modo de rastro rehace el servicio en primer plano.
+  - **SS-9** «Última copia» solo se anota cuando la persona confirma que guardó el archivo: `expo-sharing` no informa del destino (`shareAsync` resuelve sin resultado).
+  - **SS-10** Una copia de un esquema anterior se rechaza (`BACKUP_OLDER_SCHEMA`) sin escribir nada.
 - **#62** (Solicitud 1 — Reportes; fusionado en `main` en `eb969d7`, 2026-11-26). Hallazgos RR-1, RR-2, RR-3 y RR-11 de los wireframes de Reportes.
+- **#62** (Solicitud 1 — Reportes; fusionado en `main`, `eb969d7`, 2026-11-26). Hallazgos RR-1, RR-2, RR-3 y RR-11 de los wireframes de Reportes.
   - **RR-1:** «Exportar expediente» (`EXPORT_PACK`) y «Enviar por correo» (`SHARE_EMPLOYER` con `ensureFresh`) ya no comparten un pack desactualizado. Si el último pack del periodo no coincide con el cálculo de ahora (`describeFreshness`), se vuelve a sellar antes de compartir. Si el periodo ya no se puede sellar como certificado, se muestra el motivo y no se comparte el pack viejo (`currentPackFor`, `src/services/application/intentRouter.ts:168`, `:297`, `:313`; `app/(tabs)/reports.tsx:313`, `app/report/[periodId].tsx:146`).
   - **RR-2:** un pack sin PDF en este teléfono (copia restaurada) tiene salida.
     - Compartirlo devuelve `PACK_PDF_MISSING` con un mensaje que remite a «Volver a emitir», en vez de `PACK_NOT_FOUND` (`src/services/evidence/EvidencePackService.ts:716`, `:727`).
