@@ -62,7 +62,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - `src/services/application/useCases/__tests__/startDay.test.ts`, `confirmExit.test.ts`.
 - **Nómina de California:** OT diaria y semanal, doble tiempo y séptimo día (**apagados por defecto**, `src/utils/companyPolicy.ts:8-12`; se activan en Ajustes → Calendario laboral y un valor guardado se respeta), primas de comida y descanso, un almuerzo por día de nómina y tarifa congelada por jornada (`sessions.hourly_rate_snapshot`). Tests: `PayrollEngineService.test.ts`, `caRules.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `dayLunch.test.ts`, `hourlyRateSnapshot.test.ts`, `policyV2.test.ts`.
 - **Libro append-only y sello:**
-  - Cadena SHA-256, manifiesto v6 (`src/core/contracts/evidence.ts:145`; v6 desde #66, sin fusionar), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
+  - Cadena SHA-256, manifiesto v6 (`src/core/contracts/evidence.ts:145`; v6 desde #66, fusionado en `main` (`0fb1623`, 2026-11-26)), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
   - Esquema SQLite v9 (`src/services/persistence/schema.ts:24`).
   - Tests: `IntegrityLedgerService.test.ts`, `HashChain.test.ts`, `EvidencePackService.test.ts`, `packSignature.test.ts`, `app/(tabs)/__tests__/sealVerify.flow.test.ts`, `ledgerIntegrity.test.ts`.
 - **Reportes (lo que hay hoy):**
