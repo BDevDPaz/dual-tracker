@@ -36,7 +36,7 @@ import { getPayrollPolicy } from "../../services/domain/payrollPolicies";
 import { companyWithTerms, isPayrollTerms, termsForPeriod, type PeriodTerms } from "../../services/domain/payrollTerms";
 import { isZeroDuration, periodSliceOf, type PeriodSlice } from "../../services/domain/periodSlice";
 import { computeSegmentMinutes, deductibleLunchMinutes } from "../../services/domain/segmentation";
-import { checkedInSiteIds, lastVisitAtMs } from "../../services/domain/siteVisits";
+import { checkedInSiteIds, lastVisitAtMs, monitoredSiteId } from "../../services/domain/siteVisits";
 import { retentionPhase, type RetentionPhase } from "../../services/evidence/retentionRules";
 import { getWeekEnd, getWeekStart, nextWorkdayBoundary, toDateString, workweekEndAt, workweekStartAt } from "../../utils/dateUtils";
 
@@ -63,6 +63,15 @@ export const selectActiveSession = (s: DualTrackerState): SessionRecord | null =
   if (id === null) return null;
   const session = s.sessions.byId[String(id)];
   return session && !session.bookkeeping.isDeleted && OPEN_SESSION_STATES.includes(session.domainStatus) ? session : null;
+};
+
+/**
+ * ¿El destino es el de la jornada abierta o el destino de su traslado en
+ * curso? Mismo criterio que el rechazo SITE_IN_OPEN_SESSION de ARCHIVE_SITE.
+ */
+export const selectIsSiteInOpenSession = (s: DualTrackerState, siteId: number): boolean => {
+  const open = selectActiveSession(s);
+  return !!open && (open.siteId === siteId || monitoredSiteId(open) === siteId);
 };
 
 /**

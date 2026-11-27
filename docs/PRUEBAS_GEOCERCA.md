@@ -2,7 +2,7 @@
 
 Para Byron, en el **Samsung Galaxy S22+** (One UI) con el APK preview de EAS. Jest no enciende el GPS ni la geocerca de Android: estos pasos sí.
 
-Cómo instalar el build de release: [BUILD.md](BUILD.md). El modo «Solo geocerca» (el de fábrica) ya basta: el servicio en primer plano sigue tomando muestras y, si el aviso del sistema no llega, esas muestras fichan. No hace falta cambiar a «Rastro».
+Cómo instalar el build de release: [BUILD.md](BUILD.md). En el modo «Solo geocerca» (el de fábrica, «Perímetro» en Ajustes) el servicio en primer plano sigue tomando muestras y, si el aviso del sistema no llega, esas muestras pueden fichar. Pero usa el perfil de espera (cada 2 min con un desplazamiento mínimo de 100 m, `src/config/provisional.ts:119`) y en Android ese mínimo impide las muestras por tiempo con el teléfono quieto (`provisional.ts:114-116`): quieto dentro o fuera del sitio, puede no llegar ninguna muestra que confirme la llegada o la salida. Prueba cada paso en «Solo geocerca» y en «Miga de pan», y anota en cuál fichó (PROJECT_STATE.md §5, P-1). No verificado todavía en un teléfono.
 
 Relacionado: [varios destinos](PRUEBAS_MULTI_DESTINO.md) y [cifrado](PRUEBAS_DISPOSITIVO.md).
 
