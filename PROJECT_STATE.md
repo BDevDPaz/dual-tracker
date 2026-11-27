@@ -89,7 +89,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 
 ### En progreso
 - **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Abierto, sin fusionar. Falta probarlo en un teléfono.
-- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): abierto, pendiente de revisión y merge (Byron fusiona).**
+- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` (`eb969d7`, 2026-11-26).**
   - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:168`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
