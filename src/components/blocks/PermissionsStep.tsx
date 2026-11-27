@@ -131,6 +131,14 @@ export function PermissionsStep({
               {androidAlways ? t("onboarding.permBgAlwaysBody") : t("onboarding.permBgBody")}
             </Text>
             {androidAlways ? <Text style={[styles.body, { color: colors.text.primary }]}>{t("onboarding.permBgStepAlways")}</Text> : null}
+            {/* B1: divulgación destacada de ubicación en segundo plano (Google Play), en toda versión de Android,
+                justo encima del botón («Conceder» o «Ir a Ajustes»). En iOS la explica el diálogo del sistema
+                (NSLocationAlwaysAndWhenInUseUsageDescription, app.json). */}
+            {platform === "android" ? (
+              <Text testID="permission-bg-disclosure" style={[styles.body, { color: colors.text.primary }]}>
+                {t("onboarding.permBgDisclosure")}
+              </Text>
+            ) : null}
             <Button
               label={androidAlways || background === "blocked" ? t("onboarding.permGoSettings") : t("onboarding.permRequest")}
               variant="secondary"

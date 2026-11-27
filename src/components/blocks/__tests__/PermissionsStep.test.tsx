@@ -1,7 +1,7 @@
 /** Permisos del alta: un subpaso, ubicación precisa obligatoria, el resto se puede saltar. */
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { t } from "../../../i18n";
+import { en, es, t } from "../../../i18n";
 import { PermissionsStep } from "../PermissionsStep";
 
 const handlers = {
@@ -156,5 +156,106 @@ describe("PermissionsStep", () => {
     expect(screen.queryByText(t("onboarding.permBgAlwaysBody"))).toBeNull();
     expect(screen.getByText(t("onboarding.permBgOnlySubtitle"))).toBeTruthy();
     expect(screen.getByText(t("onboarding.permBgBody"))).toBeTruthy();
+  });
+});
+
+/**
+ * B1 y B3 (Solicitud 7, PR 1). Textos exactos de b1b3_prompt.txt:4-5 (B1) y :8-9 (B3).
+ * B1: divulgación de ubicación en segundo plano en toda versión de Android, justo
+ * encima del botón de la tarjeta («Conceder» o «Ir a Ajustes»). No en iOS.
+ */
+describe("PermissionsStep · B1/B3 tarjeta de segundo plano", () => {
+  const DISCLOSURE_ES =
+    "Dual Tracker recopila tu ubicación para registrar tu jornada, confirmar tus horas y avisarte si sales del sitio, incluso cuando la app está cerrada o no la estás usando.";
+  const DISCLOSURE_EN =
+    "Dual Tracker collects location data to record your shift, confirm your hours and alert you if you leave the site, even when the app is closed or not in use.";
+  const BODY_ES = "Sirve para registrar tu llegada y tu salida del sitio aunque la app esté cerrada.";
+  const BODY_EN = "Lets the app record when you arrive at and leave the site, even when it is closed.";
+
+  type Node = { children?: (Node | string)[] | null } | string | null;
+  /** Textos de la tarjeta de segundo plano en orden de pintado. */
+  function cardTexts(): string[] {
+    const out: string[] = [];
+    const walk = (n: Node) => {
+      if (n == null) return;
+      if (typeof n === "string") {
+        out.push(n);
+        return;
+      }
+      (n.children ?? []).forEach(walk);
+    };
+    walk(screen.getByTestId("permission-background") as unknown as Node);
+    return out;
+  }
+  function expectDisclosureRightAbove(buttonLabel: string) {
+    const texts = cardTexts();
+    const at = texts.indexOf(DISCLOSURE_ES);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(texts[at + 1]).toBe(buttonLabel);
+  }
+
+  test("textos exactos en es y en", () => {
+    expect(es.onboarding.permBgDisclosure).toBe(DISCLOSURE_ES);
+    expect(en.onboarding.permBgDisclosure).toBe(DISCLOSURE_EN);
+    expect(es.onboarding.permBgBody).toBe(BODY_ES);
+    expect(en.onboarding.permBgBody).toBe(BODY_EN);
+  });
+
+  test("Android < 11: divulgación justo encima de «Conceder» y cuerpo nuevo de permBgBody", () => {
+    renderStep({ step: "background", index: 2, platform: "android", apiLevel: 29, background: "denied" });
+    expect(screen.getByRole("button", { name: "Conceder" })).toBeTruthy();
+    expectDisclosureRightAbove("Conceder");
+    expect(screen.getByText(BODY_ES)).toBeTruthy();
+    expect(screen.queryByText(t("onboarding.permBgAlwaysBody"))).toBeNull();
+  });
+
+  test("Android 11+: divulgación justo encima de «Ir a Ajustes» y sin permBgBody", () => {
+    renderStep({ step: "background", index: 2, platform: "android", apiLevel: 34, background: "denied" });
+    expect(screen.getByRole("button", { name: "Ir a Ajustes" })).toBeTruthy();
+    expectDisclosureRightAbove("Ir a Ajustes");
+    expect(screen.queryByText(BODY_ES)).toBeNull();
+    expect(screen.getByText(t("onboarding.permBgAlwaysBody"))).toBeTruthy();
+  });
+
+  test("Android < 11 con el permiso bloqueado: divulgación justo encima de «Ir a Ajustes»", () => {
+    renderStep({ step: "background", index: 2, platform: "android", apiLevel: 29, background: "blocked" });
+    expect(screen.getByRole("button", { name: "Ir a Ajustes" })).toBeTruthy();
+    expectDisclosureRightAbove("Ir a Ajustes");
+    expect(screen.getByText(BODY_ES)).toBeTruthy();
+  });
+
+  test("Android sin nivel de API conocido: también se muestra (se trata como 11+)", () => {
+    renderStep({ step: "background", index: 2, platform: "android", apiLevel: null, background: "granted" });
+    expectDisclosureRightAbove("Ir a Ajustes");
+  });
+
+  test("iOS: sin divulgación (la explica el diálogo del sistema) y con el cuerpo nuevo", () => {
+    renderStep({ step: "background", index: 2, platform: "ios", apiLevel: null, background: "denied" });
+    expect(screen.queryByTestId("permission-bg-disclosure")).toBeNull();
+    expect(screen.queryByText(DISCLOSURE_ES)).toBeNull();
+    expect(screen.getByText(BODY_ES)).toBeTruthy();
+  });
+
+  test("fuera de la tarjeta de segundo plano no aparece", () => {
+    const view = renderStep({ step: "fine", platform: "android", apiLevel: 29 });
+    expect(screen.queryByText(DISCLOSURE_ES)).toBeNull();
+    view.rerender(
+      <PermissionsStep
+        step="notifications"
+        index={3}
+        total={3}
+        foreground="granted"
+        accuracy="fine"
+        background="denied"
+        notifications="denied"
+        battery="unknown"
+        platform="android"
+        apiLevel={29}
+        busy={false}
+        reminderLabel="7:00 AM"
+        {...handlers}
+      />,
+    );
+    expect(screen.queryByText(DISCLOSURE_ES)).toBeNull();
   });
 });
