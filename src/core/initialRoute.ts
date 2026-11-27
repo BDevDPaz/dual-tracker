@@ -9,6 +9,15 @@ export type GateHref =
   | "/system/conflict"
   | "/(tabs)";
 
+/**
+ * Rutas operativas (pestañas, sesión, destinos, reportes, sistema) solo con el
+ * alta completada y el aviso vigente aceptado: la misma condición que el gate
+ * exige antes de «/(tabs)». La usa `Stack.Protected` (H-13).
+ */
+export function canEnterApp(input: { needsOnboarding: boolean; needsDisclaimer: boolean }): boolean {
+  return !input.needsOnboarding && !input.needsDisclaimer;
+}
+
 export function initialHref(input: {
   hydrated: boolean;
   bootError?: string | null;

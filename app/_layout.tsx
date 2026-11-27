@@ -8,7 +8,6 @@
  * ((boot) / (onboarding) / (tabs)) la toma el gate app/index.tsx.
  */
 import { useEffect, useState } from "react";
-import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -26,6 +25,7 @@ import { FeedbackBridge } from "../src/components/feedback/FeedbackBridge";
 import { ErrorBoundary } from "../src/components/feedback/ErrorBoundary";
 import { boot, ensureRuntimeReady, registerBackgroundTasks } from "../src/core/boot";
 import { useLanguage } from "../src/i18n";
+import { RootStack } from "../src/navigation/RootStack";
 
 // Las pantallas del fondo (pila, pestañas, modal) siguen vivas: un cambio de
 // idioma las repinta aunque no tengan el foco. react-freeze las dejaría en el idioma anterior.
@@ -52,19 +52,7 @@ function RootShell() {
       <StatusBar style={scheme === "light" ? "dark" : "light"} />
       <FeedbackBridge />
       <ErrorBoundary>
-      <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(boot)" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="(onboarding)" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="session" />
-        <Stack.Screen name="sites" />
-        <Stack.Screen name="report" />
-        <Stack.Screen name="system" options={{ presentation: "modal" }} />
-        <Stack.Screen name="legal" />
-        <Stack.Screen name="support" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <RootStack backgroundColor={colors.background} />
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

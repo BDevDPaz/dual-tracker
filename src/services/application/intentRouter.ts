@@ -483,6 +483,9 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(profile.dailyReminderTime) || !(profile.hourlyRate >= 0)) {
           return report({ ok: false, code: "INVALID_VALUE" });
         }
+        // H-14: sin nombre (mínimo de Perfil, nameNeedsError) o sin el aviso vigente aceptado no se completa el alta.
+        if (profile.employeeName.trim().length < 2) return report({ ok: false, code: "NAME_REQUIRED" });
+        if (!DualDisclosureService.isAccepted(state.settings.device)) return report({ ok: false, code: "DISCLOSURE_NOT_ACCEPTED" });
         const device = { ...state.settings.device, onboardingCompleted: true };
         await SettingsService.saveProfile(profile);
         await SettingsService.saveDevice(device);
