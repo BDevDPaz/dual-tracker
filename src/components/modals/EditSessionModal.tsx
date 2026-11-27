@@ -7,7 +7,7 @@ import { FORM_FIELDS } from "../ui/formFields";
 import { ICONS } from "../../constants/icons";
 import { TOKENS, FONT } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import type { CompanyPolicy, PayrollRates, SessionRecord } from "../../core/contracts";
+import { OPEN_SESSION_STATES, type CompanyPolicy, type PayrollRates, type SessionRecord } from "../../core/contracts";
 import { t, useLanguage } from "../../i18n";
 import { PayrollEngineService } from "../../services/domain/PayrollEngineService";
 import { TimeAuthorityService } from "../../services/evidence/TimeAuthorityService";
@@ -40,9 +40,13 @@ interface EditSessionModalProps {
   rates?: PayrollRates;
   company?: CompanyPolicy;
   nowMs?: number;
+  /** HH-5: nota actual; guardar la sustituye (MANUAL_PATCH reemplaza manualNote). */
+  currentNote?: string;
+  /** HH-7: aviso si la jornada está en un periodo con expediente sellado. No bloquea. */
+  sealedWarning?: string;
 }
 
-export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap, rates, company, nowMs }: EditSessionModalProps) {
+export function EditSessionModal({ visible, session, busy = false, onCancel, onSave, checkOverlap, rates, company, nowMs, currentNote, sealedWarning }: EditSessionModalProps) {
   useLanguage();
   const { colors } = useTheme();
   const base = session ? session.actualStartAtMs ?? session.declaredStartAtMs : 0;
@@ -61,7 +65,10 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
   }, [visible, session, base]);
 
   // HH:mm sin tocar → ms almacenados. Relojes editados → N6 (≤ ⇒ día siguiente).
-  const resolved = session ? resolveSessionEditTimes(base, session.endAtMs, inTime, outTime) : null;
+  // HH-6: en una jornada abierta solo se corrige la entrada; una salida haría
+  // que MANUAL_PATCH la rechace (INVALID_TIMES). Se cierra desde Hoy.
+  const open = !!session && OPEN_SESSION_STATES.includes(session.domainStatus);
+  const resolved = session ? resolveSessionEditTimes(base, session.endAtMs, inTime, open ? "" : outTime) : null;
   const start = resolved?.start ?? null;
   const end = resolved?.end ?? null;
   const nextDay = resolved?.nextDay ?? false;
@@ -138,11 +145,20 @@ export function EditSessionModal({ visible, session, busy = false, onCancel, onS
           <Text style={[styles.bannerText, { color: colors.statusText.warning }]}>{t("modals.overlapBanner")}</Text>
         </View>
       ) : null}
+      {sealedWarning ? <Text style={[styles.bannerText, styles.warning, { color: colors.statusText.warning }]} testID="edit-sealed-warning">{sealedWarning}</Text> : null}
       <View style={styles.row}>
         <Input {...chain.props("start")} label={t("modals.editStart")} value={inTime} onChangeText={setInTime} placeholder="08:00" mask="HH:mm" maximumDate={maximumDate} error={startError} containerStyle={styles.flexInput} testID="edit-start" />
-        <Input {...chain.props("end")} label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" maximumDate={maximumDate} error={endError} containerStyle={styles.flexInput} testID="edit-end" />
+        {open ? null : (
+          <Input {...chain.props("end")} label={t("modals.editEnd")} value={outTime} onChangeText={setOutTime} placeholder="17:00" mask="HH:mm" maximumDate={maximumDate} error={endError} containerStyle={styles.flexInput} testID="edit-end" />
+        )}
       </View>
+      {open ? <Text style={[styles.nextDay, { color: colors.text.secondary }]} testID="edit-open-hint">{t("modals.editOpenHint")}</Text> : null}
       {nextDay ? <Text style={[styles.nextDay, { color: colors.text.secondary }]}>{t("modals.endsNextDay")}</Text> : null}
+      {currentNote ? (
+        <Text style={[styles.nextDay, { color: colors.statusText.warning }]} testID="edit-replaces-note">
+          {t("modals.noteReplaces", { note: currentNote })}
+        </Text>
+      ) : null}
       <Input {...chain.props("note")} label={t("modals.editNote")} value={note} onChangeText={setNote} multiline numberOfLines={3} style={styles.textArea} testID="edit-note" />
       <Text style={[styles.nextDay, { color: colors.text.secondary }]} testID="edit-preview" accessibilityLiveRegion="polite">
         {t("modals.editPreview", { total: previewTotal })}
@@ -157,5 +173,6 @@ const styles = StyleSheet.create({
   textArea: { height: TOKENS.layout.textArea, textAlignVertical: "top" },
   banner: { borderWidth: TOKENS.layout.hairline, borderRadius: TOKENS.radius.md, padding: TOKENS.spacing.md, marginBottom: TOKENS.spacing.md },
   bannerText: { ...FONT.caption },
+  warning: { marginBottom: TOKENS.spacing.md },
   nextDay: { ...FONT.caption, marginTop: -TOKENS.spacing.xs, marginBottom: TOKENS.spacing.sm },
 });

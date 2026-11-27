@@ -13,15 +13,17 @@ interface DeleteSessionModalProps {
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** HH-7: aviso si la jornada está en un periodo con expediente sellado. No bloquea. */
+  sealedWarning?: string;
 }
 
-export function DeleteSessionModal({ visible, busy = false, onCancel, onConfirm }: DeleteSessionModalProps) {
+export function DeleteSessionModal({ visible, busy = false, onCancel, onConfirm, sealedWarning }: DeleteSessionModalProps) {
   useLanguage();
   return (
     <ModalShell
       visible={visible}
       title={t("modals.deleteTitle")}
-      description={t("modals.deleteBody")}
+      description={sealedWarning ? `${t("modals.deleteBody")}\n\n${sealedWarning}` : t("modals.deleteBody")}
       tone="danger"
       icon={ICONS.actions.delete}
       onClose={onCancel}
