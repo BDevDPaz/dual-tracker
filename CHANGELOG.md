@@ -81,7 +81,7 @@ Cambios en `main` después de los PRs #1–#12. La candidata 1.0.0-rc.1, abierta
 
 ### Corregido
 
-- **Hito 5 (Solicitud 6): auditoría de geocerca**, rama `feat/geofence-h5-audit` sobre `main` en `572e06f`. Decisiones de Byron del 2026-11-27.
+- **Hito 5 (Solicitud 6): auditoría de geocerca**, rama `feat/geofence-h5-audit` sobre `main` en `572e06f`, fusionada en `main` como `67b1a6c` (#68, 2026-11-27). Decisiones de Byron del 2026-11-27.
   - G-1: `ARCHIVE_SITE` rechaza con `SITE_IN_OPEN_SESSION` el sitio de la jornada abierta y el destino de su traslado en curso (`src/services/application/intentRouter.ts:355-363`; textos es y en en `src/i18n/microcopy.ts`). La ficha del destino desactiva «Archivar» y explica por qué (`sites.archiveLocked`, `app/sites/[id].tsx:182-188`, `selectIsSiteInOpenSession` en `src/core/selectors/index.ts:72`). `beginTransfer` no abre traslado hacia un destino archivado y lo anota como `SITE_ARCHIVED` en el diagnóstico (`src/services/runtime/GeofenceRuntimeService.ts:438`).
   - G-3: docstring de `src/services/runtime/tasks/exitDecisionTimer.task.ts:1-24` corregido. El plazo no sobrevive a la muerte del proceso (D-17): al arrancar en `SALIDA` se reabre la hoja sin auto-cierre. Ninguna política cierra sin un fix fiable fuera; la política solo decide la clase. Con la app viva en segundo plano el plazo sí puede cerrar.
   - G-4: `modals.exitTimeoutNote` (es y en) ya no promete un cierre que no ocurre sin una ubicación fiable. Ningún test ni snapshot dependía del texto.
