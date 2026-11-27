@@ -16,7 +16,7 @@ import { KeyValueRow, ScreenStatusBanner, SessionListItem } from "../../src/comp
 import { TOKENS } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import { useAutoRefresh, useBusyAction, useClock, usePullToRefresh, useWorkTracker } from "../../src/core/hooks";
-import { selectComputedSessions, selectIsAdminUnlocked, selectIsHydrated, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
+import { selectComputedSessions, selectIsAdminUnlocked, selectIsHydrated, selectIsSiteInOpenSession, selectSiteById, selectSiteLastVisitAtMs, selectVisibleSessions, sessionVisitsSite } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { formatDate } from "../../src/utils/dateUtils";
 import { readTwoPositions } from "../../src/utils/locateReadings";
@@ -93,6 +93,7 @@ export default function SiteDetailScreen() {
   const hasPoint = site.targetLat !== null && site.targetLon !== null;
   // Fijar el primer punto no pide PIN; mover uno guardado, sí (el router lo exige).
   const moveLocked = hasPoint && !unlocked;
+  const archiveLocked = selectIsSiteInOpenSession(state, site.id);
   const locate = () =>
     run(async () => {
       setLocateError(false);
@@ -116,6 +117,7 @@ export default function SiteDetailScreen() {
     run(async () => {
       const res = await emit({ type: "ARCHIVE_SITE", siteId: site.id });
       if (res.ok) router.back();
+      else setConfirmArchive(false);
       return res;
     });
 
@@ -176,7 +178,14 @@ export default function SiteDetailScreen() {
           ))}
         </Section>
 
-        {site.active ? <Button label={t("sites.archive")} variant="danger" disabled={busy} onPress={() => setConfirmArchive(true)} /> : null}
+        {site.active ? (
+          <Button label={t("sites.archive")} variant="danger" disabled={busy || archiveLocked} onPress={() => setConfirmArchive(true)} />
+        ) : null}
+        {site.active && archiveLocked ? (
+          <Text style={{ color: colors.text.secondary }} testID="site-archive-locked">
+            {t("sites.archiveLocked")}
+          </Text>
+        ) : null}
         <ConfirmActionModal
           visible={confirmMove}
           title={t("sites.moveTitle")}

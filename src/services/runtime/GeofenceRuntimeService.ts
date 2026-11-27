@@ -432,6 +432,21 @@ async function beginTransfer(session: SessionRecord, toSiteId: number, fix: Fix,
   const site = await PersistenceService.getSite(toSiteId);
   const settings = await SettingsService.load();
   if (!site || !isValidCoordinate(site.targetLat, site.targetLon)) return false;
+  // Hito 5 (G-1): un destino archivado no abre traslado. Su región puede seguir
+  // registrada hasta la siguiente resincronización (buildRegions solo filtra
+  // secundarios inactivos al volver a registrar).
+  if (!site.active) {
+    await appendGeofenceDiag({
+      kind,
+      region: geofenceIdentifier(session.id, toSiteId),
+      siteId: toSiteId,
+      accuracyM: fix.accuracyM,
+      accepted: false,
+      reason: "SITE_ARCHIVED",
+      atMs,
+    });
+    return false;
+  }
   const radius = SiteRegistryService.effectiveRadius(site, settings.company);
   const dist = getDistanceFromLatLonInMeters(fix.lat, fix.lon, site.targetLat!, site.targetLon!);
   if (presenceZone(dist, radius, fix.accuracyM) !== "inside") {

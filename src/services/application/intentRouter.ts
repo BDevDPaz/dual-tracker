@@ -353,6 +353,14 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         return { ok: true, data: { site: r.site, placeName: r.placeName } };
       }
       case "ARCHIVE_SITE": {
+        // Hito 5 (G-1): el sitio de la jornada abierta, o el destino de su
+        // traslado en curso, no se archiva. buildRegions siempre registra el
+        // sitio vigilado y loadContext no mira `active`: archivarlo dejaría
+        // la geocerca viva sobre un destino que ya no se ofrece.
+        const open = await PersistenceService.getOpenSession();
+        if (open && (open.siteId === intent.siteId || monitoredSiteId(open) === intent.siteId)) {
+          return report({ ok: false, code: "SITE_IN_OPEN_SESSION" });
+        }
         const r = await SiteRegistryService.archive(intent.siteId);
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.siteUpserted(r.site);
