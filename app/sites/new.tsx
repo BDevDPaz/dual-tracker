@@ -16,7 +16,8 @@ import { KeyValueRow } from "../../src/components/blocks";
 import { TOKENS, FONT } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
 import type { Site } from "../../src/core/contracts";
-import { useBusyAction, useWorkTracker } from "../../src/core/hooks";
+import { useBusyAction, useClock, useWorkTracker } from "../../src/core/hooks";
+import { selectIsAdminUnlocked } from "../../src/core/selectors";
 import { t } from "../../src/i18n";
 import { parseSiteRadius } from "../../src/utils/siteRadius";
 
@@ -32,9 +33,12 @@ export default function NewSiteScreen() {
   const { busy, run } = useBusyAction();
   const [saved, setSaved] = useState<Site | null>(null);
 
+  const nowMs = useClock(15_000);
   const radiusM = parseSiteRadius(radius);
-  const valid = address.trim().length > 0 && radiusM !== null;
-  const canSaveUnlocated = alias.trim().length > 0 && radiusM !== null;
+  // Un radio propio (distinto al de la empresa) es de zona admin, como al editarlo.
+  const radiusLocked = radiusM !== null && radiusM !== state.settings.company.defaultRadiusM && !selectIsAdminUnlocked(state, nowMs);
+  const valid = address.trim().length > 0 && radiusM !== null && !radiusLocked;
+  const canSaveUnlocated = alias.trim().length > 0 && radiusM !== null && !radiusLocked;
   const onSave = () => {
     if (radiusM === null || saved) return;
     const savedRadius = radiusM;
@@ -81,6 +85,11 @@ export default function NewSiteScreen() {
       <Input {...chain.props("client")} label={t("sites.client")} value={client} onChangeText={setClient} />
       <Input {...chain.props("notes")} label={t("sites.notes")} value={notes} onChangeText={setNotes} multiline />
       <SiteRadiusField {...chain.props("radius")} value={radius} onChangeText={setRadius} />
+      {radiusLocked ? (
+        <Text style={{ color: colors.statusText.warning }} testID="site-radius-locked">
+          {t("sites.radiusLocked")}
+        </Text>
+      ) : null}
 
       <Card style={styles.card}>
         <Text style={[styles.label, { color: colors.text.secondary }]}>{t("sites.coords")}</Text>

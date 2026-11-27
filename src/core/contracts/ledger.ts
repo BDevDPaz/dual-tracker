@@ -33,7 +33,12 @@ export type LedgerIntent =
   // §5.1: calendario laboral.
   | "CALENDAR_CHANGED"
   | "CALENDAR_CHANGE_CANCELLED"
-  // §5.2: cambio de política de nómina.
+  /**
+   * §5.2: cambio de política de nómina en la zona admin. `data`: { changes }
+   * con { from, to } por campo cambiado (overtimePolicyId, overtimeMultiplier,
+   * payrollLegalFlags efectivas). Las semanas sin sellar se recalculan; los
+   * expedientes sellados conservan su política.
+   */
   | "PAYROLL_POLICY_CHANGED"
   /** Tarifa por hora cambiada en la zona admin. `data`: { from, to }. Solo afecta a jornadas nuevas. */
   | "HOURLY_RATE_CHANGED"

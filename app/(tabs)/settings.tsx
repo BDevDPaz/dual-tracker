@@ -33,6 +33,7 @@ import {
   selectSettings,
   selectSystemHealth,
 } from "../../src/core/selectors";
+import { adminDraftErrors } from "../../src/utils/adminDraftValidation";
 import { companyTimezone, legalFlags } from "../../src/utils/companyPolicy";
 import { PAYROLL_TIMEZONES, calendarAt, formatDateTime, formatRange } from "../../src/utils/dateUtils";
 import { getLanguage, t, tHealthValue, useLanguage } from "../../src/i18n";
@@ -54,6 +55,22 @@ const TIMEZONE_LABEL: Record<(typeof PAYROLL_TIMEZONES)[number], string> = {
   "America/Panama": "panama",
   "America/Belize": "belize",
 };
+
+/** Campos del borrador que solo se guardan con la zona admin abierta. */
+const ADMIN_DRAFT_KEYS = [
+  "hourlyRate",
+  "employerName",
+  "companyEmail",
+  "overtimeMultiplier",
+  "overtimePolicyId",
+  "traceRetentionDays",
+  "traceMode",
+  "defaultRadiusM",
+  "arrivalDwellMin",
+  "portalUrl",
+  "portalEnabled",
+  "timezone",
+] as const;
 
 interface Draft {
   employeeName: string;
@@ -149,16 +166,22 @@ export default function SettingsScreen() {
     return s.trim() !== "" && Number.isFinite(n) && n >= min;
   };
   const rateOk = finiteAtLeast(draft.hourlyRate, 0.0001);
-  const adminNumbersOk =
-    rateOk &&
-    finiteAtLeast(draft.overtimeMultiplier, 0.0001) &&
-    finiteAtLeast(draft.traceRetentionDays, 0) &&
-    finiteAtLeast(draft.defaultRadiusM, 1) &&
-    finiteAtLeast(draft.arrivalDwellMin, 0);
+  // Mismos rangos que el repositorio (policyValidation): el error sale en su campo.
+  const adminErrors = adminDraftErrors(draft);
+  const adminNumbersOk = rateOk && Object.keys(adminErrors).length === 0;
   const canSave = dirty && !busy && (!unlocked || adminNumbersOk);
-  const numberError = (s: string, min: number) => (finiteAtLeast(s, min) ? undefined : t("settings.numberInvalid"));
+  const fieldError = (k: keyof typeof adminErrors) => {
+    const e = adminErrors[k];
+    if (!e) return undefined;
+    return e === "number" ? t("settings.numberInvalid") : t(`settings.validation.${e}`);
+  };
+  // Cambios de la zona admin que siguen en el borrador. Si la zona se cerró
+  // (10 min), Guardar no los descarta ni anuncia «Ajustes guardados».
+  const adminDirty = ADMIN_DRAFT_KEYS.some((k) => draft[k] !== initial[k]);
+  const adminUnsaved = adminDirty && !unlocked;
   const onSave = async () => {
     if (!canSave) return { ok: false as const, code: "INVALID_VALUE" as const };
+    if (adminUnsaved) return run(async () => ({ ok: false as const, code: "ADMIN_CHANGES_UNSAVED" as const }));
     const patch: SettingsPatch = {
       profile: { employeeName: draft.employeeName.trim(), language: getLanguage(), dailyReminderTime: draft.dailyReminderTime },
     };
@@ -173,7 +196,7 @@ export default function SettingsScreen() {
         traceRetentionDays: Math.round(num(draft.traceRetentionDays)),
         traceMode: draft.traceMode,
         defaultRadiusM: Math.round(num(draft.defaultRadiusM)),
-        arrivalDwellMs: Math.min(30, Math.max(0, Math.round(num(draft.arrivalDwellMin) || 0))) * 60_000,
+        arrivalDwellMs: num(draft.arrivalDwellMin) * 60_000,
         employerPortalUrl: draft.portalUrl.trim() ? draft.portalUrl.trim() : null,
         employerPortalEnabled: draft.portalEnabled,
         timezone: draft.timezone,
@@ -294,6 +317,11 @@ export default function SettingsScreen() {
           </Text>
           {!unlocked ? (
             <Card style={styles.card}>
+              {adminUnsaved ? (
+                <Text style={[styles.hint, { color: colors.statusText.warning }]} testID="settings-admin-unsaved">
+                  {t("settings.adminUnsaved")}
+                </Text>
+              ) : null}
               <View style={styles.statusRow}>
                 <Ionicons name="lock-closed-outline" size={ICON.md} color={colors.text.secondary} />
                 <Text style={[styles.hint, { color: colors.text.secondary }]}>
@@ -312,9 +340,9 @@ export default function SettingsScreen() {
             <Card style={styles.card}>
               {/* D1: la tarifa solo se edita con la zona admin desbloqueada. El router rechaza el cambio sin PIN. */}
               <Input {...adminChain.props("rate")} label={t("onboarding.hourlyRate")} value={draft.hourlyRate} onChangeText={(v) => set("hourlyRate", v)} prefix="$" suffix={t("common.perHour")} error={!rateOk ? (Number.isFinite(num(draft.hourlyRate)) ? t("onboarding.rateInvalid") : t("settings.numberInvalid")) : undefined} />
-              <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} error={numberError(draft.overtimeMultiplier, 0.0001)} />
+              <Input {...adminChain.props("multiplier")} label={t("settings.overtimeMultiplier")} value={draft.overtimeMultiplier} onChangeText={(v) => set("overtimeMultiplier", v)} error={fieldError("overtimeMultiplier")} />
               <Input {...adminChain.props("employer")} label={t("settings.employerName")} value={draft.employerName} onChangeText={(v) => set("employerName", v)} />
-              <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} />
+              <Input {...adminChain.props("email")} label={t("settings.companyEmail")} value={draft.companyEmail} onChangeText={(v) => set("companyEmail", v)} error={fieldError("companyEmail")} />
               <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.overtimePolicy")}</Text>
               <View style={styles.row}>
                 {queries.payrollPolicies().map((p) => {
@@ -343,10 +371,10 @@ export default function SettingsScreen() {
                 ))}
               </View>
               <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.timezoneHint")}</Text>
-              <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} error={numberError(draft.traceRetentionDays, 0)} />
-              <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} error={numberError(draft.defaultRadiusM, 1)} />
+              <Input {...adminChain.props("retention")} label={t("settings.retention")} value={draft.traceRetentionDays} onChangeText={(v) => set("traceRetentionDays", v)} error={fieldError("traceRetentionDays")} />
+              <Input {...adminChain.props("radius")} label={t("settings.defaultRadius")} value={draft.defaultRadiusM} onChangeText={(v) => set("defaultRadiusM", v)} error={fieldError("defaultRadiusM")} />
               <Input {...adminChain.props("portalUrl")} label={t("settings.portalUrl")} value={draft.portalUrl} onChangeText={(v) => set("portalUrl", v)} autoCapitalize="none" autoCorrect={false} />
-              <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} error={numberError(draft.arrivalDwellMin, 0)} />
+              <Input {...adminChain.props("arrivalDwell")} label={t("settings.arrivalDwell")} value={draft.arrivalDwellMin} onChangeText={(v) => set("arrivalDwellMin", v)} error={fieldError("arrivalDwellMin")} />
               <Text style={[styles.hint, { color: colors.text.secondary }]}>{t("settings.arrivalDwellHint")}</Text>
               <Text style={[styles.label, { color: colors.text.secondary }]}>{t("settings.portalOn")}</Text>
               <View style={styles.row}>
@@ -456,7 +484,10 @@ function WorkCalendarBlock() {
     if (!pendingFlag) return;
     const draft = pendingFlag;
     void guard(async () => {
-      const res = await emit({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...flags, [draft.key]: draft.value } } } });
+      // Solo la bandera tocada: las demás siguen como estaban guardadas (o sin
+      // guardar, y entonces heredan el valor por defecto del código).
+      const stored = selectSettings(state).company.payrollLegalFlags ?? {};
+      const res = await emit({ type: "SAVE_SETTINGS", patch: { company: { payrollLegalFlags: { ...stored, [draft.key]: draft.value } } } });
       if (res.ok) setPendingFlag(null);
       return res;
     });

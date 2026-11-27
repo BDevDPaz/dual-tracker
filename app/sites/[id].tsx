@@ -91,6 +91,8 @@ export default function SiteDetailScreen() {
   const lastVisit = selectSiteLastVisitAtMs(state, site.id);
 
   const hasPoint = site.targetLat !== null && site.targetLon !== null;
+  // Fijar el primer punto no pide PIN; mover uno guardado, sí (el router lo exige).
+  const moveLocked = hasPoint && !unlocked;
   const locate = () =>
     run(async () => {
       setLocateError(false);
@@ -136,9 +138,14 @@ export default function SiteDetailScreen() {
             <Button
               label={hasPoint ? t("sites.locateConfirm") : t("sites.locateHere")}
               size="sm"
-              disabled={busy}
+              disabled={busy || moveLocked}
               onPress={() => (hasPoint ? setConfirmMove(true) : void locate())}
             />
+          ) : null}
+          {site.active && moveLocked ? (
+            <Text style={{ color: colors.text.secondary }} testID="site-move-locked">
+              {t("sites.moveLocked")}
+            </Text>
           ) : null}
           {locateError ? <Text style={{ color: colors.statusText.warning }}>{t("sites.locateFailed")}</Text> : null}
           {placeNameMissing ? <Text style={{ color: colors.statusText.warning }}>{t("sites.placeNameUnavailable")}</Text> : null}

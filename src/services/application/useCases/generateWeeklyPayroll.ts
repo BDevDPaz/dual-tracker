@@ -12,6 +12,7 @@ import { companyCalendar } from "../../../utils/companyPolicy";
 import { toDateString } from "../../../utils/dateUtils";
 import { combineWeekStatements, validateReportRange, workWeeksCovering, type ClosedRange, type RangeError } from "../../../utils/reportRange";
 import { PayrollEngineService } from "../../domain/PayrollEngineService";
+import { companyWithTerms, termsFromPack } from "../../domain/payrollTerms";
 import { IntegrityLedgerService } from "../../domain/IntegrityLedgerService";
 import { EvidencePackService } from "../../evidence/EvidencePackService";
 import { ReportService } from "../../evidence/ReportService";
@@ -44,15 +45,18 @@ export interface RangePreview {
 export async function previewPayroll(periodStart: number, periodEnd: number): Promise<PayrollStatement> {
   const settings = await SettingsService.load();
   const sessions = await PersistenceService.listSessions({ from: periodStart, to: periodEnd, overlapping: true });
-  const policyId = (await PersistenceService.packPolicyForPeriod(periodStart, periodEnd)) ?? settings.company.overtimePolicyId;
+  // Mismos términos que el sello: los del pack previo si es v6 (payrollTerms.ts).
+  const previous = await PersistenceService.packBasisForPeriod(periodStart, periodEnd);
+  const policyId = previous?.policyId ?? settings.company.overtimePolicyId;
+  const { terms } = termsFromPack(previous, settings.company);
   const segmentedLedgerTimestamps = await IntegrityLedgerService.segmentedTimestamps();
   const statement = PayrollEngineService.buildStatement({
     periodStart,
     periodEnd,
     sessions,
     // Tarifa actual = respaldo: el motor usa la congelada en cada jornada (hourlyRateSnapshot, v8).
-    rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: settings.company.overtimeMultiplier },
-    company: settings.company,
+    rates: { hourlyRate: settings.profile.hourlyRate, overtimeMultiplier: terms.overtimeMultiplier },
+    company: companyWithTerms(settings.company, terms),
     policyId,
     nowMs: TimeAuthorityService.now(),
     segmentedLedgerTimestamps,

@@ -1,4 +1,5 @@
 /** Ajustes: guardar el PIN local. Lo emite app/(tabs)/settings.tsx. */
+import { Store } from "../../../src/core/store";
 import { routeIntent } from "../../../src/services/application/intentRouter";
 import { PersistenceService } from "../../../src/services/persistence/PersistenceService";
 import { SecurityService } from "../../../src/services/runtime/SecurityService";
@@ -22,9 +23,15 @@ describe("app/(tabs) PIN", () => {
     });
     expect(locked).toMatchObject({ ok: false, code: "ADMIN_LOCKED" });
     expect((await PersistenceService.getSite(siteA))?.radiusM).toBe(site.radiusM);
-    const created = await routeIntent({
+    // Alta con radio propio: misma regla (TP-5). Con el radio de la empresa, sin PIN.
+    const own = await routeIntent({
       type: "UPSERT_SITE",
       site: { alias: "Nuevo", address: "9 Main St", clientName: null, radiusM: 120 },
+    });
+    expect(own).toMatchObject({ ok: false, code: "ADMIN_LOCKED" });
+    const created = await routeIntent({
+      type: "UPSERT_SITE",
+      site: { alias: "Nuevo", address: "9 Main St", clientName: null, radiusM: Store.getState().settings.company.defaultRadiusM },
     });
     expect(created.ok).toBe(true);
   });

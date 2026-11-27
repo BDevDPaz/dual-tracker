@@ -62,7 +62,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - `src/services/application/useCases/__tests__/startDay.test.ts`, `confirmExit.test.ts`.
 - **Nómina de California:** OT diaria y semanal, doble tiempo y séptimo día (**apagados por defecto**, `src/utils/companyPolicy.ts:8-12`; se activan en Ajustes → Calendario laboral y un valor guardado se respeta), primas de comida y descanso, un almuerzo por día de nómina y tarifa congelada por jornada (`sessions.hourly_rate_snapshot`). Tests: `PayrollEngineService.test.ts`, `caRules.test.ts`, `mealPremium.test.ts`, `mealRules.test.ts`, `restRules.test.ts`, `dayLunch.test.ts`, `hourlyRateSnapshot.test.ts`, `policyV2.test.ts`.
 - **Libro append-only y sello:**
-  - Cadena SHA-256, manifiesto v5 (`src/core/contracts/evidence.ts:140`), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
+  - Cadena SHA-256, manifiesto v6 (`src/core/contracts/evidence.ts:145`; v6 desde #66, sin fusionar), firma Ed25519, `SESSION_SEALED` y `sessionReplay`.
   - Esquema SQLite v9 (`src/services/persistence/schema.ts:24`).
   - Tests: `IntegrityLedgerService.test.ts`, `HashChain.test.ts`, `EvidencePackService.test.ts`, `packSignature.test.ts`, `app/(tabs)/__tests__/sealVerify.flow.test.ts`, `ledgerIntegrity.test.ts`.
 - **Reportes (lo que hay hoy):**
@@ -72,7 +72,7 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
   - «Exportar expediente», `EXPORT_PACK` (`reports.tsx:130`): comparte el **comprobante del empleado** (`intentRouter.ts:268-279`), como confirmó el dueño.
   - «Compartir expediente empleador», `SHARE_EMPLOYER` (`reports.tsx:371`, `app/report/pack/[packId].tsx:138`): usa el correo si hay cliente y si no, la hoja de compartir.
   - Tests: `ReportService.test.ts`, `previewPayrollRange.test.ts`, `generateWeeklyPayroll.test.ts`, `reportPremium.test.ts`, `reportRange.test.ts`.
-- **Ajustes:** perfil, monitoreo, destinos, zona admin con PIN, calendario, retención, soporte y legal (`app/(tabs)/settings.tsx`). Tests: `app/(tabs)/__tests__/settings.flow.test.ts`, `pin.flow.test.ts`, `src/services/runtime/__tests__/pinHash.test.ts`, `pinProvision.test.ts`, `SettingsService.test.ts`.
+- **Ajustes:** perfil, monitoreo, destinos, zona admin con PIN, calendario, retención, soporte y legal (`app/(tabs)/settings.tsx`). Validación en línea de la zona admin y aviso si la zona se cierra con cambios sin guardar (#63). Tests: `settings.admin.flow.test.tsx`, `settingsPolicy.test.ts`, `app/(tabs)/__tests__/settings.flow.test.ts`, `pin.flow.test.ts`, `src/services/runtime/__tests__/pinHash.test.ts`, `pinProvision.test.ts`, `SettingsService.test.ts`.
 - **Destinos:** alta, ficha, radio válido y nombre del lugar desde el GPS (`reverseGeocodePoint`, `src/services/runtime/reverseGeocode.ts`). Tests: `SiteRegistryService.test.ts`, `reverseGeocode.test.ts`, `SiteRadiusField.test.tsx`, `siteRadius.test.ts`. Si la geocodificación falla, el sitio se guarda sin coordenadas y el modal y Hoy avisan (`sites.coordsMissing`, #59, #60; `DailySetupModal.tsx:225`, `app/(tabs)/index.tsx:327-328`).
 - **Cifrado de campos:** AES-GCM, migraciones y pérdida de clave. Tests: `FieldCryptoService.test.ts`, `cryptoMigrations.test.ts`, `keyLoss.test.ts`.
 - **Idioma es/en:** paridad de claves y cambio en el acto. Tests: `src/i18n/__tests__/i18n.test.ts`, `languageSwitch.test.tsx`, `setLanguage.test.ts`, `hardcodedCopy.test.ts`.
@@ -89,12 +89,16 @@ Verificado por tests y código el 2026-11-25. **Ningún punto de esta lista est�
 
 ### En progreso
 - **#64 Hoy e Historial** (rama `fix/hoy-historial`, sin fusionar). Hoy: el texto de «¿Sigues trabajando?» solo promete doble tiempo con `caDoubleTime` (H-2b); el supervisor de almuerzo cuenta desde `lunch.startAtMs` y el cronómetro del hero descuenta el almuerzo (H-4); en jornada huérfana el pie lleva a la tarjeta de revisión (H-6); la clave KV `AUTO_CLOSE_BANNER` se borra al mostrar el banner (H-5); la hoja de salida y «Cómo funciona» usan el plazo real `exitDecisionWindowMs` (H-17). Historial: «Todo» usa la misma fila de periodo que «Esta semana» (HH-4); aviso antes de sustituir la nota (HH-5); en jornada abierta «Editar» solo corrige la entrada (HH-6); aviso al editar o eliminar en un periodo con expediente sellado (HH-7); estado de carga (HH-2); enlace al reporte de la semana (HH-1); «cancelada» en la fila y el detalle (HH-20). Tests: `today.hoyFixes.test.tsx`, `history.screen.test.tsx`, `sessionDetail.hhFixes.test.tsx`.
+- **#63 Ajustes (Solicitud 2):** SS-1, SS-2, SS-3, SS-4, SS-5, SS-8, SS-9 y SS-10, con TP-1…TP-5 y TP-7…TP-9 de los wireframes de Ajustes. Abierto, sin fusionar. Falta probarlo en un teléfono.
 - **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` en `eb969d7` (2026-11-26).**
+- **#62 (Solicitud 1 — Reportes, rama `fix/reportes-rr1-rr2-rr3`): fusionado en `main` (`eb969d7`, 2026-11-26).**
   - **RR-1:** Exportar y Enviar vuelven a sellar si el pack está desactualizado (`currentPackFor`, `src/services/application/intentRouter.ts:169`).
   - **RR-2:** pack sin PDF → `PACK_PDF_MISSING` y «Volver a emitir» en el expediente y en Reportes.
   - **RR-3:** «Exportar no certificado» también sin CONFLICT.
   - **RR-11:** cabecera de `payrollPolicies.ts` corregida.
   - Tests: `reportsPackCurrent.test.ts` y `reportsGates.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluida la restauración real en otro teléfono seguida de «Volver a emitir».
+
+- **#66 Congelado de términos (manifiesto v6, rama `feat/freeze-v6-terms`):** abierto, sin fusionar (Byron fusiona). Tests: `payrollTermsFreeze.test.ts`, `appBackup.test.ts`, `termsNotFrozen.flow.test.tsx`, en verde en local. Falta probarlo en un teléfono, incluido un resello tras cambiar el multiplicador o las banderas.
 
 ### Pendiente / Planificado
 - **iOS:**
@@ -152,6 +156,7 @@ Están en `main` y el código existe, pero no tienen un test propio y su efecto 
   - Doble tiempo y séptimo día vienen **apagados** por defecto (`DEFAULT_LEGAL_FLAGS`). Hecho en código y con tests (`caRules.test.ts`, R03 y R04, por defecto y activados). Un valor que la empresa ya guardó no se altera.
   - Los permisos de almacenamiento no se bloquean.
 - **Por confirmar:**
-  - **Empresas que ya guardaron las banderas.** Si el operario cambió antes cualquier chip legal de Ajustes, `settings.tsx:451` guardó las tres banderas, incluidos los `true` que entonces venían por defecto. Esos valores se respetan y no se reescriben. Para apagarlas hay que hacerlo en Ajustes → Calendario laboral, o borrar la base de prueba. Los expedientes ya sellados no cambian. Los periodos sin sellar de una empresa sin banderas guardadas se recalculan sin doble tiempo ni séptimo día.
+  - **Empresas que ya guardaron las banderas.** Si el operario cambió antes cualquier chip legal de Ajustes, `applyFlag` (`app/(tabs)/settings.tsx:459` en `a975910`; esta línea citaba `:451`, que es `askFlag`) guardó las tres banderas, incluidos los `true` que entonces venían por defecto. Esos valores se respetan y no se reescriben. Para apagarlas hay que hacerlo en Ajustes → Calendario laboral, o borrar la base de prueba. Los expedientes ya sellados no cambian. Los periodos sin sellar de una empresa sin banderas guardadas se recalculan sin doble tiempo ni séptimo día. Desde el #63 se guarda solo la bandera tocada (SS-3).
+  - **Cambio de política de nómina (SS-1, #63).** Comportamiento documentado y que se mantiene: las semanas sin sellar se recalculan con la política vigente y los expedientes sellados conservan la suya (spec v1.3 §5.2 N3 citada en `EvidencePackService.ts:447-448` y `PayrollEngineService.ts:381-395`; `README.md:297`). El #63 solo añade el asiento `PAYROLL_POLICY_CHANGED`. Resello y reemisión: decidido por Byron 2026-11-26 congelar multiplicador y banderas al resellar/reemitir; implementado en #66 (manifiesto v6, `payrollTerms` dentro de `packHash`; `src/services/domain/payrollTerms.ts`, `EvidencePackService.ts:290-292`). Los packs v1–v5 no guardan esos valores: se calculan con los vigentes y muestran «términos no congelados». Abierto, sin fusionar.
   - `AGENT.md` §1–§3 siguen como plantilla, con los campos entre corchetes sin rellenar.
   - Si la etiqueta `v0.1.0` cuenta como versión entregada (ver §3).

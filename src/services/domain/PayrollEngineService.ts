@@ -38,6 +38,7 @@ import { evaluateDayPremiums } from "./caPremiums";
 import { withOneLunchPerDay } from "./dayLunch";
 import { computeSegmentMinutes, deductibleLunchMinutes, sessionEndMs } from "./segmentation";
 import { getPayrollPolicy } from "./payrollPolicies";
+import { latestPeriodPack } from "./payrollTerms";
 import { TransitPolicyService } from "./TransitPolicyService";
 
 const MS_PER_MIN = 60000;
@@ -327,7 +328,8 @@ function segmentItems(session: SessionRecord, company: CompanyPolicy, nowMs: num
  * Tarifa por hora de UNA jornada (schema v8): la congelada al iniciarla; si
  * no la tiene (jornada anterior al campo), la tarifa actual de Ajustes como
  * respaldo (`fallback: true`, el statement lo marca con RATE_FALLBACK_CURRENT).
- * Los multiplicadores siguen siendo los de la empresa.
+ * Los multiplicadores llegan en `rates`: los del periodo (payrollTerms.ts:
+ * congelados en el pack v6 previo, o los vigentes si no hay pack o es v1–v5).
  */
 export function sessionRates(session: SessionRecord | undefined, rates: PayrollRates): { rates: PayrollRates; fallback: boolean } {
   const snap = session?.bookkeeping.hourlyRateSnapshot;
@@ -389,10 +391,7 @@ export function policyForPeriod(
   periodEnd: number,
   companyPolicyId: string,
 ): string {
-  const latest = packs
-    .filter((p) => p.periodStart === periodStart && p.periodEnd === periodEnd)
-    .sort((a, b) => b.createdAtMs - a.createdAtMs)[0];
-  return latest?.policyId ?? companyPolicyId;
+  return latestPeriodPack(packs, periodStart, periodEnd)?.policyId ?? companyPolicyId;
 }
 
 /**

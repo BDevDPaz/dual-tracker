@@ -1,4 +1,5 @@
 import type { PayrollStatement } from "./payroll";
+import type { PayrollLegalFlags } from "./settings";
 import type { TraceSummary } from "./spatial";
 
 /**
@@ -136,8 +137,22 @@ export interface SessionSealExport {
  *  - 5: añade al packHash la identidad del build (`appVersion`, `versionCode`,
  *    `gitCommit`) y la zona de cada sesión. No cambia el contentHash de un
  *    pack que no traiga `transitSegments` ni `prevHash` en los eslabones.
+ *  - 6: añade al packHash `payrollTerms` (multiplicador OT y banderas legales
+ *    con los que se calcularon los importes). Un resello o una reemisión del
+ *    mismo periodo hereda los del pack previo. No cambia el contentHash.
+ *    v1–v5 no traen el campo y verifican igual que antes.
  */
-export const PACK_MANIFEST_VERSION = 5;
+export const PACK_MANIFEST_VERSION = 6;
+
+/**
+ * Términos de nómina congelados en el sello (manifiesto v6). Determinan los
+ * importes del expediente, así que entran en packHash. Solo el multiplicador
+ * OT y las tres banderas de `payrollLegalFlags`; tránsito y almuerzo no.
+ */
+export interface PayrollTerms {
+  overtimeMultiplier: number;
+  payrollLegalFlags: PayrollLegalFlags;
+}
 
 /**
  * Versión de la plantilla del PDF. No entra en packHash ni en contentHash:
@@ -213,6 +228,11 @@ export interface PackManifest {
   versionCode?: number | null;
   gitCommit?: string | null;
   sessionTimeZones?: { sessionId: number; timeZone: string }[];
+  /**
+   * v6. Términos de nómina del sello (entran en packHash). Ausentes en v1–v5:
+   * ese pack no congela multiplicador ni banderas («términos no congelados»).
+   */
+  payrollTerms?: PayrollTerms;
   files: { role: "EMPLOYEE_RECEIPT" | "EMPLOYER_DOSSIER" | "MANIFEST_JSON"; name: string }[];
 }
 

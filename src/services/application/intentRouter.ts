@@ -18,6 +18,7 @@ import { selectActiveSession } from "../../core/selectors";
 import type { Language } from "../../i18n";
 import { Store, StoreActions } from "../../core/store";
 import { setLanguage } from "../../i18n";
+import { legalFlags } from "../../utils/companyPolicy";
 import { serializeError } from "../../utils/serializeError";
 import { DualDisclosureService } from "../domain/DualDisclosureService";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
@@ -45,6 +46,8 @@ import {
   cancelBackupImport,
   cancelCalendarChange,
   confirmExit,
+  confirmBackupSaved,
+  discardBackupExport,
   exportAppBackup,
   exportLedgerIncident,
   exportSupportDiagnostic,
@@ -218,6 +221,65 @@ async function recordHourlyRateChange(from: number, to: number): Promise<void> {
   }
 }
 
+/**
+ * Cambio de política de nómina (zona admin): asiento PAYROLL_POLICY_CHANGED
+ * con el antes y el después de cada campo que cambió (política, multiplicador,
+ * banderas legales efectivas). No congela nada: las semanas sin sellar se
+ * recalculan con la política vigente y los expedientes ya sellados conservan
+ * la suya (spec v1.3 §5.2 N3; PayrollEngineService.policyForPeriod).
+ */
+async function recordPayrollPolicyChange(prev: SettingsSnapshot["company"], next: SettingsSnapshot["company"]): Promise<void> {
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (prev.overtimePolicyId !== next.overtimePolicyId) changes.overtimePolicyId = { from: prev.overtimePolicyId, to: next.overtimePolicyId };
+  if (prev.overtimeMultiplier !== next.overtimeMultiplier) changes.overtimeMultiplier = { from: prev.overtimeMultiplier, to: next.overtimeMultiplier };
+  const fromFlags = legalFlags(prev);
+  const toFlags = legalFlags(next);
+  if ((Object.keys(toFlags) as (keyof typeof toFlags)[]).some((k) => fromFlags[k] !== toFlags[k])) {
+    changes.payrollLegalFlags = { from: fromFlags, to: toFlags };
+  }
+  if (!Object.keys(changes).length) return;
+  try {
+    await IntegrityLedgerService.append({
+      sessionId: null,
+      actor: "USER",
+      intent: "PAYROLL_POLICY_CHANGED",
+      fromState: null,
+      toState: null,
+      reason: "ADMIN_POLICY_CHANGE",
+      timestampMs: TimeAuthorityService.now(),
+      integrityClass: null,
+      data: { changes },
+    });
+  } catch (error) {
+    LoggingService.log("ROJO", "ERROR_CRITICO", "ERROR", "No se pudo asentar el cambio de política de nómina", serializeError(error));
+  }
+}
+
+/**
+ * Radio por defecto o modo de rastro cambiados con una jornada abierta: la
+ * geocerca y el servicio en primer plano se rehacen con la política nueva.
+ */
+async function resyncMonitoringAfterPolicyChange(prev: SettingsSnapshot["company"], next: SettingsSnapshot["company"]): Promise<void> {
+  const radiusChanged = prev.defaultRadiusM !== next.defaultRadiusM;
+  const modeChanged = prev.traceMode !== next.traceMode;
+  if (!radiusChanged && !modeChanged) return;
+  const open = selectActiveSession(Store.getState());
+  if (!open) return;
+  try {
+    if (radiusChanged) {
+      const siteId = monitoredSiteId(open);
+      const site = siteId !== null ? await PersistenceService.getSite(siteId) : null;
+      if (site) await resyncGeofenceIfTarget(site);
+    }
+    if (modeChanged && ForegroundWorkService.shouldRun(open.domainStatus)) {
+      const notice = await buildForegroundNotice(open).catch(() => null);
+      await ForegroundWorkService.sync(open.domainStatus, next.traceMode, { relabel: true, ...(notice ? { notice } : {}) });
+    }
+  } catch (error) {
+    LoggingService.log("NARANJA", "UBICACION", "WARN", "No se pudo rehacer la vigilancia tras cambiar la política", serializeError(error));
+  }
+}
+
 export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unknown>> {
   try {
     // ---- Jornada ----
@@ -263,6 +325,12 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
           const radiusChanged = !!existing && intent.site.radiusM !== undefined && intent.site.radiusM !== (existing.radiusM ?? null);
           const dwellChanged = !!existing && intent.site.arrivalDwellMs !== undefined && (intent.site.arrivalDwellMs ?? null) !== (existing.arrivalDwellMs ?? null);
           if ((radiusChanged || dwellChanged) && !SecurityService.isUnlocked()) return report({ ok: false, code: "ADMIN_LOCKED" });
+        } else {
+          // Alta con radio o espera propios = misma regla que al editarlos. El
+          // radio de la empresa (o ninguno, como el alta rápida de Hoy) no pide PIN.
+          const ownRadius = intent.site.radiusM != null && intent.site.radiusM !== state.settings.company.defaultRadiusM;
+          const ownDwell = intent.site.arrivalDwellMs != null;
+          if ((ownRadius || ownDwell) && !SecurityService.isUnlocked()) return report({ ok: false, code: "ADMIN_LOCKED" });
         }
         const r = await SiteRegistryService.upsert(intent.site, state.settings.company);
         if (!r.ok) return report({ ok: false, code: r.code });
@@ -272,6 +340,11 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         return { ok: true, data: r.site, geocoded: r.geocoded };
       }
       case "LOCATE_SITE": {
+        // Fijar el primer punto («Estoy aquí» de un destino sin ubicar) no pide
+        // PIN; mover un punto que ya existe, sí (como cambiar el radio).
+        const target = await PersistenceService.getSite(intent.siteId);
+        const hasPoint = !!target && target.targetLat !== null && target.targetLon !== null;
+        if (hasPoint && !SecurityService.isUnlocked()) return report({ ok: false, code: "ADMIN_LOCKED" });
         const r = await SiteRegistryService.locate(intent.siteId, intent.readings);
         if (!r.ok) return report({ ok: false, code: r.code });
         StoreActions.siteUpserted(r.site);
@@ -346,6 +419,10 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
         StoreActions.settingsReplaced(r.next);
         if (r.next.profile.hourlyRate !== state.settings.profile.hourlyRate) {
           await recordHourlyRateChange(state.settings.profile.hourlyRate, r.next.profile.hourlyRate);
+        }
+        if (rest.company) {
+          await recordPayrollPolicyChange(state.settings.company, r.next.company);
+          await resyncMonitoringAfterPolicyChange(state.settings.company, r.next.company);
         }
         const langChanged = r.next.profile.language !== state.settings.profile.language;
         const timeChanged = r.next.profile.dailyReminderTime !== state.settings.profile.dailyReminderTime;
@@ -424,10 +501,19 @@ export async function routeIntent(intent: ViewIntent): Promise<IntentResult<unkn
 
       // ---- Copia de seguridad (solo Ajustes) ----
       case "EXPORT_BACKUP": {
+        // Compartir no confirma que el archivo se guardara: el aviso de éxito
+        // sale con CONFIRM_BACKUP_SAVED.
         const r = await exportAppBackup(intent.passphrase);
-        if (r.ok) FeedbackService.emit("BACKUP_CREATED");
         return report(r);
       }
+      case "CONFIRM_BACKUP_SAVED": {
+        const r = await confirmBackupSaved(intent.token);
+        if (r.ok) FeedbackService.emit("BACKUP_CREATED");
+        return r.ok ? r : report(r);
+      }
+      case "DISCARD_BACKUP_EXPORT":
+        discardBackupExport();
+        return { ok: true };
       case "PREVIEW_BACKUP_IMPORT": {
         const r = await previewBackupImport(intent.passphrase);
         // Cerrar el selector sin elegir no es un error que haya que avisar.

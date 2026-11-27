@@ -30,6 +30,7 @@ import {
   selectCalendarHistory,
   selectComputedSessions,
   selectPacks,
+  selectPackTermsFrozen,
   selectPeriodSessionRows,
   selectSettings,
 } from "../../src/core/selectors";
@@ -413,6 +414,11 @@ export default function ReportsScreen() {
                 <KeyValueRow label={t("report.sealedAt")} value={formatDate(p.manifest.sealedAtMs)} />
                 <KeyValueRow label={t("report.hash")} value={`${p.manifest.packHash.slice(0, 16)}…`} mono />
                 <KeyValueRow label="" value={t(p.manifest.certified ? "report.certified" : "report.uncertified")} />
+                {!selectPackTermsFrozen(p) ? (
+                  <Text testID={`pack-terms-unfrozen-${p.id}`} style={[styles.hint, { color: colors.text.secondary }]}>
+                    {t("report.termsNotFrozen")}
+                  </Text>
+                ) : null}
                 {!p.employeePdfUri || !p.employerPdfUri ? (
                   <View style={styles.actions}>
                     <Text testID={`pack-pdf-missing-${p.id}`} style={[styles.hint, { color: colors.text.secondary }]}>
