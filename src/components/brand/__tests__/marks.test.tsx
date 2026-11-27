@@ -3,11 +3,13 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 import { Path } from "react-native-svg";
+import { StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 import { COLORS } from "../../../constants/theme";
 import { ThemeProvider } from "../../../context/ThemeContext";
 import { t } from "../../../i18n";
 import { ArrivalMark } from "../ArrivalMark";
+import { BrandHeaderTitle } from "../BrandHeaderTitle";
 import { PinClockMark } from "../PinClockMark";
 import { ARRIVAL_CHECK, ARRIVAL_LINE, ARRIVAL_PIN, PIN_CLOCK_HANDS, PIN_CLOCK_PIN } from "../paths";
 
@@ -71,5 +73,34 @@ describe("PinClockMark", () => {
   test("decorativa: no anuncia", () => {
     render(<PinClockMark decorative testID="pin-quiet" />);
     expect(screen.getByTestId("pin-quiet", { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+  });
+});
+
+describe("BrandHeaderTitle", () => {
+  function renderHeader(preference: "dark" | "light") {
+    render(
+      <ThemeProvider preference={preference}>
+        <BrandHeaderTitle title="Soporte" />
+      </ThemeProvider>,
+    );
+    const strokes = screen.UNSAFE_getAllByType(Path).map((n) => n.props.stroke);
+    const textColor = StyleSheet.flatten(screen.getByText("Soporte").props.style).color;
+    return { strokes, textColor };
+  }
+
+  test("oscuro: pin y texto de la paleta oscura", () => {
+    const { strokes, textColor } = renderHeader("dark");
+    expect(strokes).toContain(COLORS.dark.goldText);
+    expect(textColor).toBe(COLORS.dark.text.primary);
+    expect(textColor).toBe("#FFFFFF");
+  });
+
+  test("claro: la barra sigue el tema, pin y texto de la paleta de papel", () => {
+    const { strokes, textColor } = renderHeader("light");
+    expect(strokes).toContain(COLORS.light.goldText);
+    expect(COLORS.light.goldText).toBe("#7A5D0A");
+    expect(textColor).toBe(COLORS.light.text.primary);
+    expect(textColor).toBe("#1C1B19");
+    expect(strokes).not.toContain(COLORS.dark.text.primary);
   });
 });

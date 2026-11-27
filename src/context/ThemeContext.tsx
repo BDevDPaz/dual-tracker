@@ -4,8 +4,10 @@
  * El perfil nuevo usa "system". Si el campo no está, se queda en "dark".
  *
  * Alto contraste (profile.highContrast) sustituye la paleta sin cambiar
- * system | dark | light. El selector claro sigue oculto: varias pantallas
- * aún pintan con TOKENS (oscuro estático).
+ * system | dark | light. El tema claro está disponible y se elige en el alta
+ * (ThemeSwitch; el perfil por defecto es "system"). Los colores salen de
+ * useTheme().colors; TOKENS queda para espaciado, radio y layout. La
+ * auditoría de color estático la hace scripts/audit-theme.ts.
  */
 import React, { createContext, useContext, useMemo } from "react";
 import { useColorScheme } from "react-native";

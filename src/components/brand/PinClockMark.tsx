@@ -19,7 +19,7 @@ type PinClockMarkProps = {
 /**
  * Concepto A · Pin-Reloj, sin el fondo del icono. Sirve en cabeceras
  * (Soporte, alta). El acento y las manecillas siguen la paleta activa
- * salvo que se pasen colores (la barra nativa de Soporte es siempre oscura).
+ * salvo que se pasen colores (la barra de Soporte también sigue el tema activo).
  */
 export function PinClockMark({ size = ICON.xl, color, handColor, decorative = false, testID = "pin-clock-mark" }: PinClockMarkProps) {
   useLanguage();
