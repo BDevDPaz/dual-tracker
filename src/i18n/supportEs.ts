@@ -328,7 +328,7 @@ export const supportEs = {
     onboardingDisclosure: {
       title: "Descargo",
       intro: "El descargo explica qué ubicación se guarda y con quién se puede compartir. Hay que aceptarlo para seguir.",
-      s0: { title: "Leerlo", body: "El texto es el mismo que luego verás en Legal. Aceptar marca la versión vigente." },
+      s0: { title: "Leerlo", body: "Aquí ves un resumen en tres bloques. «Leer aviso completo» abre el texto entero, el mismo que luego verás en Legal. Aceptar marca la versión vigente." },
       s1: { title: "Sin aceptar", body: "Sin el descargo aceptado no se inicia la jornada." },
     },
     permissions: {

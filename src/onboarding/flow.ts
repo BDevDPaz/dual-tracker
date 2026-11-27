@@ -3,7 +3,6 @@
  * sale del estado que publica PermissionsHealthService.
  */
 import type { OsSettingsTarget, PermissionState } from "../core/contracts";
-import type { LegalBlock } from "../i18n/legal";
 import { ANDROID_13_API, showBatteryCard, type BatteryOptimizationState } from "../utils/permissionGuidance";
 
 export type LocationAccuracy = "fine" | "coarse" | "unknown" | "n/a";
@@ -182,33 +181,4 @@ export function readDeviceHour24(): boolean {
   } catch {
     return false;
   }
-}
-
-export interface DisclosureSection {
-  id: "during" | "retention" | "purpose";
-  headingKey: "onboarding.avisoDuring" | "onboarding.avisoRetention" | "onboarding.avisoPurpose";
-  items: LegalBlock[];
-}
-
-const DISCLOSURE_GROUPS: { id: DisclosureSection["id"]; headingKey: DisclosureSection["headingKey"]; keys: string[] }[] = [
-  { id: "during", headingKey: "onboarding.avisoDuring", keys: ["perimeter", "breadcrumb", "lunch"] },
-  { id: "retention", headingKey: "onboarding.avisoRetention", keys: ["retention"] },
-  { id: "purpose", headingKey: "onboarding.avisoPurpose", keys: ["recipients", "purpose"] },
-];
-
-/**
- * Tres bloques visuales. El texto de cada ítem es el de legal.ts, en el
- * mismo orden: no se añaden frases (ni «en el teléfono» ni el cierre de 12 h,
- * que ese texto no contiene).
- */
-export function disclosureSections(blocks: readonly LegalBlock[]): DisclosureSection[] {
-  const byKey = new Map(blocks.map((block) => [block.key, block]));
-  return DISCLOSURE_GROUPS.map((group) => ({
-    id: group.id,
-    headingKey: group.headingKey,
-    items: group.keys.flatMap((key) => {
-      const block = byKey.get(key);
-      return block ? [block] : [];
-    }),
-  })).filter((section) => section.items.length > 0);
 }

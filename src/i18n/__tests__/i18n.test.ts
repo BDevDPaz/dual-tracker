@@ -82,6 +82,7 @@ describe("microcopy y legal", () => {
     expect(esD.version).toBe(DISCLOSURE_VERSION);
     expect(enD.version).toBe(esD.version);
     expect(enD.blocks.map((b) => b.key)).toEqual(esD.blocks.map((b) => b.key));
+    expect(enD.summary.map((b) => b.key)).toEqual(esD.summary.map((b) => b.key));
     expect(getRetentionContent("en", 90).blocks.map((b) => b.key)).toEqual(getRetentionContent("es", 90).blocks.map((b) => b.key));
   });
 });

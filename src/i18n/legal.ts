@@ -4,8 +4,13 @@
  *
  * TODO(legal): revisión por asesoría antes de publicar. El contenido sigue los
  * bloques exigidos en la Propuesta de Producto §5.4 y la Técnica §5.11.
+ * TODO(legal): el texto de B2 (Solicitud 7: resumen de tres bloques, bloques
+ * «Llegada al sitio» y «Cierre a las 12 horas», almuerzo/pausa precisado y
+ * limpieza de jerga) NO está aprobado para publicarse: queda pendiente de
+ * revisión por la asesoría legal. Cada frase sale de lo que hace el código
+ * (citas en el PR de B2); eso no le da validez legal.
  */
-export const DISCLOSURE_VERSION = "2026-10-v2";
+export const DISCLOSURE_VERSION = "2026-11-v3";
 
 export interface LegalBlock {
   key: string;
@@ -20,41 +25,77 @@ export interface LegalContent {
   acceptLabel: string;
 }
 
-const DISCLOSURE: Record<"es" | "en", LegalContent> = {
+/**
+ * Aviso: `summary` son los tres bloques cortos de la pantalla del alta;
+ * `blocks` es el aviso completo («Leer aviso completo» → legal/disclosure).
+ */
+export interface DisclosureLegalContent extends LegalContent {
+  summary: LegalBlock[];
+}
+
+// TODO(legal): texto de B2 pendiente de revisión por la asesoría legal antes de publicar.
+const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
   es: {
     version: DISCLOSURE_VERSION,
     title: "Qué registra esta aplicación",
     acceptLabel: "He leído y acepto",
+    summary: [
+      {
+        key: "what",
+        title: "¿Qué registramos?",
+        body: "Tu ubicación y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
+      },
+      {
+        key: "why",
+        title: "¿Para qué?",
+        body: "Para confirmar tus horas en el sitio de trabajo y avisarte si sales sin cerrar la jornada. Se usa para la nómina, no para vigilar tu vida personal. Tú y tu empleador ven el mismo registro.",
+      },
+      {
+        key: "howLong",
+        title: "¿Cuánto tiempo se guarda?",
+        body: "Los datos se guardan en tu teléfono. Los puntos de rastro se borran cuando el periodo de nómina ya se exportó y pasaron 90 días desde el fin de ese periodo (o el plazo que fije la empresa). Las entradas y salidas se conservan como registro de nómina.",
+      },
+    ],
     blocks: [
       {
         key: "perimeter",
         title: "Perímetro del sitio",
-        body: "Mientras tu jornada está abierta, Dual Tracker detecta cuándo entras o sales de la zona del sitio de trabajo (geocerca) y guarda la hora y la precisión de cada evento.",
+        body: "Mientras tu jornada está abierta, Dual Tracker detecta cuándo entras o sales de la zona del sitio de trabajo y guarda la hora, la posición y la precisión de cada evento.",
       },
       {
         key: "breadcrumb",
         title: "Rastro durante la jornada",
-        body: "Solo si la empresa activa el modo de rastro, se guardan puntos de ubicación mientras la jornada está ACTIVA o en TRASLADO. Nunca con la jornada cerrada ni antes de iniciarla: no hay rastreo 24/7.",
+        body: "Solo si la empresa activa el modo de rastro, se guardan puntos de ubicación mientras estás en el sitio o en traslado. Nunca con la jornada cerrada ni antes de iniciarla: no hay rastreo 24/7.",
       },
       {
         key: "lunch",
-        title: "Almuerzo",
-        body: "Durante el almuerzo o una pausa no se registra rastro: tu destino personal no se guarda.",
+        title: "Almuerzo y pausas",
+        body: "Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo. Si entras o sales de la zona del sitio, eso sí queda anotado, como en el resto de la jornada.",
       },
       {
         key: "retention",
         title: "Retención",
-        body: "Los puntos de rastro se expurgan solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina.",
+        body: "Los puntos de rastro se borran solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina.",
       },
       {
         key: "recipients",
         title: "Destinatarios del expediente",
-        body: "El mismo expediente lo ven tú (comprobante) y tu empleador (expediente con integridad y rastro). Ambos pueden comparar el mismo código de verificación (hash).",
+        body: "El mismo expediente lo ven tú (comprobante) y tu empleador (expediente con integridad y rastro). Ambos pueden comparar el mismo código de verificación.",
       },
       {
         key: "purpose",
         title: "Finalidad",
         body: "Nómina y auditoría. No vigilancia continua de tu vida personal.",
+      },
+      {
+        key: "arrival",
+        title: "Llegada al sitio",
+        body: "La jornada no se abre sola: la abres tú, en la app o con el botón del recordatorio diario. Si ya la abriste y llegas al sitio con la app cerrada, la app puede registrar tu llegada y te avisa cuando lo hace.",
+      },
+      {
+        key: "autoClose",
+        title: "Cierre a las 12 horas",
+        body: "Si olvidas cerrar tu jornada, se cierra automáticamente al pasar 12 horas y te avisamos para que revises tus horas. No se cierra así si ampliaste la jornada o si ya está en revisión por posible abandono.",
       },
     ],
   },
@@ -62,42 +103,69 @@ const DISCLOSURE: Record<"es" | "en", LegalContent> = {
     version: DISCLOSURE_VERSION,
     title: "What this app records",
     acceptLabel: "I have read and accept",
+    summary: [
+      {
+        key: "what",
+        title: "What do we record?",
+        body: "Your location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. During lunch or a pause no trail points are stored, even though the location service keeps running.",
+      },
+      {
+        key: "why",
+        title: "What for?",
+        body: "To confirm your hours at the work site and to alert you if you leave without closing the shift. It is used for payroll, not to monitor your personal life. You and your employer see the same record.",
+      },
+      {
+        key: "howLong",
+        title: "How long is it kept?",
+        body: "The data is stored on your phone. Trail points are deleted once the payroll period has been exported and 90 days have passed since that period ended (or the period your company sets). Entries and exits are kept as the payroll record.",
+      },
+    ],
     blocks: [
       {
         key: "perimeter",
         title: "Site perimeter",
-        body: "While your shift is open, Dual Tracker detects when you enter or leave the work site zone (geofence) and stores the time and accuracy of each event.",
+        body: "While your shift is open, Dual Tracker detects when you enter or leave the work site zone and stores the time, position and accuracy of each event.",
       },
       {
         key: "breadcrumb",
         title: "Shift trail",
-        body: "Only if your employer enables trail mode, location points are stored while the shift is on site or traveling. Never before starting or after closing the shift: there is no 24/7 tracking.",
+        body: "Only if your employer enables trail mode, location points are stored while you are on site or traveling. Never before starting or after closing the shift: there is no 24/7 tracking.",
       },
       {
         key: "lunch",
-        title: "Lunch",
-        body: "No trail is recorded during lunch or a pause: your personal destination is not stored.",
+        title: "Lunch and pauses",
+        body: "During lunch or a pause no trail points are stored, even though the location service keeps running. If you enter or leave the site zone, that is still recorded, as during the rest of the shift.",
       },
       {
         key: "retention",
         title: "Retention",
-        body: "Trail points are purged only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record.",
+        body: "Trail points are deleted only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record.",
       },
       {
         key: "recipients",
         title: "Who receives the record",
-        body: "You (receipt) and your employer (dossier with integrity and trail) see the same record and can compare the same verification hash.",
+        body: "You (receipt) and your employer (dossier with integrity and trail) see the same record and can compare the same verification code.",
       },
       {
         key: "purpose",
         title: "Purpose",
         body: "Payroll and audit. Not continuous monitoring of your personal life.",
       },
+      {
+        key: "arrival",
+        title: "Arriving at the site",
+        body: "The shift does not open by itself: you open it, in the app or with the daily reminder button. If you already opened it and arrive at the site with the app closed, the app can record your arrival and lets you know when it does.",
+      },
+      {
+        key: "autoClose",
+        title: "Closing at 12 hours",
+        body: "If you forget to close your shift, it closes automatically after 12 hours and we let you know so you can review your hours. It is not closed this way if you extended the shift or if it is already under review for possible abandonment.",
+      },
     ],
   },
 };
 
-export function getDisclosureContent(language: "es" | "en"): LegalContent {
+export function getDisclosureContent(language: "es" | "en"): DisclosureLegalContent {
   return DISCLOSURE[language] ?? DISCLOSURE.es;
 }
 

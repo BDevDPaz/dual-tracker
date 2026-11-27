@@ -4,7 +4,6 @@ import { es } from "../../i18n/es";
 import {
   backgroundBundleActive,
   clockIs24Hour,
-  disclosureSections,
   formatReminderClock,
   homeBannerSettingsTarget,
   homeOptionalBanners,
@@ -136,16 +135,13 @@ describe("perfil", () => {
 });
 
 describe("aviso", () => {
-  test("los bloques legales quedan en tres grupos sin perder ni inventar frases", () => {
-    const content = getDisclosureContent("es");
-    const sections = disclosureSections(content.blocks);
-    expect(sections.map((section) => section.id)).toEqual(["during", "retention", "purpose"]);
-    const shown = sections.flatMap((section) => section.items.map((item) => item.key));
-    expect(shown.sort()).toEqual(content.blocks.map((block) => block.key).sort());
-    expect(sections[1]?.items[0]?.body).toContain("90 días");
-    expect(sections.flatMap((section) => section.items.map((item) => item.body)).join("\n")).toBe(
-      content.blocks.map((block) => block.body).join("\n"),
-    );
+  test("B2: la pantalla del alta muestra tres bloques cortos y el aviso completo conserva los seis bloques más llegada y cierre de 12 h", () => {
+    for (const lang of ["es", "en"] as const) {
+      const content = getDisclosureContent(lang);
+      expect(content.summary.map((block) => block.key)).toEqual(["what", "why", "howLong"]);
+      expect(content.blocks.map((block) => block.key)).toEqual(["perimeter", "breadcrumb", "lunch", "retention", "recipients", "purpose", "arrival", "autoClose"]);
+    }
+    expect(getDisclosureContent("es").summary[2]?.body).toContain("90 días");
   });
 
   test("el copy de estructura no promete overlay ni que al tocar se abre la app", () => {
