@@ -91,10 +91,10 @@ describe("B2 · textos v4 (es/en)", () => {
 
   test("textos exactos del resumen, del añadido de retención y destinatarios, y de control", () => {
     expect(summary("es", "what")).toBe(
-      "Tu ubicación precisa (GPS) y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es cuando tú tocas «Estoy aquí» para fijar o mover el punto de un sitio: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
+      "Tu ubicación precisa y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es el botón «Estoy aquí» de la pantalla del destino, para fijar o mover el punto de un sitio: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
     );
     expect(summary("en", "what")).toBe(
-      "Your precise location (GPS) and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is when you tap “I'm here” to set or move a site point: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
+      "Your precise location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is the “I'm here” button on the site screen, to set or move a site point: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
     );
     expect(summary("es", "why")).toBe(
       "Para confirmar tus horas en el sitio de trabajo, registrar tus entradas y salidas, avisarte si sales sin cerrar la jornada y, si tu empresa activa el modo de rastro, guardar puntos de ubicación durante la jornada. Se usa para la nómina, no para vigilar tu vida personal. Tú y tu empleador ven el mismo registro.",
@@ -109,10 +109,10 @@ describe("B2 · textos v4 (es/en)", () => {
       "The data is stored on your phone. If your company activates the employer portal, the record is sent over HTTPS to the portal so your employer can see it. Trail points are deleted once the payroll period has been exported and 90 days have passed since that period ended (your company can set a different period). Entries and exits are kept as the payroll record.",
     );
     expect(body("es", "retention")).toBe(
-      "Los puntos de rastro se borran solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina. Las entradas, salidas y expedientes sellados se conservan como evidencia de nómina el tiempo que la ley exige conservar los registros de nómina.",
+      "Los puntos de rastro se borran solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina. Las entradas y salidas, los asientos y el expediente sellado se conservan como registro de nómina y no se borran.",
     );
     expect(body("en", "retention")).toBe(
-      "Trail points are deleted only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record. Entries, exits and sealed packs are kept as payroll evidence for as long as the law requires payroll records to be kept.",
+      "Trail points are deleted only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record. Entries and exits, ledger entries and the sealed pack are kept as the payroll record and are not deleted.",
     );
     expect(body("es", "recipients")).toBe(
       "El mismo expediente lo ven tú (comprobante) y tu empleador (expediente con integridad y rastro). Ambos pueden comparar el mismo código de verificación. No vendemos tu ubicación ni la compartimos con fines publicitarios. Tu empleador lo recibe cuando compartes o exportas el expediente, o por el portal del empleador si tu empresa lo activa.",
@@ -123,12 +123,12 @@ describe("B2 · textos v4 (es/en)", () => {
     expect(getDisclosureContent("es").blocks.find((b) => b.key === "control")).toEqual({
       key: "control",
       title: "Tu control",
-      body: "Puedes retirar tu consentimiento o repetir el alta desde este aviso o desde Ajustes. Al retirarlo no podrás usar la app hasta volver a aceptar el aviso y completar el alta; tus jornadas, expedientes y ajustes se conservan. Si no aceptas este aviso, no puedes completar el alta.",
+      body: "Puedes retirar tu consentimiento o repetir el alta desde este aviso o desde Ajustes. Al retirarlo no podrás usar la app hasta volver a aceptar el aviso y completar el alta; tus jornadas, expedientes y ajustes se conservan. Si no aceptas este aviso, no puedes completar el alta. Para retirar el consentimiento o repetir el alta, primero cierra la jornada si tienes una abierta.",
     });
     expect(getDisclosureContent("en").blocks.find((b) => b.key === "control")).toEqual({
       key: "control",
       title: "Your control",
-      body: "You can withdraw your consent or repeat setup from this notice or from Settings. If you withdraw it, you won't be able to use the app until you accept the notice again and finish setup; your shifts, evidence packs and settings are kept. If you don't accept this notice, you can't finish setup.",
+      body: "You can withdraw your consent or repeat setup from this notice or from Settings. If you withdraw it, you won't be able to use the app until you accept the notice again and finish setup; your shifts, evidence packs and settings are kept. If you don't accept this notice, you can't finish setup. To withdraw consent or repeat setup, first close your shift if you have one open.",
     });
   });
 });
