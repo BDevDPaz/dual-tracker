@@ -185,3 +185,54 @@ describe("Auditoría de la jornada", () => {
     expect(screen.getByText(t("reports.viewStatement"))).toBeTruthy();
   });
 });
+
+describe("Vista previa del periodo · D5 «Exportar no certificado»", () => {
+  test("semana no certificable sin conflicto: muestra la puerta, sella no certificado y abre el pack", async () => {
+    const s = await closedDay();
+    const stored = (await PersistenceService.getSession(s.id))!;
+    await PersistenceService.updateSession({ ...stored, bookkeeping: { ...stored.bookkeeping, certificationBlockers: ["FIELD_CRYPTO_UNAVAILABLE"] } });
+    await hydrate();
+    mockParams.periodId = periodIdNow();
+    wrap(<PeriodStatementScreen />);
+
+    expect(await screen.findByTestId("preview-not-certifiable")).toBeTruthy();
+    expect(screen.getByText(t("reports.notCertifiableGate"))).toBeTruthy();
+    // Exportar y Enviar siguen ahí.
+    expect(screen.getByTestId("payroll-export")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("preview-export-uncertified"));
+    });
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    const [pack] = await PersistenceService.listPacks();
+    expect(pack.manifest.certified).toBe(false);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/report/pack/[packId]", params: { packId: pack.id, sealed: "1" } });
+  });
+
+  test("con conflicto también ofrece «Exportar no certificado» (sin el texto de la puerta)", async () => {
+    const s = await closedDay();
+    const stored = (await PersistenceService.getSession(s.id))!;
+    await PersistenceService.updateSession({ ...stored, integrityClass: "CONFLICT" });
+    await hydrate();
+    mockParams.periodId = periodIdNow();
+    wrap(<PeriodStatementScreen />);
+
+    expect(await screen.findByTestId("preview-export-uncertified")).toBeTruthy();
+    expect(screen.queryByTestId("preview-not-certifiable")).toBeNull();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("preview-export-uncertified"));
+    });
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    const [pack] = await PersistenceService.listPacks();
+    expect(pack.manifest.certified).toBe(false);
+  });
+
+  test("una semana certificable no muestra la salida de no certificado", async () => {
+    await closedDay();
+    await hydrate();
+    mockParams.periodId = periodIdNow();
+    wrap(<PeriodStatementScreen />);
+    expect(await screen.findByTestId("payroll-export")).toBeTruthy();
+    expect(screen.queryByTestId("preview-export-uncertified")).toBeNull();
+    expect(screen.queryByTestId("preview-not-certifiable")).toBeNull();
+  });
+});

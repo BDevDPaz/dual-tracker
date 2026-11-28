@@ -127,8 +127,8 @@ describe("P2 — CA_DAILY8_WEEKLY40_v2", () => {
 
   test("policyForPeriod: pack más reciente del periodo o la vigente", () => {
     const packs = [
-      { periodStart: 1, periodEnd: 2, policyId: V1, createdAtMs: 10 },
-      { periodStart: 1, periodEnd: 2, policyId: V2, createdAtMs: 5 },
+      { id: "a", periodStart: 1, periodEnd: 2, policyId: V1, createdAtMs: 10 },
+      { id: "b", periodStart: 1, periodEnd: 2, policyId: V2, createdAtMs: 5 },
     ];
     expect(policyForPeriod(packs, 1, 2, V2)).toBe(V1);
     expect(policyForPeriod(packs, 3, 4, V2)).toBe(V2);

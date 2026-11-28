@@ -8,6 +8,8 @@
  * «Enviar por correo» = SHARE_EMPLOYER (ensureFresh) del expediente vigente de
  * la semana: nunca el pack desactualizado ni uno sin PDF (RR-1, RR-2). Una
  * semana no certificable sin CONFLICT ofrece «Exportar no certificado» (RR-3).
+ * D4 (Solicitud 8): compartir desde la lista un pack que no es el último de su
+ * periodo pide confirmación (ShareNotLatestModal); el último se comparte directo.
  */
 import { useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
@@ -17,6 +19,7 @@ import { Button, Card, Chip, DocumentPreviewWidget, ExportStatusCard, Input, Loa
 import { useFormFocusChain } from "../../src/components/ui/formChain";
 import { FORM_FIELDS } from "../../src/components/ui/formFields";
 import { BackupAdviceCard, KeyValueRow, PayrollReportActions, ScreenStatusBanner, SessionListItem } from "../../src/components/blocks";
+import { ShareNotLatestModal, type PendingNotLatestShare, type ShareTarget } from "../../src/components/modals/ShareNotLatestModal";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
 import { TOKENS, FONT, ICON } from "../../src/constants/theme";
 import { useTheme } from "../../src/context/ThemeContext";
@@ -29,6 +32,7 @@ import {
   selectBackupAdvice,
   selectCalendarHistory,
   selectComputedSessions,
+  selectLatestPackForPeriod,
   selectPacks,
   selectPackTermsFrozen,
   selectPeriodSessionRows,
@@ -125,9 +129,23 @@ export default function ReportsScreen() {
 
   const weekStarts = new Set(weeks.map((w) => w.start));
   const packs = selectPacks(state).filter((p) => weekStarts.has(p.manifest.periodStart));
-  const latestPack = single
-    ? packs.filter((p) => p.manifest.periodStart === anchor?.start).reduce<EvidencePack | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null)
-    : null;
+  // D6/D4: el último pack con el criterio del servicio (latestPackFor), no por sealedAtMs.
+  const latestPack = single && anchor ? selectLatestPackForPeriod(state, anchor.start, anchor.end) : null;
+  const [pendingShare, setPendingShare] = useState<PendingNotLatestShare | null>(null);
+  const emitShare = (target: ShareTarget, packId: string, confirmNotLatest: boolean) =>
+    emit({ type: target === "employee" ? "SHARE_EMPLOYEE" : "SHARE_EMPLOYER", packId, ...(confirmNotLatest ? { confirmNotLatest: true } : {}) });
+  /** D4: el último del periodo se comparte directo; otro pide confirmación. */
+  const requestShare = (target: ShareTarget, p: EvidencePack) => {
+    const newest = selectLatestPackForPeriod(state, p.manifest.periodStart, p.manifest.periodEnd);
+    if (!newest || newest.id === p.id) return void runShare(() => emitShare(target, p.id, false));
+    setPendingShare({ target, chosen: p, latest: newest });
+  };
+  const shareFromNotice = (pending: PendingNotLatestShare, which: "chosen" | "latest") =>
+    void runShare(async () => {
+      const res = which === "chosen" ? await emitShare(pending.target, pending.chosen.id, true) : await emitShare(pending.target, pending.latest.id, false);
+      setPendingShare(null);
+      return res;
+    });
   const { showToast } = useToast();
   const backup = selectBackupAdvice(state, nowMs);
   const exportNext = () => {
@@ -436,8 +454,8 @@ export default function ReportsScreen() {
                   </View>
                 ) : (
                 <View style={styles.actions}>
-                  <Button label={t("reports.shareEmployee")} size="sm" variant="secondary" disabled={sharing} onPress={() => void runShare(() => emit({ type: "SHARE_EMPLOYEE", packId: p.id }))} />
-                  <Button label={t("reports.shareEmployer")} size="sm" variant="secondary" disabled={sharing} onPress={() => void runShare(() => emit({ type: "SHARE_EMPLOYER", packId: p.id }))} />
+                  <Button testID={`pack-share-employee-${p.id}`} label={t("reports.shareEmployee")} size="sm" variant="secondary" disabled={sharing} onPress={() => requestShare("employee", p)} />
+                  <Button testID={`pack-share-employer-${p.id}`} label={t("reports.shareEmployer")} size="sm" variant="secondary" disabled={sharing} onPress={() => requestShare("employer", p)} />
                   <Button label={t("reports.viewManifest")} size="sm" variant="ghost" onPress={() => router.push(`/report/pack/${p.id}`)} />
                 </View>
                 )}
@@ -449,6 +467,13 @@ export default function ReportsScreen() {
         {backup.next ? <BackupAdviceCard busy={exporting} onExport={() => void exportNext()} /> : null}
       </ScreenScroll>
       <VmacSheet visible={vmac} onClose={() => setVmac(false)} />
+      <ShareNotLatestModal
+        pending={pendingShare}
+        busy={sharing}
+        onShareThis={(pending) => shareFromNotice(pending, "chosen")}
+        onShareLatest={(pending) => shareFromNotice(pending, "latest")}
+        onCancel={() => setPendingShare(null)}
+      />
       <LoadingOverlay visible={sealing} message={t("reports.generating")} />
     </View>
   );

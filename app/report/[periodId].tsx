@@ -4,12 +4,14 @@
  * policyId y advertencias, más la «Auditoría de jornadas» del periodo
  * (selectSessionAudit por jornada) y las acciones del Reporte de nómina
  * («Exportar expediente» = EXPORT_PACK, «Enviar por correo» = SHARE_EMPLOYER).
- * No sella por sí sola: EXPORT_PACK y «Enviar por correo» sellan (o reemiten) solo si
- * la semana no tiene expediente vigente con sus PDF (RR-1, RR-2).
+ * EXPORT_PACK y «Enviar por correo» sellan (o reemiten) solo si la semana no
+ * tiene expediente vigente con sus PDF (RR-1, RR-2). D5 (Solicitud 8): la misma
+ * puerta que Reportes: semana no certificable sin conflicto, o con conflicto,
+ * ofrece «Exportar no certificado» (SEAL_PACK allowUncertified) y abre el pack.
  * Entradas: Reportes («Vista previa») y el expediente («Ver estado de nómina»).
  * periodId = "W<YYYY-MM-DD>" (lunes ISO).
  */
-import { Text, StyleSheet } from "react-native";
+import { Text, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Button, Card, NotFoundState, SAFE_EDGES, ScreenContainer, ScreenScroll, Section } from "../../src/components/ui";
 import { ScreenTips } from "../../src/components/support/ScreenTips";
@@ -22,6 +24,7 @@ import {
   formatPayRateLine,
   selectCalendarHistory,
   selectLedgerHealth,
+  selectLatestPackForPeriod,
   selectPacks,
   selectPeriodAuditRows,
   selectPeriodSessionRows,
@@ -38,6 +41,7 @@ export default function PeriodStatementScreen() {
   const { state, emit, queries, now } = useWorkTracker();
   const { busy: exporting, run: runExport } = useBusyAction();
   const { busy: sending, run: runSend } = useBusyAction();
+  const { busy: sealing, run: runSeal } = useBusyAction();
   const { refreshControl } = usePullToRefresh({ safeArea: "edge" });
   useAutoRefresh();
   const range = parseWeekPeriodId(String(periodId ?? ""), selectCalendarHistory(state));
@@ -84,7 +88,19 @@ export default function PeriodStatementScreen() {
   }
 
   const packs = selectPacks(state).filter((p) => p.manifest.periodStart === range.start);
-  const latestPack = packs.reduce<(typeof packs)[number] | null>((a, p) => (!a || p.manifest.sealedAtMs > a.manifest.sealedAtMs ? p : a), null);
+  // D6/D4: el último pack con el criterio del servicio (latestPackFor), no por sealedAtMs.
+  const latestPack = selectLatestPackForPeriod(state, range.start, range.end);
+  // D5: misma puerta que Reportes (reports.tsx, RR-3) y mismo criterio que canSealWeek.
+  const conflict = st.integrityRollup.hasConflict;
+  const notCertifiable = !conflict && !st.integrityRollup.certified && st.sessionIds.length > 0;
+  const canSeal = st.sessionIds.length > 0 && !sealing;
+  const sealUncertified = () =>
+    runSeal(async () => {
+      const res = await emit({ type: "SEAL_PACK", periodStart: range.start, periodEnd: range.end, allowUncertified: true });
+      const pack = res.ok ? (res.data as { id?: unknown } | undefined) : undefined;
+      if (pack && typeof pack.id === "string") router.push({ pathname: "/report/pack/[packId]", params: { packId: pack.id, sealed: "1" } });
+      return res;
+    });
   const shown = displayStatement(st);
   const noCompanyEmail = !state.settings.company.companyEmail?.trim();
 
@@ -144,6 +160,31 @@ export default function PeriodStatementScreen() {
         </Section>
       ) : null}
 
+      {conflict ? (
+        <Button
+          testID="preview-export-uncertified"
+          label={t("reports.exportUncertified")}
+          variant="ghost"
+          disabled={!canSeal}
+          isLoading={sealing}
+          onPress={() => void sealUncertified()}
+        />
+      ) : notCertifiable ? (
+        <View style={styles.gate}>
+          <Text testID="preview-not-certifiable" style={[styles.caption, { color: colors.text.secondary }]}>
+            {t("reports.notCertifiableGate")}
+          </Text>
+          <Button
+            testID="preview-export-uncertified"
+            label={t("reports.exportUncertified")}
+            variant="secondary"
+            disabled={!canSeal}
+            isLoading={sealing}
+            onPress={() => void sealUncertified()}
+          />
+        </View>
+      ) : null}
+
       <PayrollReportActions
         onExport={() => void runExport(() => emit({ type: "EXPORT_PACK", periodStart: range.start, periodEnd: range.end }))}
         onSend={() => {
@@ -175,4 +216,5 @@ const styles = StyleSheet.create({
   title: { ...FONT.h2 },
   caption: { ...FONT.caption },
   card: { padding: TOKENS.spacing.lg, gap: TOKENS.spacing.xs },
+  gate: { gap: TOKENS.spacing.sm },
 });

@@ -28,7 +28,7 @@ import { coverageForSession } from "../../core/monitoringCoverage";
 import { IntegrityLedgerService } from "../domain/IntegrityLedgerService";
 import { compareSessionsToLedger } from "../domain/sessionReplay";
 import { PayrollEngineService } from "../domain/PayrollEngineService";
-import { companyWithTerms, isPayrollTerms, termsFromPack } from "../domain/payrollTerms";
+import { companyWithTerms, compareNewestPackFirst, isPayrollTerms, termsFromPack } from "../domain/payrollTerms";
 import { exportSessionTransits } from "../domain/transitExport";
 import { LoggingService } from "../persistence/LoggingService";
 import { OfflineQueueService } from "../persistence/OfflineQueueService";
@@ -252,7 +252,7 @@ async function recordShared(packId: string, target: "EMPLOYEE" | "EMPLOYER"): Pr
   }
 }
 
-/** Pack más reciente del periodo (o null). */
+/** Pack más reciente del periodo (o null): createdAtMs descendente, id ascendente si empatan (compareNewestPackFirst). */
 export async function latestPackFor(periodStart: number, periodEnd: number): Promise<EvidencePack | null> {
   return latestPackForPeriod(periodStart, periodEnd);
 }
@@ -262,7 +262,7 @@ async function latestPackForPeriod(periodStart: number, periodEnd: number): Prom
   // cuentan como "no revocados". Si se añade, filtrar aquí.
   const packs = (await PersistenceService.listPacks())
     .filter((p) => p.manifest.periodStart === periodStart && p.manifest.periodEnd === periodEnd)
-    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+    .sort(compareNewestPackFirst);
   return packs[0] ?? null;
 }
 

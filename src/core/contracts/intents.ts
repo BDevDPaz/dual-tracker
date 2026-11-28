@@ -204,7 +204,14 @@ export type ViewIntent =
       /** Reemisión explícita: pack nuevo aunque el contenido sea idéntico al último sello. */
       reissue?: boolean;
     }
-  | { type: "SHARE_EMPLOYEE"; packId: string; annexLedger?: boolean; annexEnterExit?: boolean }
+  | {
+      type: "SHARE_EMPLOYEE";
+      packId: string;
+      annexLedger?: boolean;
+      annexEnterExit?: boolean;
+      /** D4: compartir un pack que no es el último de su periodo exige confirmarlo (si no, NOT_LATEST_UNCONFIRMED). */
+      confirmNotLatest?: boolean;
+    }
   | {
       type: "SHARE_EMPLOYER";
       packId: string;
@@ -216,6 +223,8 @@ export type ViewIntent =
        * PDF, se reemite antes de enviar. Sin la marca se envía `packId` tal cual.
        */
       ensureFresh?: boolean;
+      /** D4: sin `ensureFresh`, compartir un pack que no es el último de su periodo exige confirmarlo (si no, NOT_LATEST_UNCONFIRMED). */
+      confirmNotLatest?: boolean;
     }
   /** FieldCrypto v1.3 §16: "Exportar expediente" → SEAL_PACK si falta y luego compartir (empleado). */
   | { type: "EXPORT_PACK"; periodStart: number; periodEnd: number }
