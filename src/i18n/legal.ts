@@ -43,7 +43,7 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
       {
         key: "what",
         title: "¿Qué registramos?",
-        body: "Tu ubicación precisa y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es el botón «Estoy aquí» de la pantalla del destino, para fijar o mover el punto de un sitio: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
+        body: "Tu ubicación precisa y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es cuando pides fijar o mover el punto de un sitio desde la pantalla del destino: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
       },
       {
         key: "why",
@@ -112,7 +112,7 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
       {
         key: "what",
         title: "What do we record?",
-        body: "Your precise location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is the “I'm here” button on the site screen, to set or move a site point: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
+        body: "Your precise location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is when you ask to set or move a site point from the site screen: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
       },
       {
         key: "why",

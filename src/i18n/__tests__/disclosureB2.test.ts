@@ -91,10 +91,10 @@ describe("B2 · textos v4 (es/en)", () => {
 
   test("textos exactos del resumen, del añadido de retención y destinatarios, y de control", () => {
     expect(summary("es", "what")).toBe(
-      "Tu ubicación precisa y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es el botón «Estoy aquí» de la pantalla del destino, para fijar o mover el punto de un sitio: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
+      "Tu ubicación precisa y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es cuando pides fijar o mover el punto de un sitio desde la pantalla del destino: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
     );
     expect(summary("en", "what")).toBe(
-      "Your precise location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is the “I'm here” button on the site screen, to set or move a site point: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
+      "Your precise location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is when you ask to set or move a site point from the site screen: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
     );
     expect(summary("es", "why")).toBe(
       "Para confirmar tus horas en el sitio de trabajo, registrar tus entradas y salidas, avisarte si sales sin cerrar la jornada y, si tu empresa activa el modo de rastro, guardar puntos de ubicación durante la jornada. Se usa para la nómina, no para vigilar tu vida personal. Tú y tu empleador ven el mismo registro.",
