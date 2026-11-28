@@ -79,6 +79,7 @@ export const en: Dictionary = {
     cancelDay: "Cancel shift",
     viewDestination: "View site",
     closeDay: "End shift",
+    closeShift: "Close shift",
     startLunch: "Break or lunch",
     resume: "Resume",
     finishDay: "End shift",

@@ -4,6 +4,9 @@
  * DailySummaryBlock y la zona de CTAs según getSessionStateUI. Monta
  * DailySetupModal, LunchModal y ExitDetectionModal. No calcula horas: todo
  * sale de selectores; toda mutación es una ViewIntent.
+ * D9 (Solicitud 8): en TRASLADO el secundario es «Cerrar jornada» (`cta.closeShift`,
+ * OPEN_LUNCH_CLOSE: mismo flujo de almuerzo que ACTIVA, luego CLOSE_DAY).
+ * «Cancelar traslado» queda en su modal, abierto con un enlace de Hoy.
  */
 import { useEffect, useRef, useState } from "react";
 import { Platform, View, Text, StyleSheet, Pressable, type ScrollView } from "react-native";
@@ -159,9 +162,6 @@ export default function TodayScreen() {
         return setModal("LUNCH_SUPERVISOR");
       case "VIEW_STATUS":
         return active ? router.push(`/session/${active.id}`) : undefined;
-      case "CANCEL_TRANSFER":
-        setCancelNote("");
-        return setModal("CANCEL_TRANSFER");
       case "OPEN_EXIT_MODAL":
         return setModal("EXIT");
       case "STAY_WORKING":
@@ -346,6 +346,20 @@ export default function TodayScreen() {
           />
         ) : null}
 
+        {sessionState === "TRASLADO" && active ? (
+          <Pressable
+            testID="today-cancel-transfer"
+            onPress={() => {
+              setCancelNote("");
+              setModal("CANCEL_TRANSFER");
+            }}
+            accessibilityRole="button"
+            style={styles.footerLink}
+          >
+            <Text style={[styles.link, { color: colors.text.primary }]}>{t("cta.cancelTransfer")}</Text>
+          </Pressable>
+        ) : null}
+
         {canErrand && active ? (
           <Pressable
             onPress={() => {
@@ -465,6 +479,7 @@ export default function TodayScreen() {
 
       <ModalShell
         visible={modal === "CANCEL_TRANSFER"}
+        testID="cancel-transfer"
         title={t("modals.cancelTransferTitle")}
         description={t("modals.cancelTransferBody")}
         onClose={() => setModal(null)}
