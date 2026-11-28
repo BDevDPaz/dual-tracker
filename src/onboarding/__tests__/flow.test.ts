@@ -135,11 +135,11 @@ describe("perfil", () => {
 });
 
 describe("aviso", () => {
-  test("B2: la pantalla del alta muestra tres bloques cortos y el aviso completo conserva los seis bloques más llegada y cierre de 12 h", () => {
+  test("B2: la pantalla del alta muestra tres bloques cortos y el aviso completo conserva los seis bloques más llegada, cierre de 12 h y control", () => {
     for (const lang of ["es", "en"] as const) {
       const content = getDisclosureContent(lang);
       expect(content.summary.map((block) => block.key)).toEqual(["what", "why", "howLong"]);
-      expect(content.blocks.map((block) => block.key)).toEqual(["perimeter", "breadcrumb", "lunch", "retention", "recipients", "purpose", "arrival", "autoClose"]);
+      expect(content.blocks.map((block) => block.key)).toEqual(["perimeter", "breadcrumb", "lunch", "retention", "recipients", "purpose", "arrival", "autoClose", "control"]);
     }
     expect(getDisclosureContent("es").summary[2]?.body).toContain("90 días");
   });

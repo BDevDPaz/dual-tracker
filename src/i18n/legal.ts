@@ -10,7 +10,7 @@
  * revisión por la asesoría legal. Cada frase sale de lo que hace el código
  * (citas en el PR de B2); eso no le da validez legal.
  */
-export const DISCLOSURE_VERSION = "2026-11-v3";
+export const DISCLOSURE_VERSION = "2026-11-v4";
 
 export interface LegalBlock {
   key: string;
@@ -43,17 +43,17 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
       {
         key: "what",
         title: "¿Qué registramos?",
-        body: "Tu ubicación y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
+        body: "Tu ubicación precisa y la hora mientras tienes una jornada abierta, incluso si la app está cerrada o no la estás usando. Sin jornada abierta no registramos tu ubicación. La única excepción es cuando pides fijar o mover el punto de un sitio desde la pantalla del destino: en ese momento la app lee tu ubicación, aunque no tengas jornada abierta. Durante el almuerzo o una pausa no se guardan puntos de rastro, aunque el servicio de ubicación siga activo.",
       },
       {
         key: "why",
         title: "¿Para qué?",
-        body: "Para confirmar tus horas en el sitio de trabajo y avisarte si sales sin cerrar la jornada. Se usa para la nómina, no para vigilar tu vida personal. Tú y tu empleador ven el mismo registro.",
+        body: "Para confirmar tus horas en el sitio de trabajo, registrar tus entradas y salidas, avisarte si sales sin cerrar la jornada y, si tu empresa activa el modo de rastro, guardar puntos de ubicación durante la jornada. Se usa para la nómina, no para vigilar tu vida personal. Tú y tu empleador ven el mismo registro.",
       },
       {
         key: "howLong",
         title: "¿Cuánto tiempo se guarda?",
-        body: "Los datos se guardan en tu teléfono. Los puntos de rastro se borran cuando el periodo de nómina ya se exportó y pasaron 90 días desde el fin de ese periodo (o el plazo que fije la empresa). Las entradas y salidas se conservan como registro de nómina.",
+        body: "Los datos se guardan en tu teléfono. Si tu empresa activa el portal del empleador, el expediente se envía por HTTPS al portal para que tu empleador lo vea. Los puntos de rastro se borran cuando el periodo de nómina ya se exportó y pasaron 90 días desde el fin de ese periodo (la empresa puede fijar otro plazo). Las entradas y salidas se conservan como registro de nómina.",
       },
     ],
     blocks: [
@@ -75,12 +75,12 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
       {
         key: "retention",
         title: "Retención",
-        body: "Los puntos de rastro se borran solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina.",
+        body: "Los puntos de rastro se borran solo cuando el periodo de nómina que los contiene ya se exportó y, además, pasó el plazo que fije la empresa (por defecto 90 días) desde el fin de ese periodo. Las dos condiciones. Un periodo sin exportar no se borra. Los eventos de entrada y salida forman parte del expediente de nómina. Las entradas y salidas, los asientos y el expediente sellado se conservan como registro de nómina y no se borran.",
       },
       {
         key: "recipients",
         title: "Destinatarios del expediente",
-        body: "El mismo expediente lo ven tú (comprobante) y tu empleador (expediente con integridad y rastro). Ambos pueden comparar el mismo código de verificación.",
+        body: "El mismo expediente lo ven tú (comprobante) y tu empleador (expediente con integridad y rastro). Ambos pueden comparar el mismo código de verificación. No vendemos tu ubicación ni la compartimos con fines publicitarios. Tu empleador lo recibe cuando compartes o exportas el expediente, o por el portal del empleador si tu empresa lo activa.",
       },
       {
         key: "purpose",
@@ -97,6 +97,11 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
         title: "Cierre a las 12 horas",
         body: "Si olvidas cerrar tu jornada, se cierra automáticamente al pasar 12 horas y te avisamos para que revises tus horas. No se cierra así si ampliaste la jornada o si ya está en revisión por posible abandono.",
       },
+      {
+        key: "control",
+        title: "Tu control",
+        body: "Puedes retirar tu consentimiento o repetir el alta desde este aviso o desde Ajustes. Al retirarlo no podrás usar la app hasta volver a aceptar el aviso y completar el alta; tus jornadas, expedientes y ajustes se conservan. Si no aceptas este aviso, no puedes completar el alta. Para retirar el consentimiento o repetir el alta, primero cierra la jornada si tienes una abierta.",
+      },
     ],
   },
   en: {
@@ -107,17 +112,17 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
       {
         key: "what",
         title: "What do we record?",
-        body: "Your location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. During lunch or a pause no trail points are stored, even though the location service keeps running.",
+        body: "Your precise location and the time while you have an open shift, even if the app is closed or you are not using it. Without an open shift we do not record your location. The only exception is when you ask to set or move a site point from the site screen: at that moment the app reads your location, even without an open shift. During lunch or a pause no trail points are stored, even though the location service keeps running.",
       },
       {
         key: "why",
         title: "What for?",
-        body: "To confirm your hours at the work site and to alert you if you leave without closing the shift. It is used for payroll, not to monitor your personal life. You and your employer see the same record.",
+        body: "To confirm your hours at the work site, record your entries and exits, alert you if you leave without closing the shift and, if your company enables trail mode, store location points during the shift. It is used for payroll, not to monitor your personal life. You and your employer see the same record.",
       },
       {
         key: "howLong",
         title: "How long is it kept?",
-        body: "The data is stored on your phone. Trail points are deleted once the payroll period has been exported and 90 days have passed since that period ended (or the period your company sets). Entries and exits are kept as the payroll record.",
+        body: "The data is stored on your phone. If your company activates the employer portal, the record is sent over HTTPS to the portal so your employer can see it. Trail points are deleted once the payroll period has been exported and 90 days have passed since that period ended (your company can set a different period). Entries and exits are kept as the payroll record.",
       },
     ],
     blocks: [
@@ -139,12 +144,12 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
       {
         key: "retention",
         title: "Retention",
-        body: "Trail points are deleted only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record.",
+        body: "Trail points are deleted only after the payroll period that contains them has been exported and the company retention period (90 days by default) has also passed since that period ended. Both conditions. An unexported period is never deleted. Entry and exit events are part of the payroll record. Entries and exits, ledger entries and the sealed pack are kept as the payroll record and are not deleted.",
       },
       {
         key: "recipients",
         title: "Who receives the record",
-        body: "You (receipt) and your employer (dossier with integrity and trail) see the same record and can compare the same verification code.",
+        body: "You (receipt) and your employer (dossier with integrity and trail) see the same record and can compare the same verification code. We do not sell your location or share it for advertising. Your employer receives it when you share or export the record, or through the employer portal if your company activates it.",
       },
       {
         key: "purpose",
@@ -160,6 +165,11 @@ const DISCLOSURE: Record<"es" | "en", DisclosureLegalContent> = {
         key: "autoClose",
         title: "Closing at 12 hours",
         body: "If you forget to close your shift, it closes automatically after 12 hours and we let you know so you can review your hours. It is not closed this way if you extended the shift or if it is already under review for possible abandonment.",
+      },
+      {
+        key: "control",
+        title: "Your control",
+        body: "You can withdraw your consent or repeat setup from this notice or from Settings. If you withdraw it, you won't be able to use the app until you accept the notice again and finish setup; your shifts, evidence packs and settings are kept. If you don't accept this notice, you can't finish setup. To withdraw consent or repeat setup, first close your shift if you have one open.",
       },
     ],
   },
