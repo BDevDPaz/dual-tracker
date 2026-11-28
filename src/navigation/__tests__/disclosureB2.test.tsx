@@ -26,7 +26,7 @@ const ROUTES = {
   "legal/disclosure": LegalDisclosureScreen,
 };
 
-const OLD_VERSION = "2026-10-v2";
+const OLD_VERSION = "2026-11-v3";
 
 async function setup(acceptedVersion: string | null, onboarded = true): Promise<void> {
   await seedWorld();
@@ -86,5 +86,30 @@ describe("B2 · pantalla del alta", () => {
     expect(fs.readdirSync(dir).sort()).toEqual(["_layout.tsx", "disclosure.tsx", "retention.tsx"]);
     const src = fs.readFileSync(path.resolve(__dirname, "../../../app/(onboarding)/disclosure.tsx"), "utf8");
     expect(src).toContain('router.push("/legal/disclosure")');
+  });
+});
+
+describe("B2 · aviso completo v4", () => {
+  test("el aviso completo renderiza todos los bloques, incluido control", async () => {
+    await setup(null, false);
+    const r = renderRouter(ROUTES, { initialUrl: "/disclosure" });
+    fireEvent.press(await screen.findByText(t("onboarding.avisoReadFull")));
+    const content = getDisclosureContent("es");
+    expect(content.version).toBe(DISCLOSURE_VERSION);
+    expect(DISCLOSURE_VERSION).toBe("2026-11-v4");
+    expect(content.blocks.map((b) => b.key)).toEqual([
+      "perimeter",
+      "breadcrumb",
+      "lunch",
+      "retention",
+      "recipients",
+      "purpose",
+      "arrival",
+      "autoClose",
+      "control",
+    ]);
+    expect(r.getPathname()).toBe("/legal/disclosure");
+    expect(await screen.findByText("Tu control")).toBeTruthy();
+    for (const block of content.blocks) expect(screen.getByText(block.body)).toBeTruthy();
   });
 });
