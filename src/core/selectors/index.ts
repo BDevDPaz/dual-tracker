@@ -141,14 +141,11 @@ export type HeroAction =
   | "RESUME"
   | "OPEN_LUNCH_FINISH"
   | "VIEW_STATUS"
-  | "CANCEL_TRANSFER"
   | "OPEN_EXIT_MODAL"
   | "STAY_WORKING"
   | "REVIEW_SESSION"
   | "NEW_DAY"
   | "CONFIRM_ARRIVAL"
-  /** D9: en TRASLADO, el secundario cierra la jornada (CLOSE_DAY) sin más preguntas. */
-  | "CLOSE_DAY"
   /** Jornada huérfana: lleva a la tarjeta de revisión en vez de a un cierre que se rechaza. */
   | "REVIEW_ORPHAN";
 
@@ -170,7 +167,7 @@ const UI_TABLE: Record<SessionState, Omit<SessionStateUI, "state" | "labelKey" |
   ACTIVA: { showTimer: true, tone: "success", primary: { labelKey: "cta.closeDay", action: "OPEN_LUNCH_CLOSE" }, secondary: { labelKey: "cta.startLunch", action: "OPEN_PAUSE" }, modal: "LUNCH_CLOSE" },
   PAUSADA: { showTimer: true, tone: "warning", primary: { labelKey: "cta.resume", action: "RESUME" }, secondary: { labelKey: "cta.finishDay", action: "OPEN_LUNCH_FINISH" }, modal: "LUNCH_SUPERVISOR" },
   // Primario = llegué: con geocercas solapadas el SO no dispara ENTER si ya estás dentro.
-  TRASLADO: { showTimer: true, tone: "info", primary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, secondary: { labelKey: "cta.closeDay", action: "CLOSE_DAY" }, modal: "DAILY_SETUP_TRANSIT" },
+  TRASLADO: { showTimer: true, tone: "info", primary: { labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" }, secondary: { labelKey: "cta.closeShift", action: "OPEN_LUNCH_CLOSE" }, modal: "DAILY_SETUP_TRANSIT" },
   SALIDA: { showTimer: false, tone: "warning", primary: { labelKey: "cta.confirmExit", action: "OPEN_EXIT_MODAL" }, secondary: { labelKey: "cta.stayOperating", action: "STAY_WORKING" }, modal: "EXIT" },
   CERRADA: { showTimer: false, tone: "neutral", primary: { labelKey: "cta.reviewSession", action: "REVIEW_SESSION" }, secondary: { labelKey: "cta.newDay", action: "NEW_DAY" }, modal: null },
   CUARENTENA: { showTimer: false, tone: "warning", primary: { labelKey: "cta.reviewSession", action: "REVIEW_SESSION" }, secondary: null, modal: null },

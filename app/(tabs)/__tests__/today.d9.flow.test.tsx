@@ -1,8 +1,9 @@
 /**
- * Solicitud 8 · D9 (H-7): en TRASLADO, el secundario de Hoy es «Terminar
- * jornada» (CLOSE_DAY) y cierra y paga el tramo como closeRecord. «Cancelar
- * traslado» está en su modal, abierto con el enlace de Hoy, y devuelve la
- * jornada a ACTIVA.
+ * Solicitud 8 · D9 (H-7): en TRASLADO, el secundario de Hoy es «Cerrar jornada»
+ * (cta.closeShift, OPEN_LUNCH_CLOSE): abre el modal de almuerzo, como en
+ * ACTIVA, y cierra con CLOSE_DAY y los minutos declarados. El tramo se cierra
+ * y se paga como closeRecord. «Cancelar traslado» está en su modal, abierto
+ * con el enlace de Hoy, y devuelve la jornada a ACTIVA.
  */
 import React from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
@@ -46,13 +47,13 @@ async function startTransfer() {
 }
 
 describe("D9 · tabla de Hoy en TRASLADO", () => {
-  test("el secundario es terminar jornada (CLOSE_DAY), no cancelar traslado", () => {
+  test("el secundario es «Cerrar jornada» (OPEN_LUNCH_CLOSE), no cancelar traslado ni cta.closeDay", () => {
     const ui = getSessionStateUI("TRASLADO");
     expect(ui.primary).toMatchObject({ labelKey: "cta.confirmArrival", action: "CONFIRM_ARRIVAL" });
-    expect(ui.secondary).toMatchObject({ labelKey: "cta.closeDay", action: "CLOSE_DAY" });
+    expect(ui.secondary).toMatchObject({ labelKey: "cta.closeShift", action: "OPEN_LUNCH_CLOSE" });
   });
 
-  test("en ACTIVA el secundario sigue siendo la pausa, no el cierre", () => {
+  test("en ACTIVA el primario sigue siendo cta.closeDay y el secundario la pausa", () => {
     const ui = getSessionStateUI("ACTIVA");
     expect(ui.primary).toMatchObject({ labelKey: "cta.closeDay", action: "OPEN_LUNCH_CLOSE" });
     expect(ui.secondary).toMatchObject({ labelKey: "cta.startLunch", action: "OPEN_PAUSE" });
@@ -60,27 +61,35 @@ describe("D9 · tabla de Hoy en TRASLADO", () => {
 });
 
 describe("D9 · Hoy en TRASLADO", () => {
-  test("el secundario «Terminar jornada» cierra y paga el tramo, sin preguntar más", async () => {
+  test("el secundario «Cerrar jornada» abre el almuerzo, declara minutos, cierra y paga el tramo", async () => {
     const { session } = await startTransfer();
     renderToday();
 
     expect(await screen.findByText(t("states.TRASLADO.label"))).toBeTruthy();
+    expect(screen.getByTestId("hero-secondary")).toBeTruthy();
+    expect(screen.getByText(t("cta.closeShift"))).toBeTruthy();
     expect(screen.getByTestId("today-cancel-transfer")).toBeTruthy();
     expect(screen.queryByTestId("cancel-transfer")).toBeNull();
+    expect(screen.queryByTestId("lunch-options")).toBeNull();
 
+    fireEvent.press(screen.getByTestId("hero-secondary"));
+    expect(await screen.findByTestId("lunch-options")).toBeTruthy();
+    expect((await PersistenceService.getSession(session.id))?.domainStatus).toBe("TRASLADO");
+
+    fireEvent.press(screen.getByText(`30 ${t("common.minutes")}`));
     await act(async () => {
-      fireEvent.press(screen.getByTestId("hero-secondary"));
+      fireEvent.press(screen.getByText(t("cta.finishDay")));
     });
     await waitFor(async () => expect((await PersistenceService.getSession(session.id))?.domainStatus).toBe("CERRADA"));
 
     const stored = (await PersistenceService.getSession(session.id))!;
+    expect(stored.lunch.deductedMinutes).toBe(30);
     const openish = stored.transitSegments.filter((seg) => seg.endAtMs == null);
     expect(openish).toHaveLength(0);
     const last = stored.transitSegments.at(-1)!;
     expect(last.cancelled).toBe(false);
     expect(last.paid).toBe(true);
     expect(last.endAtMs).toBe(time.now());
-    expect(screen.queryByTestId("lunch-options")).toBeNull();
   });
 
   test("«Cancelar traslado» está en su modal, funciona y no cierra la jornada", async () => {

@@ -4,10 +4,9 @@
  * DailySummaryBlock y la zona de CTAs según getSessionStateUI. Monta
  * DailySetupModal, LunchModal y ExitDetectionModal. No calcula horas: todo
  * sale de selectores; toda mutación es una ViewIntent.
- * D9 (Solicitud 8): en TRASLADO el secundario es «Terminar jornada» (CLOSE_DAY,
- * sin más preguntas); «Cancelar traslado» queda en su modal, abierto con un
- * enlace de Hoy (DAILY_SETUP_TRANSIT es el alta de un traslado, no se muestra
- * con el traslado ya en curso).
+ * D9 (Solicitud 8): en TRASLADO el secundario es «Cerrar jornada» (`cta.closeShift`,
+ * OPEN_LUNCH_CLOSE: mismo flujo de almuerzo que ACTIVA, luego CLOSE_DAY).
+ * «Cancelar traslado» queda en su modal, abierto con un enlace de Hoy.
  */
 import { useEffect, useRef, useState } from "react";
 import { Platform, View, Text, StyleSheet, Pressable, type ScrollView } from "react-native";
@@ -163,9 +162,6 @@ export default function TodayScreen() {
         return setModal("LUNCH_SUPERVISOR");
       case "VIEW_STATUS":
         return active ? router.push(`/session/${active.id}`) : undefined;
-      case "CANCEL_TRANSFER":
-        setCancelNote("");
-        return setModal("CANCEL_TRANSFER");
       case "OPEN_EXIT_MODAL":
         return setModal("EXIT");
       case "STAY_WORKING":
@@ -174,9 +170,6 @@ export default function TodayScreen() {
         return lastToday ? router.push(`/session/${lastToday.id}`) : router.push("/(tabs)/history");
       case "CONFIRM_ARRIVAL":
         return void run({ type: "CONFIRM_ARRIVAL" });
-      case "CLOSE_DAY":
-        // D9: cierra ahora, como closeRecord, sin preguntar si llegó ni abrir el almuerzo.
-        return void run({ type: "CLOSE_DAY" });
       case "REVIEW_ORPHAN":
         return scrollRef.current?.scrollTo({ y: 0, animated: true });
     }
@@ -580,7 +573,7 @@ const styles = StyleSheet.create({
   link: { ...FONT.bodyStrong },
 });
 
-const CLOSING_ACTIONS: readonly HeroAction[] = ["OPEN_LUNCH_CLOSE", "OPEN_LUNCH_FINISH", "OPEN_EXIT_MODAL", "CLOSE_DAY"];
+const CLOSING_ACTIONS: readonly HeroAction[] = ["OPEN_LUNCH_CLOSE", "OPEN_LUNCH_FINISH", "OPEN_EXIT_MODAL"];
 
 /** H-6: en jornada huérfana, ni el pie ni el hero ofrecen un cierre que la máquina rechaza. */
 function orphanUi(ui: ReturnType<typeof getSessionStateUI>, orphan: boolean): ReturnType<typeof getSessionStateUI> {

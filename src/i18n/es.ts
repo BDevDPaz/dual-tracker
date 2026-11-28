@@ -76,6 +76,7 @@ export const es = {
     cancelDay: "Cancelar jornada",
     viewDestination: "Ver destino",
     closeDay: "Terminar jornada",
+    closeShift: "Cerrar jornada",
     startLunch: "Pausa o almuerzo",
     resume: "Reanudar",
     finishDay: "Terminar jornada",
