@@ -23,6 +23,6 @@
 
 ## 5. Sincronización de Documentación (`PROJECT_STATE.md` y `CHANGELOG.md`)
 1. **Trabajo en curso (`PROJECT_STATE.md`):** Registrar aquí tareas activas, avance de diseño/funciones, pruebas y errores abiertos. Nunca marcar como verificado sin evidencia.
-2. **Cierre de tarea (`PROJECT_STATE.md` -> `CHANGELOG.md`):** Al verificar un cambio, mover su resumen a `[Unreleased]` en `CHANGELOG.md` y actualizar o depurar el ítem en `PROJECT_STATE.md`.
-3. **Cierre de versión (`vX.Y.Z`):** Agrupar `[Unreleased]` bajo la nueva versión con fecha y **Métricas y Verificación de Entrega**; limpiar de `PROJECT_STATE.md` los ítems ya cerrados.
+2. **Cierre de tarea (`PROJECT_STATE.md` -> `CHANGELOG.md`):** Al verificar un cambio, mover su resumen a `[Sin publicar]` en `CHANGELOG.md` y actualizar o depurar el ítem en `PROJECT_STATE.md`.
+3. **Cierre de versión (`vX.Y.Z`):** Agrupar `[Sin publicar]` bajo la nueva versión con fecha y **Métricas y Verificación de Entrega**; limpiar de `PROJECT_STATE.md` los ítems ya cerrados.
 4. **Verdad en el código:** Si hay diferencia entre el código/archivos reales y `PROJECT_STATE.md`, prevalece la evidencia del código y se actualiza `PROJECT_STATE.md` de inmediato.
