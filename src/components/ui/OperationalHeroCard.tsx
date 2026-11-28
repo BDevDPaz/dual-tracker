@@ -226,7 +226,7 @@ export const OperationalHeroCard = React.memo(function OperationalHeroCard({
             <Button label={t(ui.primary.labelKey)} variant={primaryVariant} onPress={onPrimaryAction} isLoading={busy} style={narrow ? styles.fullButton : styles.flexButton} />
           )}
           {ui.secondary && onSecondaryAction ? (
-            <Button label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={narrow ? styles.fullButton : styles.flexButton} />
+            <Button testID="hero-secondary" label={t(ui.secondary.labelKey)} variant="secondary" onPress={onSecondaryAction} disabled={busy} style={narrow ? styles.fullButton : styles.flexButton} />
           ) : null}
         </View>
         ) : null}
